@@ -9,6 +9,12 @@ dungeon-logic/
 ├── scripts/
 │   └── chatgpt-context.mjs
 ├── src/
+│   ├── data/
+│   │   └── levels/
+│   │       └── level001.ts
+│   ├── puzzle/
+│   │   ├── PuzzleState.ts
+│   │   └── types.ts
 │   ├── scenes/
 │   │   ├── BootScene.ts
 │   │   └── GameScene.ts

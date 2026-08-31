@@ -34,10 +34,17 @@ The asset pack has not yet been integrated into the game.
 * game concept defined;
 * initial puzzle rules documented;
 * technical direction defined.
+* Phaser bootstrap;
+* BootScene;
+* GameScene;
+* base puzzle types;
+* PuzzleState with UNKNOWN / WALL / FLOOR states;
+* fixed monster cells;
+* manual 6×6 level definition;
+* level001 data.
 
 ## Not implemented
 
-* Phaser bootstrap;
 * BootScene;
 * GameScene;
 * puzzle grid;
