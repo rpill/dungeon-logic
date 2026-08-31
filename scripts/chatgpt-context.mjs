@@ -321,6 +321,8 @@ const projectFiles = splitNull(
     ],
     root,
   ),
+).filter((path) =>
+  existsSync(join(root, path)),
 );
 
 const treePaths = new Set(projectFiles);

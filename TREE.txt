@@ -1,15 +1,17 @@
 dungeon-logic/
+├── docs/
+│   └── superpowers/
+│       └── specs/
+│           └── 2026-09-01-phaser-bootstrap-design.md
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
 ├── scripts/
 │   └── chatgpt-context.mjs
 ├── src/
-│   ├── assets/
-│   │   ├── hero.png
-│   │   ├── typescript.svg
-│   │   └── vite.svg
-│   ├── counter.ts
+│   ├── scenes/
+│   │   ├── BootScene.ts
+│   │   └── GameScene.ts
 │   ├── main.ts
 │   └── style.css
 ├── .gitignore
