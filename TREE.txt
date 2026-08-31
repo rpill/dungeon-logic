@@ -9,6 +9,9 @@ dungeon-logic/
 ├── scripts/
 │   └── chatgpt-context.mjs
 ├── src/
+│   ├── board/
+│   │   ├── BoardView.ts
+│   │   └── CellView.ts
 │   ├── data/
 │   │   └── levels/
 │   │       └── level001.ts

@@ -23,9 +23,32 @@ export class PuzzleState {
     return this.cells[y][x];
   }
 
-  cycleCell(
+  toggleWall(
     x: number,
     y: number,
+  ): CellState {
+    return this.toggleCellState(
+      x,
+      y,
+      CellState.Wall,
+    );
+  }
+
+  toggleFloor(
+    x: number,
+    y: number,
+  ): CellState {
+    return this.toggleCellState(
+      x,
+      y,
+      CellState.Floor,
+    );
+  }
+
+  setCellState(
+    x: number,
+    y: number,
+    state: CellState,
   ): CellState {
     this.assertInsideBoard(x, y);
 
@@ -33,13 +56,9 @@ export class PuzzleState {
       return CellState.Floor;
     }
 
-    const current = this.cells[y][x];
+    this.cells[y][x] = state;
 
-    const next = this.getNextState(current);
-
-    this.cells[y][x] = next;
-
-    return next;
+    return state;
   }
 
   reset(): void {
@@ -81,21 +100,6 @@ export class PuzzleState {
     return grid;
   }
 
-  private getNextState(
-    current: CellState,
-  ): CellState {
-    switch (current) {
-      case CellState.Unknown:
-        return CellState.Wall;
-
-      case CellState.Wall:
-        return CellState.Floor;
-
-      case CellState.Floor:
-        return CellState.Unknown;
-    }
-  }
-
   private assertInsideBoard(
     x: number,
     y: number,
@@ -110,6 +114,32 @@ export class PuzzleState {
         `Cell (${x}, ${y}) is outside the board.`,
       );
     }
+  }
+
+  private toggleCellState(
+    x: number,
+    y: number,
+    targetState: CellState,
+  ): CellState {
+    this.assertInsideBoard(x, y);
+
+    if (this.isMonster(x, y)) {
+      return CellState.Floor;
+    }
+
+    const current =
+      this.cells[y][x];
+
+    const next =
+      current === targetState
+        ? CellState.Unknown
+        : targetState;
+
+    return this.setCellState(
+      x,
+      y,
+      next,
+    );
   }
 
   private assertPositionInsideBoard(

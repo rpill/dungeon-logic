@@ -9,6 +9,7 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
 
   parent: 'app',
+  disableContextMenu: true,
 
   width: 1280,
   height: 720,
