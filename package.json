@@ -1,0 +1,20 @@
+{
+  "name": "dungeon-logic",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "context": "node scripts/chatgpt-context.mjs",
+    "context:last": "node scripts/chatgpt-context.mjs --last-commit"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  }
+}
