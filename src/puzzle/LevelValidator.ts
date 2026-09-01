@@ -172,12 +172,12 @@ function areDoorsValid(
           x + 1,
           y,
         ) ||
-        !isClosed(
+        !isOrdinaryWall(
           puzzle,
           x,
           y - 1,
         ) ||
-        !isClosed(
+        !isOrdinaryWall(
           puzzle,
           x,
           y + 1,
@@ -200,12 +200,12 @@ function areDoorsValid(
         x,
         y + 1,
       ) ||
-      !isClosed(
+      !isOrdinaryWall(
         puzzle,
         x - 1,
         y,
       ) ||
-      !isClosed(
+      !isOrdinaryWall(
         puzzle,
         x + 1,
         y,
@@ -980,15 +980,16 @@ function isOpen(
   );
 }
 
-function isClosed(
+function isOrdinaryWall(
   puzzle: PuzzleState,
   x: number,
   y: number,
 ): boolean {
-  return !isOpen(
-    puzzle,
-    x,
-    y,
+  return (
+    puzzle.getCellState(
+      x,
+      y,
+    ) === CellState.Wall
   );
 }
 

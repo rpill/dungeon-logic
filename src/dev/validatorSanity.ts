@@ -85,6 +85,10 @@ export function runValidatorSanityChecks(): void {
       run: checkValidHorizontalDoor,
     },
     {
+      name: 'blocker cannot frame directional door',
+      run: checkBlockerCannotFrameDoor,
+    },
+    {
       name: 'invalid horizontal door side',
       run: checkInvalidHorizontalDoorSide,
     },
@@ -652,7 +656,7 @@ function checkBlockerTopology(): void {
 
 function checkValidHorizontalDoor(): void {
   const board = [
-    '...',
+    '.#.',
     '...',
     '.#.',
   ];
@@ -660,6 +664,46 @@ function checkValidHorizontalDoor(): void {
   const level =
     createLevelFromBoard(
       'sanity-horizontal-door',
+      board,
+      [],
+      [],
+      [],
+      [
+        {
+          position: {
+            x: 1,
+            y: 1,
+          },
+          orientation: 'horizontal',
+        },
+      ],
+    );
+
+  const puzzle =
+    createPuzzleFromBoard(
+      level,
+      board,
+    );
+
+  const result =
+    validatePuzzle(puzzle);
+
+  assert(
+    result.doorsValid,
+    'Horizontal door should accept open left/right and wall up/down.',
+  );
+}
+
+function checkBlockerCannotFrameDoor(): void {
+  const board = [
+    '...',
+    '...',
+    '.#.',
+  ];
+
+  const level =
+    createLevelFromBoard(
+      'sanity-blocker-door-frame',
       board,
       [],
       [],
@@ -690,14 +734,14 @@ function checkValidHorizontalDoor(): void {
     validatePuzzle(puzzle);
 
   assert(
-    result.doorsValid,
-    'Horizontal door should accept open left/right and closed up/down.',
+    !result.doorsValid,
+    'Blocker must not replace a wall framing a directional door.',
   );
 }
 
 function checkInvalidHorizontalDoorSide(): void {
   const board = [
-    '...',
+    '.#.',
     '#..',
     '.#.',
   ];
@@ -708,12 +752,7 @@ function checkInvalidHorizontalDoorSide(): void {
       board,
       [],
       [],
-      [
-        {
-          x: 1,
-          y: 0,
-        },
-      ],
+      [],
       [
         {
           position: {

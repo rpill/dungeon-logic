@@ -21,8 +21,8 @@ export const level004:
   columnClues: [
     5,
     3,
-    5,
     4,
+    5,
     3,
     4,
   ],
@@ -42,7 +42,7 @@ export const level004:
 
   blockers: [
     {
-      x: 3,
+      x: 2,
       y: 1,
     },
   ],
@@ -60,7 +60,7 @@ export const level004:
 
   solution: [
     '..####',
-    '#.#.##',
+    '#..###',
     '#....#',
     '####.#',
     '####..',
