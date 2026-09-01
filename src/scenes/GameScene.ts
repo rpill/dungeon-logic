@@ -2,6 +2,11 @@ import Phaser from 'phaser';
 
 import { BoardView } from '../board/BoardView';
 import { level001 } from '../data/levels/level001';
+
+import {
+  validatePuzzle,
+} from '../puzzle/LevelValidator';
+
 import { PuzzleState } from '../puzzle/PuzzleState';
 
 export class GameScene extends Phaser.Scene {
@@ -47,25 +52,63 @@ export class GameScene extends Phaser.Scene {
         boardHeight
       ) / 2 + 30;
 
-    new BoardView(
+    const statusText =
+      this.add
+        .text(
+          this.scale.width / 2,
+          this.scale.height - 42,
+          'Hold left: Walls   •   Hold right: Floor marks',
+          {
+            fontFamily: 'monospace',
+            fontSize: '18px',
+            color: '#89929d',
+            fontStyle: 'bold',
+          },
+        )
+        .setOrigin(0.5);
+
+    let board:
+      BoardView | null = null;
+
+    let solved = false;
+
+    const handlePuzzleChanged =
+      (): void => {
+        if (solved) {
+          return;
+        }
+
+        const validation =
+          validatePuzzle(puzzle);
+
+        if (
+          !validation.isSolved
+        ) {
+          return;
+        }
+
+        solved = true;
+
+        board?.setInputEnabled(
+          false,
+        );
+
+        statusText
+          .setText(
+            'Dungeon complete!',
+          )
+          .setColor(
+            '#d8d1c4',
+          );
+      };
+
+    board = new BoardView(
       this,
       puzzle,
       originX,
       originY,
       cellSize,
+      handlePuzzleChanged,
     );
-
-    this.add
-      .text(
-        this.scale.width / 2,
-        this.scale.height - 42,
-        'Hold left: Walls   •   Hold right: Floor marks',
-        {
-          fontFamily: 'monospace',
-          fontSize: '18px',
-          color: '#89929d',
-        },
-      )
-      .setOrigin(0.5);
   }
 }

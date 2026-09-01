@@ -18,6 +18,9 @@ interface DragState {
   visited: Set<string>;
 }
 
+type PuzzleChangedHandler =
+  () => void;
+
 const CLUE_ACTIVE_COLOR =
   '#ff6557';
 
@@ -30,6 +33,11 @@ export class BoardView {
   private readonly originX: number;
   private readonly originY: number;
   private readonly cellSize: number;
+
+  private readonly onPuzzleChanged:
+    PuzzleChangedHandler;
+
+  private inputEnabled = true;
 
   private readonly cells: CellView[][] = [];
 
@@ -47,12 +55,15 @@ export class BoardView {
     originX: number,
     originY: number,
     cellSize: number,
+    onPuzzleChanged: PuzzleChangedHandler,
   ) {
     this.scene = scene;
     this.puzzle = puzzle;
     this.originX = originX;
     this.originY = originY;
     this.cellSize = cellSize;
+    this.onPuzzleChanged =
+      onPuzzleChanged;
 
     this.createClues();
     this.createCells();
@@ -72,6 +83,16 @@ export class BoardView {
         this.endDrag();
       },
     );
+  }
+
+  setInputEnabled(
+    enabled: boolean,
+  ): void {
+    this.inputEnabled = enabled;
+
+    if (!enabled) {
+      this.endDrag();
+    }
   }
 
   private createClues(): void {
@@ -230,6 +251,10 @@ export class BoardView {
     cell: CellView,
     pointer: Phaser.Input.Pointer,
   ): void {
+    if (!this.inputEnabled) {
+      return;
+    }
+
     let tool: DragTool;
 
     if (pointer.leftButtonDown()) {
@@ -272,6 +297,12 @@ export class BoardView {
     cell: CellView,
     pointer: Phaser.Input.Pointer,
   ): void {
+    if (!this.inputEnabled) {
+      this.endDrag();
+
+      return;
+    }
+
     if (this.dragState === null) {
       return;
     }
@@ -343,6 +374,8 @@ export class BoardView {
     );
 
     this.updateConstraintFeedback();
+
+    this.onPuzzleChanged();
   }
 
   private getDragResult(
