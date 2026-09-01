@@ -205,6 +205,27 @@ export class BoardView {
           )
         ) {
           fixedMarker = 'C';
+        } else if (
+          this.puzzle.isBlocker(
+            x,
+            y,
+          )
+        ) {
+          fixedMarker = 'X';
+        } else {
+          const door =
+            this.puzzle.getDoor(
+              x,
+              y,
+            );
+
+          if (door !== null) {
+            fixedMarker =
+              door.orientation ===
+                'horizontal'
+                ? '↔'
+                : '↕';
+          }
         }
 
         const cell = new CellView(
