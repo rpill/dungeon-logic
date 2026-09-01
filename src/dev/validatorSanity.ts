@@ -2,6 +2,7 @@ import {
   level001,
   level002,
   level003,
+  level004,
   resolveLevel,
 } from '../data/levels';
 
@@ -39,6 +40,12 @@ export function runValidatorSanityChecks(): void {
       name: 'valid level003 solution',
       run: () => {
         checkValidLevel(level003);
+      },
+    },
+    {
+      name: 'valid level004 solution',
+      run: () => {
+        checkValidLevel(level004);
       },
     },
     {
@@ -203,6 +210,11 @@ function checkLevelSelection(): void {
   assert(
     resolveLevel('3') === level003,
     'Query level=3 should select level003.',
+  );
+
+  assert(
+    resolveLevel('4') === level004,
+    'Query level=4 should select level004.',
   );
 
   assert(

@@ -3,11 +3,13 @@ import type { LevelDefinition } from '../../puzzle/types';
 import { level001 } from './level001';
 import { level002 } from './level002';
 import { level003 } from './level003';
+import { level004 } from './level004';
 
 export {
   level001,
   level002,
   level003,
+  level004,
 };
 
 export const levels:
@@ -15,6 +17,7 @@ export const levels:
     level001,
     level002,
     level003,
+    level004,
   ];
 
 export function resolveLevel(
