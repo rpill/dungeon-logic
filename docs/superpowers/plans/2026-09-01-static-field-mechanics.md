@@ -1173,8 +1173,9 @@ git commit -m "docs: record static field mechanics"
 - Blocker never increments wall clue counts.
 - Blocker is CLOSED for connectivity, dead ends, rooms, and 2×2 topology.
 - Door is OPEN for connectivity, dead ends, and 2×2 topology.
-- Door orientation requires two opposite OPEN neighbors and two opposite CLOSED neighbors.
-- CLOSED door neighbors may be ordinary walls or blockers.
+- Door orientation requires two opposite OPEN neighbors.
+- The two perpendicular neighbors must be ordinary WALL cells.
+- Fixed Blocker cannot replace a WALL framing a directional door.
 - Edge door returns `doorsValid: false`.
 - Door inside treasure room prevents that room candidate from being valid.
 - `isSolved` requires `doorsValid`.

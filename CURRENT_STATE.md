@@ -28,7 +28,7 @@
 - Phaser canvas 1280×720;
 - FIT scaling;
 - pixel-art rendering settings;
-- browser context menu disabled for game input.
+- browser context menu disabled для игрового input.
 
 ---
 
@@ -36,7 +36,7 @@
 
 Реализован `PuzzleState`.
 
-Состояния обычной клетки:
+Состояния обычной изменяемой клетки:
 
 - `UNKNOWN`;
 - `WALL`;
@@ -44,29 +44,194 @@
 
 `FLOOR` является пользовательской вспомогательной отметкой.
 
-Для логики решения `UNKNOWN` и `FLOOR` считаются открытым пространством, пока клетка не является `WALL`.
+Для логики решения:
+
+- `WALL` считается закрытой обычной стеной;
+- `UNKNOWN` и `FLOOR` считаются открытым пространством;
+- Fixed Blocker является отдельной CLOSED-клеткой через metadata и не превращается в обычный `WALL`;
+- Monster, Chest и Directional Door являются fixed OPEN cells.
+
+Игроку не требуется вручную отмечать `FLOOR` на всех свободных клетках для завершения уровня.
 
 ---
 
-## Fixed cells
+## Fixed gameplay objects
 
-Поддерживаются фиксированные открытые клетки:
+Поддерживаются четыре типа заранее известных объектов:
 
-- monsters;
-- chests.
+- Monster;
+- Chest;
+- Fixed Blocker;
+- Directional Door.
+
+Одна клетка не может одновременно содержать несколько fixed gameplay objects.
+
+Запрещены пересечения:
+
+- blocker + door;
+- blocker + monster;
+- blocker + chest;
+- door + monster;
+- door + chest;
+- monster + chest.
+
+Все fixed cells нельзя изменить обычным игровым input.
+
+---
+
+## Monster
+
+Monster является fixed OPEN cell.
 
 Игрок не может:
 
-- поставить на них стену;
-- стереть их;
-- изменить их состояние через обычный input.
+- поставить на него стену;
+- стереть его;
+- изменить его состояние через обычный input.
 
-В прототипе они временно отображаются буквами:
+Dungeon rule:
 
-- `M` — monster;
-- `C` — chest.
+- каждый monster должен находиться в hallway dead end;
+- каждый hallway dead end должен содержать monster.
 
-Позже они будут заменены игровыми спрайтами.
+В текущем placeholder rendering monster отображается:
+
+`M`
+
+---
+
+## Chest
+
+Chest является fixed OPEN cell.
+
+Игрок не может:
+
+- поставить на него стену;
+- стереть его;
+- изменить его состояние через обычный input.
+
+Chest используется для определения возможного положения Treasure Room.
+
+Treasure Room:
+
+- имеет размер 3×3;
+- полностью состоит из OPEN cells;
+- содержит ровно один chest;
+- имеет ровно один entrance.
+
+Chest может находиться в любой клетке комнаты 3×3.
+
+Положение Treasure Room не хранится в `LevelDefinition` напрямую и определяется валидатором по текущему состоянию поля.
+
+В текущем placeholder rendering chest отображается:
+
+`C`
+
+---
+
+## Fixed Blocker
+
+Fixed Blocker — заранее известная непроходимая клетка.
+
+Он:
+
+- находится на поле с начала уровня;
+- является immutable;
+- считается CLOSED для dungeon topology;
+- не входит в row/column wall clues;
+- не входит в общую connected open area;
+- разрывает открытые 2×2;
+- не считается open neighbor при проверке dead ends;
+- не является обычным `WALL`.
+
+Blocker не должен использоваться вместо скрытой стены, которую обязан определить игрок.
+
+В будущем один логический `BLOCKER` может визуально отображаться разными ORYX-объектами:
+
+- ящик;
+- бочка;
+- камень;
+- колонна;
+- завал;
+- пропасть;
+- другой подходящий dungeon object.
+
+В текущем placeholder rendering blocker отображается:
+
+`X`
+
+---
+
+## Directional Door
+
+Directional Door — заранее известная immutable OPEN cell с фиксированной ориентацией.
+
+Поддерживаются:
+
+- `horizontal`;
+- `vertical`.
+
+Door:
+
+- всегда является OPEN;
+- участвует в общей connectivity;
+- участвует в подсчёте open neighbors;
+- участвует в monster / dead-end topology;
+- участвует в проверке открытых 2×2;
+- не входит в row/column wall clues;
+- не может находиться на внешнем краю поля;
+- не может находиться внутри Treasure Room.
+
+### Horizontal Door
+
+Для horizontal door:
+
+- клетка слева обязана быть OPEN;
+- клетка справа обязана быть OPEN;
+- клетка сверху обязана быть обычной `WALL`;
+- клетка снизу обязана быть обычной `WALL`.
+
+Схема:
+
+```text
+  #
+. D .
+  #
+```
+
+Две перпендикулярные стены являются обычными clue-counted WALL cells.
+
+Fixed Blocker не может заменять одну из этих стен.
+
+### Vertical Door
+
+Для vertical door:
+
+- клетка сверху обязана быть OPEN;
+- клетка снизу обязана быть OPEN;
+- клетка слева обязана быть обычной `WALL`;
+- клетка справа обязана быть обычной `WALL`.
+
+Схема:
+
+```text
+  .
+# D #
+  .
+```
+
+Fixed Blocker не может заменять одну из этих стен.
+
+### Door и Treasure Room
+
+Door не может находиться внутри комнаты 3×3.
+
+При этом door может находиться сразу снаружи Treasure Room и быть её единственным входом, если одновременно выполняется directional rule двери.
+
+В текущем placeholder rendering:
+
+- horizontal door — `↔`;
+- vertical door — `↕`.
 
 ---
 
@@ -83,17 +248,78 @@
 - column clues;
 - monster positions;
 - chest positions;
+- blocker positions;
+- directional doors;
 - hidden solution для разработки.
 
-Текущие вручную заданные тестовые уровни:
+Directional Door хранит:
 
-- `level001.ts` — 6×6;
-- `level002.ts` — 6×6 с другой ориентацией treasure room и hallway;
-- `level003.ts` — 7×7 для проверки работы puzzle-core с другим размером поля.
+- position;
+- orientation: `horizontal` или `vertical`.
 
-Все три уровня содержат валидную конфигурацию dungeon rules.
+`solution` хранит только обычную структуру WALL / non-WALL.
 
-Для временного dev-переключения используется query parameter:
+Fixed Blocker не кодируется как `#` в hidden solution, потому что blocker не является clue-counted wall и хранится отдельно в metadata.
+
+Уровень может не содержать Treasure Room.
+
+Допустимо:
+
+```ts
+chests: []
+```
+
+В этом случае все OPEN cells рассматриваются как hallway space, а правило запрещённых открытых 2×2 действует на всём поле.
+
+---
+
+## Test levels
+
+Сейчас есть четыре вручную заданных тестовых уровня.
+
+### level001
+
+- 6×6;
+- один monster;
+- один chest;
+- одна Treasure Room;
+- базовый тест dungeon rules.
+
+### level002
+
+- 6×6;
+- другой layout hallway / Treasure Room;
+- по сложности всё ещё близок к level001.
+
+### level003
+
+- 7×7;
+- проверяет работу puzzle-core и rendering на другом размере поля;
+- один monster;
+- один chest.
+
+### level004
+
+Первый интегрированный уровень со Static Field Mechanics.
+
+Характеристики:
+
+- 6×6;
+- два monsters;
+- `chests: []`;
+- без Treasure Room;
+- один Fixed Blocker;
+- одна horizontal Directional Door.
+
+Blocker расположен отдельно от двери и не заменяет одну из framing walls.
+
+Directional Door требует две обычные стены по перпендикулярной оси.
+
+---
+
+## Dev level selection
+
+Для временного переключения уровня используется query parameter:
 
 `?level=1`
 
@@ -101,7 +327,13 @@
 
 `?level=3`
 
-Это не является финальной системой progression или level selection.
+`?level=4`
+
+Некорректный или отсутствующий номер приводит к fallback на `level001`.
+
+Это временная dev-система.
+
+Она не является финальной campaign progression или level selection.
 
 ---
 
@@ -111,12 +343,36 @@
 
 - `BoardView`;
 - `CellView`;
-- сетка 6×6;
 - row clues;
 - column clues;
 - отображение WALL;
 - отображение FLOOR mark;
-- отображение fixed cells.
+- отображение fixed gameplay objects.
+
+Размер поля не захардкожен как 6×6.
+
+Board rendering использует:
+
+`LevelDefinition.width`
+
+и
+
+`LevelDefinition.height`
+
+Текущие уровни проверяют:
+
+- 6×6;
+- 7×7.
+
+Placeholder markers:
+
+- `M` — Monster;
+- `C` — Chest;
+- `X` — Fixed Blocker;
+- `↔` — horizontal Directional Door;
+- `↕` — vertical Directional Door.
+
+Fixed cells не являются интерактивными.
 
 Визуальный стиль пока технический placeholder.
 
@@ -130,40 +386,47 @@ ORYX ещё не подключён к игровому полю.
 
 ЛКМ:
 
-- ставит WALL;
-- повторное применение к WALL стирает WALL.
+- ставит `WALL`;
+- повторное применение к `WALL` стирает стену.
 
-Если мазок начинается не на WALL:
+Если drag начинается не на `WALL`:
 
 - drag рисует стены.
 
-Если мазок начинается на WALL:
+Если drag начинается на `WALL`:
 
 - drag стирает существующие стены;
 - другие состояния во время стирающего мазка не меняются.
+
+Fixed gameplay objects игнорируют обычное редактирование.
 
 ### Right Mouse Button
 
 ПКМ:
 
-- ставит FLOOR mark;
-- повторное применение к FLOOR стирает FLOOR mark.
+- ставит `FLOOR`;
+- повторное применение к `FLOOR` стирает отметку.
 
-Если мазок начинается не на FLOOR:
+Если drag начинается не на `FLOOR`:
 
 - drag рисует FLOOR marks.
 
-Если мазок начинается на FLOOR:
+Если drag начинается на `FLOOR`:
 
 - drag стирает существующие FLOOR marks;
 - другие состояния во время стирающего мазка не меняются.
+
+Fixed gameplay objects игнорируют обычное редактирование.
 
 ### Drag behavior
 
 В рамках одного drag-жеста:
 
 - одна клетка обрабатывается максимум один раз;
-- повторный проход курсора через неё не переключает состояние повторно.
+- повторный проход курсора через клетку не переключает состояние повторно;
+- fixed cells не изменяются.
+
+Browser context menu отключён.
 
 ---
 
@@ -171,23 +434,27 @@ ORYX ещё не подключён к игровому полю.
 
 Clues обновляются в реальном времени.
 
-Состояния:
+Clue считает только обычные `WALL`.
+
+Не входят в clue count:
+
+- Monster;
+- Chest;
+- Fixed Blocker;
+- Directional Door;
+- другие fixed cells.
 
 ### Constraint incomplete
 
 Цифра отображается красно-оранжевой.
 
-Это означает:
-
-текущее количество WALL меньше требуемого.
+Текущее количество обычных `WALL` меньше требуемого.
 
 ### Constraint complete
 
 Цифра отображается серой.
 
-Это означает:
-
-текущее количество WALL точно равно clue.
+Текущее количество обычных `WALL` точно равно clue.
 
 ### Constraint exceeded
 
@@ -195,30 +462,37 @@ Clues обновляются в реальном времени.
 
 WALL-клетки в переполненной строке или столбце подсвечиваются красным.
 
-Этот feedback основан только на публичном правиле количества стен.
+Feedback основан только на публичных правилах.
 
-Он не сравнивает действия игрока со скрытым solution.
+Он не сравнивает действия игрока с hidden `solution`.
 
 ---
 
 ## Dungeon rules
 
-Актуальные правила зафиксированы в `PROJECT.md` по tutorial screens оригинальной Dungeons & Diagrams.
+Актуальные базовые правила зафиксированы в `PROJECT.md`.
 
-Зафиксированы:
+Реализованы:
 
-- точное количество стен в каждой строке;
-- точное количество стен в каждом столбце;
-- все не-стены образуют одну связанную область;
-- ортогональная связность;
-- каждый monster находится в hallway dead end;
-- каждый hallway dead end содержит monster;
+- точное количество обычных WALL в каждой строке;
+- точное количество обычных WALL в каждом столбце;
+- все OPEN cells образуют одну ортогонально связанную область;
+- каждый Monster находится в hallway dead end;
+- каждый hallway dead end содержит Monster;
 - hallways имеют ширину одну клетку;
-- вне treasure rooms не существует открытых 2×2;
-- treasure room имеет размер 3×3;
-- treasure room содержит ровно один chest;
-- treasure room имеет ровно один вход;
-- treasure room является исключением из hallway 2×2 rule.
+- вне Treasure Rooms не существует открытых 2×2;
+- Treasure Room имеет размер 3×3;
+- Treasure Room содержит ровно один Chest;
+- Treasure Room имеет ровно один entrance;
+- Treasure Room является исключением из hallway 2×2 rule;
+- Fixed Blocker является CLOSED и не считается обычной стеной;
+- Directional Door является OPEN и задаёт дополнительное ограничение на соседние клетки.
+
+Loops hallway не запрещены сами по себе, если одновременно соблюдаются:
+
+- connectivity;
+- dead-end rules;
+- отсутствие запрещённых open 2×2.
 
 ---
 
@@ -230,45 +504,94 @@ WALL-клетки в переполненной строке или столбц
 
 Валидатор не использует hidden `solution` для определения победы.
 
-Он проверяет публичные правила головоломки.
+Hidden solution используется только как dev-данные для тестовых уровней и sanity fixtures.
 
-Реализованы проверки:
+Победа определяется исключительно публичными dungeon rules.
+
+Проверяются:
 
 - row clue counts;
 - column clue counts;
 - treasure-room candidates вокруг chest;
-- 3×3 open treasure room;
-- ровно один chest в treasure room;
+- 3×3 OPEN Treasure Room;
+- ровно один chest в Treasure Room;
 - ровно один entrance;
-- отсутствие monsters внутри treasure room;
-- совместимость нескольких treasure rooms;
-- connectivity всех open cells;
+- отсутствие Monster внутри Treasure Room;
+- отсутствие Directional Door внутри Treasure Room;
+- совместимость нескольких Treasure Rooms;
+- connectivity всех OPEN cells;
 - monster dead-end rule;
 - правило "каждый hallway dead end содержит monster";
-- отсутствие open 2×2 вне treasure rooms.
+- отсутствие open 2×2 вне Treasure Rooms;
+- Fixed Blocker как CLOSED topology;
+- Directional Door orientation;
+- framing WALL вокруг Directional Door;
+- запрет blocker вместо framing WALL;
+- запрет Directional Door на краю поля.
 
-`UNKNOWN` и `FLOOR` считаются open cells.
+`UNKNOWN` и `FLOOR` считаются OPEN.
 
-Поэтому игроку не требуется вручную отмечать FLOOR во всех свободных клетках для завершения уровня.
+Fixed Blocker считается CLOSED.
 
-### Validator sanity checks
+Monster, Chest и Directional Door считаются OPEN.
+
+---
+
+## Directional Door validation
+
+Для horizontal door validator требует:
+
+- left = OPEN;
+- right = OPEN;
+- up = ordinary `WALL`;
+- down = ordinary `WALL`.
+
+Для vertical door:
+
+- up = OPEN;
+- down = OPEN;
+- left = ordinary `WALL`;
+- right = ordinary `WALL`.
+
+`Blocker` не удовлетворяет требованию ordinary `WALL`.
+
+Результат validator содержит:
+
+`doorsValid`
+
+`isSolved` требует `doorsValid === true`.
+
+---
+
+## Validator sanity checks
 
 Добавлены локальные dev-only sanity checks:
 
 `src/dev/validatorSanity.ts`
 
-Проверяются:
+Набор проверок покрывает:
 
-- корректное решение `level001`;
-- корректное решение `level002`;
-- корректное решение `level003`;
-- выбор тестового уровня через query parameter.
-- disconnected open-space при корректных row/column clues;
-- monster, который не находится в dead end;
-- открытый 2×2 вне treasure room;
-- treasure room с двумя входами.
+- корректный `level001`;
+- корректный `level002`;
+- корректный `level003`;
+- корректный `level004`;
+- query level selection;
+- fixed blocker / door metadata;
+- запрет overlap fixed objects;
+- disconnected open-space при корректных clues;
+- Monster вне dead end;
+- открытый 2×2 вне Treasure Room;
+- Treasure Room с двумя entrances;
+- Blocker как CLOSED topology;
+- валидную horizontal Door;
+- запрет Blocker вместо framing WALL;
+- неправильную открытую/закрытую сторону horizontal Door;
+- Door на внешнем краю;
+- Door внутри Treasure Room.
 
-Проверки автоматически запускаются при локальном запуске через `npm run dev`.
+Sanity checks автоматически запускаются локально через:
+
+`npm run dev`
 
 Если хотя бы одна проверка падает, запуск локальной игры останавливается с ошибкой в console.
 
@@ -278,9 +601,9 @@ WALL-клетки в переполненной строке или столбц
 
 `LevelValidator` подключён к игровому циклу.
 
-После каждого фактического изменения доски проверяется состояние puzzle.
+После каждого фактического изменения доски проверяется puzzle state.
 
-Когда все правила одновременно выполнены:
+Когда одновременно выполнены все правила:
 
 - уровень определяется как solved;
 - дальнейшее редактирование доски блокируется;
@@ -289,7 +612,11 @@ WALL-клетки в переполненной строке или столбц
 
 `Dungeon complete!`
 
+Runtime victory никогда не сравнивает текущее поле с `level.solution`.
+
 Это пока минимальный технический win state.
+
+---
 
 ## Restart
 
@@ -297,16 +624,18 @@ WALL-клетки в переполненной строке или столбц
 
 Кнопка `Restart` полностью перезапускает `GameScene`.
 
-При этом автоматически:
+При этом:
 
 - создаётся новый `PuzzleState`;
-- очищаются все поставленные WALL;
-- очищаются FLOOR marks;
-- восстанавливаются fixed monster/chest cells;
+- очищаются поставленные `WALL`;
+- очищаются `FLOOR` marks;
+- восстанавливаются fixed gameplay objects;
 - clues возвращаются в начальное состояние;
 - снимается solved state;
-- ввод снова доступен;
+- input снова становится доступен;
 - status text возвращается к обычной подсказке управления.
+
+Query parameter уровня сохраняется, поэтому Restart перезапускает текущий dev level.
 
 Отдельная history-система для Restart не используется.
 
@@ -316,43 +645,84 @@ WALL-клетки в переполненной строке или столбц
 
 ## Core UX
 
-- Undo — не входит в текущий vertical slice; вернуть только если playtests покажут реальную необходимость;
+Не реализованы:
+
+- Undo;
 - touch controls;
 - keyboard shortcuts;
-- отдельная полноценная win screen;
+- полноценная win screen;
 - переход на следующий уровень;
-- level selection.
+- campaign level selection;
+- tutorial UI.
+
+Undo не входит в текущий vertical slice и должен возвращаться только если playtests покажут реальную необходимость.
 
 ---
 
 ## Visuals
 
+Не реализованы:
+
 - ORYX dungeon tiles;
 - ORYX walls;
 - ORYX monsters;
 - ORYX chest;
+- ORYX blocker variants;
+- ORYX doors;
 - финальный visual language поля;
 - dungeon floor rendering;
-- wall adjacency/autotiling;
+- wall adjacency / autotiling;
 - polished clue graphics;
 - animations;
 - sound;
 - effects.
 
+Текущие `M`, `C`, `X`, `↔`, `↕` являются только техническими placeholder markers.
+
 ---
 
-## Puzzle systems
+## Additional puzzle mechanics
 
-- несколько реальных уровней;
+Пока не реализованы:
+
+- keys;
+- locked doors;
+- switches;
+- changing doors;
+- moving blockers;
+- interactive dungeon objects;
+- crypt / sarcophagus special rooms;
+- дополнительные типы room;
+- отдельная логика lava / water;
+- edge doors / dungeon exits.
+
+Эти системы не входят в Static Field Mechanics v1.
+
+---
+
+## Level production
+
+Пока не реализованы:
+
+- полноценный набор уровней;
 - tutorial progression;
 - автоматический solver;
+- подсчёт количества решений;
 - проверка уникальности решения;
 - автоматический generator;
 - difficulty estimation.
 
+Будущий solver должен уметь прекращать поиск после нахождения второго решения:
+
+- 0 решений — уровень сломан;
+- 1 решение — уникальный;
+- 2+ решений — неоднозначный.
+
 ---
 
 ## Product systems
+
+Не реализованы:
 
 - campaign / level map;
 - save progress;
@@ -367,19 +737,24 @@ WALL-клетки в переполненной строке или столбц
 
 # Current Vertical Slice
 
-Сейчас прототип уже позволяет:
+Сейчас прототип позволяет:
 
-1. загрузить один из трёх вручную заданных уровней 6×6 / 7×7;
-2. видеть clues, monster и chest;
-3. ставить стены ЛКМ;
-4. отмечать свободные клетки ПКМ;
-5. рисовать и стирать drag-жестом;
-6. видеть выполнение row/column constraints;
-7. видеть overflow стены;
-8. решить puzzle по полному набору dungeon rules;
-9. получить минимальное состояние победы.
+1. загрузить один из четырёх dev-уровней 6×6 / 7×7;
+2. видеть row и column clues;
+3. видеть Monster, Chest, Fixed Blocker и Directional Door;
+4. ставить стены ЛКМ;
+5. отмечать свободные клетки ПКМ;
+6. рисовать и стирать drag-жестом;
+7. видеть выполнение row/column constraints;
+8. видеть overflow стен;
+9. решать puzzle по полному текущему набору dungeon rules;
+10. использовать уровни без Treasure Room;
+11. использовать Fixed Blocker как отдельный CLOSED gameplay object;
+12. использовать Directional Door как дополнительное дедуктивное ограничение;
+13. получить минимальное состояние победы;
+14. перезапустить текущий уровень через Restart.
 
-Главная текущая задача — довести puzzle-core до удобного playable состояния перед визуальным ORYX pass.
+Static Field Mechanics v1 функционально добавлены в puzzle-core.
 
 ---
 
@@ -387,12 +762,18 @@ WALL-клетки в переполненной строке или столбц
 
 Ближайший порядок разработки:
 
-1. Полностью пройти level001, level002 и level003 руками.
-2. Исправлять validator edge cases по мере их обнаружения в playtests.
-3. Решить, нужна ли автоматическая проверка уникальности решения до массового производства уровней.
-4. Начать минимальный ORYX visual pass.
-5. После стабильного puzzle-core заняться progression и продуктовым циклом.
+1. Полностью пройти `level004` руками и проверить, насколько blocker и directional door действительно добавляют интересную дедукцию.
 
-Undo не является обязательной частью текущего vertical slice.
+2. Исправлять validator edge cases, если они обнаружатся в ручных playtests.
 
-Не добавлять generator, daily, monetization или сложные meta-системы раньше работающего и приятного core loop.
+3. Решить, нужны ли ещё одна-две простые статические dungeon mechanics до автоматического производства уровней.
+
+4. После стабилизации набора правил реализовать solver с подсчётом решений.
+
+5. Использовать solver для проверки уникальности будущих уровней.
+
+6. После этого переходить к generator / массовому производству puzzle levels.
+
+7. ORYX visual pass делать поверх уже стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
+
+8. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
