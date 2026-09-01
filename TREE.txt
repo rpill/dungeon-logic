@@ -14,7 +14,10 @@ dungeon-logic/
 │   │   └── CellView.ts
 │   ├── data/
 │   │   └── levels/
-│   │       └── level001.ts
+│   │       ├── index.ts
+│   │       ├── level001.ts
+│   │       ├── level002.ts
+│   │       └── level003.ts
 │   ├── dev/
 │   │   └── validatorSanity.ts
 │   ├── puzzle/

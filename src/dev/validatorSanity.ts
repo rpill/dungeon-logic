@@ -1,4 +1,9 @@
-import { level001 } from '../data/levels/level001';
+import {
+  level001,
+  level002,
+  level003,
+  resolveLevel,
+} from '../data/levels';
 
 import {
   validatePuzzle,
@@ -22,6 +27,22 @@ export function runValidatorSanityChecks(): void {
     {
       name: 'valid level001 solution',
       run: checkValidLevel001,
+    },
+    {
+      name: 'valid level002 solution',
+      run: () => {
+        checkValidLevel(level002);
+      },
+    },
+    {
+      name: 'valid level003 solution',
+      run: () => {
+        checkValidLevel(level003);
+      },
+    },
+    {
+      name: 'level query selection',
+      run: checkLevelSelection,
     },
     {
       name: 'disconnected layout with correct clues',
@@ -78,10 +99,16 @@ export function runValidatorSanityChecks(): void {
 }
 
 function checkValidLevel001(): void {
+  checkValidLevel(level001);
+}
+
+function checkValidLevel(
+  level: LevelDefinition,
+): void {
   const puzzle =
     createPuzzleFromBoard(
-      level001,
-      level001.solution,
+      level,
+      level.solution,
     );
 
   const result =
@@ -119,7 +146,39 @@ function checkValidLevel001(): void {
 
   assert(
     result.isSolved,
-    'Valid level001 must be solved.',
+    `${level.id} must be solved.`,
+  );
+}
+
+function checkLevelSelection(): void {
+  assert(
+    resolveLevel(null) === level001,
+    'Missing level query should select level001.',
+  );
+
+  assert(
+    resolveLevel('1') === level001,
+    'Query level=1 should select level001.',
+  );
+
+  assert(
+    resolveLevel('2') === level002,
+    'Query level=2 should select level002.',
+  );
+
+  assert(
+    resolveLevel('3') === level003,
+    'Query level=3 should select level003.',
+  );
+
+  assert(
+    resolveLevel('999') === level001,
+    'Unknown level number should fall back to level001.',
+  );
+
+  assert(
+    resolveLevel('banana') === level001,
+    'Invalid level query should fall back to level001.',
   );
 }
 

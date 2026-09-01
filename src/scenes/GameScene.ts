@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 
 import { BoardView } from '../board/BoardView';
-import { level001 } from '../data/levels/level001';
+import {
+  resolveLevel,
+} from '../data/levels';
 
 import {
   validatePuzzle,
@@ -52,16 +54,24 @@ export class GameScene extends Phaser.Scene {
         },
       );
 
+    const levelValue =
+      new URLSearchParams(
+        window.location.search,
+      ).get('level');
+
+    const level =
+      resolveLevel(levelValue);
+
     const puzzle =
-      new PuzzleState(level001);
+      new PuzzleState(level);
 
     const cellSize = 72;
 
     const boardWidth =
-      level001.width * cellSize;
+      level.width * cellSize;
 
     const boardHeight =
-      level001.height * cellSize;
+      level.height * cellSize;
 
     const originX =
       (
