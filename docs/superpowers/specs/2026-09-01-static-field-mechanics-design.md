@@ -117,12 +117,9 @@ Door всегда является OPEN.
 
 - `D` — horizontal door;
 - `.` — обязательно OPEN;
-- `X` — обязательно CLOSED.
+- `#` — обязательно обычная WALL, учитываемая в row/column clues.
 
-CLOSED может быть:
-
-- обычной WALL;
-- Fixed Blocker.
+Fixed Blocker не может заменять WALL, обрамляющую дверь.
 
 ---
 
@@ -139,9 +136,17 @@ CLOSED может быть:
 
 ```text
   .
-X D X
+# D #
   .
 ```
+
+Где:
+
+- `D` — vertical door;
+- `.` — обязательно OPEN;
+- `#` — обязательно обычная WALL, учитываемая в row/column clues.
+
+Fixed Blocker не может заменять WALL, обрамляющую дверь.
 
 ---
 
@@ -334,8 +339,9 @@ doorsValid: boolean;
 Для каждой двери validator проверяет:
 
 - дверь не находится на edge;
-- orientation соответствует required OPEN neighbors;
-- orientation соответствует required CLOSED neighbors.
+- orientation соответствует двум required OPEN neighbors вдоль прохода;
+- две перпендикулярные клетки являются обычными `CellState.Wall`;
+- Fixed Blocker не может заменять framing WALL.
 
 `isSolved` требует:
 

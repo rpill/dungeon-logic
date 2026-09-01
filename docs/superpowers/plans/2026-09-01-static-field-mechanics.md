@@ -519,21 +519,7 @@ function isOpen(
 }
 ```
 
-Add:
-
-```ts
-function isClosed(
-  puzzle: PuzzleState,
-  x: number,
-  y: number,
-): boolean {
-  return !isOpen(
-    puzzle,
-    x,
-    y,
-  );
-}
-```
+No generic `isClosed()` helper is needed for door framing. Directional doors require ordinary clue-counted `CellState.Wall` cells on the perpendicular axis; that check is added explicitly in Task 3.
 
 - [ ] **Step 4: Verify all topology regressions**
 
@@ -564,15 +550,16 @@ git commit -m "feat: apply blockers to dungeon topology"
 **Interfaces:**
 - Produces: `ValidationResult.doorsValid: boolean`
 - Changes: `ValidationResult.isSolved` requires `doorsValid`
-- Consumes: `PuzzleState.getDoor()`, `PuzzleState.isDoor()`, blocker-aware OPEN/CLOSED helpers
+- Consumes: `PuzzleState.getDoor()`, `PuzzleState.isDoor()`, blocker-aware `isOpen()` and ordinary-wall checks
 
 - [ ] **Step 1: Add failing door sanity cases**
 
-Add three cases:
+Add four cases:
 
 1. `valid horizontal door`
-2. `invalid horizontal door side`
-3. `edge door invalid`
+2. `blocker cannot frame directional door`
+3. `invalid horizontal door side`
+4. `edge door invalid`
 
 For the valid horizontal door:
 
@@ -589,12 +576,7 @@ const level =
     board,
     [],
     [],
-    [
-      {
-        x: 1,
-        y: 0,
-      },
-    ],
+    [],
     [
       {
         position: {
@@ -617,11 +599,20 @@ const result =
 
 assert(
   result.doorsValid,
-  'Horizontal door should accept open left/right and closed up/down.',
+  'Horizontal door should accept open left/right and wall up/down.',
 );
 ```
 
-Here the upper CLOSED neighbor is a blocker and the lower CLOSED neighbor is an ordinary wall, proving both CLOSED forms work.
+The perpendicular cells are ordinary clue-counted walls.
+
+Add a separate blocker-frame regression fixture where the upper perpendicular neighbor is a Fixed Blocker and the lower perpendicular neighbor is an ordinary wall. Assert:
+
+```ts
+assert(
+  !result.doorsValid,
+  'Blocker must not replace a wall framing a directional door.',
+);
+```
 
 For the invalid-side case, use the same door but make one horizontal neighbor a wall:
 
@@ -730,12 +721,12 @@ function areDoorsValid(
           x + 1,
           y,
         ) ||
-        !isClosed(
+        !isOrdinaryWall(
           puzzle,
           x,
           y - 1,
         ) ||
-        !isClosed(
+        !isOrdinaryWall(
           puzzle,
           x,
           y + 1,
@@ -758,12 +749,12 @@ function areDoorsValid(
         x,
         y + 1,
       ) ||
-      !isClosed(
+      !isOrdinaryWall(
         puzzle,
         x - 1,
         y,
       ) ||
-      !isClosed(
+      !isOrdinaryWall(
         puzzle,
         x + 1,
         y,
@@ -774,6 +765,23 @@ function areDoorsValid(
   }
 
   return true;
+}
+```
+
+Add the ordinary-wall helper:
+
+```ts
+function isOrdinaryWall(
+  puzzle: PuzzleState,
+  x: number,
+  y: number,
+): boolean {
+  return (
+    puzzle.getCellState(
+      x,
+      y,
+    ) === CellState.Wall
+  );
 }
 ```
 
@@ -948,8 +956,8 @@ export const level004:
     columnClues: [
       5,
       3,
-      5,
       4,
+      5,
       3,
       4,
     ],
@@ -969,7 +977,7 @@ export const level004:
 
     blockers: [
       {
-        x: 3,
+        x: 2,
         y: 1,
       },
     ],
@@ -986,7 +994,7 @@ export const level004:
 
     solution: [
       '..####',
-      '#.#.##',
+      '#..###',
       '#....#',
       '####.#',
       '####..',
@@ -999,14 +1007,14 @@ Semantics of the hidden solution:
 
 ```text
 M.####
-#.#X##
+#.X###
 #..↔.#
 ####.#
 ####..
 #####M
 ```
 
-`X` is metadata at `(3, 1)` and is intentionally represented as `.` in `solution`, because it is not an ordinary clue-counted wall.
+`X` is metadata at `(2, 1)` and is intentionally represented as `.` in `solution`, because it is not an ordinary clue-counted wall. The horizontal door at `(3, 2)` is framed by ordinary walls at `(3, 1)` and `(3, 3)`.
 
 - [ ] **Step 2: Register level004**
 
