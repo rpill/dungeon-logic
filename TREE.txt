@@ -15,6 +15,8 @@ dungeon-logic/
 │   ├── data/
 │   │   └── levels/
 │   │       └── level001.ts
+│   ├── dev/
+│   │   └── validatorSanity.ts
 │   ├── puzzle/
 │   │   ├── LevelValidator.ts
 │   │   ├── PuzzleState.ts
