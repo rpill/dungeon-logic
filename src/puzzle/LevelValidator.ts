@@ -865,11 +865,32 @@ function isOpen(
   x: number,
   y: number,
 ): boolean {
+  if (
+    puzzle.isBlocker(
+      x,
+      y,
+    )
+  ) {
+    return false;
+  }
+
   return (
     puzzle.getCellState(
       x,
       y,
     ) !== CellState.Wall
+  );
+}
+
+function isClosed(
+  puzzle: PuzzleState,
+  x: number,
+  y: number,
+): boolean {
+  return !isOpen(
+    puzzle,
+    x,
+    y,
   );
 }
 

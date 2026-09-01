@@ -13,6 +13,7 @@ import { PuzzleState } from '../puzzle/PuzzleState';
 
 import {
   CellState,
+  type DoorDefinition,
   type GridPosition,
   type LevelDefinition,
 } from '../puzzle/types';
@@ -67,6 +68,10 @@ export function runValidatorSanityChecks(): void {
     {
       name: 'fixed object overlap rejected',
       run: checkFixedObjectOverlap,
+    },
+    {
+      name: 'blocker closes dungeon topology',
+      run: checkBlockerTopology,
     },
   ];
 
@@ -567,6 +572,51 @@ function checkFixedObjectOverlap(): void {
   );
 }
 
+function checkBlockerTopology(): void {
+  const board = [
+    '..',
+    '..',
+  ];
+
+  const level =
+    createLevelFromBoard(
+      'sanity-blocker-topology',
+      board,
+      [],
+      [],
+      [
+        {
+          x: 0,
+          y: 0,
+        },
+      ],
+    );
+
+  const puzzle =
+    createPuzzleFromBoard(
+      level,
+      board,
+    );
+
+  const result =
+    validatePuzzle(puzzle);
+
+  assert(
+    puzzle.getRowWallCount(0) === 0,
+    'Blocker must not count as a row wall.',
+  );
+
+  assert(
+    puzzle.getColumnWallCount(0) === 0,
+    'Blocker must not count as a column wall.',
+  );
+
+  assert(
+    result.hallwayWidthValid,
+    'Blocker must break an otherwise open 2x2.',
+  );
+}
+
 function createPuzzleFromBoard(
   level: LevelDefinition,
   board: readonly string[],
@@ -619,6 +669,8 @@ function createLevelFromBoard(
   board: readonly string[],
   monsters: readonly GridPosition[],
   chests: readonly GridPosition[],
+  blockers: readonly GridPosition[] = [],
+  doors: readonly DoorDefinition[] = [],
 ): LevelDefinition {
   if (board.length === 0) {
     throw new Error(
@@ -679,8 +731,8 @@ function createLevelFromBoard(
     columnClues,
     monsters,
     chests,
-    blockers: [],
-    doors: [],
+    blockers,
+    doors,
     solution: board,
   };
 }
