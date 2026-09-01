@@ -2,7 +2,8 @@ dungeon-logic/
 ├── docs/
 │   └── superpowers/
 │       └── specs/
-│           └── 2026-09-01-phaser-bootstrap-design.md
+│           ├── 2026-09-01-phaser-bootstrap-design.md
+│           └── 2026-09-01-static-field-mechanics-design.md
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
