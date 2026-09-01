@@ -29,6 +29,29 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
+    this.add
+      .text(
+        this.scale.width - 40,
+        52,
+        'Restart',
+        {
+          fontFamily: 'monospace',
+          fontSize: '20px',
+          color: '#89929d',
+          fontStyle: 'bold',
+        },
+      )
+      .setOrigin(1, 0.5)
+      .setInteractive({
+        useHandCursor: true,
+      })
+      .on(
+        'pointerdown',
+        () => {
+          this.scene.restart();
+        },
+      );
+
     const puzzle =
       new PuzzleState(level001);
 
