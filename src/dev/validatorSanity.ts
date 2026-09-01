@@ -45,6 +45,10 @@ export function runValidatorSanityChecks(): void {
       run: checkLevelSelection,
     },
     {
+      name: 'fixed blocker and door metadata',
+      run: checkFixedMetadata,
+    },
+    {
       name: 'disconnected layout with correct clues',
       run: checkDisconnectedLayout,
     },
@@ -59,6 +63,10 @@ export function runValidatorSanityChecks(): void {
     {
       name: 'treasure room with two entrances',
       run: checkTreasureRoomWithTwoEntrances,
+    },
+    {
+      name: 'fixed object overlap rejected',
+      run: checkFixedObjectOverlap,
     },
   ];
 
@@ -179,6 +187,100 @@ function checkLevelSelection(): void {
   assert(
     resolveLevel('banana') === level001,
     'Invalid level query should fall back to level001.',
+  );
+}
+
+function checkFixedMetadata(): void {
+  const level: LevelDefinition = {
+    id: 'sanity-fixed-metadata',
+
+    width: 3,
+    height: 3,
+
+    rowClues: [
+      0,
+      0,
+      0,
+    ],
+
+    columnClues: [
+      0,
+      0,
+      0,
+    ],
+
+    monsters: [],
+    chests: [],
+
+    blockers: [
+      {
+        x: 0,
+        y: 0,
+      },
+    ],
+
+    doors: [
+      {
+        position: {
+          x: 1,
+          y: 1,
+        },
+
+        orientation: 'horizontal',
+      },
+    ],
+
+    solution: [
+      '...',
+      '...',
+      '...',
+    ],
+  };
+
+  const puzzle =
+    new PuzzleState(level);
+
+  assert(
+    puzzle.isBlocker(
+      0,
+      0,
+    ),
+    'Blocker metadata should be queryable.',
+  );
+
+  assert(
+    puzzle.isDoor(
+      1,
+      1,
+    ),
+    'Door metadata should be queryable.',
+  );
+
+  assert(
+    puzzle.getDoor(
+      1,
+      1,
+    )?.orientation ===
+    'horizontal',
+    'Door orientation should be preserved.',
+  );
+
+  assert(
+    puzzle.setCellState(
+      0,
+      0,
+      CellState.Wall,
+    ) !== CellState.Wall,
+    'Blocker must reject mutable wall state.',
+  );
+
+  assert(
+    puzzle.setCellState(
+      1,
+      1,
+      CellState.Wall,
+    ) === CellState.Floor,
+    'Door must stay fixed open.',
   );
 }
 
@@ -410,6 +512,61 @@ function checkTreasureRoomWithTwoEntrances(): void {
   );
 }
 
+function checkFixedObjectOverlap(): void {
+  const level: LevelDefinition = {
+    id: 'sanity-fixed-overlap',
+
+    width: 2,
+    height: 2,
+
+    rowClues: [
+      0,
+      0,
+    ],
+
+    columnClues: [
+      0,
+      0,
+    ],
+
+    monsters: [
+      {
+        x: 0,
+        y: 0,
+      },
+    ],
+
+    chests: [],
+
+    blockers: [
+      {
+        x: 0,
+        y: 0,
+      },
+    ],
+
+    doors: [],
+
+    solution: [
+      '..',
+      '..',
+    ],
+  };
+
+  let threw = false;
+
+  try {
+    new PuzzleState(level);
+  } catch {
+    threw = true;
+  }
+
+  assert(
+    threw,
+    'Overlapping fixed objects must be rejected.',
+  );
+}
+
 function createPuzzleFromBoard(
   level: LevelDefinition,
   board: readonly string[],
@@ -522,6 +679,8 @@ function createLevelFromBoard(
     columnClues,
     monsters,
     chests,
+    blockers: [],
+    doors: [],
     solution: board,
   };
 }

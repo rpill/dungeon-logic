@@ -12,6 +12,14 @@ export interface GridPosition {
   y: number;
 }
 
+export interface DoorDefinition {
+  position: GridPosition;
+
+  orientation:
+  | 'horizontal'
+  | 'vertical';
+}
+
 export interface LevelDefinition {
   id: string;
 
@@ -23,6 +31,9 @@ export interface LevelDefinition {
 
   monsters: readonly GridPosition[];
   chests: readonly GridPosition[];
+
+  blockers: readonly GridPosition[];
+  doors: readonly DoorDefinition[];
 
   /**
    * # = wall

@@ -1,5 +1,6 @@
 import {
   CellState,
+  type DoorDefinition,
   type GridPosition,
   type LevelDefinition,
 } from './types';
@@ -9,9 +10,15 @@ export class PuzzleState {
 
   private cells: CellState[][];
 
-  constructor(level: LevelDefinition) {
+  constructor(
+    level: LevelDefinition,
+  ) {
     this.level = level;
-    this.cells = this.createInitialGrid();
+
+    this.validateFixedObjects();
+
+    this.cells =
+      this.createInitialGrid();
   }
 
   getCellState(
@@ -53,7 +60,7 @@ export class PuzzleState {
     this.assertInsideBoard(x, y);
 
     if (this.isFixedCell(x, y)) {
-      return CellState.Floor;
+      return this.cells[y][x];
     }
 
     this.cells[y][x] = state;
@@ -87,13 +94,51 @@ export class PuzzleState {
     );
   }
 
+  isBlocker(
+    x: number,
+    y: number,
+  ): boolean {
+    return this.level.blockers.some(
+      (blocker) =>
+        blocker.x === x &&
+        blocker.y === y,
+    );
+  }
+
+  isDoor(
+    x: number,
+    y: number,
+  ): boolean {
+    return (
+      this.getDoor(
+        x,
+        y,
+      ) !== null
+    );
+  }
+
+  getDoor(
+    x: number,
+    y: number,
+  ): DoorDefinition | null {
+    return (
+      this.level.doors.find(
+        (door) =>
+          door.position.x === x &&
+          door.position.y === y,
+      ) ?? null
+    );
+  }
+
   isFixedCell(
     x: number,
     y: number,
   ): boolean {
     return (
       this.isMonster(x, y) ||
-      this.isChest(x, y)
+      this.isChest(x, y) ||
+      this.isBlocker(x, y) ||
+      this.isDoor(x, y)
     );
   }
 
@@ -190,7 +235,67 @@ export class PuzzleState {
         CellState.Floor;
     }
 
+    for (
+      const blocker
+      of this.level.blockers
+    ) {
+      this.assertPositionInsideBoard(
+        blocker,
+      );
+    }
+
+    for (
+      const door
+      of this.level.doors
+    ) {
+      this.assertPositionInsideBoard(
+        door.position,
+      );
+
+      grid[
+        door.position.y
+      ][
+        door.position.x
+      ] = CellState.Floor;
+    }
+
     return grid;
+  }
+
+  private validateFixedObjects(): void {
+    const occupied =
+      new Set<string>();
+
+    const fixedPositions:
+      readonly GridPosition[] = [
+        ...this.level.monsters,
+        ...this.level.chests,
+        ...this.level.blockers,
+        ...this.level.doors.map(
+          (door) =>
+            door.position,
+        ),
+      ];
+
+    for (
+      const position
+      of fixedPositions
+    ) {
+      this.assertPositionInsideBoard(
+        position,
+      );
+
+      const key =
+        `${position.x}:${position.y}`;
+
+      if (occupied.has(key)) {
+        throw new Error(
+          `Fixed objects overlap at (${position.x}, ${position.y}).`,
+        );
+      }
+
+      occupied.add(key);
+    }
   }
 
   private assertInsideBoard(
@@ -217,7 +322,7 @@ export class PuzzleState {
     this.assertInsideBoard(x, y);
 
     if (this.isFixedCell(x, y)) {
-      return CellState.Floor;
+      return this.cells[y][x];
     }
 
     const current =

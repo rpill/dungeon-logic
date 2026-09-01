@@ -38,6 +38,9 @@ export const level002: LevelDefinition = {
     },
   ],
 
+  blockers: [],
+  doors: [],
+
   solution: [
     '...###',
     '.....#',
