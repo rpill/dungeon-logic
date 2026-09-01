@@ -52,7 +52,7 @@ export class PuzzleState {
   ): CellState {
     this.assertInsideBoard(x, y);
 
-    if (this.isMonster(x, y)) {
+    if (this.isFixedCell(x, y)) {
       return CellState.Floor;
     }
 
@@ -76,6 +76,87 @@ export class PuzzleState {
     );
   }
 
+  isChest(
+    x: number,
+    y: number,
+  ): boolean {
+    return this.level.chests.some(
+      (chest) =>
+        chest.x === x &&
+        chest.y === y,
+    );
+  }
+
+  isFixedCell(
+    x: number,
+    y: number,
+  ): boolean {
+    return (
+      this.isMonster(x, y) ||
+      this.isChest(x, y)
+    );
+  }
+
+  getRowWallCount(
+    y: number,
+  ): number {
+    if (
+      y < 0 ||
+      y >= this.level.height
+    ) {
+      throw new RangeError(
+        `Row ${y} is outside the board.`,
+      );
+    }
+
+    let count = 0;
+
+    for (
+      let x = 0;
+      x < this.level.width;
+      x += 1
+    ) {
+      if (
+        this.cells[y][x] ===
+        CellState.Wall
+      ) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
+  getColumnWallCount(
+    x: number,
+  ): number {
+    if (
+      x < 0 ||
+      x >= this.level.width
+    ) {
+      throw new RangeError(
+        `Column ${x} is outside the board.`,
+      );
+    }
+
+    let count = 0;
+
+    for (
+      let y = 0;
+      y < this.level.height;
+      y += 1
+    ) {
+      if (
+        this.cells[y][x] ===
+        CellState.Wall
+      ) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
   private createInitialGrid(): CellState[][] {
     const grid = Array.from(
       { length: this.level.height },
@@ -94,6 +175,18 @@ export class PuzzleState {
       );
 
       grid[monster.y][monster.x] =
+        CellState.Floor;
+    }
+
+    for (
+      const chest
+      of this.level.chests
+    ) {
+      this.assertPositionInsideBoard(
+        chest,
+      );
+
+      grid[chest.y][chest.x] =
         CellState.Floor;
     }
 
@@ -123,7 +216,7 @@ export class PuzzleState {
   ): CellState {
     this.assertInsideBoard(x, y);
 
-    if (this.isMonster(x, y)) {
+    if (this.isFixedCell(x, y)) {
       return CellState.Floor;
     }
 

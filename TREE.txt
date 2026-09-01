@@ -16,6 +16,7 @@ dungeon-logic/
 │   │   └── levels/
 │   │       └── level001.ts
 │   ├── puzzle/
+│   │   ├── LevelValidator.ts
 │   │   ├── PuzzleState.ts
 │   │   └── types.ts
 │   ├── scenes/

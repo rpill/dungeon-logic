@@ -9,30 +9,47 @@ type CellPointerHandler = (
   pointer: Phaser.Input.Pointer,
 ) => void;
 
+const UNKNOWN_COLOR = 0x252a30;
+const WALL_COLOR = 0x827565;
+const WALL_CONFLICT_COLOR = 0xd9574f;
+
+const DEFAULT_BORDER_COLOR = 0x59616a;
+const HOVER_BORDER_COLOR = 0xb2bac4;
+
 export class CellView {
   private readonly background: Phaser.GameObjects.Rectangle;
   private readonly marker: Phaser.GameObjects.Text;
+
+  private readonly fixedMarker:
+    string | null;
+
+  private state: CellStateValue =
+    CellState.Unknown;
+
+  private conflict = false;
 
   constructor(
     scene: Phaser.Scene,
     centerX: number,
     centerY: number,
     size: number,
-    isMonster: boolean,
+    fixedMarker: string | null,
     onPointerDown: CellPointerHandler,
     onPointerOver: CellPointerHandler,
   ) {
+    this.fixedMarker = fixedMarker;
+
     this.background = scene.add
       .rectangle(
         centerX,
         centerY,
         size - 6,
         size - 6,
-        0x252a30,
+        UNKNOWN_COLOR,
       )
       .setStrokeStyle(
         2,
-        0x59616a,
+        DEFAULT_BORDER_COLOR,
       );
 
     this.marker = scene.add
@@ -49,17 +66,9 @@ export class CellView {
       )
       .setOrigin(0.5);
 
-    if (isMonster) {
-      this.marker.setText('M');
-
-      this.background.setFillStyle(
-        0x3c3540,
-      );
-
-      this.background.setStrokeStyle(
-        2,
-        0x9f849f,
-      );
+    if (fixedMarker !== null) {
+      this.state = CellState.Floor;
+      this.render();
 
       return;
     }
@@ -84,7 +93,7 @@ export class CellView {
       ) => {
         this.background.setStrokeStyle(
           3,
-          0xb2bac4,
+          HOVER_BORDER_COLOR,
         );
 
         onPointerOver(pointer);
@@ -96,7 +105,7 @@ export class CellView {
       () => {
         this.background.setStrokeStyle(
           2,
-          0x59616a,
+          DEFAULT_BORDER_COLOR,
         );
       },
     );
@@ -105,10 +114,39 @@ export class CellView {
   setState(
     state: CellStateValue,
   ): void {
-    switch (state) {
+    this.state = state;
+    this.render();
+  }
+
+  setConflict(
+    conflict: boolean,
+  ): void {
+    this.conflict = conflict;
+    this.render();
+  }
+
+  private render(): void {
+    if (this.fixedMarker !== null) {
+      this.background.setFillStyle(
+        0x3c3540,
+      );
+
+      this.background.setStrokeStyle(
+        2,
+        0x9f849f,
+      );
+
+      this.marker.setText(
+        this.fixedMarker,
+      );
+
+      return;
+    }
+
+    switch (this.state) {
       case CellState.Unknown:
         this.background.setFillStyle(
-          0x252a30,
+          UNKNOWN_COLOR,
         );
 
         this.marker.setText('');
@@ -116,7 +154,9 @@ export class CellView {
 
       case CellState.Wall:
         this.background.setFillStyle(
-          0x827565,
+          this.conflict
+            ? WALL_CONFLICT_COLOR
+            : WALL_COLOR,
         );
 
         this.marker.setText('');
@@ -124,7 +164,7 @@ export class CellView {
 
       case CellState.Floor:
         this.background.setFillStyle(
-          0x252a30,
+          UNKNOWN_COLOR,
         );
 
         this.marker.setText('·');

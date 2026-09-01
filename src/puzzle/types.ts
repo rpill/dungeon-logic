@@ -22,12 +22,14 @@ export interface LevelDefinition {
   columnClues: readonly number[];
 
   monsters: readonly GridPosition[];
+  chests: readonly GridPosition[];
 
   /**
    * # = wall
-   * . = floor
+   * . = open space
    *
-   * Monster cells are represented as floor here.
+   * Monster and chest cells are represented
+   * as open space in the solution.
    */
   solution: readonly string[];
 }

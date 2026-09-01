@@ -18,6 +18,12 @@ interface DragState {
   visited: Set<string>;
 }
 
+const CLUE_ACTIVE_COLOR =
+  '#ff6557';
+
+const CLUE_COMPLETE_COLOR =
+  '#777b7d';
+
 export class BoardView {
   private readonly scene: Phaser.Scene;
   private readonly puzzle: PuzzleState;
@@ -26,6 +32,12 @@ export class BoardView {
   private readonly cellSize: number;
 
   private readonly cells: CellView[][] = [];
+
+  private readonly rowClues:
+    Phaser.GameObjects.Text[] = [];
+
+  private readonly columnClues:
+    Phaser.GameObjects.Text[] = [];
 
   private dragState: DragState | null = null;
 
@@ -44,6 +56,8 @@ export class BoardView {
 
     this.createClues();
     this.createCells();
+
+    this.updateConstraintFeedback();
 
     this.scene.input.on(
       'pointerup',
@@ -73,19 +87,26 @@ export class BoardView {
         x * this.cellSize +
         this.cellSize / 2;
 
-      this.scene.add
-        .text(
-          centerX,
-          this.originY - 32,
-          String(level.columnClues[x]),
-          {
-            fontFamily: 'monospace',
-            fontSize: '26px',
-            color: '#d8d1c4',
-            fontStyle: 'bold',
-          },
-        )
-        .setOrigin(0.5);
+      const clue =
+        this.scene.add
+          .text(
+            centerX,
+            this.originY - 32,
+            String(
+              level.columnClues[x],
+            ),
+            {
+              fontFamily: 'monospace',
+              fontSize: '26px',
+              color: CLUE_ACTIVE_COLOR,
+              fontStyle: 'bold',
+            },
+          )
+          .setOrigin(0.5);
+
+      this.columnClues.push(
+        clue,
+      );
     }
 
     for (
@@ -98,19 +119,26 @@ export class BoardView {
         y * this.cellSize +
         this.cellSize / 2;
 
-      this.scene.add
-        .text(
-          this.originX - 36,
-          centerY,
-          String(level.rowClues[y]),
-          {
-            fontFamily: 'monospace',
-            fontSize: '26px',
-            color: '#d8d1c4',
-            fontStyle: 'bold',
-          },
-        )
-        .setOrigin(0.5);
+      const clue =
+        this.scene.add
+          .text(
+            this.originX - 36,
+            centerY,
+            String(
+              level.rowClues[y],
+            ),
+            {
+              fontFamily: 'monospace',
+              fontSize: '26px',
+              color: CLUE_ACTIVE_COLOR,
+              fontStyle: 'bold',
+            },
+          )
+          .setOrigin(0.5);
+
+      this.rowClues.push(
+        clue,
+      );
     }
   }
 
@@ -139,18 +167,31 @@ export class BoardView {
           y * this.cellSize +
           this.cellSize / 2;
 
-        const isMonster =
+        let fixedMarker:
+          string | null = null;
+
+        if (
           this.puzzle.isMonster(
             x,
             y,
-          );
+          )
+        ) {
+          fixedMarker = 'M';
+        } else if (
+          this.puzzle.isChest(
+            x,
+            y,
+          )
+        ) {
+          fixedMarker = 'C';
+        }
 
         const cell = new CellView(
           this.scene,
           centerX,
           centerY,
           this.cellSize,
-          isMonster,
+          fixedMarker,
           (pointer) => {
             this.beginDrag(
               x,
@@ -257,7 +298,8 @@ export class BoardView {
     y: number,
     cell: CellView,
   ): void {
-    const dragState = this.dragState;
+    const dragState =
+      this.dragState;
 
     if (dragState === null) {
       return;
@@ -289,13 +331,18 @@ export class BoardView {
       return;
     }
 
-    this.puzzle.setCellState(
-      x,
-      y,
-      next,
+    const appliedState =
+      this.puzzle.setCellState(
+        x,
+        y,
+        next,
+      );
+
+    cell.setState(
+      appliedState,
     );
 
-    cell.setState(next);
+    this.updateConstraintFeedback();
   }
 
   private getDragResult(
@@ -319,6 +366,113 @@ export class BoardView {
     }
 
     return CellState.Floor;
+  }
+
+  private updateConstraintFeedback(): void {
+    this.updateClues();
+    this.updateWallConflicts();
+  }
+
+  private updateClues(): void {
+    const level =
+      this.puzzle.level;
+
+    for (
+      let y = 0;
+      y < level.height;
+      y += 1
+    ) {
+      const current =
+        this.puzzle.getRowWallCount(
+          y,
+        );
+
+      const target =
+        level.rowClues[y];
+
+      this.rowClues[y].setColor(
+        current === target
+          ? CLUE_COMPLETE_COLOR
+          : CLUE_ACTIVE_COLOR,
+      );
+    }
+
+    for (
+      let x = 0;
+      x < level.width;
+      x += 1
+    ) {
+      const current =
+        this.puzzle.getColumnWallCount(
+          x,
+        );
+
+      const target =
+        level.columnClues[x];
+
+      this.columnClues[x].setColor(
+        current === target
+          ? CLUE_COMPLETE_COLOR
+          : CLUE_ACTIVE_COLOR,
+      );
+    }
+  }
+
+  private updateWallConflicts(): void {
+    const level =
+      this.puzzle.level;
+
+    const overfilledRows =
+      new Set<number>();
+
+    const overfilledColumns =
+      new Set<number>();
+
+    for (
+      let y = 0;
+      y < level.height;
+      y += 1
+    ) {
+      if (
+        this.puzzle.getRowWallCount(y) >
+        level.rowClues[y]
+      ) {
+        overfilledRows.add(y);
+      }
+    }
+
+    for (
+      let x = 0;
+      x < level.width;
+      x += 1
+    ) {
+      if (
+        this.puzzle.getColumnWallCount(x) >
+        level.columnClues[x]
+      ) {
+        overfilledColumns.add(x);
+      }
+    }
+
+    for (
+      let y = 0;
+      y < level.height;
+      y += 1
+    ) {
+      for (
+        let x = 0;
+        x < level.width;
+        x += 1
+      ) {
+        const conflict =
+          overfilledRows.has(y) ||
+          overfilledColumns.has(x);
+
+        this.cells[y][x].setConflict(
+          conflict,
+        );
+      }
+    }
   }
 
   private endDrag(): void {
