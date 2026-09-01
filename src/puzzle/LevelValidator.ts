@@ -14,6 +14,7 @@ export interface ValidationResult {
 
   monsterDeadEndsValid: boolean;
   hallwayWidthValid: boolean;
+  doorsValid: boolean;
 
   isSolved: boolean;
 }
@@ -56,6 +57,9 @@ export function validatePuzzle(
 
   const connectivityValid =
     isOpenAreaConnected(puzzle);
+
+  const doorsValid =
+    areDoorsValid(puzzle);
 
   const roomLayouts =
     findTreasureRoomLayouts(
@@ -116,7 +120,8 @@ export function validatePuzzle(
     columnCluesValid &&
     connectivityValid &&
     treasureRoomsValid &&
-    compatibleRoomLayoutExists;
+    compatibleRoomLayoutExists &&
+    doorsValid;
 
   return {
     rowCluesValid,
@@ -125,8 +130,92 @@ export function validatePuzzle(
     connectivityValid,
     monsterDeadEndsValid,
     hallwayWidthValid,
+    doorsValid,
     isSolved,
   };
+}
+
+function areDoorsValid(
+  puzzle: PuzzleState,
+): boolean {
+  for (
+    const door
+    of puzzle.level.doors
+  ) {
+    const x =
+      door.position.x;
+
+    const y =
+      door.position.y;
+
+    if (
+      x <= 0 ||
+      x >= puzzle.level.width - 1 ||
+      y <= 0 ||
+      y >= puzzle.level.height - 1
+    ) {
+      return false;
+    }
+
+    if (
+      door.orientation ===
+      'horizontal'
+    ) {
+      if (
+        !isOpen(
+          puzzle,
+          x - 1,
+          y,
+        ) ||
+        !isOpen(
+          puzzle,
+          x + 1,
+          y,
+        ) ||
+        !isClosed(
+          puzzle,
+          x,
+          y - 1,
+        ) ||
+        !isClosed(
+          puzzle,
+          x,
+          y + 1,
+        )
+      ) {
+        return false;
+      }
+
+      continue;
+    }
+
+    if (
+      !isOpen(
+        puzzle,
+        x,
+        y - 1,
+      ) ||
+      !isOpen(
+        puzzle,
+        x,
+        y + 1,
+      ) ||
+      !isClosed(
+        puzzle,
+        x - 1,
+        y,
+      ) ||
+      !isClosed(
+        puzzle,
+        x + 1,
+        y,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function areRowCluesValid(
@@ -330,6 +419,15 @@ function isRoomCandidateValid(
      */
     if (
       puzzle.isMonster(
+        position.x,
+        position.y,
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      puzzle.isDoor(
         position.x,
         position.y,
       )

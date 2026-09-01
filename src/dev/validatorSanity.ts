@@ -73,6 +73,22 @@ export function runValidatorSanityChecks(): void {
       name: 'blocker closes dungeon topology',
       run: checkBlockerTopology,
     },
+    {
+      name: 'valid horizontal door',
+      run: checkValidHorizontalDoor,
+    },
+    {
+      name: 'invalid horizontal door side',
+      run: checkInvalidHorizontalDoorSide,
+    },
+    {
+      name: 'edge door invalid',
+      run: checkEdgeDoorInvalid,
+    },
+    {
+      name: 'door inside treasure room invalid',
+      run: checkDoorInsideTreasureRoom,
+    },
   ];
 
   let passed = 0;
@@ -155,6 +171,11 @@ function checkValidLevel(
   assert(
     result.hallwayWidthValid,
     'Hallway width should be valid.',
+  );
+
+  assert(
+    result.doorsValid,
+    'Directional doors should be valid.',
   );
 
   assert(
@@ -614,6 +635,183 @@ function checkBlockerTopology(): void {
   assert(
     result.hallwayWidthValid,
     'Blocker must break an otherwise open 2x2.',
+  );
+}
+
+function checkValidHorizontalDoor(): void {
+  const board = [
+    '...',
+    '...',
+    '.#.',
+  ];
+
+  const level =
+    createLevelFromBoard(
+      'sanity-horizontal-door',
+      board,
+      [],
+      [],
+      [
+        {
+          x: 1,
+          y: 0,
+        },
+      ],
+      [
+        {
+          position: {
+            x: 1,
+            y: 1,
+          },
+          orientation: 'horizontal',
+        },
+      ],
+    );
+
+  const puzzle =
+    createPuzzleFromBoard(
+      level,
+      board,
+    );
+
+  const result =
+    validatePuzzle(puzzle);
+
+  assert(
+    result.doorsValid,
+    'Horizontal door should accept open left/right and closed up/down.',
+  );
+}
+
+function checkInvalidHorizontalDoorSide(): void {
+  const board = [
+    '...',
+    '#..',
+    '.#.',
+  ];
+
+  const level =
+    createLevelFromBoard(
+      'sanity-invalid-horizontal-door',
+      board,
+      [],
+      [],
+      [
+        {
+          x: 1,
+          y: 0,
+        },
+      ],
+      [
+        {
+          position: {
+            x: 1,
+            y: 1,
+          },
+          orientation: 'horizontal',
+        },
+      ],
+    );
+
+  const puzzle =
+    createPuzzleFromBoard(
+      level,
+      board,
+    );
+
+  const result =
+    validatePuzzle(puzzle);
+
+  assert(
+    !result.doorsValid,
+    'Horizontal door must reject a closed left/right neighbor.',
+  );
+}
+
+function checkEdgeDoorInvalid(): void {
+  const board = [
+    '...',
+    '...',
+    '...',
+  ];
+
+  const level =
+    createLevelFromBoard(
+      'sanity-edge-door',
+      board,
+      [],
+      [],
+      [],
+      [
+        {
+          position: {
+            x: 0,
+            y: 1,
+          },
+          orientation: 'vertical',
+        },
+      ],
+    );
+
+  const puzzle =
+    createPuzzleFromBoard(
+      level,
+      board,
+    );
+
+  const result =
+    validatePuzzle(puzzle);
+
+  assert(
+    !result.doorsValid,
+    'Directional door on the board edge must be invalid.',
+  );
+}
+
+function checkDoorInsideTreasureRoom(): void {
+  const board = [
+    '#####',
+    '#...#',
+    '#...#',
+    '#...#',
+    '##.##',
+  ];
+
+  const level =
+    createLevelFromBoard(
+      'sanity-door-inside-room',
+      board,
+      [],
+      [
+        {
+          x: 2,
+          y: 2,
+        },
+      ],
+      [],
+      [
+        {
+          position: {
+            x: 1,
+            y: 1,
+          },
+          orientation: 'horizontal',
+        },
+      ],
+    );
+
+  const puzzle =
+    createPuzzleFromBoard(
+      level,
+      board,
+    );
+
+  const result =
+    validatePuzzle(puzzle);
+
+  assert(
+    !result.treasureRoomsValid,
+    'Directional door must not be accepted inside a treasure room.',
   );
 }
 
