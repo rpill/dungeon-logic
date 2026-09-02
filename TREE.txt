@@ -33,9 +33,12 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
+│   │   ├── levelQualitySanity.ts
 │   │   ├── solverSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/
+│   │   ├── quality/
+│   │   │   └── LevelQualityAnalyzer.ts
 │   │   ├── solver/
 │   │   │   ├── PuzzleSolver.ts
 │   │   │   ├── SearchState.ts

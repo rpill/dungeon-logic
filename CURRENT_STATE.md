@@ -336,6 +336,17 @@ Directional Door требует две обычные стены по перпе
 
 Этот placement guideline является правилом ручного контента, а не новым dungeon rule: `LevelValidator` по-прежнему разрешает Chest в любой клетке валидной комнаты 3×3.
 
+Текущая структура батча после quality-pass:
+
+- `level005` — 6×6, Monster-only;
+- `level006` — 7×7, Chest-only, одна Treasure Room;
+- `level007` — 7×7, Monsters + одна Treasure Room;
+- `level008` — 7×7, две Treasure Rooms без monsters;
+- `level009` — 7×7, Monster-only;
+- `level010` — 8×8, Monsters + одна Treasure Room;
+- `level011` — 8×8, две Treasure Rooms без monsters;
+- `level012` — 8×8, Monsters + две Treasure Rooms.
+
 Батч не является финальной progression-кривой и используется для проверки разнообразия базовых правил перед будущим generator.
 
 ---
@@ -691,6 +702,39 @@ Solver v1 пока не предоставляет:
 
 ---
 
+## Level quality analyzer
+
+Реализован отдельный authored-content analyzer:
+
+`src/puzzle/quality/LevelQualityAnalyzer.ts`
+
+Он не участвует в runtime victory и не добавляет новые dungeon rules. Его задача — отбраковывать технически валидные и уникальные, но геометрически слабые уровни до ручного playtest.
+
+Текущий quality gate для `level005+`:
+
+- wall density не выше 55%;
+- ни одной полностью WALL строки или колонки;
+- ни одного сплошного WALL-блока 3×3;
+- не больше 25% всех клеток могут становиться WALL только через стартовую row/column clue propagation.
+
+Near-full линии (`size - 1`) измеряются отдельно, но сами по себе пока не являются причиной reject.
+
+Analyzer различает:
+
+- `clueOnlyForcedWallCount` — стены, которые выводятся только из чисел строк/столбцов без fixed objects;
+- `objectAwareForcedWallCount` — стены после учёта известных non-WALL Monster / Chest / Door / Blocker cells;
+- `objectAssistedForcedWallCount` — дополнительная дедукция, появившаяся благодаря fixed objects.
+
+Поэтому лёгкое начало от Monster считается допустимым: например, два Monster в строке `6/8` могут немедленно вынудить остальные шесть клеток стать WALL, но это не считается clue-only халявой.
+
+Локальные regression checks:
+
+`src/dev/levelQualitySanity.ts`
+
+Они проверяют искусственный плохой wall slab, положительный monster-assisted пример и весь authored diversity-batch.
+
+---
+
 ## Restart
 
 Реализован ручной Restart текущего уровня.
@@ -830,7 +874,7 @@ Static Field Mechanics v1 и Solver v1 функционально добавле
 
 Ближайший порядок разработки:
 
-1. Ручно пройти и сравнить `level005–level012`, отметить удачные Monster-only, Chest-only и mixed layouts и продолжать добавлять representative puzzle layouts только через Solver v1 uniqueness gate.
+1. Ручно пройти и сравнить переработанные `level005–level012`, отметить удачные Monster-only, Chest-only и mixed layouts и продолжать добавлять representative puzzle layouts только через Solver v1 uniqueness gate + Level Quality gate.
 
 2. На реальных уровнях профилировать solver, особенно при росте поля к 10×10; целевой бюджет — около 1 секунды для обычного уровня, без жёсткого timing assertion.
 
