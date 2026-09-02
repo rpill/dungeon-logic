@@ -1245,14 +1245,14 @@ npm run context:last
 **Interfaces:**
 - Consumes: `PuzzleState`, `CellState`, `validatePuzzle`, `solveLevel`, `analyzeLevelQuality`.
 - Produces: `evaluateCandidate(candidate): CandidateEvaluation`.
-- Produces exact statuses: `invalid`, `unsat`, `non-unique`, `hard-quality`, `geometry-warning`, `accepted`.
+- Produces exact statuses: `invalid`, `non-unique`, `hard-quality`, `geometry-warning`, `accepted`.
+- Treats `solveLevel(...).solutionCount === 0` after successful generated-solution validation as an internal invariant error, not a rejection status.
 
 Add contracts:
 
 ```ts
 export const CandidateStatus = {
   Invalid: 'invalid',
-  Unsat: 'unsat',
   NonUnique: 'non-unique',
   HardQuality: 'hard-quality',
   GeometryWarning: 'geometry-warning',
@@ -1279,7 +1279,6 @@ export type CandidateEvaluation =
   | {
       status:
         | 'invalid'
-        | 'unsat'
         | 'non-unique'
         | 'hard-quality'
         | 'geometry-warning';
@@ -1312,10 +1311,11 @@ Add helpers that wrap a `LevelDefinition` as a `GeneratedCandidate`.
 Use existing authored/known fixtures for specific pipeline stages:
 
 1. **invalid** — a complete level with correct clue shape but invalid canonical dungeon topology (for example an open 2×2 outside any Treasure Room).
-2. **unsat** — reuse the solver sanity's known unsatisfiable clue fixture.
-3. **non-unique** — reuse the solver sanity's known ambiguous fixture that returns `solutionCount === 2`.
-4. **hard-quality** — wrap existing valid/unique `level001` and assert its current hard authored quality result before using it as fixture; if current thresholds no longer reject it, embed a valid unique historical high-density fixture instead.
-5. **geometry-warning** — embed the historical compact-wall `level011` fixture already used by `levelQualitySanity` as the warning fixture.
+2. **non-unique** — reuse the solver sanity's known ambiguous fixture that returns `solutionCount === 2`.
+3. **hard-quality** — wrap an existing valid/unique level only after asserting its current hard authored quality result; if no current authored level is suitable, embed a dedicated valid unique high-density fixture.
+4. **geometry-warning** — embed the historical compact-wall fixture already used by `levelQualitySanity` as the warning fixture.
+
+Do not add an ordinary `unsat` rejection fixture. In a solution-first pipeline, a generated solution that already passed `LevelValidator` proves satisfiability. `solutionCount === 0` at the solver stage is therefore an internal invariant failure.
 
 Each test must assert the exact status, not merely "not accepted".
 
@@ -1401,13 +1401,9 @@ export function evaluateCandidate(
   if (
     solveResult.solutionCount === 0
   ) {
-    return {
-      status:
-        CandidateStatus.Unsat,
-      accepted: null,
-      diagnostic:
-        'Solver found no solution.',
-    };
+    throw new Error(
+      `Generator invariant violated: ${candidate.id} passed LevelValidator but PuzzleSolver found no solution.`,
+    );
   }
 
   if (
@@ -1521,7 +1517,6 @@ Add:
 export const RejectionReason = {
   GenerationFailed: 'generation-failed',
   Invalid: 'invalid',
-  Unsat: 'unsat',
   NonUnique: 'non-unique',
   HardQuality: 'hard-quality',
   GeometryWarning: 'geometry-warning',
@@ -2166,7 +2161,6 @@ attempts
 accepted
 generation-failed
 invalid
-unsat
 non-unique
 hard-quality
 geometry-warning

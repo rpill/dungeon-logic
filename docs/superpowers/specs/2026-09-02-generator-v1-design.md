@@ -422,7 +422,8 @@ LevelValidator
     ↓
 PuzzleSolver
     0 solutions
-    → unsat
+    → INTERNAL INVARIANT ERROR
+      (a validator-accepted generated solution already proves at least one solution exists)
 
     2+ solutions
     → non-unique
@@ -474,11 +475,12 @@ At minimum the batch report distinguishes:
 
 - `generation-failed`;
 - `invalid`;
-- `unsat`;
 - `non-unique`;
 - `hard-quality`;
 - `geometry-warning`;
 - `accepted`.
+
+`unsat` is intentionally **not** a normal Generator v1 rejection reason. Generator v1 is solution-first: once `LevelValidator` accepts the generated complete solution, at least one valid solution is already known to exist. Therefore `PuzzleSolver.solutionCount === 0` after successful validation indicates a contradiction between validator and solver and must terminate the run as an internal invariant error rather than being counted as an ordinary rejected candidate.
 
 Where practical, rejected records should preserve a short diagnostic reason.
 
@@ -619,7 +621,6 @@ Monster-only
   accepted: 10
   generation-failed: 91
   invalid: 34
-  unsat: 7
   non-unique: 22
   hard-quality: 12
   geometry-warning: 8
