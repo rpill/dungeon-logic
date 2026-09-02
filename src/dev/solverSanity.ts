@@ -66,6 +66,10 @@ export function runSolverSanityChecks(): void {
       name: 'blocker cannot frame solver door',
       run: checkSolverRejectsBlockerDoorFrame,
     },
+    {
+      name: 'potential connectivity pruning',
+      run: checkPotentialConnectivity,
+    },
   ];
 
   let passed = 0;
@@ -463,6 +467,106 @@ function checkSolverRejectsBlockerDoorFrame(): void {
   assert(
     result.solutionCount === 0,
     'Blocker-framed door level must have no solution.',
+  );
+}
+
+function checkPotentialConnectivity(): void {
+  const level: LevelDefinition = {
+    id: 'solver-connectivity-prune',
+    width: 3,
+    height: 3,
+    rowClues: [0, 0, 0],
+    columnClues: [0, 0, 0],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+    solution: [
+      '...',
+      '...',
+      '...',
+    ],
+  };
+
+  const blocked =
+    new SearchState(level);
+
+  assert(
+    blocked.assign(
+      0,
+      1,
+      SearchCellState.Open,
+    ),
+    'Left OPEN assignment should succeed.',
+  );
+
+  assert(
+    blocked.assign(
+      2,
+      1,
+      SearchCellState.Open,
+    ),
+    'Right OPEN assignment should succeed.',
+  );
+
+  for (const y of [0, 1, 2]) {
+    assert(
+      blocked.assign(
+        1,
+        y,
+        SearchCellState.Wall,
+      ),
+      'Barrier WALL assignment should succeed.',
+    );
+  }
+
+  assert(
+    !blocked.isPotentialConnectivityValid(),
+    'Mandatory OPEN regions separated by permanent WALLs must be impossible.',
+  );
+
+  const possible =
+    new SearchState(level);
+
+  assert(
+    possible.assign(
+      0,
+      1,
+      SearchCellState.Open,
+    ),
+    'Left OPEN assignment should succeed.',
+  );
+
+  assert(
+    possible.assign(
+      2,
+      1,
+      SearchCellState.Open,
+    ),
+    'Right OPEN assignment should succeed.',
+  );
+
+  assert(
+    possible.assign(
+      1,
+      0,
+      SearchCellState.Wall,
+    ),
+    'Top barrier WALL should succeed.',
+  );
+
+  assert(
+    possible.assign(
+      1,
+      2,
+      SearchCellState.Wall,
+    ),
+    'Bottom barrier WALL should succeed.',
+  );
+
+  assert(
+    possible.isPotentialConnectivityValid(),
+    'UNASSIGNED center must remain a possible bridge.',
   );
 }
 

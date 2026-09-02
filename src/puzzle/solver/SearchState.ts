@@ -269,6 +269,131 @@ export class SearchState {
     };
   }
 
+  isPotentialConnectivityValid():
+    boolean {
+    const mandatoryOpen:
+      GridPosition[] = [];
+
+    for (
+      let y = 0;
+      y < this.level.height;
+      y += 1
+    ) {
+      for (
+        let x = 0;
+        x < this.level.width;
+        x += 1
+      ) {
+        if (
+          this.cells[y][x] ===
+          SearchCellState.Open
+        ) {
+          mandatoryOpen.push({
+            x,
+            y,
+          });
+        }
+      }
+    }
+
+    if (mandatoryOpen.length <= 1) {
+      return true;
+    }
+
+    const start =
+      mandatoryOpen[0];
+
+    const queue:
+      GridPosition[] = [start];
+
+    const visited =
+      new Set<string>();
+
+    while (queue.length > 0) {
+      const current =
+        queue.shift();
+
+      if (current === undefined) {
+        break;
+      }
+
+      const key =
+        `${current.x}:${current.y}`;
+
+      if (visited.has(key)) {
+        continue;
+      }
+
+      visited.add(key);
+
+      const neighbors = [
+        {
+          x: current.x + 1,
+          y: current.y,
+        },
+        {
+          x: current.x - 1,
+          y: current.y,
+        },
+        {
+          x: current.x,
+          y: current.y + 1,
+        },
+        {
+          x: current.x,
+          y: current.y - 1,
+        },
+      ];
+
+      for (
+        const neighbor
+        of neighbors
+      ) {
+        if (
+          neighbor.x < 0 ||
+          neighbor.x >=
+            this.level.width ||
+          neighbor.y < 0 ||
+          neighbor.y >=
+            this.level.height
+        ) {
+          continue;
+        }
+
+        const cell =
+          this.cells[
+            neighbor.y
+          ][neighbor.x];
+
+        if (
+          cell === null ||
+          cell ===
+            SearchCellState.Wall
+        ) {
+          continue;
+        }
+
+        const neighborKey =
+          `${neighbor.x}:${neighbor.y}`;
+
+        if (
+          !visited.has(
+            neighborKey,
+          )
+        ) {
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    return mandatoryOpen.every(
+      (position) =>
+        visited.has(
+          `${position.x}:${position.y}`,
+        ),
+    );
+  }
+
   private positionKey(
     position: GridPosition,
   ): string {

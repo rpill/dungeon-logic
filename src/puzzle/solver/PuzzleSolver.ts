@@ -28,7 +28,6 @@ interface SearchContext {
 export function solveLevel(
   level: LevelDefinition,
 ): SolveResult {
-  // Reuse existing structural fixed-object validation.
   new PuzzleState(level);
 
   const state =
@@ -65,7 +64,11 @@ function search(
 
   if (
     !propagated ||
-    !areLineConstraintsFeasible(state)
+    !areLineConstraintsFeasible(
+      state,
+    ) ||
+    !state
+      .isPotentialConnectivityValid()
   ) {
     state.rollback(checkpoint);
     return;
