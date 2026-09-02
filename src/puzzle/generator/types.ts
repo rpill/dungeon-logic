@@ -1,0 +1,77 @@
+import type {
+  GridPosition,
+  LevelDefinition,
+} from '../types';
+
+export const GeneratorArchetype = {
+  MonsterOnly: 'monster-only',
+  ChestOneRoom: 'chest-one-room',
+  ChestTwoRooms: 'chest-two-rooms',
+  MixedOneRoom: 'mixed-one-room',
+  MixedTwoRooms: 'mixed-two-rooms',
+} as const;
+
+export type GeneratorArchetype =
+  typeof GeneratorArchetype[
+    keyof typeof GeneratorArchetype
+  ];
+
+export type GeneratorBoardSize =
+  | 6
+  | 7
+  | 8;
+
+export interface GeneratorConfig {
+  masterSeed: number;
+  acceptedPerArchetype: number;
+  shortlistPerArchetype: number;
+  maxAttemptsPerArchetype: number;
+}
+
+export interface PlannedRoom {
+  topLeft: GridPosition;
+  internalEntrance: GridPosition;
+  externalEntrance: GridPosition;
+}
+
+export interface GeneratedCandidate {
+  id: string;
+  seed: number;
+  archetype: GeneratorArchetype;
+  size: GeneratorBoardSize;
+  rooms: readonly PlannedRoom[];
+  level: LevelDefinition;
+}
+
+export type CandidateGenerationResult =
+  | {
+      ok: true;
+      candidate: GeneratedCandidate;
+    }
+  | {
+      ok: false;
+      reason: string;
+    };
+
+export const ALL_GENERATOR_ARCHETYPES:
+  readonly GeneratorArchetype[] = [
+    GeneratorArchetype.MonsterOnly,
+    GeneratorArchetype.ChestOneRoom,
+    GeneratorArchetype.ChestTwoRooms,
+    GeneratorArchetype.MixedOneRoom,
+    GeneratorArchetype.MixedTwoRooms,
+  ];
+
+export const ALLOWED_SIZES:
+  Readonly<
+    Record<
+      GeneratorArchetype,
+      readonly GeneratorBoardSize[]
+    >
+  > = {
+    'monster-only': [6, 7, 8],
+    'chest-one-room': [6, 7, 8],
+    'chest-two-rooms': [7, 8],
+    'mixed-one-room': [6, 7, 8],
+    'mixed-two-rooms': [7, 8],
+  };
