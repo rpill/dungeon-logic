@@ -16,6 +16,7 @@ import {
 import {
   deriveClues,
   generateCandidate,
+  getHallwayDeadEnds,
 } from '../puzzle/generator/CandidateGenerator';
 
 import {
@@ -42,6 +43,12 @@ import {
 } from '../data/levels/level001';
 
 import {
+  validatePuzzle,
+} from '../puzzle/LevelValidator';
+
+import { PuzzleState } from '../puzzle/PuzzleState';
+
+import {
   analyzeLevelQuality,
 } from '../puzzle/quality/LevelQualityAnalyzer';
 
@@ -49,11 +56,14 @@ import {
   solveLevel,
 } from '../puzzle/solver/PuzzleSolver';
 
-import type {
-  LevelDefinition,
+import {
+  CellState,
+  type LevelDefinition,
 } from '../puzzle/types';
 
 import {
+  ALLOWED_SIZES,
+  ALL_GENERATOR_ARCHETYPES,
   GeneratorArchetype,
   type AcceptedCandidate,
   type GeneratedCandidate,
@@ -1521,6 +1531,376 @@ async function runFilesystemCliChecks(): Promise<void> {
   );
 }
 
+
+function createPuzzleForSanity(
+  level: LevelDefinition,
+): PuzzleState {
+  const puzzle =
+    new PuzzleState(level);
+
+  for (
+    let y = 0;
+    y < level.height;
+    y += 1
+  ) {
+    for (
+      let x = 0;
+      x < level.width;
+      x += 1
+    ) {
+      if (
+        level.solution[y][x] ===
+        '#'
+      ) {
+        puzzle.setCellState(
+          x,
+          y,
+          CellState.Wall,
+        );
+      }
+    }
+  }
+
+  return puzzle;
+}
+
+function assertAcceptedCandidate(
+  accepted: AcceptedCandidate,
+): void {
+  const candidate =
+    accepted.candidate;
+
+  const level =
+    candidate.level;
+
+  const puzzle =
+    createPuzzleForSanity(
+      level,
+    );
+
+  assert(
+    validatePuzzle(puzzle).isSolved,
+    `${candidate.id} must pass LevelValidator.`,
+  );
+
+  assert(
+    solveLevel(level).solutionCount ===
+      1,
+    `${candidate.id} must be unique.`,
+  );
+
+  const quality =
+    analyzeLevelQuality(level);
+
+  assert(
+    quality.passes,
+    `${candidate.id} must pass hard quality.`,
+  );
+
+  assert(
+    quality.warnings.length === 0,
+    `${candidate.id} must have no geometry warnings.`,
+  );
+
+  assert(
+    ALLOWED_SIZES[
+      candidate.archetype
+    ].includes(
+      candidate.size,
+    ),
+    `${candidate.id} must use an allowed size for ${candidate.archetype}.`,
+  );
+
+  assertArchetypeContract(
+    candidate,
+  );
+
+  assertDeadEndsMatchMonsters(
+    candidate,
+  );
+
+  const derived =
+    deriveClues(
+      level.solution,
+    );
+
+  assert(
+    arraysEqual(
+      derived.rowClues,
+      level.rowClues,
+    ),
+    `${candidate.id} generated row clues must match solution.`,
+  );
+
+  assert(
+    arraysEqual(
+      derived.columnClues,
+      level.columnClues,
+    ),
+    `${candidate.id} generated column clues must match solution.`,
+  );
+
+  assertFixedObjectsOpen(
+    candidate,
+  );
+
+  assertChestDistanceGuideline(
+    candidate,
+  );
+}
+
+function assertArchetypeContract(
+  candidate: GeneratedCandidate,
+): void {
+  const roomCount =
+    candidate.rooms.length;
+
+  const chestCount =
+    candidate.level.chests.length;
+
+  const monsterCount =
+    candidate.level.monsters.length;
+
+  switch (candidate.archetype) {
+    case GeneratorArchetype.MonsterOnly:
+      assert(
+        roomCount === 0 &&
+          chestCount === 0 &&
+          monsterCount > 0,
+        `${candidate.id} must match monster-only object contract.`,
+      );
+      break;
+
+    case GeneratorArchetype.ChestOneRoom:
+      assert(
+        roomCount === 1 &&
+          chestCount === 1 &&
+          monsterCount === 0,
+        `${candidate.id} must match chest-one-room object contract.`,
+      );
+      break;
+
+    case GeneratorArchetype.ChestTwoRooms:
+      assert(
+        roomCount === 2 &&
+          chestCount === 2 &&
+          monsterCount === 0,
+        `${candidate.id} must match chest-two-rooms object contract.`,
+      );
+      break;
+
+    case GeneratorArchetype.MixedOneRoom:
+      assert(
+        roomCount === 1 &&
+          chestCount === 1 &&
+          monsterCount > 0,
+        `${candidate.id} must match mixed-one-room object contract.`,
+      );
+      break;
+
+    case GeneratorArchetype.MixedTwoRooms:
+      assert(
+        roomCount === 2 &&
+          chestCount === 2 &&
+          monsterCount > 0,
+        `${candidate.id} must match mixed-two-rooms object contract.`,
+      );
+      break;
+  }
+
+  assert(
+    candidate.level.blockers.length ===
+      0 &&
+      candidate.level.doors.length ===
+        0,
+    `${candidate.id} Generator v1 candidate must not contain blockers or doors.`,
+  );
+}
+
+function assertDeadEndsMatchMonsters(
+  candidate: GeneratedCandidate,
+): void {
+  const deadEnds =
+    getHallwayDeadEnds(
+      candidate.level.solution,
+      candidate.rooms,
+    );
+
+  const monsterKeys =
+    candidate.level.monsters
+      .map(
+        ({ x, y }) =>
+          `${x}:${y}`,
+      )
+      .sort();
+
+  const deadEndKeys =
+    deadEnds
+      .map(
+        ({ x, y }) =>
+          `${x}:${y}`,
+      )
+      .sort();
+
+  assert(
+    JSON.stringify(
+      monsterKeys,
+    ) ===
+      JSON.stringify(
+        deadEndKeys,
+      ),
+    `${candidate.id} Monster coordinates must equal hallway dead ends exactly.`,
+  );
+}
+
+function arraysEqual(
+  first: readonly number[],
+  second: readonly number[],
+): boolean {
+  return (
+    first.length ===
+      second.length &&
+    first.every(
+      (value, index) =>
+        value === second[index],
+    )
+  );
+}
+
+function runIntegrationInvariantChecks(): void {
+  const shortlistConfig:
+    GeneratorConfig = {
+    masterSeed: 123456,
+    acceptedPerArchetype: 3,
+    shortlistPerArchetype: 2,
+    maxAttemptsPerArchetype: 5000,
+  };
+
+  const firstPool =
+    createCandidatePool(
+      shortlistConfig,
+    );
+
+  assert(
+    firstPool.completed,
+    'Reduced integration pool must complete.',
+  );
+
+  assert(
+    firstPool.accepted.length === 15,
+    'Reduced integration pool must contain 15 accepted candidates.',
+  );
+
+  for (
+    const accepted
+    of firstPool.accepted
+  ) {
+    assertAcceptedCandidate(
+      accepted,
+    );
+  }
+
+  const firstShortlist =
+    selectShortlist(
+      firstPool,
+      shortlistConfig
+        .shortlistPerArchetype,
+    );
+
+  assert(
+    firstShortlist.length === 10,
+    'Reduced integration shortlist must contain 10 candidates.',
+  );
+
+  const shortlistedIds =
+    firstShortlist.map(
+      (ranked) =>
+        ranked.accepted
+          .candidate.id,
+    );
+
+  assert(
+    new Set(
+      shortlistedIds,
+    ).size ===
+      shortlistedIds.length,
+    'Reduced integration shortlist must not contain duplicate candidate IDs.',
+  );
+
+  for (
+    const archetype
+    of ALL_GENERATOR_ARCHETYPES
+  ) {
+    const entries =
+      firstShortlist.filter(
+        (ranked) =>
+          ranked.accepted
+            .candidate
+            .archetype ===
+          archetype,
+      );
+
+    assert(
+      entries.length === 2,
+      `${archetype} must contribute exactly two shortlisted candidates.`,
+    );
+
+    const seeds =
+      entries.map(
+        (ranked) =>
+          ranked.accepted
+            .candidate.seed,
+      );
+
+    assert(
+      new Set(seeds).size ===
+        seeds.length,
+      `${archetype} shortlist must not duplicate candidate seeds.`,
+    );
+  }
+
+  const secondPool =
+    createCandidatePool(
+      shortlistConfig,
+    );
+
+  assert(
+    secondPool.completed,
+    'Repeated reduced integration pool must complete.',
+  );
+
+  const secondShortlist =
+    selectShortlist(
+      secondPool,
+      shortlistConfig
+        .shortlistPerArchetype,
+    );
+
+  const firstOrder =
+    firstShortlist.map(
+      (ranked) =>
+        ranked.accepted
+          .candidate.id,
+    );
+
+  const secondOrder =
+    secondShortlist.map(
+      (ranked) =>
+        ranked.accepted
+          .candidate.id,
+    );
+
+  assert(
+    JSON.stringify(
+      firstOrder,
+    ) ===
+      JSON.stringify(
+        secondOrder,
+      ),
+    'Same master seed must reproduce identical shortlist order.',
+  );
+}
+
 async function main(): Promise<void> {
   runRngChecks();
   runMonsterOnlyChecks();
@@ -1530,10 +1910,11 @@ async function main(): Promise<void> {
   runRankingChecks();
   runOutputFormatChecks();
   runCliContractChecks();
+  runIntegrationInvariantChecks();
   await runFilesystemCliChecks();
 
   console.info(
-    '[Dungeon Logic] Generator sanity: generation + acceptance + pool + ranking + output + CLI filesystem checks passed',
+    '[Dungeon Logic] Generator sanity: generation + acceptance + pool + ranking + integration invariants + output + CLI filesystem checks passed',
   );
 }
 
