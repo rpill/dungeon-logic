@@ -3,6 +3,10 @@ import type {
   LevelDefinition,
 } from '../types';
 
+import type {
+  LevelQualityReport,
+} from '../quality/LevelQualityAnalyzer';
+
 export const GeneratorArchetype = {
   MonsterOnly: 'monster-only',
   ChestOneRoom: 'chest-one-room',
@@ -51,6 +55,41 @@ export type CandidateGenerationResult =
   | {
       ok: false;
       reason: string;
+    };
+
+export const CandidateStatus = {
+  Invalid: 'invalid',
+  NonUnique: 'non-unique',
+  HardQuality: 'hard-quality',
+  GeometryWarning: 'geometry-warning',
+  Accepted: 'accepted',
+} as const;
+
+export type CandidateStatus =
+  typeof CandidateStatus[
+    keyof typeof CandidateStatus
+  ];
+
+export interface AcceptedCandidate {
+  candidate: GeneratedCandidate;
+  quality: LevelQualityReport;
+  solutionCount: 1;
+}
+
+export type CandidateEvaluation =
+  | {
+      status: 'accepted';
+      accepted: AcceptedCandidate;
+      diagnostic: null;
+    }
+  | {
+      status:
+        | 'invalid'
+        | 'non-unique'
+        | 'hard-quality'
+        | 'geometry-warning';
+      accepted: null;
+      diagnostic: string;
     };
 
 export const ALL_GENERATOR_ARCHETYPES:

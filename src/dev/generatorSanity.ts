@@ -9,6 +9,26 @@ import {
 } from '../puzzle/generator/CandidateGenerator';
 
 import {
+  evaluateCandidate,
+} from '../puzzle/generator/CandidateFactory';
+
+import {
+  level001,
+} from '../data/levels/level001';
+
+import {
+  analyzeLevelQuality,
+} from '../puzzle/quality/LevelQualityAnalyzer';
+
+import {
+  solveLevel,
+} from '../puzzle/solver/PuzzleSolver';
+
+import type {
+  LevelDefinition,
+} from '../puzzle/types';
+
+import {
   GeneratorArchetype,
   type GeneratedCandidate,
   type GeneratorArchetype as GeneratorArchetypeType,
@@ -390,10 +410,303 @@ function assertChestDistanceGuideline(
   }
 }
 
+
+function runAcceptancePipelineChecks(): void {
+  const accepted =
+    findAcceptedGeneratedCandidate();
+
+  assert(
+    accepted !== null,
+    'Expected at least one generated candidate to pass the full acceptance pipeline.',
+  );
+
+  const invalidCandidate =
+    wrapGeneratedFixture({
+      id: 'generator-invalid-open-4x4',
+      width: 4,
+      height: 4,
+      rowClues: [0, 0, 0, 0],
+      columnClues: [0, 0, 0, 0],
+      monsters: [],
+      chests: [],
+      blockers: [],
+      doors: [],
+      solution: [
+        '....',
+        '....',
+        '....',
+        '....',
+      ],
+    });
+
+  const invalidEvaluation =
+    evaluateCandidate(
+      invalidCandidate,
+    );
+
+  assert(
+    invalidEvaluation.status ===
+      'invalid',
+    `Open 4x4 fixture must be rejected as invalid, got ${invalidEvaluation.status}.`,
+  );
+
+  const ambiguousBase:
+    LevelDefinition = {
+      id:
+        'generator-non-unique-4x4',
+      width: 4,
+      height: 4,
+      rowClues: [1, 1, 1, 1],
+      columnClues: [1, 1, 1, 1],
+      monsters: [],
+      chests: [],
+      blockers: [],
+      doors: [],
+      solution: [
+        '....',
+        '....',
+        '....',
+        '....',
+      ],
+    };
+
+  const ambiguousSolve =
+    solveLevel(
+      ambiguousBase,
+    );
+
+  assert(
+    ambiguousSolve.solutionCount === 2,
+    'Ambiguous fixture must still have 2+ solutions.',
+  );
+
+  assert(
+    ambiguousSolve.firstSolution !== null,
+    'Ambiguous fixture must expose a valid first solution.',
+  );
+
+  if (
+    ambiguousSolve.firstSolution ===
+    null
+  ) {
+    throw new Error(
+      'Ambiguous fixture unexpectedly has no first solution.',
+    );
+  }
+
+  const ambiguousCandidate =
+    wrapGeneratedFixture({
+      ...ambiguousBase,
+      solution:
+        ambiguousSolve.firstSolution,
+    });
+
+  const ambiguousEvaluation =
+    evaluateCandidate(
+      ambiguousCandidate,
+    );
+
+  assert(
+    ambiguousEvaluation.status ===
+      'non-unique',
+    `Valid ambiguous fixture must be rejected as non-unique, got ${ambiguousEvaluation.status}.`,
+  );
+
+  const hardQualityReport =
+    analyzeLevelQuality(level001);
+
+  assert(
+    solveLevel(level001).solutionCount ===
+      1,
+    'level001 must remain unique before using it as hard-quality fixture.',
+  );
+
+  assert(
+    !hardQualityReport.passes,
+    'level001 must fail the current hard authored quality gate.',
+  );
+
+  const hardQualityEvaluation =
+    evaluateCandidate(
+      wrapGeneratedFixture(
+        level001,
+      ),
+    );
+
+  assert(
+    hardQualityEvaluation.status ===
+      'hard-quality',
+    `Valid unique level001 must be rejected as hard-quality, got ${hardQualityEvaluation.status}.`,
+  );
+
+  const warningLevel:
+    LevelDefinition = {
+      id:
+        'generator-geometry-warning-historical-level011',
+      width: 8,
+      height: 8,
+      rowClues: [
+        5, 5, 4, 5,
+        4, 2, 2, 5,
+      ],
+      columnClues: [
+        5, 5, 1, 4,
+        2, 5, 5, 5,
+      ],
+      monsters: [],
+      chests: [
+        { x: 0, y: 7 },
+        { x: 2, y: 0 },
+      ],
+      blockers: [],
+      doors: [],
+      solution: [
+        '##...###',
+        '##...###',
+        '##....##',
+        '#####...',
+        '##...##.',
+        '...#.#..',
+        '...#...#',
+        '...#####',
+      ],
+    };
+
+  const warningSolve =
+    solveLevel(
+      warningLevel,
+    );
+
+  assert(
+    warningSolve.solutionCount === 1,
+    'Historical compact level011 fixture must remain unique.',
+  );
+
+  const warningQuality =
+    analyzeLevelQuality(
+      warningLevel,
+    );
+
+  assert(
+    warningQuality.passes,
+    'Geometry-warning fixture must pass the hard quality gate.',
+  );
+
+  assert(
+    warningQuality.warnings.length > 0,
+    'Geometry-warning fixture must produce at least one soft warning.',
+  );
+
+  const warningEvaluation =
+    evaluateCandidate(
+      wrapGeneratedFixture(
+        warningLevel,
+      ),
+    );
+
+  assert(
+    warningEvaluation.status ===
+      'geometry-warning',
+    `Valid unique compact fixture must be rejected as geometry-warning, got ${warningEvaluation.status}.`,
+  );
+}
+
+function findAcceptedGeneratedCandidate():
+  GeneratedCandidate | null {
+  const searches:
+    readonly {
+      archetype:
+        GeneratorArchetypeType;
+      size:
+        GeneratorBoardSize;
+    }[] = [
+      {
+        archetype:
+          GeneratorArchetype.MonsterOnly,
+        size: 7,
+      },
+      {
+        archetype:
+          GeneratorArchetype.ChestOneRoom,
+        size: 7,
+      },
+      {
+        archetype:
+          GeneratorArchetype.MixedOneRoom,
+        size: 7,
+      },
+      {
+        archetype:
+          GeneratorArchetype.ChestTwoRooms,
+        size: 8,
+      },
+      {
+        archetype:
+          GeneratorArchetype.MixedTwoRooms,
+        size: 8,
+      },
+    ];
+
+  for (const search of searches) {
+    for (
+      let seed = 1;
+      seed <= 5000;
+      seed += 1
+    ) {
+      const generated =
+        generateCandidate({
+          archetype:
+            search.archetype,
+          size:
+            search.size,
+          seed,
+        });
+
+      if (!generated.ok) {
+        continue;
+      }
+
+      const evaluation =
+        evaluateCandidate(
+          generated.candidate,
+        );
+
+      if (
+        evaluation.status ===
+        'accepted'
+      ) {
+        return generated.candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
+function wrapGeneratedFixture(
+  level: LevelDefinition,
+): GeneratedCandidate {
+  return {
+    id: level.id,
+    seed: 0,
+    archetype:
+      GeneratorArchetype.MonsterOnly,
+    size:
+      level.width === 6 ||
+      level.width === 7 ||
+      level.width === 8
+        ? level.width
+        : 6,
+    rooms: [],
+    level,
+  };
+}
+
 runRngChecks();
 runMonsterOnlyChecks();
 runArchetypeChecks();
+runAcceptancePipelineChecks();
 
 console.info(
-  '[Dungeon Logic] Generator sanity: RNG + all archetype generation checks passed',
+  '[Dungeon Logic] Generator sanity: generation + full acceptance pipeline checks passed',
 );
