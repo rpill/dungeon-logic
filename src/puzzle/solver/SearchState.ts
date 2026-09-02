@@ -15,6 +15,10 @@ interface TrailEntry {
   previous: SearchCellStateValue;
 }
 
+interface RoomCandidate {
+  cells: readonly GridPosition[];
+}
+
 export class SearchState {
   readonly level: LevelDefinition;
 
@@ -29,6 +33,12 @@ export class SearchState {
 
   private readonly trail:
     TrailEntry[] = [];
+
+  private readonly roomCandidates =
+    new Map<
+      string,
+      readonly RoomCandidate[]
+    >();
 
   constructor(level: LevelDefinition) {
     this.level = level;
@@ -66,6 +76,8 @@ export class SearchState {
       this.cells[position.y][position.x] =
         SearchCellState.Open;
     }
+
+    this.initializeRoomCandidates();
   }
 
   getCellState(
@@ -392,6 +404,328 @@ export class SearchState {
           `${position.x}:${position.y}`,
         ),
     );
+  }
+
+  hasTreasureRoomCandidateForEveryChest():
+    boolean {
+    for (
+      const chest
+      of this.level.chests
+    ) {
+      const candidates =
+        this.roomCandidates.get(
+          this.positionKey(chest),
+        ) ?? [];
+
+      const hasPossible =
+        candidates.some(
+          (candidate) =>
+            candidate.cells.every(
+              (position) =>
+                this.cells[
+                  position.y
+                ][position.x] !==
+                  SearchCellState.Wall,
+            ),
+        );
+
+      if (!hasPossible) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  selectMostConstrainedCell():
+    GridPosition | null {
+    const candidates =
+      this.getUnassignedMutablePositions();
+
+    let best:
+      GridPosition | null = null;
+
+    let bestScore =
+      Number.NEGATIVE_INFINITY;
+
+    for (
+      const position
+      of candidates
+    ) {
+      const score =
+        this.constraintScore(
+          position,
+        );
+
+      if (score > bestScore) {
+        best = position;
+        bestScore = score;
+      }
+    }
+
+    return best;
+  }
+
+  private initializeRoomCandidates():
+    void {
+    for (
+      const chest
+      of this.level.chests
+    ) {
+      const candidates:
+        RoomCandidate[] = [];
+
+      for (
+        let top =
+          chest.y - 2;
+        top <= chest.y;
+        top += 1
+      ) {
+        for (
+          let left =
+            chest.x - 2;
+          left <= chest.x;
+          left += 1
+        ) {
+          if (
+            left < 0 ||
+            top < 0 ||
+            left + 2 >=
+              this.level.width ||
+            top + 2 >=
+              this.level.height
+          ) {
+            continue;
+          }
+
+          const cells:
+            GridPosition[] = [];
+
+          for (
+            let y = top;
+            y < top + 3;
+            y += 1
+          ) {
+            for (
+              let x = left;
+              x < left + 3;
+              x += 1
+            ) {
+              cells.push({
+                x,
+                y,
+              });
+            }
+          }
+
+          if (
+            !this
+              .isStaticRoomCandidateValid(
+                cells,
+                chest,
+              )
+          ) {
+            continue;
+          }
+
+          candidates.push({
+            cells,
+          });
+        }
+      }
+
+      this.roomCandidates.set(
+        this.positionKey(chest),
+        candidates,
+      );
+    }
+  }
+
+  private isStaticRoomCandidateValid(
+    cells: readonly GridPosition[],
+    chest: GridPosition,
+  ): boolean {
+    let chestCount = 0;
+
+    for (const position of cells) {
+      if (
+        this.level.blockers.some(
+          (blocker) =>
+            blocker.x ===
+              position.x &&
+            blocker.y ===
+              position.y,
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        this.level.monsters.some(
+          (monster) =>
+            monster.x ===
+              position.x &&
+            monster.y ===
+              position.y,
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        this.level.doors.some(
+          (door) =>
+            door.position.x ===
+              position.x &&
+            door.position.y ===
+              position.y,
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        this.level.chests.some(
+          (candidateChest) =>
+            candidateChest.x ===
+              position.x &&
+            candidateChest.y ===
+              position.y,
+        )
+      ) {
+        chestCount += 1;
+      }
+    }
+
+    return (
+      chestCount === 1 &&
+      cells.some(
+        (position) =>
+          position.x === chest.x &&
+          position.y === chest.y,
+      )
+    );
+  }
+
+  private constraintScore(
+    position: GridPosition,
+  ): number {
+    const row =
+      this.getRowStatus(
+        position.y,
+      );
+
+    const column =
+      this.getColumnStatus(
+        position.x,
+      );
+
+    const rowScore =
+      this.lineConstraintScore(row);
+
+    const columnScore =
+      this.lineConstraintScore(
+        column,
+      );
+
+    const doorScore =
+      this.level.doors.some(
+        (door) =>
+          Math.abs(
+            door.position.x -
+              position.x,
+          ) +
+            Math.abs(
+              door.position.y -
+                position.y,
+            ) ===
+          1,
+      )
+        ? 25
+        : 0;
+
+    const roomScore =
+      this.roomCandidatePressure(
+        position,
+      );
+
+    return (
+      rowScore +
+      columnScore +
+      doorScore +
+      roomScore
+    );
+  }
+
+  private lineConstraintScore(
+    status: LineStatus,
+  ): number {
+    const remaining =
+      status.unassigned.length;
+
+    if (remaining === 0) {
+      return 0;
+    }
+
+    const wallsNeeded =
+      status.target -
+      status.wallsPlaced;
+
+    const openNeeded =
+      remaining -
+      wallsNeeded;
+
+    const slack =
+      Math.min(
+        wallsNeeded,
+        openNeeded,
+      );
+
+    return 100 - slack;
+  }
+
+  private roomCandidatePressure(
+    position: GridPosition,
+  ): number {
+    let pressure = 0;
+
+    for (
+      const candidates
+      of this.roomCandidates.values()
+    ) {
+      const viable =
+        candidates.filter(
+          (candidate) =>
+            candidate.cells.every(
+              (cell) =>
+                this.cells[
+                  cell.y
+                ][cell.x] !==
+                  SearchCellState.Wall,
+            ),
+        );
+
+      if (
+        viable.some(
+          (candidate) =>
+            candidate.cells.some(
+              (cell) =>
+                cell.x ===
+                  position.x &&
+                cell.y ===
+                  position.y,
+            ),
+        )
+      ) {
+        pressure +=
+          Math.max(
+            1,
+            20 - viable.length,
+          );
+      }
+    }
+
+    return pressure;
   }
 
   private positionKey(

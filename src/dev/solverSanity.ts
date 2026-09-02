@@ -70,6 +70,14 @@ export function runSolverSanityChecks(): void {
       name: 'potential connectivity pruning',
       run: checkPotentialConnectivity,
     },
+    {
+      name: 'treasure room candidate pruning',
+      run: checkTreasureRoomCandidatePruning,
+    },
+    {
+      name: 'most constrained tie break is deterministic',
+      run: checkMostConstrainedTieBreak,
+    },
   ];
 
   let passed = 0;
@@ -567,6 +575,82 @@ function checkPotentialConnectivity(): void {
   assert(
     possible.isPotentialConnectivityValid(),
     'UNASSIGNED center must remain a possible bridge.',
+  );
+}
+
+function checkTreasureRoomCandidatePruning(): void {
+  const level: LevelDefinition = {
+    id: 'solver-room-candidate',
+    width: 3,
+    height: 3,
+    rowClues: [0, 0, 0],
+    columnClues: [0, 0, 0],
+    monsters: [],
+    chests: [
+      { x: 1, y: 1 },
+    ],
+    blockers: [],
+    doors: [],
+    solution: [
+      '...',
+      '...',
+      '...',
+    ],
+  };
+
+  const state =
+    new SearchState(level);
+
+  assert(
+    state
+      .hasTreasureRoomCandidateForEveryChest(),
+    'Open 3x3 must provide one candidate for center chest.',
+  );
+
+  assert(
+    state.assign(
+      0,
+      0,
+      SearchCellState.Wall,
+    ),
+    'Room test WALL assignment should succeed.',
+  );
+
+  assert(
+    !state
+      .hasTreasureRoomCandidateForEveryChest(),
+    'WALL inside the only 3x3 room must remove the final candidate.',
+  );
+}
+
+function checkMostConstrainedTieBreak(): void {
+  const level: LevelDefinition = {
+    id: 'solver-branch-tie',
+    width: 3,
+    height: 3,
+    rowClues: [1, 1, 1],
+    columnClues: [1, 1, 1],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+    solution: [
+      '...',
+      '...',
+      '...',
+    ],
+  };
+
+  const state =
+    new SearchState(level);
+
+  const selected =
+    state.selectMostConstrainedCell();
+
+  assert(
+    selected?.x === 0 &&
+      selected.y === 0,
+    'Equal scores must use stable y -> x tie break.',
   );
 }
 

@@ -68,7 +68,9 @@ function search(
       state,
     ) ||
     !state
-      .isPotentialConnectivityValid()
+      .isPotentialConnectivityValid() ||
+    !state
+      .hasTreasureRoomCandidateForEveryChest()
   ) {
     state.rollback(checkpoint);
     return;
@@ -85,10 +87,9 @@ function search(
   }
 
   const next =
-    state
-      .getUnassignedMutablePositions()[0];
+    state.selectMostConstrainedCell();
 
-  if (next === undefined) {
+  if (next === null) {
     state.rollback(checkpoint);
     return;
   }
