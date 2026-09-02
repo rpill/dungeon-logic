@@ -20,6 +20,14 @@ export interface LevelQualityMetrics {
   nearFullWallLineCount: number;
   solidWall3x3Count: number;
 
+  thickWallCellCount: number;
+  thickWallCellRatio: number;
+  wallOpenBoundaryEdgeCount: number;
+  wallOpenBoundaryPerWall: number;
+  largestWallComponentSize: number;
+  largestWallComponentRatio: number;
+  largestWallComponentPerimeterPerWall: number;
+
   clueOnlyForcedWallCount: number;
   clueOnlyForcedWallRatio: number;
 
@@ -38,6 +46,13 @@ export interface LevelQualityReport {
   passes: boolean;
   metrics: LevelQualityMetrics;
   issues: readonly string[];
+  warnings: readonly string[];
+}
+
+export interface LevelGeometryWarningThresholds {
+  maxThickWallCellRatio: number;
+  minWallOpenBoundaryPerWall: number;
+  maxLargestWallComponentRatio: number;
 }
 
 export const DEFAULT_AUTHORED_QUALITY_LIMITS:
@@ -48,10 +63,19 @@ export const DEFAULT_AUTHORED_QUALITY_LIMITS:
     maxClueOnlyForcedWallRatio: 0.25,
   };
 
+export const DEFAULT_GEOMETRY_WARNING_THRESHOLDS:
+  LevelGeometryWarningThresholds = {
+    maxThickWallCellRatio: 0.60,
+    minWallOpenBoundaryPerWall: 1.30,
+    maxLargestWallComponentRatio: 0.75,
+  };
+
 export function analyzeLevelQuality(
   level: LevelDefinition,
   limits: LevelQualityLimits =
     DEFAULT_AUTHORED_QUALITY_LIMITS,
+  warningThresholds: LevelGeometryWarningThresholds =
+    DEFAULT_GEOMETRY_WARNING_THRESHOLDS,
 ): LevelQualityReport {
   validateSolutionShape(level);
 
@@ -60,6 +84,9 @@ export function analyzeLevelQuality(
 
   const wallCount =
     countSolutionWalls(level);
+
+  const geometry =
+    analyzeWallGeometry(level, wallCount);
 
   const clueOnlyForcedWallCount =
     countLinePropagationWalls(
@@ -85,6 +112,27 @@ export function analyzeLevelQuality(
 
     solidWall3x3Count:
       countSolidWall3x3(level),
+
+    thickWallCellCount:
+      geometry.thickWallCellCount,
+
+    thickWallCellRatio:
+      geometry.thickWallCellRatio,
+
+    wallOpenBoundaryEdgeCount:
+      geometry.wallOpenBoundaryEdgeCount,
+
+    wallOpenBoundaryPerWall:
+      geometry.wallOpenBoundaryPerWall,
+
+    largestWallComponentSize:
+      geometry.largestWallComponentSize,
+
+    largestWallComponentRatio:
+      geometry.largestWallComponentRatio,
+
+    largestWallComponentPerimeterPerWall:
+      geometry.largestWallComponentPerimeterPerWall,
 
     clueOnlyForcedWallCount,
 
@@ -140,10 +188,220 @@ export function analyzeLevelQuality(
     );
   }
 
+  const warnings: string[] = [];
+
+  if (
+    metrics.thickWallCellRatio >
+    warningThresholds.maxThickWallCellRatio
+  ) {
+    warnings.push(
+      `thick-wall cell ratio ${formatPercent(metrics.thickWallCellRatio)} exceeds warning threshold ${formatPercent(warningThresholds.maxThickWallCellRatio)}`,
+    );
+  }
+
+  if (
+    wallCount > 0 &&
+    metrics.wallOpenBoundaryPerWall <
+      warningThresholds.minWallOpenBoundaryPerWall
+  ) {
+    warnings.push(
+      `wall/open boundary per wall ${metrics.wallOpenBoundaryPerWall.toFixed(2)} is below warning threshold ${warningThresholds.minWallOpenBoundaryPerWall.toFixed(2)}`,
+    );
+  }
+
+  if (
+    metrics.largestWallComponentRatio >
+    warningThresholds.maxLargestWallComponentRatio
+  ) {
+    warnings.push(
+      `largest wall component ratio ${formatPercent(metrics.largestWallComponentRatio)} exceeds warning threshold ${formatPercent(warningThresholds.maxLargestWallComponentRatio)}`,
+    );
+  }
+
   return {
     passes: issues.length === 0,
     metrics,
     issues,
+    warnings,
+  };
+}
+
+
+interface WallGeometryMetrics {
+  thickWallCellCount: number;
+  thickWallCellRatio: number;
+  wallOpenBoundaryEdgeCount: number;
+  wallOpenBoundaryPerWall: number;
+  largestWallComponentSize: number;
+  largestWallComponentRatio: number;
+  largestWallComponentPerimeterPerWall: number;
+}
+
+const ORTHOGONAL_OFFSETS: readonly GridPosition[] = [
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+  { x: 0, y: 1 },
+  { x: 0, y: -1 },
+];
+
+function analyzeWallGeometry(
+  level: LevelDefinition,
+  wallCount: number,
+): WallGeometryMetrics {
+  if (wallCount === 0) {
+    return {
+      thickWallCellCount: 0,
+      thickWallCellRatio: 0,
+      wallOpenBoundaryEdgeCount: 0,
+      wallOpenBoundaryPerWall: 0,
+      largestWallComponentSize: 0,
+      largestWallComponentRatio: 0,
+      largestWallComponentPerimeterPerWall: 0,
+    };
+  }
+
+  const walls = new Set<string>();
+
+  for (let y = 0; y < level.height; y += 1) {
+    for (let x = 0; x < level.width; x += 1) {
+      if (level.solution[y][x] === '#') {
+        walls.add(positionKey(x, y));
+      }
+    }
+  }
+
+  const thickWalls = new Set<string>();
+
+  for (let y = 0; y < level.height - 1; y += 1) {
+    for (let x = 0; x < level.width - 1; x += 1) {
+      const block = [
+        positionKey(x, y),
+        positionKey(x + 1, y),
+        positionKey(x, y + 1),
+        positionKey(x + 1, y + 1),
+      ];
+
+      if (block.every((key) => walls.has(key))) {
+        for (const key of block) {
+          thickWalls.add(key);
+        }
+      }
+    }
+  }
+
+  let wallOpenBoundaryEdgeCount = 0;
+
+  for (const key of walls) {
+    const position = parsePositionKey(key);
+
+    for (const offset of ORTHOGONAL_OFFSETS) {
+      const x = position.x + offset.x;
+      const y = position.y + offset.y;
+
+      if (
+        x >= 0 &&
+        y >= 0 &&
+        x < level.width &&
+        y < level.height &&
+        !walls.has(positionKey(x, y))
+      ) {
+        wallOpenBoundaryEdgeCount += 1;
+      }
+    }
+  }
+
+  const unseen = new Set(walls);
+  let largestComponent = new Set<string>();
+
+  while (unseen.size > 0) {
+    const first = unseen.values().next().value;
+
+    if (first === undefined) {
+      break;
+    }
+
+    unseen.delete(first);
+
+    const component = new Set<string>([first]);
+    const queue = [first];
+
+    while (queue.length > 0) {
+      const current = queue.pop();
+
+      if (current === undefined) {
+        break;
+      }
+
+      const position = parsePositionKey(current);
+
+      for (const offset of ORTHOGONAL_OFFSETS) {
+        const neighborKey = positionKey(
+          position.x + offset.x,
+          position.y + offset.y,
+        );
+
+        if (unseen.has(neighborKey)) {
+          unseen.delete(neighborKey);
+          component.add(neighborKey);
+          queue.push(neighborKey);
+        }
+      }
+    }
+
+    if (component.size > largestComponent.size) {
+      largestComponent = component;
+    }
+  }
+
+  let largestComponentPerimeter = 0;
+
+  for (const key of largestComponent) {
+    const position = parsePositionKey(key);
+
+    for (const offset of ORTHOGONAL_OFFSETS) {
+      const neighborKey = positionKey(
+        position.x + offset.x,
+        position.y + offset.y,
+      );
+
+      if (!largestComponent.has(neighborKey)) {
+        largestComponentPerimeter += 1;
+      }
+    }
+  }
+
+  return {
+    thickWallCellCount: thickWalls.size,
+    thickWallCellRatio: thickWalls.size / wallCount,
+    wallOpenBoundaryEdgeCount,
+    wallOpenBoundaryPerWall:
+      wallOpenBoundaryEdgeCount / wallCount,
+    largestWallComponentSize: largestComponent.size,
+    largestWallComponentRatio:
+      largestComponent.size / wallCount,
+    largestWallComponentPerimeterPerWall:
+      largestComponent.size === 0
+        ? 0
+        : largestComponentPerimeter /
+          largestComponent.size,
+  };
+}
+
+function positionKey(
+  x: number,
+  y: number,
+): string {
+  return `${x}:${y}`;
+}
+
+function parsePositionKey(
+  key: string,
+): GridPosition {
+  const [xText, yText] = key.split(':');
+
+  return {
+    x: Number(xText),
+    y: Number(yText),
   };
 }
 

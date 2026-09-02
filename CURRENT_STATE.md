@@ -719,6 +719,21 @@ Solver v1 пока не предоставляет:
 
 Near-full линии (`size - 1`) измеряются отдельно, но сами по себе пока не являются причиной reject.
 
+Дополнительно analyzer считает soft geometry warnings, которые не меняют `report.passes` и не являются новыми dungeon rules:
+
+- `thickWallCellRatio` — доля WALL-клеток, входящих хотя бы в один сплошной 2×2 WALL block;
+- `wallOpenBoundaryPerWall` — сколько внутренних границ WALL ↔ OPEN приходится в среднем на одну WALL-клетку; низкое значение означает слишком компактную стеновую массу;
+- `largestWallComponentRatio` — доля всех WALL, принадлежащих крупнейшей связной стеновой компоненте;
+- `largestWallComponentPerimeterPerWall` — perimeter/area характеристика крупнейшей wall component для дальнейшего сравнения тонких и компактных форм.
+
+Текущие warning thresholds:
+
+- `thickWallCellRatio > 60%`;
+- `wallOpenBoundaryPerWall < 1.30`;
+- `largestWallComponentRatio > 75%`.
+
+Soft warning не делает технически валидный уровень невалидным, но authored diversity-batch `level005–level012` держится без таких warnings как дополнительный content-quality regression.
+
 Analyzer различает:
 
 - `clueOnlyForcedWallCount` — стены, которые выводятся только из чисел строк/столбцов без fixed objects;
@@ -874,7 +889,7 @@ Static Field Mechanics v1 и Solver v1 функционально добавле
 
 Ближайший порядок разработки:
 
-1. Ручно пройти и сравнить переработанные `level005–level012`, отметить удачные Monster-only, Chest-only и mixed layouts и продолжать добавлять representative puzzle layouts только через Solver v1 uniqueness gate + Level Quality gate.
+1. Ручно пройти и сравнить переработанные `level005–level012`, сравнить их с референсной геометрией оригинальных уровней и продолжать добавлять representative puzzle layouts только через Solver v1 uniqueness gate + Level Quality gate; geometry warnings использовать как фильтр компактных wall masses, а не как замену ручному playtest.
 
 2. На реальных уровнях профилировать solver, особенно при росте поля к 10×10; целевой бюджет — около 1 секунды для обычного уровня, без жёсткого timing assertion.
 

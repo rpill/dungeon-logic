@@ -24,8 +24,16 @@ export function runLevelQualitySanityChecks(): void {
       run: checkMonsterAssistedOpening,
     },
     {
+      name: 'compact wall masses produce geometry warnings',
+      run: checkCompactWallMassWarnings,
+    },
+    {
       name: 'authored diversity batch passes quality gate',
       run: checkAuthoredBatchQuality,
+    },
+    {
+      name: 'authored diversity batch has no geometry warnings',
+      run: checkAuthoredBatchGeometryWarnings,
     },
   ];
 
@@ -148,6 +156,70 @@ function checkMonsterAssistedOpening(): void {
   assert(
     report.metrics.objectAssistedForcedWallCount >= 6,
     'Monster-assisted forced walls must be attributed separately from clue-only walls.',
+  );
+}
+
+
+function checkCompactWallMassWarnings(): void {
+  const level: LevelDefinition = {
+    id: 'quality-compact-wall-mass',
+    width: 8,
+    height: 8,
+    rowClues: [5, 5, 4, 5, 4, 2, 2, 5],
+    columnClues: [5, 5, 1, 4, 2, 5, 5, 5],
+    monsters: [],
+    chests: [
+      { x: 0, y: 7 },
+      { x: 2, y: 0 },
+    ],
+    blockers: [],
+    doors: [],
+    solution: [
+      '##...###',
+      '##...###',
+      '##....##',
+      '#####...',
+      '##...##.',
+      '...#.#..',
+      '...#...#',
+      '...#####',
+    ],
+  };
+
+  const report =
+    analyzeLevelQuality(level);
+
+  assert(
+    report.passes,
+    'Compact fixture should pass the existing hard gate so geometry warnings are tested separately.',
+  );
+
+  assert(
+    'warnings' in report &&
+      Array.isArray(report.warnings) &&
+      report.warnings.length > 0,
+    'Compact wall masses should produce at least one soft geometry warning.',
+  );
+}
+
+
+function checkAuthoredBatchGeometryWarnings(): void {
+  const warnings: string[] = [];
+
+  for (const level of levels.slice(4)) {
+    const report =
+      analyzeLevelQuality(level);
+
+    if (report.warnings.length > 0) {
+      warnings.push(
+        `${level.id}: ${report.warnings.join('; ')}`,
+      );
+    }
+  }
+
+  assert(
+    warnings.length === 0,
+    `Authored geometry warnings:\n${warnings.join('\n')}`,
   );
 }
 
