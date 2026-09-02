@@ -61,7 +61,7 @@ function search(
     state.checkpoint();
 
   const propagated =
-    propagateLineConstraints(state);
+    propagateConstraints(state);
 
   if (
     !propagated ||
@@ -131,6 +131,139 @@ function branch(
   }
 
   state.rollback(checkpoint);
+}
+
+function propagateConstraints(
+  state: SearchState,
+): boolean {
+  let changed = true;
+
+  while (changed) {
+    const before =
+      state.checkpoint();
+
+    if (
+      !propagateDoorConstraints(
+        state,
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !propagateLineConstraints(
+        state,
+      )
+    ) {
+      return false;
+    }
+
+    changed =
+      state.checkpoint() >
+      before;
+  }
+
+  return true;
+}
+
+export function propagateDoorConstraints(
+  state: SearchState,
+): boolean {
+  for (
+    const door
+    of state.level.doors
+  ) {
+    const {
+      x,
+      y,
+    } = door.position;
+
+    if (
+      x <= 0 ||
+      x >= state.level.width - 1 ||
+      y <= 0 ||
+      y >= state.level.height - 1
+    ) {
+      return false;
+    }
+
+    const required:
+      readonly {
+        x: number;
+        y: number;
+        value:
+          | typeof SearchCellState.Wall
+          | typeof SearchCellState.Open;
+      }[] =
+      door.orientation ===
+      'horizontal'
+        ? [
+            {
+              x: x - 1,
+              y,
+              value:
+                SearchCellState.Open,
+            },
+            {
+              x: x + 1,
+              y,
+              value:
+                SearchCellState.Open,
+            },
+            {
+              x,
+              y: y - 1,
+              value:
+                SearchCellState.Wall,
+            },
+            {
+              x,
+              y: y + 1,
+              value:
+                SearchCellState.Wall,
+            },
+          ]
+        : [
+            {
+              x,
+              y: y - 1,
+              value:
+                SearchCellState.Open,
+            },
+            {
+              x,
+              y: y + 1,
+              value:
+                SearchCellState.Open,
+            },
+            {
+              x: x - 1,
+              y,
+              value:
+                SearchCellState.Wall,
+            },
+            {
+              x: x + 1,
+              y,
+              value:
+                SearchCellState.Wall,
+            },
+          ];
+
+    for (const item of required) {
+      if (
+        !state.assign(
+          item.x,
+          item.y,
+          item.value,
+        )
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 function propagateLineConstraints(

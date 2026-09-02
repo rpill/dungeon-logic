@@ -1,10 +1,18 @@
 import {
+  level001,
+  level002,
+  level003,
+  level004,
+} from '../data/levels';
+
+import {
   validatePuzzle,
 } from '../puzzle/LevelValidator';
 
 import { PuzzleState } from '../puzzle/PuzzleState';
 
 import {
+  propagateDoorConstraints,
   solveLevel,
 } from '../puzzle/solver/PuzzleSolver';
 
@@ -45,6 +53,18 @@ export function runSolverSanityChecks(): void {
     {
       name: 'malformed fixed metadata throws',
       run: checkMalformedLevelThrows,
+    },
+    {
+      name: 'directional door propagation',
+      run: checkDirectionalDoorPropagation,
+    },
+    {
+      name: 'current levels are unique',
+      run: checkCurrentLevelsUnique,
+    },
+    {
+      name: 'blocker cannot frame solver door',
+      run: checkSolverRejectsBlockerDoorFrame,
     },
   ];
 
@@ -181,8 +201,6 @@ function checkUniqueFixture(): void {
     chests: [],
     blockers: [],
     doors: [],
-
-    // Deliberately wrong: solver must not use hidden solution as an oracle.
     solution: [
       '###',
       '###',
@@ -319,6 +337,132 @@ function checkMalformedLevelThrows(): void {
   assert(
     threw,
     'Malformed fixed metadata must throw instead of returning 0.',
+  );
+}
+
+function checkDirectionalDoorPropagation(): void {
+  const level: LevelDefinition = {
+    id: 'solver-door-propagation',
+    width: 3,
+    height: 3,
+    rowClues: [1, 0, 1],
+    columnClues: [0, 2, 0],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [
+      {
+        position: {
+          x: 1,
+          y: 1,
+        },
+        orientation: 'horizontal',
+      },
+    ],
+    solution: [
+      '.#.',
+      '...',
+      '.#.',
+    ],
+  };
+
+  const state =
+    new SearchState(level);
+
+  assert(
+    propagateDoorConstraints(state),
+    'Valid horizontal door propagation should succeed.',
+  );
+
+  assert(
+    state.getCellState(0, 1) ===
+      SearchCellState.Open,
+    'Horizontal door left neighbor must become OPEN.',
+  );
+
+  assert(
+    state.getCellState(2, 1) ===
+      SearchCellState.Open,
+    'Horizontal door right neighbor must become OPEN.',
+  );
+
+  assert(
+    state.getCellState(1, 0) ===
+      SearchCellState.Wall,
+    'Horizontal door upper neighbor must become WALL.',
+  );
+
+  assert(
+    state.getCellState(1, 2) ===
+      SearchCellState.Wall,
+    'Horizontal door lower neighbor must become WALL.',
+  );
+}
+
+function checkCurrentLevelsUnique(): void {
+  const currentLevels:
+    readonly LevelDefinition[] = [
+      level001,
+      level002,
+      level003,
+      level004,
+    ];
+
+  for (const level of currentLevels) {
+    const result =
+      solveLevel(level);
+
+    assert(
+      result.solutionCount === 1,
+      `${level.id} should have exactly one solution.`,
+    );
+
+    assertFirstSolutionValid(
+      level,
+      result.firstSolution,
+    );
+  }
+}
+
+function checkSolverRejectsBlockerDoorFrame(): void {
+  const level: LevelDefinition = {
+    id: 'solver-blocker-door-frame',
+    width: 3,
+    height: 3,
+    rowClues: [0, 0, 0],
+    columnClues: [0, 0, 0],
+    monsters: [],
+    chests: [],
+    blockers: [
+      { x: 1, y: 0 },
+    ],
+    doors: [
+      {
+        position: { x: 1, y: 1 },
+        orientation: 'horizontal',
+      },
+    ],
+    solution: [
+      '...',
+      '...',
+      '...',
+    ],
+  };
+
+  const state =
+    new SearchState(level);
+
+  assert(
+    !propagateDoorConstraints(state),
+    'Blocker must not satisfy a door framing WALL during propagation.',
+  );
+
+  const result =
+    solveLevel(level);
+
+  assert(
+    result.solutionCount === 0,
+    'Blocker-framed door level must have no solution.',
   );
 }
 
