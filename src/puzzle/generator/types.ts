@@ -92,6 +92,67 @@ export type CandidateEvaluation =
       diagnostic: string;
     };
 
+
+export const RejectionReason = {
+  GenerationFailed: 'generation-failed',
+  Invalid: 'invalid',
+  NonUnique: 'non-unique',
+  HardQuality: 'hard-quality',
+  GeometryWarning: 'geometry-warning',
+} as const;
+
+export type RejectionReason =
+  typeof RejectionReason[
+    keyof typeof RejectionReason
+  ];
+
+export interface RejectionSample {
+  attempt: number;
+  candidateSeed: number;
+  reason: RejectionReason;
+  diagnostic: string;
+}
+
+export interface ArchetypeRunStats {
+  archetype: GeneratorArchetype;
+  attempts: number;
+  accepted: number;
+  rejectionCounts:
+    Readonly<
+      Record<
+        RejectionReason,
+        number
+      >
+    >;
+}
+
+export interface ArchetypePoolResult {
+  stats: ArchetypeRunStats;
+  accepted:
+    readonly AcceptedCandidate[];
+  rejectionSamples:
+    readonly RejectionSample[];
+  exhausted: boolean;
+}
+
+export interface GeneratorPoolReport {
+  masterSeed: number;
+  config: GeneratorConfig;
+  archetypes:
+    readonly ArchetypePoolResult[];
+  accepted:
+    readonly AcceptedCandidate[];
+  completed: boolean;
+}
+
+export const DEFAULT_GENERATOR_CONFIG:
+  GeneratorConfig = {
+    masterSeed: 123456,
+    acceptedPerArchetype: 10,
+    shortlistPerArchetype: 3,
+    maxAttemptsPerArchetype: 5000,
+  };
+
 export const ALL_GENERATOR_ARCHETYPES:
   readonly GeneratorArchetype[] = [
     GeneratorArchetype.MonsterOnly,
@@ -114,3 +175,4 @@ export const ALLOWED_SIZES:
     'mixed-one-room': [6, 7, 8],
     'mixed-two-rooms': [7, 8],
   };
+

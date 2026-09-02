@@ -9,6 +9,7 @@ import {
 } from '../puzzle/generator/CandidateGenerator';
 
 import {
+  createCandidatePool,
   evaluateCandidate,
 } from '../puzzle/generator/CandidateFactory';
 
@@ -33,6 +34,7 @@ import {
   type GeneratedCandidate,
   type GeneratorArchetype as GeneratorArchetypeType,
   type GeneratorBoardSize,
+  type GeneratorConfig,
 } from '../puzzle/generator/types';
 
 function assert(
@@ -702,11 +704,123 @@ function wrapGeneratedFixture(
   };
 }
 
+
+function runCandidatePoolChecks(): void {
+  expectThrow(
+    () => {
+      createCandidatePool({
+        masterSeed: 1,
+        acceptedPerArchetype: 0,
+        shortlistPerArchetype: 1,
+        maxAttemptsPerArchetype: 10,
+      });
+    },
+    'acceptedPerArchetype = 0 must be rejected.',
+  );
+
+  expectThrow(
+    () => {
+      createCandidatePool({
+        masterSeed: 1,
+        acceptedPerArchetype: 1,
+        shortlistPerArchetype: 2,
+        maxAttemptsPerArchetype: 10,
+      });
+    },
+    'shortlist target above accepted target must be rejected.',
+  );
+
+  const smallConfig:
+    GeneratorConfig = {
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 5000,
+    };
+
+  const first =
+    createCandidatePool(
+      smallConfig,
+    );
+
+  assert(
+    first.completed,
+    'Small deterministic pool must complete.',
+  );
+
+  assert(
+    first.accepted.length === 5,
+    'Small pool must contain one accepted candidate per archetype.',
+  );
+
+  assert(
+    first.archetypes.length === 5,
+    'Small pool must report all five archetypes.',
+  );
+
+  for (
+    const archetypeResult
+    of first.archetypes
+  ) {
+    assert(
+      archetypeResult.accepted.length === 1,
+      `${archetypeResult.stats.archetype} must contribute exactly one accepted candidate.`,
+    );
+
+    assert(
+      archetypeResult.stats.accepted === 1,
+      `${archetypeResult.stats.archetype} accepted counter must equal one.`,
+    );
+
+    assert(
+      !archetypeResult.exhausted,
+      `${archetypeResult.stats.archetype} must not exhaust the attempt budget.`,
+    );
+
+    assert(
+      archetypeResult.stats.attempts >= 1 &&
+        archetypeResult.stats.attempts <=
+          smallConfig.maxAttemptsPerArchetype,
+      `${archetypeResult.stats.archetype} attempt count must stay within configured bounds.`,
+    );
+  }
+
+  const second =
+    createCandidatePool(
+      smallConfig,
+    );
+
+  assert(
+    JSON.stringify(first) ===
+      JSON.stringify(second),
+    'Repeated pool generation must be byte-equivalent after JSON.stringify.',
+  );
+}
+
+function expectThrow(
+  action: () => void,
+  message: string,
+): void {
+  let threw = false;
+
+  try {
+    action();
+  } catch {
+    threw = true;
+  }
+
+  assert(
+    threw,
+    message,
+  );
+}
+
 runRngChecks();
 runMonsterOnlyChecks();
 runArchetypeChecks();
 runAcceptancePipelineChecks();
+runCandidatePoolChecks();
 
 console.info(
-  '[Dungeon Logic] Generator sanity: generation + full acceptance pipeline checks passed',
+  '[Dungeon Logic] Generator sanity: generation + acceptance + candidate pool checks passed',
 );
