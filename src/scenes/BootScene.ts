@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 
 import {
+  runSolverSanityChecks,
+} from '../dev/solverSanity';
+
+import {
   runValidatorSanityChecks,
 } from '../dev/validatorSanity';
 
@@ -19,6 +23,7 @@ export class BootScene extends Phaser.Scene {
 
     if (isLocalDevelopment) {
       runValidatorSanityChecks();
+      runSolverSanityChecks();
     }
 
     this.scene.start('GameScene');
