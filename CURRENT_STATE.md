@@ -347,7 +347,7 @@ Directional Door требует две обычные стены по перпе
 - `level011` — 8×8, две Treasure Rooms без monsters;
 - `level012` — 8×8, Monsters + две Treasure Rooms.
 
-Батч не является финальной progression-кривой и используется для проверки разнообразия базовых правил перед будущим generator.
+Батч не является финальной progression-кривой и остаётся вручную заданным reference-набором для сравнения с результатами Generator v1.
 
 ---
 
@@ -691,7 +691,6 @@ Solver v1 пока не предоставляет:
 - player hints;
 - logical explanation steps;
 - difficulty scoring;
-- generator;
 - решение из текущего partial `PuzzleState` игрока.
 
 Локальные regression checks находятся в:
@@ -747,6 +746,84 @@ Analyzer различает:
 `src/dev/levelQualitySanity.ts`
 
 Они проверяют искусственный плохой wall slab, положительный monster-assisted пример и весь authored diversity-batch.
+
+---
+
+## Generator v1
+
+Реализован постоянный dev-only solution-first generator базовых Monster / Chest puzzles:
+
+`src/puzzle/generator/`
+
+Generator v1 поддерживает пять archetypes:
+
+- Monster-only;
+- Chest-only с одной Treasure Room;
+- Chest-only с двумя Treasure Rooms;
+- Monsters + одна Treasure Room;
+- Monsters + две Treasure Rooms.
+
+Размеры:
+
+- Monster-only, Chest-one-room и Mixed-one-room: 6×6 / 7×7 / 8×8;
+- two-room archetypes: 7×7 / 8×8.
+
+Каждый candidate строится из полной WALL / OPEN geometry, после чего row / column clues автоматически выводятся из solution. Randomness полностью seeded и deterministic: master seed задаёт воспроизводимую последовательность candidate seeds и layouts.
+
+Acceptance pipeline использует уже существующие системы:
+
+1. `LevelValidator` подтверждает canonical dungeon rules;
+2. `PuzzleSolver` требует ровно одно решение;
+3. `LevelQualityAnalyzer` отбраковывает hard-quality failures;
+4. наличие текущих geometry warnings также отклоняет candidate из автоматического accepted pool.
+
+Geometry warnings при этом остаются authored-content сигналами и не становятся runtime dungeon rules.
+
+Generator v1 не поддерживает Blocker и Directional Door: каждый generated candidate использует:
+
+```ts
+blockers: []
+doors: []
+```
+
+Default pool:
+
+- 10 accepted candidates на archetype;
+- 50 accepted candidates всего;
+- attempt limit 5000 на archetype.
+
+Shortlist выбирается отдельно внутри каждого archetype:
+
+- 3 candidates на archetype;
+- 15 candidates всего;
+- ranking учитывает bounded quality score и diversity / novelty, чтобы shortlist не состоял из near-clones.
+
+CLI:
+
+`npm run generate:candidates -- --seed <uint32>`
+
+Для master seed `123456` полный run уже проверен: 50 accepted candidates и 15 shortlisted candidates.
+
+Выходные dev-artifacts:
+
+- `.generated/candidates-<seed>.json`;
+- `.generated/shortlist-<seed>.md`.
+
+`.generated/` игнорируется git.
+
+Generated candidates никогда автоматически не регистрируются в `src/data/levels/` и не становятся production-уровнями без ручного review / promotion.
+
+Отдельные regression checks находятся в:
+
+`src/dev/generatorSanity.ts`
+
+Они запускаются командой:
+
+`npm run sanity:generator`
+
+Полный generator sanity намеренно не запускается из `BootScene`, потому что batch generation и repeated solver checks слишком тяжёлые для каждого локального старта игры.
+
+Difficulty scoring / logical difficulty estimation Generator v1 не реализует.
 
 ---
 
@@ -834,15 +911,17 @@ Undo не входит в текущий vertical slice и должен возв
 
 ## Level production
 
+Реализован dev-only Generator v1 candidate factory + shortlist pipeline.
+
 Пока не реализованы:
 
 - полноценный набор production-уровней;
 - tutorial progression;
-- автоматический generator;
-- difficulty estimation;
-- batch level-production pipeline.
+- автоматическая регистрация / promotion generated candidates в `src/data/levels/`;
+- production campaign generation;
+- difficulty estimation.
 
-Solver и проверка `0 / 1 / 2+` решений уже реализованы и могут использоваться как acceptance check для будущих уровней.
+Validator, Solver v1, Level Quality Analyzer и Generator v1 теперь образуют технический pipeline для поиска и отбора candidate levels, но финальный выбор shipping levels всё ещё требует ручного review и playtest.
 
 ---
 
@@ -879,9 +958,10 @@ Solver и проверка `0 / 1 / 2+` решений уже реализова
 12. использовать Directional Door как дополнительное дедуктивное ограничение;
 13. получить минимальное состояние победы;
 14. перезапустить текущий уровень через Restart;
-15. dev-инструментом проверить уровень на `0 / 1 / 2+` решений и получить `firstSolution`.
+15. dev-инструментом проверить уровень на `0 / 1 / 2+` решений и получить `firstSolution`;
+16. dev-инструментом детерминированно генерировать accepted Monster / Chest candidate pool и diversity-aware shortlist.
 
-Static Field Mechanics v1 и Solver v1 функционально добавлены в puzzle-core.
+Static Field Mechanics v1, Solver v1, Level Quality Analyzer и Generator v1 функционально добавлены в dev/puzzle pipeline.
 
 ---
 
@@ -889,17 +969,16 @@ Static Field Mechanics v1 и Solver v1 функционально добавле
 
 Ближайший порядок разработки:
 
-1. Ручно пройти и сравнить переработанные `level005–level012`, сравнить их с референсной геометрией оригинальных уровней и продолжать добавлять representative puzzle layouts только через Solver v1 uniqueness gate + Level Quality gate; geometry warnings использовать как фильтр компактных wall masses, а не как замену ручному playtest.
+1. Ручно просмотреть `.generated/shortlist-123456.md`, выбрать визуально и логически удачные candidates из пяти archetypes и playtest-ить их как потенциальную основу новых authored уровней.
 
-2. На реальных уровнях профилировать solver, особенно при росте поля к 10×10; целевой бюджет — около 1 секунды для обычного уровня, без жёсткого timing assertion.
+2. Не регистрировать generated candidates автоматически: переносить удачные layouts в `src/data/levels/` только после ручного review, затем снова прогонять validator / solver / quality sanity.
 
-3. Исправлять validator / solver edge cases только по конкретным найденным контрпримерам.
+3. На реальных уровнях профилировать solver и generator bottlenecks, особенно для two-room archetypes и при будущем росте поля к 10×10; timing остаётся profiling target, а не жёстким regression assertion.
 
-4. После достаточного набора проверенных уровней проектировать generator, используя solver как uniqueness gate.
+4. Исправлять validator / solver / generator edge cases только по конкретным найденным контрпримерам.
 
-5. Отдельно продумать difficulty estimation / logical solver, если станет нужен контроль сложности или hints.
+5. Отдельно проектировать difficulty estimation / logical solver, если станет нужен контроль progression, hints или автоматическая оценка сложности.
 
 6. ORYX visual pass делать поверх стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
 
 7. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
-

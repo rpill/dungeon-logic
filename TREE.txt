@@ -3,10 +3,12 @@ dungeon-logic/
 │   └── superpowers/
 │       ├── plans/
 │       │   ├── 2026-09-01-static-field-mechanics.md
+│       │   ├── 2026-09-02-generator-v1.md
 │       │   └── 2026-09-02-solver-v1.md
 │       └── specs/
 │           ├── 2026-09-01-phaser-bootstrap-design.md
 │           ├── 2026-09-01-static-field-mechanics-design.md
+│           ├── 2026-09-02-generator-v1-design.md
 │           └── 2026-09-02-solver-v1-design.md
 ├── public/
 │   ├── favicon.svg
@@ -33,10 +35,18 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
+│   │   ├── generateCandidates.ts
+│   │   ├── generatorSanity.ts
 │   │   ├── levelQualitySanity.ts
 │   │   ├── solverSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/
+│   │   ├── generator/
+│   │   │   ├── CandidateFactory.ts
+│   │   │   ├── CandidateGenerator.ts
+│   │   │   ├── CandidateRanker.ts
+│   │   │   ├── SeededRandom.ts
+│   │   │   └── types.ts
 │   │   ├── quality/
 │   │   │   └── LevelQualityAnalyzer.ts
 │   │   ├── solver/
