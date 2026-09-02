@@ -315,6 +315,23 @@ function checkAmbiguousFixture(): void {
     level,
     result.firstSolution,
   );
+
+  const repeated =
+    solveLevel(level);
+
+  assert(
+    repeated.solutionCount ===
+      result.solutionCount,
+    'Repeated deterministic solve must return the same count.',
+  );
+
+  assert(
+    arraysEqual(
+      repeated.firstSolution,
+      result.firstSolution ?? [],
+    ),
+    'Repeated deterministic solve must return the same firstSolution.',
+  );
 }
 
 function checkMalformedLevelThrows(): void {
