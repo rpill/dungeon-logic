@@ -36,11 +36,11 @@ export const level011:
   chests: [
     {
       x: 2,
-      y: 1,
+      y: 0,
     },
     {
-      x: 1,
-      y: 5,
+      x: 0,
+      y: 7,
     },
   ],
 

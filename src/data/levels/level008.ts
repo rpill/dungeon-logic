@@ -33,8 +33,8 @@ export const level008:
 
   chests: [
     {
-      x: 4,
-      y: 4,
+      x: 6,
+      y: 2,
     },
     {
       x: 0,

@@ -50,8 +50,8 @@ export const level007:
 
   chests: [
     {
-      x: 4,
-      y: 4,
+      x: 5,
+      y: 5,
     },
   ],
 

@@ -25,6 +25,13 @@ interface SanityCase {
   run: () => void;
 }
 
+const ORTHOGONAL_OFFSETS: readonly GridPosition[] = [
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+  { x: 0, y: 1 },
+  { x: 0, y: -1 },
+];
+
 export function runValidatorSanityChecks(): void {
   const cases: readonly SanityCase[] = [
     {
@@ -52,6 +59,10 @@ export function runValidatorSanityChecks(): void {
     {
       name: 'all registered hidden solutions valid',
       run: checkRegisteredHiddenSolutions,
+    },
+    {
+      name: 'authored chests stay away from room entrances',
+      run: checkAuthoredChestPlacement,
     },
     {
       name: 'level query selection',
@@ -151,6 +162,184 @@ function checkRegisteredHiddenSolutions(): void {
   for (const level of levels) {
     checkValidLevel(level);
   }
+}
+
+function checkAuthoredChestPlacement(): void {
+  for (const level of levels.slice(4)) {
+    for (const chest of level.chests) {
+      const distances =
+        findTreasureRoomEntranceDistances(
+          level,
+          chest,
+        );
+
+      assert(
+        distances.some(
+          (distance) => distance >= 2,
+        ),
+        `${level.id} chest at ${chest.x},${chest.y} must be at least two orthogonal steps from its Treasure Room entrance cell.`,
+      );
+    }
+  }
+}
+
+function findTreasureRoomEntranceDistances(
+  level: LevelDefinition,
+  chest: GridPosition,
+): readonly number[] {
+  const distances: number[] = [];
+
+  const minRoomX = Math.max(0, chest.x - 2);
+  const maxRoomX = Math.min(
+    chest.x,
+    level.width - 3,
+  );
+  const minRoomY = Math.max(0, chest.y - 2);
+  const maxRoomY = Math.min(
+    chest.y,
+    level.height - 3,
+  );
+
+  for (
+    let roomY = minRoomY;
+    roomY <= maxRoomY;
+    roomY += 1
+  ) {
+    for (
+      let roomX = minRoomX;
+      roomX <= maxRoomX;
+      roomX += 1
+    ) {
+      if (
+        !isAuthoredTreasureRoomCandidate(
+          level,
+          chest,
+          roomX,
+          roomY,
+        )
+      ) {
+        continue;
+      }
+
+      const entrances =
+        findRoomEntrances(
+          level,
+          roomX,
+          roomY,
+        );
+
+      if (entrances.length !== 1) {
+        continue;
+      }
+
+      const entrance = entrances[0];
+
+      distances.push(
+        Math.abs(chest.x - entrance.x) +
+          Math.abs(chest.y - entrance.y),
+      );
+    }
+  }
+
+  return distances;
+}
+
+function isAuthoredTreasureRoomCandidate(
+  level: LevelDefinition,
+  chest: GridPosition,
+  roomX: number,
+  roomY: number,
+): boolean {
+  const inside = (position: GridPosition): boolean =>
+    position.x >= roomX &&
+    position.x < roomX + 3 &&
+    position.y >= roomY &&
+    position.y < roomY + 3;
+
+  if (!inside(chest)) {
+    return false;
+  }
+
+  const chestCount =
+    level.chests.filter(inside).length;
+
+  if (chestCount !== 1) {
+    return false;
+  }
+
+  if (
+    level.monsters.some(inside) ||
+    level.blockers.some(inside) ||
+    level.doors.some(
+      (door) => inside(door.position),
+    )
+  ) {
+    return false;
+  }
+
+  for (let y = roomY; y < roomY + 3; y += 1) {
+    for (let x = roomX; x < roomX + 3; x += 1) {
+      if (level.solution[y][x] === '#') {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function findRoomEntrances(
+  level: LevelDefinition,
+  roomX: number,
+  roomY: number,
+): readonly GridPosition[] {
+  const roomCells = new Set<string>();
+
+  for (let y = roomY; y < roomY + 3; y += 1) {
+    for (let x = roomX; x < roomX + 3; x += 1) {
+      if (level.solution[y][x] === '#') {
+        return [];
+      }
+
+      roomCells.add(`${x}:${y}`);
+    }
+  }
+
+  const entrances: GridPosition[] = [];
+
+  for (let y = roomY; y < roomY + 3; y += 1) {
+    for (let x = roomX; x < roomX + 3; x += 1) {
+      for (const offset of ORTHOGONAL_OFFSETS) {
+        const neighborX = x + offset.x;
+        const neighborY = y + offset.y;
+
+        if (
+          neighborX < 0 ||
+          neighborY < 0 ||
+          neighborX >= level.width ||
+          neighborY >= level.height
+        ) {
+          continue;
+        }
+
+        if (
+          roomCells.has(
+            `${neighborX}:${neighborY}`,
+          )
+        ) {
+          continue;
+        }
+
+        if (
+          level.solution[neighborY][neighborX] !== '#'
+        ) {
+          entrances.push({ x, y });
+        }
+      }
+    }
+  }
+
+  return entrances;
 }
 
 function checkValidLevel(

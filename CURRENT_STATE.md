@@ -119,7 +119,9 @@ Treasure Room:
 - содержит ровно один chest;
 - имеет ровно один entrance.
 
-Chest может находиться в любой клетке комнаты 3×3.
+Chest может находиться в любой клетке комнаты 3×3 по core rules.
+
+Для вручную собранного контента действует отдельный readability guideline, который не является правилом `LevelValidator`: сундук не ставится прямо в линию входа в Treasure Room. Для diversity-batch `level005–level012` sanity check требует, чтобы каждый Chest находился минимум в двух ортогональных шагах от внутренней клетки единственного entrance своей комнаты. Это оставляет свободу размещения внутри 3×3, но визуально уводит сундук из дверного прохода.
 
 Положение Treasure Room не хранится в `LevelDefinition` напрямую и определяется валидатором по текущему состоянию поля.
 
@@ -329,7 +331,10 @@ Directional Door требует две обычные стены по перпе
 - есть уровни только с chests;
 - есть смешанные Monster + Chest уровни;
 - поддерживаются layouts с одной и двумя Treasure Rooms;
-- каждый зарегистрированный уровень обязан иметь ровно одно WALL / OPEN решение по Solver v1.
+- все зарегистрированные уровни проходят Solver v1 с `solutionCount === 1`;
+- Chest placement в `level005–level012` дополнительно проходит authored-content sanity: сундук не может стоять ближе двух ортогональных шагов к внутренней клетке единственного entrance Treasure Room.
+
+Этот placement guideline является правилом ручного контента, а не новым dungeon rule: `LevelValidator` по-прежнему разрешает Chest в любой клетке валидной комнаты 3×3.
 
 Батч не является финальной progression-кривой и используется для проверки разнообразия базовых правил перед будущим generator.
 
@@ -588,6 +593,8 @@ Monster, Chest и Directional Door считаются OPEN.
 - корректный `level002`;
 - корректный `level003`;
 - корректный `level004`;
+- hidden solutions всех зарегистрированных `level001–level012`;
+- authored Chest placement для diversity-batch `level005–level012`;
 - query level selection;
 - fixed blocker / door metadata;
 - запрет overlap fixed objects;
@@ -628,6 +635,59 @@ Sanity checks автоматически запускаются локально
 Runtime victory никогда не сравнивает текущее поле с `level.solution`.
 
 Это пока минимальный технический win state.
+
+---
+
+## Solver v1
+
+Реализован pure TypeScript solver:
+
+`src/puzzle/solver/`
+
+Публичный API:
+
+`solveLevel(level: LevelDefinition): SolveResult`
+
+Результат:
+
+- `solutionCount: 0 | 1 | 2`;
+- `0` означает, что решений нет;
+- `1` означает ровно одно решение;
+- `2` означает `2+`, после второго решения поиск прекращается;
+- `firstSolution` хранит первое принятое WALL / OPEN решение;
+- при отсутствии решений `firstSolution === null`.
+
+Solver:
+
+- начинает поиск только из `LevelDefinition`, а не из текущего состояния игрока;
+- не зависит от Phaser, `GameScene` или UI;
+- не использует hidden `level.solution` как oracle;
+- считает Monster, Chest и Directional Door fixed OPEN;
+- считает Fixed Blocker отдельной CLOSED metadata-клеткой, а не обычным `WALL`;
+- выполняет propagation по row / column clues;
+- выполняет propagation Directional Door constraints;
+- отсекает невозможные row / column counts;
+- консервативно отсекает branches, где обязательные OPEN regions уже невозможно соединить;
+- отсекает Treasure Room branches, если для Chest не осталось ни одного допустимого 3×3 candidate;
+- использует deterministic most-constrained-first DFS;
+- при branching проверяет `WALL`, затем `OPEN`;
+- перед принятием каждого полного candidate передаёт его существующему `LevelValidator`.
+
+Все зарегистрированные `level001`–`level012` зафиксированы solver sanity checks как уровни с ровно одним WALL / OPEN решением по текущему набору правил.
+
+Solver v1 пока не предоставляет:
+
+- player hints;
+- logical explanation steps;
+- difficulty scoring;
+- generator;
+- решение из текущего partial `PuzzleState` игрока.
+
+Локальные regression checks находятся в:
+
+`src/dev/solverSanity.ts`
+
+Они запускаются через `npm run dev` после validator sanity checks.
 
 ---
 
@@ -717,19 +777,13 @@ Undo не входит в текущий vertical slice и должен возв
 
 Пока не реализованы:
 
-- полноценный набор уровней;
+- полноценный набор production-уровней;
 - tutorial progression;
-- автоматический solver;
-- подсчёт количества решений;
-- проверка уникальности решения;
 - автоматический generator;
-- difficulty estimation.
+- difficulty estimation;
+- batch level-production pipeline.
 
-Будущий solver должен уметь прекращать поиск после нахождения второго решения:
-
-- 0 решений — уровень сломан;
-- 1 решение — уникальный;
-- 2+ решений — неоднозначный.
+Solver и проверка `0 / 1 / 2+` решений уже реализованы и могут использоваться как acceptance check для будущих уровней.
 
 ---
 
@@ -765,9 +819,10 @@ Undo не входит в текущий vertical slice и должен возв
 11. использовать Fixed Blocker как отдельный CLOSED gameplay object;
 12. использовать Directional Door как дополнительное дедуктивное ограничение;
 13. получить минимальное состояние победы;
-14. перезапустить текущий уровень через Restart.
+14. перезапустить текущий уровень через Restart;
+15. dev-инструментом проверить уровень на `0 / 1 / 2+` решений и получить `firstSolution`.
 
-Static Field Mechanics v1 функционально добавлены в puzzle-core.
+Static Field Mechanics v1 и Solver v1 функционально добавлены в puzzle-core.
 
 ---
 
@@ -775,18 +830,17 @@ Static Field Mechanics v1 функционально добавлены в puzzl
 
 Ближайший порядок разработки:
 
-1. Полностью пройти `level004` руками и проверить, насколько blocker и directional door действительно добавляют интересную дедукцию.
+1. Ручно пройти и сравнить `level005–level012`, отметить удачные Monster-only, Chest-only и mixed layouts и продолжать добавлять representative puzzle layouts только через Solver v1 uniqueness gate.
 
-2. Исправлять validator edge cases, если они обнаружатся в ручных playtests.
+2. На реальных уровнях профилировать solver, особенно при росте поля к 10×10; целевой бюджет — около 1 секунды для обычного уровня, без жёсткого timing assertion.
 
-3. Решить, нужны ли ещё одна-две простые статические dungeon mechanics до автоматического производства уровней.
+3. Исправлять validator / solver edge cases только по конкретным найденным контрпримерам.
 
-4. После стабилизации набора правил реализовать solver с подсчётом решений.
+4. После достаточного набора проверенных уровней проектировать generator, используя solver как uniqueness gate.
 
-5. Использовать solver для проверки уникальности будущих уровней.
+5. Отдельно продумать difficulty estimation / logical solver, если станет нужен контроль сложности или hints.
 
-6. После этого переходить к generator / массовому производству puzzle levels.
+6. ORYX visual pass делать поверх стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
 
-7. ORYX visual pass делать поверх уже стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
+7. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
 
-8. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
