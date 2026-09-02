@@ -1,11 +1,22 @@
+import {
+  validatePuzzle,
+} from '../puzzle/LevelValidator';
+
+import { PuzzleState } from '../puzzle/PuzzleState';
+
+import {
+  solveLevel,
+} from '../puzzle/solver/PuzzleSolver';
+
 import { SearchState } from '../puzzle/solver/SearchState';
 
 import {
   SearchCellState,
 } from '../puzzle/solver/types';
 
-import type {
-  LevelDefinition,
+import {
+  CellState,
+  type LevelDefinition,
 } from '../puzzle/types';
 
 interface SanityCase {
@@ -18,6 +29,22 @@ export function runSolverSanityChecks(): void {
     {
       name: 'search state initialization and rollback',
       run: checkSearchStateInitialization,
+    },
+    {
+      name: 'unique 3x3 solver fixture',
+      run: checkUniqueFixture,
+    },
+    {
+      name: 'unsolvable 4x4 solver fixture',
+      run: checkUnsolvableFixture,
+    },
+    {
+      name: 'ambiguous solver stops at 2+',
+      run: checkAmbiguousFixture,
+    },
+    {
+      name: 'malformed fixed metadata throws',
+      run: checkMalformedLevelThrows,
     },
   ];
 
@@ -140,6 +167,217 @@ function checkSearchStateInitialization(): void {
     state.getCellState(2, 2) ===
       SearchCellState.Unassigned,
     'Rollback must restore UNASSIGNED.',
+  );
+}
+
+function checkUniqueFixture(): void {
+  const level: LevelDefinition = {
+    id: 'solver-unique-3x3',
+    width: 3,
+    height: 3,
+    rowClues: [0, 1, 0],
+    columnClues: [0, 1, 0],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+
+    // Deliberately wrong: solver must not use hidden solution as an oracle.
+    solution: [
+      '###',
+      '###',
+      '###',
+    ],
+  };
+
+  const result =
+    solveLevel(level);
+
+  assert(
+    result.solutionCount === 1,
+    '3x3 fixture must be unique.',
+  );
+
+  assert(
+    arraysEqual(
+      result.firstSolution,
+      [
+        '...',
+        '.#.',
+        '...',
+      ],
+    ),
+    'Unique fixture should return the center-wall solution.',
+  );
+
+  assertFirstSolutionValid(
+    level,
+    result.firstSolution,
+  );
+}
+
+function checkUnsolvableFixture(): void {
+  const level: LevelDefinition = {
+    id: 'solver-unsolvable-4x4',
+    width: 4,
+    height: 4,
+    rowClues: [0, 0, 0, 0],
+    columnClues: [0, 0, 0, 0],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+    solution: [
+      '####',
+      '####',
+      '####',
+      '####',
+    ],
+  };
+
+  const result =
+    solveLevel(level);
+
+  assert(
+    result.solutionCount === 0,
+    'Fully open 4x4 must be rejected by dungeon rules.',
+  );
+
+  assert(
+    result.firstSolution === null,
+    '0-solution result must have null firstSolution.',
+  );
+}
+
+function checkAmbiguousFixture(): void {
+  const level: LevelDefinition = {
+    id: 'solver-ambiguous-4x4',
+    width: 4,
+    height: 4,
+    rowClues: [1, 1, 1, 1],
+    columnClues: [1, 1, 1, 1],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+    solution: [
+      '....',
+      '....',
+      '....',
+      '....',
+    ],
+  };
+
+  const result =
+    solveLevel(level);
+
+  assert(
+    result.solutionCount === 2,
+    'Ambiguous fixture must clamp at 2 meaning 2+.',
+  );
+
+  assert(
+    result.firstSolution !== null,
+    'Ambiguous result must retain firstSolution.',
+  );
+
+  assertFirstSolutionValid(
+    level,
+    result.firstSolution,
+  );
+}
+
+function checkMalformedLevelThrows(): void {
+  const level: LevelDefinition = {
+    id: 'solver-malformed-overlap',
+    width: 2,
+    height: 2,
+    rowClues: [0, 0],
+    columnClues: [0, 0],
+    monsters: [
+      { x: 0, y: 0 },
+    ],
+    chests: [],
+    blockers: [
+      { x: 0, y: 0 },
+    ],
+    doors: [],
+    solution: [
+      '..',
+      '..',
+    ],
+  };
+
+  let threw = false;
+
+  try {
+    solveLevel(level);
+  } catch {
+    threw = true;
+  }
+
+  assert(
+    threw,
+    'Malformed fixed metadata must throw instead of returning 0.',
+  );
+}
+
+function assertFirstSolutionValid(
+  level: LevelDefinition,
+  board: readonly string[] | null,
+): void {
+  assert(
+    board !== null,
+    'Expected firstSolution.',
+  );
+
+  if (board === null) {
+    return;
+  }
+
+  const puzzle =
+    new PuzzleState(level);
+
+  for (
+    let y = 0;
+    y < level.height;
+    y += 1
+  ) {
+    for (
+      let x = 0;
+      x < level.width;
+      x += 1
+    ) {
+      if (board[y][x] === '#') {
+        puzzle.setCellState(
+          x,
+          y,
+          CellState.Wall,
+        );
+      }
+    }
+  }
+
+  assert(
+    validatePuzzle(puzzle).isSolved,
+    'firstSolution must pass LevelValidator.',
+  );
+}
+
+function arraysEqual(
+  actual: readonly string[] | null,
+  expected: readonly string[],
+): boolean {
+  if (
+    actual === null ||
+    actual.length !== expected.length
+  ) {
+    return false;
+  }
+
+  return actual.every(
+    (row, index) =>
+      row === expected[index],
   );
 }
 

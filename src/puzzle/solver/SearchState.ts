@@ -5,6 +5,7 @@ import type {
 
 import {
   SearchCellState,
+  type LineStatus,
   type SearchCellStateValue,
 } from './types';
 
@@ -191,6 +192,81 @@ export class SearchState {
     }
 
     return result;
+  }
+
+  getRowStatus(
+    y: number,
+  ): LineStatus {
+    const unassigned:
+      GridPosition[] = [];
+
+    let wallsPlaced = 0;
+
+    for (
+      let x = 0;
+      x < this.level.width;
+      x += 1
+    ) {
+      const state =
+        this.cells[y][x];
+
+      if (
+        state ===
+        SearchCellState.Wall
+      ) {
+        wallsPlaced += 1;
+      } else if (
+        state ===
+        SearchCellState.Unassigned &&
+        this.isMutableCell(x, y)
+      ) {
+        unassigned.push({ x, y });
+      }
+    }
+
+    return {
+      target: this.level.rowClues[y],
+      wallsPlaced,
+      unassigned,
+    };
+  }
+
+  getColumnStatus(
+    x: number,
+  ): LineStatus {
+    const unassigned:
+      GridPosition[] = [];
+
+    let wallsPlaced = 0;
+
+    for (
+      let y = 0;
+      y < this.level.height;
+      y += 1
+    ) {
+      const state =
+        this.cells[y][x];
+
+      if (
+        state ===
+        SearchCellState.Wall
+      ) {
+        wallsPlaced += 1;
+      } else if (
+        state ===
+        SearchCellState.Unassigned &&
+        this.isMutableCell(x, y)
+      ) {
+        unassigned.push({ x, y });
+      }
+    }
+
+    return {
+      target:
+        this.level.columnClues[x],
+      wallsPlaced,
+      unassigned,
+    };
   }
 
   private positionKey(
