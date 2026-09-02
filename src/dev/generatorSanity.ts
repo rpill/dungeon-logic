@@ -14,6 +14,12 @@ import {
 } from '../puzzle/generator/CandidateFactory';
 
 import {
+  candidateDistance,
+  scoreCandidate,
+  selectShortlist,
+} from '../puzzle/generator/CandidateRanker';
+
+import {
   level001,
 } from '../data/levels/level001';
 
@@ -31,10 +37,12 @@ import type {
 
 import {
   GeneratorArchetype,
+  type AcceptedCandidate,
   type GeneratedCandidate,
   type GeneratorArchetype as GeneratorArchetypeType,
   type GeneratorBoardSize,
   type GeneratorConfig,
+  type GeneratorPoolReport,
 } from '../puzzle/generator/types';
 
 function assert(
@@ -815,12 +823,380 @@ function expectThrow(
   );
 }
 
+
+function runRankingChecks(): void {
+  const healthy =
+    createRankingFixture({
+      seed: 101,
+      size: 7,
+    });
+
+  assert(
+    scoreCandidate(healthy) === 100,
+    'Healthy middle-range candidate must score 100.',
+  );
+
+  const lowerWallDensity =
+    createRankingFixture({
+      seed: 102,
+      size: 7,
+      metrics: {
+        wallDensity: 0.20,
+      },
+    });
+
+  assert(
+    scoreCandidate(
+      lowerWallDensity,
+    ) === 100,
+    'Lowering wall density below healthy threshold must not increase score above 100.',
+  );
+
+  const thickWalls =
+    createRankingFixture({
+      seed: 103,
+      size: 7,
+      metrics: {
+        thickWallCellRatio: 0.60,
+      },
+    });
+
+  assert(
+    scoreCandidate(thickWalls) < 100,
+    'Thick-wall ratio above healthy threshold must reduce score.',
+  );
+
+  const weakBoundary =
+    createRankingFixture({
+      seed: 104,
+      size: 7,
+      metrics: {
+        wallOpenBoundaryPerWall: 1.30,
+      },
+    });
+
+  assert(
+    scoreCandidate(weakBoundary) < 100,
+    'Low wall/open boundary must reduce score.',
+  );
+
+  const largeComponent =
+    createRankingFixture({
+      seed: 105,
+      size: 7,
+      metrics: {
+        largestWallComponentRatio: 0.75,
+      },
+    });
+
+  assert(
+    scoreCandidate(
+      largeComponent,
+    ) < 100,
+    'Oversized largest wall component must reduce score.',
+  );
+
+  const nearFullLines =
+    createRankingFixture({
+      seed: 106,
+      size: 7,
+      metrics: {
+        nearFullWallLineCount: 3,
+      },
+    });
+
+  assert(
+    scoreCandidate(
+      nearFullLines,
+    ) === 96,
+    'Three near-full lines must apply the bounded four-point penalty.',
+  );
+
+  const objectBonus =
+    createRankingFixture({
+      seed: 107,
+      size: 7,
+      metrics: {
+        objectAssistedForcedWallCount:
+          100,
+      },
+    });
+
+  assert(
+    scoreCandidate(objectBonus) === 103,
+    'Object-assisted bonus must be capped at three points.',
+  );
+
+  assert(
+    candidateDistance(
+      healthy,
+      healthy,
+    ) === 0,
+    'Candidate distance to itself must be zero.',
+  );
+
+  const distant =
+    createRankingFixture({
+      seed: 108,
+      size: 8,
+      metrics: {
+        wallDensity: 0.20,
+        thickWallCellRatio: 0,
+        wallOpenBoundaryPerWall: 2.40,
+        largestWallComponentRatio: 0.05,
+      },
+      monsterCount: 4,
+      fill: '#',
+    });
+
+  const distance =
+    candidateDistance(
+      healthy,
+      distant,
+    );
+
+  assert(
+    distance > 0 &&
+      distance <= 1,
+    'Candidate distance must stay in (0, 1] for distinct fixtures.',
+  );
+
+  runShortlistDiversityChecks();
+}
+
+function runShortlistDiversityChecks(): void {
+  const candidateA =
+    createRankingFixture({
+      seed: 1,
+      size: 7,
+    });
+
+  const candidateB =
+    createRankingFixture({
+      seed: 2,
+      size: 7,
+    });
+
+  const candidateC =
+    createRankingFixture({
+      seed: 3,
+      size: 8,
+      metrics: {
+        wallDensity: 0.20,
+        thickWallCellRatio: 0,
+        wallOpenBoundaryPerWall: 2.40,
+        largestWallComponentRatio: 0.05,
+        nearFullWallLineCount: 2,
+      },
+      monsterCount: 4,
+      fill: '#',
+    });
+
+  const candidateD =
+    createRankingFixture({
+      seed: 4,
+      size: 6,
+      metrics: {
+        wallDensity: 0.80,
+        thickWallCellRatio: 0.90,
+        wallOpenBoundaryPerWall: 0.50,
+        largestWallComponentRatio: 0.95,
+        nearFullWallLineCount: 8,
+      },
+      monsterCount: 4,
+      fill: '#',
+    });
+
+  const pool =
+    createRankingPool([
+      candidateA,
+      candidateB,
+      candidateC,
+      candidateD,
+    ]);
+
+  const shortlist =
+    selectShortlist(
+      pool,
+      2,
+    );
+
+  assert(
+    shortlist.length === 2,
+    'Two-entry ranking fixture must produce two shortlisted candidates.',
+  );
+
+  assert(
+    shortlist[0].accepted.candidate.seed ===
+      candidateA.candidate.seed,
+    'Best raw-quality candidate with lowest seed must be selected first.',
+  );
+
+  assert(
+    shortlist[1].accepted.candidate.seed ===
+      candidateC.candidate.seed,
+    'A slightly lower-quality but clearly novel candidate must beat an almost identical candidate.',
+  );
+
+  assert(
+    shortlist.every(
+      (ranked) =>
+        ranked.accepted.candidate.seed !==
+        candidateD.candidate.seed,
+    ),
+    'Very low quality candidate must not win solely from novelty.',
+  );
+}
+
+function createRankingFixture(
+  input: {
+    seed: number;
+    size: GeneratorBoardSize;
+    metrics?: Partial<
+      AcceptedCandidate[
+        'quality'
+      ]['metrics']
+    >;
+    monsterCount?: number;
+    fill?: '#' | '.';
+  },
+): AcceptedCandidate {
+  const size =
+    input.size;
+
+  const fill =
+    input.fill ?? '.';
+
+  const solution =
+    Array.from(
+      { length: size },
+      () => fill.repeat(size),
+    );
+
+  const monsters =
+    Array.from(
+      {
+        length:
+          input.monsterCount ?? 0,
+      },
+      (_, index) => ({
+        x: index % size,
+        y: Math.floor(
+          index / size,
+        ),
+      }),
+    );
+
+  const candidate:
+    GeneratedCandidate = {
+      id:
+        `ranking-${input.seed}`,
+      seed: input.seed,
+      archetype:
+        GeneratorArchetype.MonsterOnly,
+      size,
+      rooms: [],
+      level: {
+        id:
+          `ranking-${input.seed}`,
+        width: size,
+        height: size,
+        rowClues:
+          Array.from(
+            { length: size },
+            () => 0,
+          ),
+        columnClues:
+          Array.from(
+            { length: size },
+            () => 0,
+          ),
+        monsters,
+        chests: [],
+        blockers: [],
+        doors: [],
+        solution,
+      },
+    };
+
+  return {
+    candidate,
+    solutionCount: 1,
+    quality: {
+      passes: true,
+      issues: [],
+      warnings: [],
+      metrics: {
+        wallDensity: 0.40,
+        fullWallLineCount: 0,
+        nearFullWallLineCount: 0,
+        solidWall3x3Count: 0,
+        thickWallCellCount: 0,
+        thickWallCellRatio: 0.20,
+        wallOpenBoundaryEdgeCount: 24,
+        wallOpenBoundaryPerWall: 1.60,
+        largestWallComponentSize: 8,
+        largestWallComponentRatio: 0.40,
+        largestWallComponentPerimeterPerWall:
+          2,
+        clueOnlyForcedWallCount: 0,
+        clueOnlyForcedWallRatio: 0,
+        objectAwareForcedWallCount: 0,
+        objectAssistedForcedWallCount: 0,
+        ...input.metrics,
+      },
+    },
+  };
+}
+
+function createRankingPool(
+  accepted:
+    readonly AcceptedCandidate[],
+): GeneratorPoolReport {
+  return {
+    masterSeed: 1,
+    config: {
+      masterSeed: 1,
+      acceptedPerArchetype:
+        accepted.length,
+      shortlistPerArchetype: 2,
+      maxAttemptsPerArchetype:
+        accepted.length,
+    },
+    archetypes: [
+      {
+        stats: {
+          archetype:
+            GeneratorArchetype.MonsterOnly,
+          attempts:
+            accepted.length,
+          accepted:
+            accepted.length,
+          rejectionCounts: {
+            'generation-failed': 0,
+            invalid: 0,
+            'non-unique': 0,
+            'hard-quality': 0,
+            'geometry-warning': 0,
+          },
+        },
+        accepted,
+        rejectionSamples: [],
+        exhausted: false,
+      },
+    ],
+    accepted,
+    completed: true,
+  };
+}
+
 runRngChecks();
 runMonsterOnlyChecks();
 runArchetypeChecks();
 runAcceptancePipelineChecks();
 runCandidatePoolChecks();
+runRankingChecks();
 
 console.info(
-  '[Dungeon Logic] Generator sanity: generation + acceptance + candidate pool checks passed',
+  '[Dungeon Logic] Generator sanity: generation + acceptance + pool + ranking RED checks passed',
 );

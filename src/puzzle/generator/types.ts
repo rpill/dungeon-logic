@@ -145,6 +145,14 @@ export interface GeneratorPoolReport {
   completed: boolean;
 }
 
+export interface RankedCandidate {
+  accepted: AcceptedCandidate;
+  qualityScore: number;
+  diversityScore: number;
+  selectionScore: number;
+  rankWithinArchetype: number;
+}
+
 export const DEFAULT_GENERATOR_CONFIG:
   GeneratorConfig = {
     masterSeed: 123456,
