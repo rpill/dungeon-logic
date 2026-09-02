@@ -1,4 +1,14 @@
 import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+} from 'node:fs/promises';
+
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import {
   SeededRandom,
   deriveCandidateSeed,
 } from '../puzzle/generator/SeededRandom';
@@ -18,6 +28,14 @@ import {
   scoreCandidate,
   selectShortlist,
 } from '../puzzle/generator/CandidateRanker';
+
+import {
+  buildGeneratorRunReport,
+  createSerializableReport,
+  formatShortlistMarkdown,
+  parseMasterSeed,
+  writeGeneratorOutputs,
+} from './generateCandidates';
 
 import {
   level001,
@@ -136,13 +154,13 @@ function runRngChecks(): void {
 
   assert(
     JSON.stringify(first) ===
-      JSON.stringify(second),
+    JSON.stringify(second),
     'Same RNG seed must reproduce the same sequence.',
   );
 
   assert(
     JSON.stringify(first) !==
-      JSON.stringify(different),
+    JSON.stringify(different),
     'Different RNG seeds must change the sequence.',
   );
 
@@ -152,11 +170,11 @@ function runRngChecks(): void {
       'monster-only',
       7,
     ) ===
-      deriveCandidateSeed(
-        123456,
-        'monster-only',
-        7,
-      ),
+    deriveCandidateSeed(
+      123456,
+      'monster-only',
+      7,
+    ),
     'Candidate seed derivation must be deterministic.',
   );
 
@@ -166,11 +184,11 @@ function runRngChecks(): void {
       'monster-only',
       7,
     ) !==
-      deriveCandidateSeed(
-        123456,
-        'monster-only',
-        8,
-      ),
+    deriveCandidateSeed(
+      123456,
+      'monster-only',
+      8,
+    ),
     'Attempt number must affect candidate seed.',
   );
 }
@@ -199,22 +217,22 @@ function runMonsterOnlyChecks(): void {
       JSON.stringify(
         repeated.candidate.level,
       ) ===
-        JSON.stringify(
-          generated.candidate.level,
-        ),
+      JSON.stringify(
+        generated.candidate.level,
+      ),
       'Candidate generation must be deterministic.',
     );
   }
 
   assert(
     generated.candidate.level.chests.length ===
-      0,
+    0,
     'Monster-only candidate must have no Chest.',
   );
 
   assert(
     generated.candidate.level.monsters.length >
-      0,
+    0,
     'Monster-only candidate must contain at least one Monster.',
   );
 
@@ -227,9 +245,9 @@ function runMonsterOnlyChecks(): void {
     JSON.stringify(
       clues.rowClues,
     ) ===
-      JSON.stringify(
-        generated.candidate.level.rowClues,
-      ),
+    JSON.stringify(
+      generated.candidate.level.rowClues,
+    ),
     'Generated row clues must come from solution.',
   );
 
@@ -237,9 +255,9 @@ function runMonsterOnlyChecks(): void {
     JSON.stringify(
       clues.columnClues,
     ) ===
-      JSON.stringify(
-        generated.candidate.level.columnClues,
-      ),
+    JSON.stringify(
+      generated.candidate.level.columnClues,
+    ),
     'Generated column clues must come from solution.',
   );
 }
@@ -258,13 +276,13 @@ function runArchetypeChecks(): void {
 
   assert(
     oneRoomChestOnly.level.chests.length ===
-      1,
+    1,
     'Chest-one-room candidate must contain exactly one Chest.',
   );
 
   assert(
     oneRoomChestOnly.level.monsters.length ===
-      0,
+    0,
     'Chest-one-room candidate must contain no Monsters.',
   );
 
@@ -281,13 +299,13 @@ function runArchetypeChecks(): void {
 
   assert(
     twoRoomChestOnly.level.chests.length ===
-      2,
+    2,
     'Chest-two-rooms candidate must contain exactly two Chests.',
   );
 
   assert(
     twoRoomChestOnly.level.monsters.length ===
-      0,
+    0,
     'Chest-two-rooms candidate must contain no Monsters.',
   );
 
@@ -299,8 +317,8 @@ function runArchetypeChecks(): void {
 
   assert(
     mixedOne.rooms.length === 1 &&
-      mixedOne.level.chests.length === 1 &&
-      mixedOne.level.monsters.length > 0,
+    mixedOne.level.chests.length === 1 &&
+    mixedOne.level.monsters.length > 0,
     'Mixed-one-room candidate must contain one room, one Chest, and Monsters.',
   );
 
@@ -312,8 +330,8 @@ function runArchetypeChecks(): void {
 
   assert(
     mixedTwo.rooms.length === 2 &&
-      mixedTwo.level.chests.length === 2 &&
-      mixedTwo.level.monsters.length > 0,
+    mixedTwo.level.chests.length === 2 &&
+    mixedTwo.level.monsters.length > 0,
     'Mixed-two-rooms candidate must contain two rooms, two Chests, and Monsters.',
   );
 
@@ -358,7 +376,7 @@ function assertFixedObjectsOpen(
   ) {
     assert(
       candidate.level.solution[
-        monster.y
+      monster.y
       ][monster.x] === '.',
       'Monster must be OPEN in generated solution.',
     );
@@ -370,7 +388,7 @@ function assertFixedObjectsOpen(
   ) {
     assert(
       candidate.level.solution[
-        chest.y
+      chest.y
       ][chest.x] === '.',
       'Chest must be OPEN in generated solution.',
     );
@@ -383,7 +401,7 @@ function assertChestDistanceGuideline(
   for (
     let roomIndex = 0;
     roomIndex <
-      candidate.rooms.length;
+    candidate.rooms.length;
     roomIndex += 1
   ) {
     const room =
@@ -391,7 +409,7 @@ function assertChestDistanceGuideline(
 
     const chest =
       candidate.level.chests[
-        roomIndex
+      roomIndex
       ];
 
     assert(
@@ -406,11 +424,11 @@ function assertChestDistanceGuideline(
     const distance =
       Math.abs(
         chest.x -
-          room.internalEntrance.x,
+        room.internalEntrance.x,
       ) +
       Math.abs(
         chest.y -
-          room.internalEntrance.y,
+        room.internalEntrance.y,
       );
 
     assert(
@@ -456,29 +474,29 @@ function runAcceptancePipelineChecks(): void {
 
   assert(
     invalidEvaluation.status ===
-      'invalid',
+    'invalid',
     `Open 4x4 fixture must be rejected as invalid, got ${invalidEvaluation.status}.`,
   );
 
   const ambiguousBase:
     LevelDefinition = {
-      id:
-        'generator-non-unique-4x4',
-      width: 4,
-      height: 4,
-      rowClues: [1, 1, 1, 1],
-      columnClues: [1, 1, 1, 1],
-      monsters: [],
-      chests: [],
-      blockers: [],
-      doors: [],
-      solution: [
-        '....',
-        '....',
-        '....',
-        '....',
-      ],
-    };
+    id:
+      'generator-non-unique-4x4',
+    width: 4,
+    height: 4,
+    rowClues: [1, 1, 1, 1],
+    columnClues: [1, 1, 1, 1],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+    solution: [
+      '....',
+      '....',
+      '....',
+      '....',
+    ],
+  };
 
   const ambiguousSolve =
     solveLevel(
@@ -518,7 +536,7 @@ function runAcceptancePipelineChecks(): void {
 
   assert(
     ambiguousEvaluation.status ===
-      'non-unique',
+    'non-unique',
     `Valid ambiguous fixture must be rejected as non-unique, got ${ambiguousEvaluation.status}.`,
   );
 
@@ -527,7 +545,7 @@ function runAcceptancePipelineChecks(): void {
 
   assert(
     solveLevel(level001).solutionCount ===
-      1,
+    1,
     'level001 must remain unique before using it as hard-quality fixture.',
   );
 
@@ -545,42 +563,42 @@ function runAcceptancePipelineChecks(): void {
 
   assert(
     hardQualityEvaluation.status ===
-      'hard-quality',
+    'hard-quality',
     `Valid unique level001 must be rejected as hard-quality, got ${hardQualityEvaluation.status}.`,
   );
 
   const warningLevel:
     LevelDefinition = {
-      id:
-        'generator-geometry-warning-historical-level011',
-      width: 8,
-      height: 8,
-      rowClues: [
-        5, 5, 4, 5,
-        4, 2, 2, 5,
-      ],
-      columnClues: [
-        5, 5, 1, 4,
-        2, 5, 5, 5,
-      ],
-      monsters: [],
-      chests: [
-        { x: 0, y: 7 },
-        { x: 2, y: 0 },
-      ],
-      blockers: [],
-      doors: [],
-      solution: [
-        '##...###',
-        '##...###',
-        '##....##',
-        '#####...',
-        '##...##.',
-        '...#.#..',
-        '...#...#',
-        '...#####',
-      ],
-    };
+    id:
+      'generator-geometry-warning-historical-level011',
+    width: 8,
+    height: 8,
+    rowClues: [
+      5, 5, 4, 5,
+      4, 2, 2, 5,
+    ],
+    columnClues: [
+      5, 5, 1, 4,
+      2, 5, 5, 5,
+    ],
+    monsters: [],
+    chests: [
+      { x: 0, y: 7 },
+      { x: 2, y: 0 },
+    ],
+    blockers: [],
+    doors: [],
+    solution: [
+      '##...###',
+      '##...###',
+      '##....##',
+      '#####...',
+      '##...##.',
+      '...#.#..',
+      '...#...#',
+      '...#####',
+    ],
+  };
 
   const warningSolve =
     solveLevel(
@@ -616,7 +634,7 @@ function runAcceptancePipelineChecks(): void {
 
   assert(
     warningEvaluation.status ===
-      'geometry-warning',
+    'geometry-warning',
     `Valid unique compact fixture must be rejected as geometry-warning, got ${warningEvaluation.status}.`,
   );
 }
@@ -626,9 +644,9 @@ function findAcceptedGeneratedCandidate():
   const searches:
     readonly {
       archetype:
-        GeneratorArchetypeType;
+      GeneratorArchetypeType;
       size:
-        GeneratorBoardSize;
+      GeneratorBoardSize;
     }[] = [
       {
         archetype:
@@ -703,8 +721,8 @@ function wrapGeneratedFixture(
       GeneratorArchetype.MonsterOnly,
     size:
       level.width === 6 ||
-      level.width === 7 ||
-      level.width === 8
+        level.width === 7 ||
+        level.width === 8
         ? level.width
         : 6,
     rooms: [],
@@ -740,11 +758,11 @@ function runCandidatePoolChecks(): void {
 
   const smallConfig:
     GeneratorConfig = {
-      masterSeed: 123456,
-      acceptedPerArchetype: 1,
-      shortlistPerArchetype: 1,
-      maxAttemptsPerArchetype: 5000,
-    };
+    masterSeed: 123456,
+    acceptedPerArchetype: 1,
+    shortlistPerArchetype: 1,
+    maxAttemptsPerArchetype: 5000,
+  };
 
   const first =
     createCandidatePool(
@@ -787,8 +805,8 @@ function runCandidatePoolChecks(): void {
 
     assert(
       archetypeResult.stats.attempts >= 1 &&
-        archetypeResult.stats.attempts <=
-          smallConfig.maxAttemptsPerArchetype,
+      archetypeResult.stats.attempts <=
+      smallConfig.maxAttemptsPerArchetype,
       `${archetypeResult.stats.archetype} attempt count must stay within configured bounds.`,
     );
   }
@@ -800,7 +818,7 @@ function runCandidatePoolChecks(): void {
 
   assert(
     JSON.stringify(first) ===
-      JSON.stringify(second),
+    JSON.stringify(second),
     'Repeated pool generation must be byte-equivalent after JSON.stringify.',
   );
 }
@@ -957,7 +975,7 @@ function runRankingChecks(): void {
 
   assert(
     distance > 0 &&
-      distance <= 1,
+    distance <= 1,
     'Candidate distance must stay in (0, 1] for distinct fixtures.',
   );
 
@@ -1028,13 +1046,13 @@ function runShortlistDiversityChecks(): void {
 
   assert(
     shortlist[0].accepted.candidate.seed ===
-      candidateA.candidate.seed,
+    candidateA.candidate.seed,
     'Best raw-quality candidate with lowest seed must be selected first.',
   );
 
   assert(
     shortlist[1].accepted.candidate.seed ===
-      candidateC.candidate.seed,
+    candidateC.candidate.seed,
     'A slightly lower-quality but clearly novel candidate must beat an almost identical candidate.',
   );
 
@@ -1054,7 +1072,7 @@ function createRankingFixture(
     size: GeneratorBoardSize;
     metrics?: Partial<
       AcceptedCandidate[
-        'quality'
+      'quality'
       ]['metrics']
     >;
     monsterCount?: number;
@@ -1089,35 +1107,35 @@ function createRankingFixture(
 
   const candidate:
     GeneratedCandidate = {
+    id:
+      `ranking-${input.seed}`,
+    seed: input.seed,
+    archetype:
+      GeneratorArchetype.MonsterOnly,
+    size,
+    rooms: [],
+    level: {
       id:
         `ranking-${input.seed}`,
-      seed: input.seed,
-      archetype:
-        GeneratorArchetype.MonsterOnly,
-      size,
-      rooms: [],
-      level: {
-        id:
-          `ranking-${input.seed}`,
-        width: size,
-        height: size,
-        rowClues:
-          Array.from(
-            { length: size },
-            () => 0,
-          ),
-        columnClues:
-          Array.from(
-            { length: size },
-            () => 0,
-          ),
-        monsters,
-        chests: [],
-        blockers: [],
-        doors: [],
-        solution,
-      },
-    };
+      width: size,
+      height: size,
+      rowClues:
+        Array.from(
+          { length: size },
+          () => 0,
+        ),
+      columnClues:
+        Array.from(
+          { length: size },
+          () => 0,
+        ),
+      monsters,
+      chests: [],
+      blockers: [],
+      doors: [],
+      solution,
+    },
+  };
 
   return {
     candidate,
@@ -1190,13 +1208,338 @@ function createRankingPool(
   };
 }
 
-runRngChecks();
-runMonsterOnlyChecks();
-runArchetypeChecks();
-runAcceptancePipelineChecks();
-runCandidatePoolChecks();
-runRankingChecks();
 
-console.info(
-  '[Dungeon Logic] Generator sanity: generation + acceptance + pool + ranking RED checks passed',
+function runCliContractChecks(): void {
+  assert(
+    parseMasterSeed([
+      '--seed',
+      '123456',
+    ]) === 123456,
+    'CLI seed parser must accept a valid uint32 decimal seed.',
+  );
+
+  for (
+    const args
+    of [
+      [],
+      ['--seed'],
+      ['--seed', '-1'],
+      ['--seed', '1.5'],
+      ['--seed', 'NaN'],
+      ['--seed', '4294967296'],
+      ['123456'],
+      ['--seed', '12abc'],
+    ]
+  ) {
+    expectThrow(
+      () => {
+        parseMasterSeed(args);
+      },
+      `Invalid CLI args must throw: ${JSON.stringify(args)}`,
+    );
+  }
+
+  const report =
+    buildGeneratorRunReport({
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 5000,
+    });
+
+  assert(
+    report.schemaVersion === 1,
+    'Generator run report must use schemaVersion 1.',
+  );
+
+  assert(
+    report.masterSeed === 123456,
+    'Generator run report must preserve master seed.',
+  );
+
+  assert(
+    report.pool.completed,
+    'Small deterministic CLI report must complete.',
+  );
+
+  assert(
+    report.pool.accepted.length === 5,
+    'Small deterministic CLI report must contain five accepted candidates.',
+  );
+
+  assert(
+    report.shortlist.length === 5,
+    'Small deterministic CLI report must shortlist one candidate per archetype.',
+  );
+}
+
+function runOutputFormatChecks(): void {
+  const accepted =
+    createRankingFixture({
+      seed: 424242,
+      size: 7,
+      monsterCount: 2,
+    });
+
+  const pool =
+    createRankingPool([
+      accepted,
+    ]);
+
+  const shortlist =
+    selectShortlist(
+      pool,
+      1,
+    );
+
+  const report = {
+    schemaVersion: 1 as const,
+    masterSeed: 123456,
+    config: {
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 100,
+    },
+    pool,
+    shortlist,
+  };
+
+  const markdown =
+    formatShortlistMarkdown(
+      report,
+    );
+
+  const requiredMarkdownParts =
+    [
+      'Dungeon Logic Generator v1',
+      'Master seed',
+      'archetype',
+      'candidate seed',
+      'size',
+      'row clues',
+      'column clues',
+      'Monsters',
+      'Chests',
+      'solutionCount: 1',
+      'wall density',
+      'thick-wall ratio',
+      'wall/open boundary',
+      'largest wall component',
+    ] as const;
+
+  for (
+    const part
+    of requiredMarkdownParts
+  ) {
+    assert(
+      markdown.includes(part),
+      `Shortlist Markdown must contain "${part}".`,
+    );
+  }
+
+  const serializable =
+    createSerializableReport(
+      report,
+    );
+
+  assert(
+    typeof serializable ===
+    'object' &&
+    serializable !== null &&
+    'schemaVersion' in serializable &&
+    serializable.schemaVersion === 1,
+    'Serializable generator report must contain schemaVersion: 1.',
+  );
+}
+
+
+async function runFilesystemCliChecks(): Promise<void> {
+  const levelsBefore =
+    (
+      await readdir(
+        'src/data/levels',
+      )
+    ).sort();
+
+  const packageJson =
+    JSON.parse(
+      await readFile(
+        'package.json',
+        'utf8',
+      ),
+    ) as {
+      scripts?: Record<
+        string,
+        string
+      >;
+    };
+
+  assert(
+    packageJson.scripts?.[
+    'generate:candidates'
+    ] ===
+    'tsx src/dev/generateCandidates.ts',
+    'package.json must expose generate:candidates CLI script.',
+  );
+
+  const gitignore =
+    await readFile(
+      '.gitignore',
+      'utf8',
+    );
+
+  assert(
+    gitignore
+      .split(/\r?\n/)
+      .includes('.generated/'),
+    '.gitignore must contain .generated/.',
+  );
+
+  const accepted =
+    createRankingFixture({
+      seed: 515151,
+      size: 7,
+      monsterCount: 1,
+    });
+
+  const pool =
+    createRankingPool([
+      accepted,
+    ]);
+
+  const report = {
+    schemaVersion: 1 as const,
+    masterSeed: 123456,
+    config: {
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 100,
+    },
+    pool,
+    shortlist:
+      selectShortlist(
+        pool,
+        1,
+      ),
+  };
+
+  const tempRoot =
+    await mkdtemp(
+      join(
+        tmpdir(),
+        'dungeon-logic-generator-',
+      ),
+    );
+
+  try {
+    const paths =
+      await writeGeneratorOutputs(
+        report,
+        tempRoot,
+      );
+
+    assert(
+      paths.jsonPath ===
+      join(
+        tempRoot,
+        'candidates-123456.json',
+      ),
+      'JSON output path must include the master seed.',
+    );
+
+    assert(
+      paths.markdownPath ===
+      join(
+        tempRoot,
+        'shortlist-123456.md',
+      ),
+      'Markdown output path must include the master seed.',
+    );
+
+    const jsonText =
+      await readFile(
+        paths.jsonPath,
+        'utf8',
+      );
+
+    assert(
+      jsonText.endsWith('\n'),
+      'JSON output must end with a newline.',
+    );
+
+    const parsed =
+      JSON.parse(jsonText) as {
+        schemaVersion?: number;
+        masterSeed?: number;
+      };
+
+    assert(
+      parsed.schemaVersion === 1 &&
+      parsed.masterSeed === 123456,
+      'Written JSON report must preserve schemaVersion and masterSeed.',
+    );
+
+    const markdown =
+      await readFile(
+        paths.markdownPath,
+        'utf8',
+      );
+
+    assert(
+      markdown.includes(
+        'Dungeon Logic Generator v1',
+      ),
+      'Written Markdown shortlist must contain the generator title.',
+    );
+  } finally {
+    await rm(
+      tempRoot,
+      {
+        recursive: true,
+        force: true,
+      },
+    );
+  }
+
+  const levelsAfter =
+    (
+      await readdir(
+        'src/data/levels',
+      )
+    ).sort();
+
+  assert(
+    JSON.stringify(
+      levelsBefore,
+    ) ===
+    JSON.stringify(
+      levelsAfter,
+    ),
+    'Generator pipeline must not create authored level files.',
+  );
+}
+
+async function main(): Promise<void> {
+  runRngChecks();
+  runMonsterOnlyChecks();
+  runArchetypeChecks();
+  runAcceptancePipelineChecks();
+  runCandidatePoolChecks();
+  runRankingChecks();
+  runOutputFormatChecks();
+  runCliContractChecks();
+  await runFilesystemCliChecks();
+
+  console.info(
+    '[Dungeon Logic] Generator sanity: generation + acceptance + pool + ranking + output + CLI filesystem checks passed',
+  );
+}
+
+void main().catch(
+  (error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  },
 );

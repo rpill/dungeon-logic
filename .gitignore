@@ -42,3 +42,4 @@ public/assets/oryx/
 # OS junk
 .DS_Store
 Thumbs.db
+.generated/

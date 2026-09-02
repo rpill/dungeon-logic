@@ -153,6 +153,15 @@ export interface RankedCandidate {
   rankWithinArchetype: number;
 }
 
+export interface GeneratorRunReport {
+  schemaVersion: 1;
+  masterSeed: number;
+  config: GeneratorConfig;
+  pool: GeneratorPoolReport;
+  shortlist:
+    readonly RankedCandidate[];
+}
+
 export const DEFAULT_GENERATOR_CONFIG:
   GeneratorConfig = {
     masterSeed: 123456,
