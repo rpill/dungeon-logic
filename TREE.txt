@@ -1,9 +1,13 @@
 dungeon-logic/
 ├── docs/
 │   └── superpowers/
+│       ├── plans/
+│       │   ├── 2026-09-01-static-field-mechanics.md
+│       │   └── 2026-09-02-solver-v1.md
 │       └── specs/
 │           ├── 2026-09-01-phaser-bootstrap-design.md
-│           └── 2026-09-01-static-field-mechanics-design.md
+│           ├── 2026-09-01-static-field-mechanics-design.md
+│           └── 2026-09-02-solver-v1-design.md
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
@@ -18,10 +22,16 @@ dungeon-logic/
 │   │       ├── index.ts
 │   │       ├── level001.ts
 │   │       ├── level002.ts
-│   │       └── level003.ts
+│   │       ├── level003.ts
+│   │       └── level004.ts
 │   ├── dev/
+│   │   ├── solverSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/
+│   │   ├── solver/
+│   │   │   ├── PuzzleSolver.ts
+│   │   │   ├── SearchState.ts
+│   │   │   └── types.ts
 │   │   ├── LevelValidator.ts
 │   │   ├── PuzzleState.ts
 │   │   └── types.ts
