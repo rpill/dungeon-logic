@@ -1,9 +1,4 @@
-import {
-  level001,
-  level002,
-  level003,
-  level004,
-} from '../data/levels';
+import { levels } from '../data/levels';
 
 import {
   validatePuzzle,
@@ -59,7 +54,11 @@ export function runSolverSanityChecks(): void {
       run: checkDirectionalDoorPropagation,
     },
     {
-      name: 'current levels are unique',
+      name: 'registered level diversity batch',
+      run: checkRegisteredLevelDiversityBatch,
+    },
+    {
+      name: 'registered levels are unique',
       run: checkCurrentLevelsUnique,
     },
     {
@@ -428,16 +427,29 @@ function checkDirectionalDoorPropagation(): void {
   );
 }
 
-function checkCurrentLevelsUnique(): void {
-  const currentLevels:
-    readonly LevelDefinition[] = [
-      level001,
-      level002,
-      level003,
-      level004,
-    ];
+function checkRegisteredLevelDiversityBatch(): void {
+  assert(
+    levels.length === 12,
+    'Expected level001 through level012 to be registered.',
+  );
 
-  for (const level of currentLevels) {
+  for (
+    let index = 0;
+    index < levels.length;
+    index += 1
+  ) {
+    const expectedId =
+      `level-${String(index + 1).padStart(3, '0')}`;
+
+    assert(
+      levels[index].id === expectedId,
+      `Expected ${expectedId} at level index ${index}.`,
+    );
+  }
+}
+
+function checkCurrentLevelsUnique(): void {
+  for (const level of levels) {
     const result =
       solveLevel(level);
 

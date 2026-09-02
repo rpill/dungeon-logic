@@ -23,7 +23,15 @@ dungeon-logic/
 │   │       ├── level001.ts
 │   │       ├── level002.ts
 │   │       ├── level003.ts
-│   │       └── level004.ts
+│   │       ├── level004.ts
+│   │       ├── level005.ts
+│   │       ├── level006.ts
+│   │       ├── level007.ts
+│   │       ├── level008.ts
+│   │       ├── level009.ts
+│   │       ├── level010.ts
+│   │       ├── level011.ts
+│   │       └── level012.ts
 │   ├── dev/
 │   │   ├── solverSanity.ts
 │   │   └── validatorSanity.ts

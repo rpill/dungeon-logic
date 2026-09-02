@@ -3,6 +3,7 @@ import {
   level002,
   level003,
   level004,
+  levels,
   resolveLevel,
 } from '../data/levels';
 
@@ -47,6 +48,10 @@ export function runValidatorSanityChecks(): void {
       run: () => {
         checkValidLevel(level004);
       },
+    },
+    {
+      name: 'all registered hidden solutions valid',
+      run: checkRegisteredHiddenSolutions,
     },
     {
       name: 'level query selection',
@@ -142,6 +147,12 @@ function checkValidLevel001(): void {
   checkValidLevel(level001);
 }
 
+function checkRegisteredHiddenSolutions(): void {
+  for (const level of levels) {
+    checkValidLevel(level);
+  }
+}
+
 function checkValidLevel(
   level: LevelDefinition,
 ): void {
@@ -219,6 +230,11 @@ function checkLevelSelection(): void {
   assert(
     resolveLevel('4') === level004,
     'Query level=4 should select level004.',
+  );
+
+  assert(
+    resolveLevel('12') === levels[11],
+    'Query level=12 should select level012.',
   );
 
   assert(
