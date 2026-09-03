@@ -6,13 +6,17 @@ dungeon-logic/
 │       │   ├── 2026-09-02-generator-v1.md
 │       │   ├── 2026-09-02-solver-v1.md
 │       │   ├── 2026-09-03-generator-v1-2-content-quality.md
+│       │   ├── 2026-09-03-human-solvability.md
 │       │   └── 2026-09-03-treasure-room-solver-pruning.md
+│       ├── reports/
+│       │   └── 2026-09-03-human-solvability-baseline.md
 │       └── specs/
 │           ├── 2026-09-01-phaser-bootstrap-design.md
 │           ├── 2026-09-01-static-field-mechanics-design.md
 │           ├── 2026-09-02-generator-v1-design.md
 │           ├── 2026-09-02-solver-v1-design.md
 │           ├── 2026-09-03-generator-v1-2-content-quality-design.md
+│           ├── 2026-09-03-human-solvability-design.md
 │           └── 2026-09-03-treasure-room-solver-pruning-design.md
 ├── public/
 │   ├── favicon.svg
@@ -39,9 +43,14 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
+│   │   ├── analyzeHumanSolvability.ts
 │   │   ├── benchmarkTreasureRoomPruning.ts
+│   │   ├── gameBoardLayoutSanity.ts
 │   │   ├── generateCandidates.ts
+│   │   ├── generatedPlaytestSanity.ts
 │   │   ├── generatorSanity.ts
+│   │   ├── humanAnalysisSanity.ts
+│   │   ├── humanSolverSanity.ts
 │   │   ├── levelQualitySanity.ts
 │   │   ├── profileGenerator.ts
 │   │   ├── profileGeneratorCli.ts
@@ -56,6 +65,10 @@ dungeon-logic/
 │   │   │   ├── CandidateRanker.ts
 │   │   │   ├── SeededRandom.ts
 │   │   │   └── types.ts
+│   │   ├── human-solver/
+│   │   │   ├── DirectDeductionEngine.ts
+│   │   │   ├── HumanSolver.ts
+│   │   │   └── types.ts
 │   │   ├── quality/
 │   │   │   └── LevelQualityAnalyzer.ts
 │   │   ├── solver/
@@ -67,6 +80,7 @@ dungeon-logic/
 │   │   └── types.ts
 │   ├── scenes/
 │   │   ├── BootScene.ts
+│   │   ├── GameBoardLayout.ts
 │   │   └── GameScene.ts
 │   ├── main.ts
 │   └── style.css
@@ -78,4 +92,5 @@ dungeon-logic/
 ├── PROJECT.md
 ├── TECH.md
 ├── TREE.txt
-└── tsconfig.json
+├── tsconfig.json
+└── vite.config.ts
