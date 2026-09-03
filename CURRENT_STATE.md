@@ -649,15 +649,16 @@ Runtime victory никогда не сравнивает текущее поле
 
 ---
 
-## Solver v1
+## Solver v1 + Treasure Room pruning
 
 Реализован pure TypeScript solver:
 
 `src/puzzle/solver/`
 
-Публичный API:
+Публичные API:
 
-`solveLevel(level: LevelDefinition): SolveResult`
+- `solveLevel(level: LevelDefinition): SolveResult`;
+- `solveLevelWithDiagnostics(level)` — тот же solver result плюс deterministic search counters.
 
 Результат:
 
@@ -675,16 +676,47 @@ Solver:
 - не использует hidden `level.solution` как oracle;
 - считает Monster, Chest и Directional Door fixed OPEN;
 - считает Fixed Blocker отдельной CLOSED metadata-клеткой, а не обычным `WALL`;
-- выполняет propagation по row / column clues;
-- выполняет propagation Directional Door constraints;
+- выполняет fixed-point propagation по row / column clues;
+- выполняет Directional Door propagation;
+- выполняет Treasure Room propagation;
 - отсекает невозможные row / column counts;
 - консервативно отсекает branches, где обязательные OPEN regions уже невозможно соединить;
-- отсекает Treasure Room branches, если для Chest не осталось ни одного допустимого 3×3 candidate;
+- использует entrance-aware Treasure Room candidate viability;
+- если у Chest остаётся единственный viable 3×3 room candidate, форсит его interior в OPEN;
+- если у выбранной комнаты подтверждён один entrance, форсит остальные mutable boundary cells в WALL;
+- если остаётся единственный возможный entrance, форсит его в OPEN;
+- Blocker на boundary считается CLOSED и остаётся `null`;
+- Directional Door на boundary считается fixed OPEN entrance;
 - использует deterministic most-constrained-first DFS;
 - при branching проверяет `WALL`, затем `OPEN`;
 - перед принятием каждого полного candidate передаёт его существующему `LevelValidator`.
 
+Treasure Room partial viability и branch pressure используют один источник истины в `SearchState`.
+
 Все зарегистрированные `level001`–`level012` зафиксированы solver sanity checks как уровни с ровно одним WALL / OPEN решением по текущему набору правил.
+
+Solver diagnostics:
+
+- `nodesVisited`;
+- `branches`;
+- `propagationPasses`;
+- `maxDepth`;
+- `completeCandidatesChecked`.
+
+Локальные regression checks:
+
+- `src/dev/solverSanity.ts`;
+- `src/dev/treasureRoomPruningSanity.ts`.
+
+Treasure Room pruning sanity покрывает:
+
+- два подтверждённых entrance делают candidate невозможным;
+- singleton room форсит interior OPEN;
+- room propagation входит в общий fixed point;
+- подтверждённый entrance закрывает остальной boundary;
+- последний возможный entrance форсится OPEN;
+- Blocker закрывает boundary без превращения в WALL;
+- Door снаружи комнаты считается OPEN entrance.
 
 Solver v1 пока не предоставляет:
 
@@ -692,13 +724,6 @@ Solver v1 пока не предоставляет:
 - logical explanation steps;
 - difficulty scoring;
 - решение из текущего partial `PuzzleState` игрока.
-
-Локальные regression checks находятся в:
-
-`src/dev/solverSanity.ts`
-
-Они запускаются через `npm run dev` после validator sanity checks.
-
 ---
 
 ## Level quality analyzer
@@ -709,7 +734,7 @@ Solver v1 пока не предоставляет:
 
 Он не участвует в runtime victory и не добавляет новые dungeon rules. Его задача — отбраковывать технически валидные и уникальные, но геометрически слабые уровни до ручного playtest.
 
-Текущий quality gate для `level005+`:
+Текущий hard quality gate для `level005+`:
 
 - wall density не выше 55%;
 - ни одной полностью WALL строки или колонки;
@@ -718,44 +743,47 @@ Solver v1 пока не предоставляет:
 
 Near-full линии (`size - 1`) измеряются отдельно, но сами по себе пока не являются причиной reject.
 
-Дополнительно analyzer считает soft geometry warnings, которые не меняют `report.passes` и не являются новыми dungeon rules:
-
-- `thickWallCellRatio` — доля WALL-клеток, входящих хотя бы в один сплошной 2×2 WALL block;
-- `wallOpenBoundaryPerWall` — сколько внутренних границ WALL ↔ OPEN приходится в среднем на одну WALL-клетку; низкое значение означает слишком компактную стеновую массу;
-- `largestWallComponentRatio` — доля всех WALL, принадлежащих крупнейшей связной стеновой компоненте;
-- `largestWallComponentPerimeterPerWall` — perimeter/area характеристика крупнейшей wall component для дальнейшего сравнения тонких и компактных форм.
-
-Текущие warning thresholds:
+Soft geometry warnings:
 
 - `thickWallCellRatio > 60%`;
 - `wallOpenBoundaryPerWall < 1.30`;
 - `largestWallComponentRatio > 75%`.
 
-Soft warning не делает технически валидный уровень невалидным, но authored diversity-batch `level005–level012` держится без таких warnings как дополнительный content-quality regression.
+Soft warning не меняет `report.passes` и не является dungeon rule.
 
 Analyzer различает:
 
-- `clueOnlyForcedWallCount` — стены, которые выводятся только из чисел строк/столбцов без fixed objects;
-- `objectAwareForcedWallCount` — стены после учёта известных non-WALL Monster / Chest / Door / Blocker cells;
-- `objectAssistedForcedWallCount` — дополнительная дедукция, появившаяся благодаря fixed objects.
+- `clueOnlyForcedWallCount`;
+- `objectAwareForcedWallCount`;
+- `objectAssistedForcedWallCount`.
 
-Поэтому лёгкое начало от Monster считается допустимым: например, два Monster в строке `6/8` могут немедленно вынудить остальные шесть клеток стать WALL, но это не считается clue-only халявой.
+Generator v1.1 также использует basic propagation exposure metrics:
+
+- `basicPropagationResolvedWallCount`;
+- `basicPropagationResolvedNonWallCount`;
+- `basicPropagationResolvedCount`;
+- `basicPropagationResolvedRatio`.
+
+Для basic propagation fixed Monster / Chest / Door / Blocker считаются известными non-WALL для row/column clue accounting. Blocker при этом остаётся CLOSED topology object и не превращается в обычный clue-counting WALL.
+
+Если `basicPropagationResolvedRatio > 70%`, analyzer выдаёт soft warning `basic propagation`. Ровно `70%` warning не даёт.
+
+В generator pipeline любой текущий quality warning приводит к `geometry-warning` rejection, хотя сам warning остаётся content-quality сигналом, а не runtime rule.
 
 Локальные regression checks:
 
 `src/dev/levelQualitySanity.ts`
 
-Они проверяют искусственный плохой wall slab, положительный monster-assisted пример и весь authored diversity-batch.
-
+Они покрывают hard-quality failures, object-assisted deduction, soft geometry warnings, basic-propagation exposure и authored diversity-batch.
 ---
 
-## Generator v1
+## Generator v1.1
 
 Реализован постоянный dev-only solution-first generator базовых Monster / Chest puzzles:
 
 `src/puzzle/generator/`
 
-Generator v1 поддерживает пять archetypes:
+Поддерживаются пять archetypes:
 
 - Monster-only;
 - Chest-only с одной Treasure Room;
@@ -770,16 +798,29 @@ Generator v1 поддерживает пять archetypes:
 
 Каждый candidate строится из полной WALL / OPEN geometry, после чего row / column clues автоматически выводятся из solution. Randomness полностью seeded и deterministic: master seed задаёт воспроизводимую последовательность candidate seeds и layouts.
 
-Acceptance pipeline использует уже существующие системы:
+Acceptance pipeline:
 
 1. `LevelValidator` подтверждает canonical dungeon rules;
 2. `PuzzleSolver` требует ровно одно решение;
 3. `LevelQualityAnalyzer` отбраковывает hard-quality failures;
-4. наличие текущих geometry warnings также отклоняет candidate из автоматического accepted pool.
+4. любой текущий quality warning переводит candidate в `geometry-warning`;
+5. exact playable duplicate внутри accepted pool текущего archetype получает `duplicate`.
 
-Geometry warnings при этом остаются authored-content сигналами и не становятся runtime dungeon rules.
+Если solution-first candidate прошёл `LevelValidator`, но solver вернул `solutionCount === 0`, это считается внутренним invariant error, а не обычным rejection.
 
-Generator v1 не поддерживает Blocker и Directional Door: каждый generated candidate использует:
+Playable duplicate signature включает:
+
+- size;
+- row clues;
+- column clues;
+- sorted Monster / Chest / Blocker / Door metadata;
+- solution WALL / OPEN layout.
+
+Seed, generated id и generator room metadata в signature не входят.
+
+Важно: текущий dedupe set создаётся отдельно для каждого archetype. Cross-archetype global dedupe пока не гарантируется.
+
+Generator v1.1 не поддерживает Blocker и Directional Door в generated geometry:
 
 ```ts
 blockers: []
@@ -796,13 +837,13 @@ Shortlist выбирается отдельно внутри каждого arch
 
 - 3 candidates на archetype;
 - 15 candidates всего;
-- ranking учитывает bounded quality score и diversity / novelty, чтобы shortlist не состоял из near-clones.
+- ranking учитывает bounded quality score и diversity / novelty.
 
 CLI:
 
 `npm run generate:candidates -- --seed <uint32>`
 
-Для master seed `123456` полный run уже проверен: 50 accepted candidates и 15 shortlisted candidates.
+Для master seed `123456` полный run после Generator v1.1 и Treasure Room solver pruning стабильно заполняет 50 accepted candidates и 15 shortlisted candidates.
 
 Выходные dev-artifacts:
 
@@ -813,19 +854,60 @@ CLI:
 
 Generated candidates никогда автоматически не регистрируются в `src/data/levels/` и не становятся production-уровнями без ручного review / promotion.
 
-Отдельные regression checks находятся в:
+Regression checks:
 
 `src/dev/generatorSanity.ts`
 
-Они запускаются командой:
+Команда:
 
 `npm run sanity:generator`
 
-Полный generator sanity намеренно не запускается из `BootScene`, потому что batch generation и repeated solver checks слишком тяжёлые для каждого локального старта игры.
-
-Difficulty scoring / logical difficulty estimation Generator v1 не реализует.
-
+Difficulty scoring / logical difficulty estimation пока не реализованы.
 ---
+
+## Generator / solver profiling
+
+Реализован dev-only profiler:
+
+- `src/dev/profileGenerator.ts`;
+- `src/dev/profileGeneratorCli.ts`;
+- `src/dev/profilerSanity.ts`;
+- `src/dev/benchmarkTreasureRoomPruning.ts`.
+
+Команда полного профиля:
+
+`npm run profile:generator -- --seed <uint32>`
+
+Profiler измеряет для каждого generation attempt:
+
+- generation time;
+- validation time;
+- solver time;
+- quality time;
+- total time;
+- solver diagnostics.
+
+Для master seed `123456` до Treasure Room pruning основной bottleneck находился в `chest-one-room`: solver time был около `260209.68 ms`, а полный профиль по сумме archetypes — около `284789 ms`.
+
+После entrance-aware Treasure Room propagation тот же seed показывает:
+
+- `monster-only`: 44 attempts / 10 accepted, solver около `80 ms`;
+- `chest-one-room`: 279 attempts / 10 accepted, solver около `1543 ms`;
+- `chest-two-rooms`: 380 attempts / 10 accepted, solver около `105 ms`;
+- `mixed-one-room`: 72 attempts / 10 accepted, solver около `29 ms`;
+- `mixed-two-rooms`: 791 attempts / 10 accepted, solver около `63 ms`.
+
+Суммарный archetype wall time полного profile run — около `2.74 s`, то есть примерно в `104×` меньше прежнего baseline.
+
+Два основных pathological accepted `chest-one-room` seeds:
+
+- `2567285821`: `4,573,081 -> 2,499` visited nodes;
+- `421722065`: `3,755,181 -> 2,221` visited nodes.
+
+Performance assertions не завязаны на wall-clock milliseconds: deterministic node counters считаются основным evidence, timing — supporting evidence.
+
+После этого profiling больше не показывает solver как блокирующую проблему для текущего 6×6 / 7×7 / 8×8 generator workflow.
+
 
 ## Restart
 
@@ -911,7 +993,7 @@ Undo не входит в текущий vertical slice и должен возв
 
 ## Level production
 
-Реализован dev-only Generator v1 candidate factory + shortlist pipeline.
+Реализован dev-only Generator v1.1 candidate factory + shortlist pipeline, solver diagnostics и profiling pipeline.
 
 Пока не реализованы:
 
@@ -919,10 +1001,10 @@ Undo не входит в текущий vertical slice и должен возв
 - tutorial progression;
 - автоматическая регистрация / promotion generated candidates в `src/data/levels/`;
 - production campaign generation;
-- difficulty estimation.
+- difficulty estimation;
+- global cross-archetype duplicate rejection.
 
-Validator, Solver v1, Level Quality Analyzer и Generator v1 теперь образуют технический pipeline для поиска и отбора candidate levels, но финальный выбор shipping levels всё ещё требует ручного review и playtest.
-
+Validator, optimized Solver v1, Level Quality Analyzer и Generator v1.1 образуют быстрый технический pipeline для поиска и отбора candidate levels, но финальный выбор shipping levels всё ещё требует ручного review и playtest.
 ---
 
 ## Product systems
@@ -959,26 +1041,32 @@ Validator, Solver v1, Level Quality Analyzer и Generator v1 теперь обр
 13. получить минимальное состояние победы;
 14. перезапустить текущий уровень через Restart;
 15. dev-инструментом проверить уровень на `0 / 1 / 2+` решений и получить `firstSolution`;
-16. dev-инструментом детерминированно генерировать accepted Monster / Chest candidate pool и diversity-aware shortlist.
+16. dev-инструментом получать deterministic solver diagnostics;
+17. dev-инструментом детерминированно генерировать accepted Monster / Chest candidate pool и diversity-aware shortlist;
+18. dev-инструментом профилировать generator pipeline и focused pathological solver seeds.
 
-Static Field Mechanics v1, Solver v1, Level Quality Analyzer и Generator v1 функционально добавлены в dev/puzzle pipeline.
-
+Static Field Mechanics v1, optimized Solver v1, Level Quality Analyzer и Generator v1.1 функционально добавлены в dev/puzzle pipeline.
 ---
 
 # Next Steps
 
 Ближайший порядок разработки:
 
-1. Ручно просмотреть `.generated/shortlist-123456.md`, выбрать визуально и логически удачные candidates из пяти archetypes и playtest-ить их как потенциальную основу новых authored уровней.
+1. Перейти от performance work обратно к content quality: текущий full profile уже быстрый, поэтому не добавлять новые solver optimizations без нового измеренного bottleneck.
 
-2. Не регистрировать generated candidates автоматически: переносить удачные layouts в `src/data/levels/` только после ручного review, затем снова прогонять validator / solver / quality sanity.
+2. Ручно просмотреть `.generated/shortlist-123456.md` и candidate pool после v1.1, зафиксировать конкретные повторяющиеся проблемы generator content:
+   - Chest-one-room может выглядеть слишком template-like;
+   - Monster-only может давать слишком много Monster;
+   - two-room shortlist может недостаточно разнообразить размеры.
 
-3. На реальных уровнях профилировать solver и generator bottlenecks, особенно для two-room archetypes и при будущем росте поля к 10×10; timing остаётся profiling target, а не жёстким regression assertion.
+3. После конкретного review отдельно спроектировать Generator v1.2 content-quality slice. Не смешивать его с solver optimization.
 
-4. Исправлять validator / solver / generator edge cases только по конкретным найденным контрпримерам.
+4. Исправить latent dedupe mismatch отдельным маленьким bug slice: текущий duplicate set работает per-archetype, а global cross-archetype dedupe пока не гарантируется.
 
-5. Отдельно проектировать difficulty estimation / logical solver, если станет нужен контроль progression, hints или автоматическая оценка сложности.
+5. Удачные generated layouts переносить в `src/data/levels/` только после ручного review / playtest и затем снова прогонять validator / solver / quality sanity.
 
-6. ORYX visual pass делать поверх стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
+6. Отдельно проектировать difficulty estimation / logical solver только если станет нужен контроль progression, hints или автоматическая оценка сложности.
 
-7. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
+7. ORYX visual pass делать поверх стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
+
+8. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
