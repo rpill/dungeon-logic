@@ -1,3 +1,7 @@
+import {
+  getGeneratorMonsterPolicy,
+} from './CandidateFactory';
+
 import type {
   AcceptedCandidate,
   GeneratorPoolReport,
@@ -54,6 +58,11 @@ export function scoreCandidate(
     metrics.objectAssistedForcedWallCount *
       0.25,
   );
+
+  score -=
+    getGeneratorMonsterPolicy(
+      accepted.candidate,
+    ).rankingPenalty;
 
   return roundScore(score);
 }

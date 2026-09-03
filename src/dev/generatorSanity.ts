@@ -25,6 +25,7 @@ import {
 import {
   createCandidatePool,
   evaluateCandidate,
+  getGeneratorMonsterPolicy,
 } from '../puzzle/generator/CandidateFactory';
 
 import {
@@ -68,6 +69,7 @@ import {
   ALLOWED_SIZES,
   ALL_GENERATOR_ARCHETYPES,
   GeneratorArchetype,
+  RejectionReason,
   type AcceptedCandidate,
   type GeneratedCandidate,
   type GeneratorArchetype as GeneratorArchetypeType,
@@ -1084,6 +1086,7 @@ function createRankingFixture(
   input: {
     seed: number;
     size: GeneratorBoardSize;
+    archetype?: GeneratorArchetypeType;
     metrics?: Partial<
       AcceptedCandidate[
       'quality'
@@ -1125,6 +1128,7 @@ function createRankingFixture(
       `ranking-${input.seed}`,
     seed: input.seed,
     archetype:
+      input.archetype ??
       GeneratorArchetype.MonsterOnly,
     size,
     rooms: [],
@@ -1211,6 +1215,7 @@ function createRankingPool(
           rejectionCounts: {
             'generation-failed': 0,
             duplicate: 0,
+            'monster-density': 0,
             invalid: 0,
             'non-unique': 0,
             'hard-quality': 0,
@@ -2308,11 +2313,171 @@ function runRoomSpatialV12Checks(): void {
   );
 }
 
+
+function createMonsterPolicyFixture(
+  size: GeneratorBoardSize,
+  monsterCount: number,
+  archetype:
+    GeneratorArchetypeType =
+      GeneratorArchetype.MonsterOnly,
+): GeneratedCandidate {
+  return createRankingFixture({
+    seed:
+      size * 100 + monsterCount,
+    size,
+    monsterCount,
+    archetype,
+  }).candidate;
+}
+
+function runMonsterDensityV12Checks(): void {
+  const reject6 =
+    getGeneratorMonsterPolicy(
+      createMonsterPolicyFixture(
+        6,
+        6,
+      ),
+    );
+
+  const reject7 =
+    getGeneratorMonsterPolicy(
+      createMonsterPolicyFixture(
+        7,
+        8,
+        GeneratorArchetype
+          .MixedOneRoom,
+      ),
+    );
+
+  const reject8 =
+    getGeneratorMonsterPolicy(
+      createMonsterPolicyFixture(
+        8,
+        9,
+        GeneratorArchetype
+          .MixedTwoRooms,
+      ),
+    );
+
+  for (
+    const decision
+    of [
+      reject6,
+      reject7,
+      reject8,
+    ]
+  ) {
+    assert(
+      decision.reject,
+      'Monster count above the per-size hard cap must be rejected.',
+    );
+
+    assert(
+      decision.reason ===
+        RejectionReason
+          .MonsterDensity,
+      'Monster hard-cap rejection must use monster-density.',
+    );
+  }
+
+  const boundaryCases =
+    [
+      [6, 5],
+      [7, 7],
+      [8, 8],
+    ] as const;
+
+  for (
+    const [size, monsterCount]
+    of boundaryCases
+  ) {
+    const penalized =
+      createRankingFixture({
+        seed:
+          5000 +
+          size * 100 +
+          monsterCount,
+        size,
+        monsterCount,
+      });
+
+    const baseline =
+      createRankingFixture({
+        seed:
+          6000 +
+          size * 100 +
+          monsterCount,
+        size,
+        monsterCount:
+          monsterCount - 1,
+      });
+
+    const policy =
+      getGeneratorMonsterPolicy(
+        penalized.candidate,
+      );
+
+    assert(
+      !policy.reject &&
+        policy.rankingPenalty === 4,
+      `${size}x${size} boundary Monster count must remain allowed with a 4-point penalty.`,
+    );
+
+    assert(
+      scoreCandidate(penalized) ===
+        scoreCandidate(baseline) - 4,
+      `${size}x${size} boundary Monster count must subtract exactly 4 ranking points.`,
+    );
+  }
+
+  const lowMixed =
+    createRankingFixture({
+      seed: 7001,
+      size: 8,
+      monsterCount: 2,
+      archetype:
+        GeneratorArchetype
+          .MixedOneRoom,
+    });
+
+  assert(
+    getGeneratorMonsterPolicy(
+      lowMixed.candidate,
+    ).rankingPenalty === 0,
+    'Low Monster counts must not receive a penalty.',
+  );
+
+  const chestOnly =
+    createRankingFixture({
+      seed: 7002,
+      size: 8,
+      monsterCount: 20,
+      archetype:
+        GeneratorArchetype
+          .ChestOneRoom,
+    });
+
+  assert(
+    !getGeneratorMonsterPolicy(
+      chestOnly.candidate,
+    ).reject,
+    'Chest-only archetypes must be outside Monster-density policy.',
+  );
+
+  assert(
+    getGeneratorMonsterPolicy(
+      chestOnly.candidate,
+    ).rankingPenalty === 0,
+    'Chest-only archetypes must receive no Monster-density ranking penalty.',
+  );
+}
+
 async function main(): Promise<void> {
   runRngChecks();
   runMonsterOnlyChecks();
   runArchetypeChecks();
   runRoomSpatialV12Checks();
+  runMonsterDensityV12Checks();
   runAcceptancePipelineChecks();
   runCandidatePoolChecks();
   runRankingChecks();

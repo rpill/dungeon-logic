@@ -96,6 +96,7 @@ export type CandidateEvaluation =
 export const RejectionReason = {
   GenerationFailed: 'generation-failed',
   Duplicate: 'duplicate',
+  MonsterDensity: 'monster-density',
   Invalid: 'invalid',
   NonUnique: 'non-unique',
   HardQuality: 'hard-quality',
@@ -193,4 +194,3 @@ export const ALLOWED_SIZES:
     'mixed-one-room': [6, 7, 8],
     'mixed-two-rooms': [7, 8],
   };
-

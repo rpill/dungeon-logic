@@ -30,17 +30,109 @@ import {
   ALLOWED_SIZES,
   ALL_GENERATOR_ARCHETYPES,
   CandidateStatus,
+  GeneratorArchetype,
   RejectionReason,
   type AcceptedCandidate,
   type ArchetypePoolResult,
   type CandidateEvaluation,
-  type GeneratorArchetype,
+  type GeneratorBoardSize,
   type GeneratorConfig,
   type GeneratorPoolReport,
   type GeneratedCandidate,
   type RejectionReason as RejectionReasonType,
   type RejectionSample,
 } from './types';
+
+const MONSTER_POLICY:
+  Readonly<
+    Record<
+      GeneratorBoardSize,
+      {
+        penaltyCount: number;
+        hardCap: number;
+      }
+    >
+  > = {
+    6: {
+      penaltyCount: 5,
+      hardCap: 5,
+    },
+    7: {
+      penaltyCount: 7,
+      hardCap: 7,
+    },
+    8: {
+      penaltyCount: 8,
+      hardCap: 8,
+    },
+  };
+
+function isMonsterBearingArchetype(
+  archetype: GeneratorArchetype,
+): boolean {
+  return (
+    archetype ===
+      GeneratorArchetype.MonsterOnly ||
+    archetype ===
+      GeneratorArchetype.MixedOneRoom ||
+    archetype ===
+      GeneratorArchetype.MixedTwoRooms
+  );
+}
+
+export function getGeneratorMonsterPolicy(
+  candidate: GeneratedCandidate,
+): {
+  reject: boolean;
+  rankingPenalty: 0 | 4;
+  reason:
+    | typeof RejectionReason.MonsterDensity
+    | null;
+  diagnostic: string | null;
+} {
+  if (
+    !isMonsterBearingArchetype(
+      candidate.archetype,
+    )
+  ) {
+    return {
+      reject: false,
+      rankingPenalty: 0,
+      reason: null,
+      diagnostic: null,
+    };
+  }
+
+  const rule =
+    MONSTER_POLICY[
+      candidate.size
+    ];
+
+  const count =
+    candidate.level.monsters.length;
+
+  if (count > rule.hardCap) {
+    return {
+      reject: true,
+      rankingPenalty: 0,
+      reason:
+        RejectionReason
+          .MonsterDensity,
+      diagnostic:
+        `${candidate.size}x${candidate.size} candidate has ${count} Monsters; Generator v1.2 hard cap is ${rule.hardCap}.`,
+    };
+  }
+
+  return {
+    reject: false,
+    rankingPenalty:
+      count === rule.penaltyCount
+        ? 4
+        : 0,
+    reason: null,
+    diagnostic: null,
+  };
+}
 
 export function evaluateCandidate(
   candidate: GeneratedCandidate,
@@ -322,6 +414,26 @@ function createArchetypePool(
       continue;
     }
 
+    const monsterPolicy =
+      getGeneratorMonsterPolicy(
+        generation.candidate,
+      );
+
+    if (monsterPolicy.reject) {
+      recordRejection(
+        rejectionCounts,
+        rejectionSamples,
+        attempts,
+        candidateSeed,
+        RejectionReason
+          .MonsterDensity,
+        monsterPolicy.diagnostic ??
+          'Monster density rejected candidate.',
+      );
+
+      continue;
+    }
+
     const evaluation =
       evaluateCandidate(
         generation.candidate,
@@ -474,6 +586,8 @@ function createEmptyRejectionCounts():
     [RejectionReason.GenerationFailed]:
       0,
     [RejectionReason.Duplicate]: 0,
+    [RejectionReason.MonsterDensity]:
+      0,
     [RejectionReason.Invalid]: 0,
     [RejectionReason.NonUnique]: 0,
     [RejectionReason.HardQuality]:
