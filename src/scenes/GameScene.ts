@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 
 import { BoardView } from '../board/BoardView';
 import {
+  calculateGameBoardLayout,
+} from './GameBoardLayout';
+import {
+  buildGeneratedCandidatesUrl,
+  parseGeneratedPlaytestSeed,
+  resolveGeneratedCandidate,
   resolveLevel,
 } from '../data/levels';
 
@@ -11,12 +17,32 @@ import {
 
 import { PuzzleState } from '../puzzle/PuzzleState';
 
+import type {
+  LevelDefinition,
+} from '../puzzle/types';
+
 export class GameScene extends Phaser.Scene {
+  private createVersion = 0;
+
   constructor() {
     super('GameScene');
   }
 
   create(): void {
+    const createVersion =
+      this.createVersion + 1;
+
+    this.createVersion =
+      createVersion;
+
+    void this.createGame(
+      createVersion,
+    );
+  }
+
+  private async createGame(
+    createVersion: number,
+  ): Promise<void> {
     this.add
       .text(
         this.scale.width / 2,
@@ -54,36 +80,39 @@ export class GameScene extends Phaser.Scene {
         },
       );
 
-    const levelValue =
+    const searchParams =
       new URLSearchParams(
         window.location.search,
-      ).get('level');
+      );
 
     const level =
-      resolveLevel(levelValue);
+      await this.resolveRuntimeLevel(
+        searchParams,
+      );
+
+    if (
+      createVersion !==
+      this.createVersion
+    ) {
+      return;
+    }
 
     const puzzle =
       new PuzzleState(level);
 
-    const cellSize = 72;
+    const layout =
+      calculateGameBoardLayout(
+        this.scale.width,
+        this.scale.height,
+        level.width,
+        level.height,
+      );
 
-    const boardWidth =
-      level.width * cellSize;
-
-    const boardHeight =
-      level.height * cellSize;
-
-    const originX =
-      (
-        this.scale.width -
-        boardWidth
-      ) / 2;
-
-    const originY =
-      (
-        this.scale.height -
-        boardHeight
-      ) / 2 + 30;
+    const {
+      cellSize,
+      originX,
+      originY,
+    } = layout;
 
     const statusText =
       this.add
@@ -143,5 +172,102 @@ export class GameScene extends Phaser.Scene {
       cellSize,
       handlePuzzleChanged,
     );
+  }
+
+  private async resolveRuntimeLevel(
+    searchParams: URLSearchParams,
+  ): Promise<LevelDefinition> {
+    const fallback =
+      resolveLevel(
+        searchParams.get('level'),
+      );
+
+    const candidateId =
+      searchParams.get('candidate');
+
+    const seedValue =
+      searchParams.get('seed');
+
+    if (
+      candidateId === null &&
+      seedValue === null
+    ) {
+      return fallback;
+    }
+
+    if (!import.meta.env.DEV) {
+      console.warn(
+        '[Dungeon Logic] Generated candidate playtest is dev-only; using authored fallback.',
+      );
+
+      return fallback;
+    }
+
+    const seed =
+      parseGeneratedPlaytestSeed(
+        seedValue,
+      );
+
+    if (
+      seed === null ||
+      candidateId === null ||
+      candidateId.length === 0
+    ) {
+      console.warn(
+        '[Dungeon Logic] Generated candidate playtest requires valid ?seed=<uint32>&candidate=<id>; using authored fallback.',
+      );
+
+      return fallback;
+    }
+
+    try {
+      const response =
+        await fetch(
+          buildGeneratedCandidatesUrl(
+            seed,
+          ),
+          {
+            cache: 'no-store',
+          },
+        );
+
+      if (!response.ok) {
+        console.warn(
+          `[Dungeon Logic] Generated candidate report for seed ${seed} returned HTTP ${response.status}; using authored fallback.`,
+        );
+
+        return fallback;
+      }
+
+      const report: unknown =
+        await response.json();
+
+      const generatedLevel =
+        resolveGeneratedCandidate(
+          report,
+          candidateId,
+        );
+
+      if (generatedLevel === null) {
+        console.warn(
+          `[Dungeon Logic] Generated candidate "${candidateId}" was not found in seed ${seed} report; using authored fallback.`,
+        );
+
+        return fallback;
+      }
+
+      console.info(
+        `[Dungeon Logic] Playtesting generated candidate ${candidateId} from seed ${seed}.`,
+      );
+
+      return generatedLevel;
+    } catch (error) {
+      console.warn(
+        '[Dungeon Logic] Failed to load generated candidate report; using authored fallback.',
+        error,
+      );
+
+      return fallback;
+    }
   }
 }
