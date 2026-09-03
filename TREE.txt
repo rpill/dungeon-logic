@@ -38,6 +38,9 @@ dungeon-logic/
 │   │   ├── generateCandidates.ts
 │   │   ├── generatorSanity.ts
 │   │   ├── levelQualitySanity.ts
+│   │   ├── profileGenerator.ts
+│   │   ├── profileGeneratorCli.ts
+│   │   ├── profilerSanity.ts
 │   │   ├── solverSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/

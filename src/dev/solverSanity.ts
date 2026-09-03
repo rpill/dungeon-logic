@@ -712,20 +712,21 @@ function checkPotentialConnectivity(): void {
 function checkTreasureRoomCandidatePruning(): void {
   const level: LevelDefinition = {
     id: 'solver-room-candidate',
-    width: 3,
-    height: 3,
-    rowClues: [0, 0, 0],
-    columnClues: [0, 0, 0],
+    width: 4,
+    height: 4,
+    rowClues: [0, 0, 0, 0],
+    columnClues: [0, 0, 0, 0],
     monsters: [],
     chests: [
-      { x: 1, y: 1 },
+      { x: 0, y: 0 },
     ],
     blockers: [],
     doors: [],
     solution: [
-      '...',
-      '...',
-      '...',
+      '....',
+      '....',
+      '....',
+      '....',
     ],
   };
 
@@ -735,13 +736,13 @@ function checkTreasureRoomCandidatePruning(): void {
   assert(
     state
       .hasTreasureRoomCandidateForEveryChest(),
-    'Open 3x3 must provide one candidate for center chest.',
+    'Corner chest must initially have one viable 3x3 room candidate.',
   );
 
   assert(
     state.assign(
-      0,
-      0,
+      2,
+      2,
       SearchCellState.Wall,
     ),
     'Room test WALL assignment should succeed.',

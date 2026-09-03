@@ -229,10 +229,144 @@ function branch(
   state.rollback(checkpoint);
 }
 
-function propagateConstraints(
+export function propagateTreasureRoomConstraints(
+  state: SearchState,
+): boolean {
+  for (
+    const chest
+    of state.level.chests
+  ) {
+    const candidate =
+      state
+        .getSingleViableTreasureRoomCandidate(
+          chest,
+        );
+
+    if (candidate === null) {
+      if (
+        !state
+          .hasTreasureRoomCandidateForEveryChest()
+      ) {
+        return false;
+      }
+
+      continue;
+    }
+
+    for (
+      const position
+      of candidate.cells
+    ) {
+      const current =
+        state.getCellState(
+          position.x,
+          position.y,
+        );
+
+      if (
+        current ===
+        SearchCellState.Open
+      ) {
+        continue;
+      }
+
+      if (
+        current !==
+        SearchCellState.Unassigned ||
+        !state.assign(
+          position.x,
+          position.y,
+          SearchCellState.Open,
+        )
+      ) {
+        return false;
+      }
+    }
+
+    let confirmedOpen = 0;
+
+    const undecided:
+      GridPosition[] = [];
+
+    for (
+      const position
+      of candidate.boundary
+    ) {
+      const current =
+        state.getCellState(
+          position.x,
+          position.y,
+        );
+
+      if (
+        current ===
+        SearchCellState.Open
+      ) {
+        confirmedOpen += 1;
+
+        if (confirmedOpen > 1) {
+          return false;
+        }
+
+        continue;
+      }
+
+      if (
+        current ===
+        SearchCellState.Unassigned
+      ) {
+        undecided.push(
+          position,
+        );
+      }
+    }
+
+    if (confirmedOpen === 1) {
+      for (
+        const position
+        of undecided
+      ) {
+        if (
+          !state.assign(
+            position.x,
+            position.y,
+            SearchCellState.Wall,
+          )
+        ) {
+          return false;
+        }
+      }
+
+      continue;
+    }
+
+    if (undecided.length === 0) {
+      return false;
+    }
+
+    if (undecided.length === 1) {
+      const entrance =
+        undecided[0];
+
+      if (
+        !state.assign(
+          entrance.x,
+          entrance.y,
+          SearchCellState.Open,
+        )
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+export function propagateConstraints(
   state: SearchState,
   diagnostics:
-    MutableSolverDiagnostics | null,
+    MutableSolverDiagnostics | null = null,
 ): boolean {
   let changed = true;
 
@@ -254,6 +388,14 @@ function propagateConstraints(
 
     if (
       !propagateLineConstraints(
+        state,
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !propagateTreasureRoomConstraints(
         state,
       )
     ) {

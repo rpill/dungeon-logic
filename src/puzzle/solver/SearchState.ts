@@ -15,8 +15,9 @@ interface TrailEntry {
   previous: SearchCellStateValue;
 }
 
-interface RoomCandidate {
+export interface RoomCandidate {
   cells: readonly GridPosition[];
+  boundary: readonly GridPosition[];
 }
 
 export class SearchState {
@@ -406,30 +407,34 @@ export class SearchState {
     );
   }
 
+  getSingleViableTreasureRoomCandidate(
+    chest: GridPosition,
+  ): RoomCandidate | null {
+    const viable =
+      this.getViableRoomCandidates(
+        chest,
+      );
+
+    if (viable.length !== 1) {
+      return null;
+    }
+
+    return viable[0];
+  }
+
   hasTreasureRoomCandidateForEveryChest():
     boolean {
     for (
       const chest
       of this.level.chests
     ) {
-      const candidates =
-        this.roomCandidates.get(
-          this.positionKey(chest),
-        ) ?? [];
-
-      const hasPossible =
-        candidates.some(
-          (candidate) =>
-            candidate.cells.every(
-              (position) =>
-                this.cells[
-                  position.y
-                ][position.x] !==
-                  SearchCellState.Wall,
-            ),
-        );
-
-      if (!hasPossible) {
+      if (
+        this
+          .getViableRoomCandidates(
+            chest,
+          )
+          .length === 0
+      ) {
         return false;
       }
     }
@@ -530,6 +535,10 @@ export class SearchState {
 
           candidates.push({
             cells,
+            boundary:
+              this.buildRoomBoundary(
+                cells,
+              ),
           });
         }
       }
@@ -690,19 +699,12 @@ export class SearchState {
     let pressure = 0;
 
     for (
-      const candidates
-      of this.roomCandidates.values()
+      const chest
+      of this.level.chests
     ) {
       const viable =
-        candidates.filter(
-          (candidate) =>
-            candidate.cells.every(
-              (cell) =>
-                this.cells[
-                  cell.y
-                ][cell.x] !==
-                  SearchCellState.Wall,
-            ),
+        this.getViableRoomCandidates(
+          chest,
         );
 
       if (
@@ -726,6 +728,154 @@ export class SearchState {
     }
 
     return pressure;
+  }
+
+  private getViableRoomCandidates(
+    chest: GridPosition,
+  ): readonly RoomCandidate[] {
+    const candidates =
+      this.roomCandidates.get(
+        this.positionKey(chest),
+      ) ?? [];
+
+    return candidates.filter(
+      (candidate) =>
+        this.isRoomCandidateViable(
+          candidate,
+        ),
+    );
+  }
+
+  private isRoomCandidateViable(
+    candidate: RoomCandidate,
+  ): boolean {
+    if (
+      candidate.cells.some(
+        (position) =>
+          this.cells[
+            position.y
+          ][position.x] ===
+            SearchCellState.Wall,
+      )
+    ) {
+      return false;
+    }
+
+    let confirmedOpen = 0;
+    let undecided = 0;
+
+    for (
+      const position
+      of candidate.boundary
+    ) {
+      const cell =
+        this.cells[
+          position.y
+        ][position.x];
+
+      if (
+        cell ===
+        SearchCellState.Open
+      ) {
+        confirmedOpen += 1;
+
+        if (confirmedOpen > 1) {
+          return false;
+        }
+
+        continue;
+      }
+
+      if (
+        cell ===
+        SearchCellState.Unassigned
+      ) {
+        undecided += 1;
+      }
+    }
+
+    return (
+      confirmedOpen +
+        undecided >=
+      1
+    );
+  }
+
+  private buildRoomBoundary(
+    cells: readonly GridPosition[],
+  ): readonly GridPosition[] {
+    const roomKeys =
+      new Set(
+        cells.map(
+          (position) =>
+            this.positionKey(
+              position,
+            ),
+        ),
+      );
+
+    const boundary =
+      new Map<
+        string,
+        GridPosition
+      >();
+
+    const directions =
+      [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ] as const;
+
+    for (const cell of cells) {
+      for (
+        const direction
+        of directions
+      ) {
+        const position = {
+          x:
+            cell.x +
+            direction.x,
+          y:
+            cell.y +
+            direction.y,
+        };
+
+        if (
+          position.x < 0 ||
+          position.x >=
+            this.level.width ||
+          position.y < 0 ||
+          position.y >=
+            this.level.height
+        ) {
+          continue;
+        }
+
+        const key =
+          this.positionKey(
+            position,
+          );
+
+        if (roomKeys.has(key)) {
+          continue;
+        }
+
+        boundary.set(
+          key,
+          position,
+        );
+      }
+    }
+
+    return [
+      ...boundary.values(),
+    ].sort(
+      (a, b) =>
+        a.y - b.y ||
+        a.x - b.x,
+    );
   }
 
   private positionKey(
