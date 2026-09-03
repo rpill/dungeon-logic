@@ -346,10 +346,20 @@ function generateRoomCandidate(
   }
 
   const targetOpenCount =
-    chooseTargetOpenCount(
-      input.size,
-      random,
-    );
+    input.archetype ===
+      GeneratorArchetype.ChestTwoRooms &&
+    input.size === 7
+      ? Math.max(
+          chooseTargetOpenCount(
+            input.size,
+            random,
+          ),
+          34,
+        )
+      : chooseTargetOpenCount(
+          input.size,
+          random,
+        );
 
   growHallways(
     grid,

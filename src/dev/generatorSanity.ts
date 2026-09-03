@@ -23,9 +23,11 @@ import {
 } from '../puzzle/generator/CandidateGenerator';
 
 import {
+  chooseArchetypeAttemptSize,
   createCandidatePool,
   evaluateCandidate,
   getGeneratorMonsterPolicy,
+  isArchetypePoolComplete,
 } from '../puzzle/generator/CandidateFactory';
 
 import {
@@ -791,8 +793,8 @@ function runCandidatePoolChecks(): void {
   );
 
   assert(
-    first.accepted.length === 5,
-    'Small pool must contain one accepted candidate per archetype.',
+    first.accepted.length === 7,
+    'acceptedPerArchetype=1 must yield 7 total accepted candidates under A+ (1+1+2+1+2).',
   );
 
   assert(
@@ -804,14 +806,25 @@ function runCandidatePoolChecks(): void {
     const archetypeResult
     of first.archetypes
   ) {
+    const isTwoRoom =
+      archetypeResult.stats.archetype ===
+        GeneratorArchetype.ChestTwoRooms ||
+      archetypeResult.stats.archetype ===
+        GeneratorArchetype.MixedTwoRooms;
+
+    const expectedAccepted =
+      isTwoRoom ? 2 : 1;
+
     assert(
-      archetypeResult.accepted.length === 1,
-      `${archetypeResult.stats.archetype} must contribute exactly one accepted candidate.`,
+      archetypeResult.accepted.length ===
+        expectedAccepted,
+      `${archetypeResult.stats.archetype} reduced A+ accepted count is wrong.`,
     );
 
     assert(
-      archetypeResult.stats.accepted === 1,
-      `${archetypeResult.stats.archetype} accepted counter must equal one.`,
+      archetypeResult.stats.accepted ===
+        expectedAccepted,
+      `${archetypeResult.stats.archetype} accepted counter must match the A+ pool size.`,
     );
 
     assert(
@@ -822,9 +835,31 @@ function runCandidatePoolChecks(): void {
     assert(
       archetypeResult.stats.attempts >= 1 &&
       archetypeResult.stats.attempts <=
-      smallConfig.maxAttemptsPerArchetype,
+        smallConfig.maxAttemptsPerArchetype,
       `${archetypeResult.stats.archetype} attempt count must stay within configured bounds.`,
     );
+
+    if (isTwoRoom) {
+      const sizes =
+        new Set(
+          archetypeResult.accepted.map(
+            (accepted) =>
+              accepted.candidate.size,
+          ),
+        );
+
+      assert(
+        sizes.has(7) &&
+          sizes.has(8),
+        `${archetypeResult.stats.archetype} A+ reduced pool must contain 7x7 and 8x8.`,
+      );
+
+      assert(
+        archetypeResult.accepted.length <=
+          smallConfig.acceptedPerArchetype + 1,
+        `${archetypeResult.stats.archetype} A+ must add at most one accepted candidate beyond target.`,
+      );
+    }
   }
 
   const second =
@@ -1287,8 +1322,8 @@ function runCliContractChecks(): void {
   );
 
   assert(
-    report.pool.accepted.length === 5,
-    'Small deterministic CLI report must contain five accepted candidates.',
+    report.pool.accepted.length === 7,
+    'Small deterministic CLI report must contain seven accepted candidates under A+.',
   );
 
   assert(
@@ -2017,9 +2052,48 @@ function runIntegrationInvariantChecks(): void {
   );
 
   assert(
-    firstPool.accepted.length === 15,
-    'Reduced integration pool must contain 15 accepted candidates.',
+    firstPool.accepted.length >= 15 &&
+      firstPool.accepted.length <= 17,
+    'Reduced integration pool must contain 15-17 accepted candidates under A+.',
   );
+
+  for (
+    const archetypeResult
+    of firstPool.archetypes
+  ) {
+    const isTwoRoom =
+      archetypeResult.stats.archetype ===
+        GeneratorArchetype.ChestTwoRooms ||
+      archetypeResult.stats.archetype ===
+        GeneratorArchetype.MixedTwoRooms;
+
+    if (isTwoRoom) {
+      const sizes =
+        new Set(
+          archetypeResult.accepted.map(
+            (accepted) =>
+              accepted.candidate.size,
+          ),
+        );
+
+      assert(
+        archetypeResult.accepted.length >= 3 &&
+          archetypeResult.accepted.length <= 4,
+        `${archetypeResult.stats.archetype} integration pool must contain target or target+1 accepted candidates.`,
+      );
+
+      assert(
+        sizes.has(7) &&
+          sizes.has(8),
+        `${archetypeResult.stats.archetype} integration pool must cover 7x7 and 8x8.`,
+      );
+    } else {
+      assert(
+        archetypeResult.accepted.length === 3,
+        `${archetypeResult.stats.archetype} integration pool must keep exact target count.`,
+      );
+    }
+  }
 
   for (
     const accepted
@@ -2472,12 +2546,117 @@ function runMonsterDensityV12Checks(): void {
   );
 }
 
+
+function runTwoRoomCoverageV12Checks(): void {
+  const only8 =
+    new Set<GeneratorBoardSize>(
+      [8],
+    );
+
+  const both =
+    new Set<GeneratorBoardSize>(
+      [7, 8],
+    );
+
+  assert(
+    !isArchetypePoolComplete(
+      GeneratorArchetype
+        .ChestTwoRooms,
+      10,
+      only8,
+      10,
+    ),
+    'Two-room pool at count target must remain incomplete when 7x7 is missing.',
+  );
+
+  assert(
+    isArchetypePoolComplete(
+      GeneratorArchetype
+        .ChestTwoRooms,
+      11,
+      both,
+      10,
+    ),
+    'Two-room pool must complete after missing size is accepted.',
+  );
+
+  assert(
+    isArchetypePoolComplete(
+      GeneratorArchetype
+        .MonsterOnly,
+      10,
+      only8,
+      10,
+    ),
+    'Non-two-room pool must keep count-only completion semantics.',
+  );
+
+  assert(
+    chooseArchetypeAttemptSize(
+      GeneratorArchetype
+        .ChestTwoRooms,
+      10,
+      only8,
+      10,
+      new SeededRandom(123456),
+    ) === 7,
+    'Coverage phase must force the missing 7x7 size.',
+  );
+
+  const only7 =
+    new Set<GeneratorBoardSize>(
+      [7],
+    );
+
+  assert(
+    chooseArchetypeAttemptSize(
+      GeneratorArchetype
+        .MixedTwoRooms,
+      10,
+      only7,
+      10,
+      new SeededRandom(123456),
+    ) === 8,
+    'Coverage phase must force the missing 8x8 size.',
+  );
+
+  const tinyBudget =
+    createCandidatePool({
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 1,
+    });
+
+  for (
+    const result
+    of tinyBudget.archetypes
+  ) {
+    if (
+      result.stats.archetype !==
+        GeneratorArchetype
+          .ChestTwoRooms &&
+      result.stats.archetype !==
+        GeneratorArchetype
+          .MixedTwoRooms
+    ) {
+      continue;
+    }
+
+    assert(
+      result.exhausted,
+      `${result.stats.archetype} must be exhausted when the attempt limit prevents A+ size coverage.`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   runRngChecks();
   runMonsterOnlyChecks();
   runArchetypeChecks();
   runRoomSpatialV12Checks();
   runMonsterDensityV12Checks();
+  runTwoRoomCoverageV12Checks();
   runAcceptancePipelineChecks();
   runCandidatePoolChecks();
   runRankingChecks();

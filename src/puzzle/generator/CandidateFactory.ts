@@ -281,6 +281,72 @@ function describeValidationFailure(
 
 
 
+export function isTwoRoomGeneratorArchetype(
+  archetype: GeneratorArchetype,
+): boolean {
+  return (
+    archetype ===
+      GeneratorArchetype.ChestTwoRooms ||
+    archetype ===
+      GeneratorArchetype.MixedTwoRooms
+  );
+}
+
+export function isArchetypePoolComplete(
+  archetype: GeneratorArchetype,
+  acceptedCount: number,
+  acceptedSizes:
+    ReadonlySet<GeneratorBoardSize>,
+  target: number,
+): boolean {
+  if (acceptedCount < target) {
+    return false;
+  }
+
+  if (
+    !isTwoRoomGeneratorArchetype(
+      archetype,
+    )
+  ) {
+    return true;
+  }
+
+  return (
+    acceptedSizes.has(7) &&
+    acceptedSizes.has(8)
+  );
+}
+
+export function chooseArchetypeAttemptSize(
+  archetype: GeneratorArchetype,
+  acceptedCount: number,
+  acceptedSizes:
+    ReadonlySet<GeneratorBoardSize>,
+  target: number,
+  random: SeededRandom,
+): GeneratorBoardSize {
+  const allowed =
+    ALLOWED_SIZES[archetype];
+
+  if (
+    acceptedCount >= target &&
+    isTwoRoomGeneratorArchetype(
+      archetype,
+    )
+  ) {
+    if (!acceptedSizes.has(7)) {
+      return 7;
+    }
+
+    if (!acceptedSizes.has(8)) {
+      return 8;
+    }
+  }
+
+  return random.choose(allowed);
+}
+
+
 export function createCandidatePool(
   config: GeneratorConfig,
 ): GeneratorPoolReport {
@@ -345,13 +411,20 @@ function createArchetypePool(
   const acceptedSignatures =
     new Set<string>();
 
+  const acceptedSizes =
+    new Set<GeneratorBoardSize>();
+
   let attempts = 0;
 
   while (
     attempts <
       config.maxAttemptsPerArchetype &&
-    accepted.length <
-      config.acceptedPerArchetype
+    !isArchetypePoolComplete(
+      archetype,
+      accepted.length,
+      acceptedSizes,
+      config.acceptedPerArchetype,
+    )
   ) {
     attempts += 1;
 
@@ -368,8 +441,12 @@ function createArchetypePool(
       );
 
     const size =
-      random.choose(
-        ALLOWED_SIZES[archetype],
+      chooseArchetypeAttemptSize(
+        archetype,
+        accepted.length,
+        acceptedSizes,
+        config.acceptedPerArchetype,
+        random,
       );
 
     const generation =
@@ -451,6 +528,11 @@ function createArchetypePool(
         evaluation.accepted,
       );
 
+      acceptedSizes.add(
+        evaluation.accepted
+          .candidate.size,
+      );
+
       continue;
     }
 
@@ -477,8 +559,12 @@ function createArchetypePool(
     accepted,
     rejectionSamples,
     exhausted:
-      accepted.length <
-      config.acceptedPerArchetype,
+      !isArchetypePoolComplete(
+        archetype,
+        accepted.length,
+        acceptedSizes,
+        config.acceptedPerArchetype,
+      ),
   };
 }
 

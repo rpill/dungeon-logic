@@ -4,12 +4,17 @@ dungeon-logic/
 │       ├── plans/
 │       │   ├── 2026-09-01-static-field-mechanics.md
 │       │   ├── 2026-09-02-generator-v1.md
-│       │   └── 2026-09-02-solver-v1.md
+│       │   ├── 2026-09-02-solver-v1.md
+│       │   ├── 2026-09-03-generator-v1-2-content-quality.md
+│       │   └── 2026-09-03-treasure-room-solver-pruning.md
 │       └── specs/
 │           ├── 2026-09-01-phaser-bootstrap-design.md
 │           ├── 2026-09-01-static-field-mechanics-design.md
 │           ├── 2026-09-02-generator-v1-design.md
-│           └── 2026-09-02-solver-v1-design.md
+│           ├── 2026-09-02-solver-v1-design.md
+│           ├── 2026-09-03-generator-v1-2-content-quality-design.md
+│           ├── 2026-09-03-treasure-room-solver-pruning-design.md
+│           └── 2026-09-03-typescript-migration-board-boundaries-design.md
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
@@ -35,6 +40,7 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
+│   │   ├── benchmarkTreasureRoomPruning.ts
 │   │   ├── generateCandidates.ts
 │   │   ├── generatorSanity.ts
 │   │   ├── levelQualitySanity.ts
@@ -42,6 +48,7 @@ dungeon-logic/
 │   │   ├── profileGeneratorCli.ts
 │   │   ├── profilerSanity.ts
 │   │   ├── solverSanity.ts
+│   │   ├── treasureRoomPruningSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/
 │   │   ├── generator/
