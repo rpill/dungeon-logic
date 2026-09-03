@@ -407,6 +407,14 @@ export class SearchState {
     );
   }
 
+  getViableTreasureRoomCandidates(
+    chest: GridPosition,
+  ): readonly RoomCandidate[] {
+    return this.getViableRoomCandidates(
+      chest,
+    );
+  }
+
   getSingleViableTreasureRoomCandidate(
     chest: GridPosition,
   ): RoomCandidate | null {
