@@ -33,6 +33,11 @@ export interface LevelQualityMetrics {
 
   objectAwareForcedWallCount: number;
   objectAssistedForcedWallCount: number;
+
+  basicPropagationResolvedWallCount: number;
+  basicPropagationResolvedNonWallCount: number;
+  basicPropagationResolvedCount: number;
+  basicPropagationResolvedRatio: number;
 }
 
 export interface LevelQualityLimits {
@@ -53,6 +58,7 @@ export interface LevelGeometryWarningThresholds {
   maxThickWallCellRatio: number;
   minWallOpenBoundaryPerWall: number;
   maxLargestWallComponentRatio: number;
+  maxBasicPropagationResolvedRatio: number;
 }
 
 export const DEFAULT_AUTHORED_QUALITY_LIMITS:
@@ -68,6 +74,7 @@ export const DEFAULT_GEOMETRY_WARNING_THRESHOLDS:
     maxThickWallCellRatio: 0.60,
     minWallOpenBoundaryPerWall: 1.30,
     maxLargestWallComponentRatio: 0.75,
+    maxBasicPropagationResolvedRatio: 0.70,
   };
 
 export function analyzeLevelQuality(
@@ -94,11 +101,18 @@ export function analyzeLevelQuality(
       false,
     );
 
-  const objectAwareForcedWallCount =
-    countLinePropagationWalls(
+  const basicPropagation =
+    analyzeLinePropagation(
       level,
       true,
     );
+
+  const objectAwareForcedWallCount =
+    basicPropagation.wallCount;
+
+  const basicPropagationResolvedCount =
+    basicPropagation.wallCount +
+    basicPropagation.nonWallCount;
 
   const metrics: LevelQualityMetrics = {
     wallDensity:
@@ -148,6 +162,18 @@ export function analyzeLevelQuality(
         objectAwareForcedWallCount -
           clueOnlyForcedWallCount,
       ),
+
+    basicPropagationResolvedWallCount:
+      basicPropagation.wallCount,
+
+    basicPropagationResolvedNonWallCount:
+      basicPropagation.nonWallCount,
+
+    basicPropagationResolvedCount,
+
+    basicPropagationResolvedRatio:
+      basicPropagationResolvedCount /
+      totalCells,
   };
 
   const issues: string[] = [];
@@ -215,6 +241,15 @@ export function analyzeLevelQuality(
   ) {
     warnings.push(
       `largest wall component ratio ${formatPercent(metrics.largestWallComponentRatio)} exceeds warning threshold ${formatPercent(warningThresholds.maxLargestWallComponentRatio)}`,
+    );
+  }
+
+  if (
+    metrics.basicPropagationResolvedRatio >
+    warningThresholds.maxBasicPropagationResolvedRatio
+  ) {
+    warnings.push(
+      `basic propagation resolved ratio ${formatPercent(metrics.basicPropagationResolvedRatio)} exceeds warning threshold ${formatPercent(warningThresholds.maxBasicPropagationResolvedRatio)}`,
     );
   }
 
@@ -405,10 +440,25 @@ function parsePositionKey(
   };
 }
 
+interface LinePropagationMetrics {
+  wallCount: number;
+  nonWallCount: number;
+}
+
 function countLinePropagationWalls(
   level: LevelDefinition,
   useFixedNonWalls: boolean,
 ): number {
+  return analyzeLinePropagation(
+    level,
+    useFixedNonWalls,
+  ).wallCount;
+}
+
+function analyzeLinePropagation(
+  level: LevelDefinition,
+  useFixedNonWalls: boolean,
+): LinePropagationMetrics {
   const cells: ProbeCellStateValue[][] =
     Array.from(
       {
@@ -477,7 +527,8 @@ function countLinePropagationWalls(
     }
   }
 
-  let walls = 0;
+  let wallCount = 0;
+  let nonWallCount = 0;
 
   for (const row of cells) {
     for (const cell of row) {
@@ -485,12 +536,20 @@ function countLinePropagationWalls(
         cell ===
         ProbeCellState.Wall
       ) {
-        walls += 1;
+        wallCount += 1;
+      } else if (
+        cell ===
+        ProbeCellState.NonWall
+      ) {
+        nonWallCount += 1;
       }
     }
   }
 
-  return walls;
+  return {
+    wallCount,
+    nonWallCount,
+  };
 }
 
 function propagateLine(

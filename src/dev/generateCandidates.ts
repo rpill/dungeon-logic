@@ -324,6 +324,7 @@ function printRunSummary(
         `attempts=${stats.attempts}`,
         `accepted=${stats.accepted}`,
         `generation-failed=${stats.rejectionCounts[RejectionReason.GenerationFailed]}`,
+        `duplicate=${stats.rejectionCounts[RejectionReason.Duplicate]}`,
         `invalid=${stats.rejectionCounts[RejectionReason.Invalid]}`,
         `non-unique=${stats.rejectionCounts[RejectionReason.NonUnique]}`,
         `hard-quality=${stats.rejectionCounts[RejectionReason.HardQuality]}`,

@@ -95,6 +95,7 @@ export type CandidateEvaluation =
 
 export const RejectionReason = {
   GenerationFailed: 'generation-failed',
+  Duplicate: 'duplicate',
   Invalid: 'invalid',
   NonUnique: 'non-unique',
   HardQuality: 'hard-quality',

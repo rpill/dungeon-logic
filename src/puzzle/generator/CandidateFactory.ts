@@ -250,6 +250,9 @@ function createArchetypePool(
   const rejectionSamples:
     RejectionSample[] = [];
 
+  const acceptedSignatures =
+    new Set<string>();
+
   let attempts = 0;
 
   while (
@@ -297,6 +300,28 @@ function createArchetypePool(
       continue;
     }
 
+    const signature =
+      playableCandidateSignature(
+        generation.candidate,
+      );
+
+    if (
+      acceptedSignatures.has(
+        signature,
+      )
+    ) {
+      recordRejection(
+        rejectionCounts,
+        rejectionSamples,
+        attempts,
+        candidateSeed,
+        RejectionReason.Duplicate,
+        'Playable puzzle duplicates an already accepted candidate.',
+      );
+
+      continue;
+    }
+
     const evaluation =
       evaluateCandidate(
         generation.candidate,
@@ -306,6 +331,10 @@ function createArchetypePool(
       evaluation.status ===
       CandidateStatus.Accepted
     ) {
+      acceptedSignatures.add(
+        signature,
+      );
+
       accepted.push(
         evaluation.accepted,
       );
@@ -339,6 +368,52 @@ function createArchetypePool(
       accepted.length <
       config.acceptedPerArchetype,
   };
+}
+
+function playableCandidateSignature(
+  candidate: GeneratedCandidate,
+): string {
+  const level =
+    candidate.level;
+
+  const positions =
+    (
+      values:
+        readonly {
+          x: number;
+          y: number;
+        }[],
+    ): readonly string[] =>
+      values
+        .map(
+          ({ x, y }) =>
+            `${x}:${y}`,
+        )
+        .sort();
+
+  const doors =
+    level.doors
+      .map(
+        (door) =>
+          `${door.position.x}:${door.position.y}:${door.orientation}`,
+      )
+      .sort();
+
+  return JSON.stringify({
+    size: candidate.size,
+    rowClues: level.rowClues,
+    columnClues:
+      level.columnClues,
+    monsters:
+      positions(level.monsters),
+    chests:
+      positions(level.chests),
+    blockers:
+      positions(level.blockers),
+    doors,
+    solution:
+      level.solution,
+  });
 }
 
 function validateGeneratorConfig(
@@ -398,6 +473,7 @@ function createEmptyRejectionCounts():
   return {
     [RejectionReason.GenerationFailed]:
       0,
+    [RejectionReason.Duplicate]: 0,
     [RejectionReason.Invalid]: 0,
     [RejectionReason.NonUnique]: 0,
     [RejectionReason.HardQuality]:

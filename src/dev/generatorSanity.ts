@@ -1171,6 +1171,10 @@ function createRankingFixture(
         clueOnlyForcedWallRatio: 0,
         objectAwareForcedWallCount: 0,
         objectAssistedForcedWallCount: 0,
+        basicPropagationResolvedWallCount: 0,
+        basicPropagationResolvedNonWallCount: 0,
+        basicPropagationResolvedCount: 0,
+        basicPropagationResolvedRatio: 0,
         ...input.metrics,
       },
     },
@@ -1202,6 +1206,7 @@ function createRankingPool(
             accepted.length,
           rejectionCounts: {
             'generation-failed': 0,
+            duplicate: 0,
             invalid: 0,
             'non-unique': 0,
             'hard-quality': 0,
@@ -1767,6 +1772,228 @@ function arraysEqual(
   );
 }
 
+
+
+function playableCandidateSignatureForSanity(
+  candidate: GeneratedCandidate,
+): string {
+  const level =
+    candidate.level;
+
+  const positions =
+    (
+      values:
+        readonly {
+          x: number;
+          y: number;
+        }[],
+    ): readonly string[] =>
+      values
+        .map(
+          ({ x, y }) =>
+            `${x}:${y}`,
+        )
+        .sort();
+
+  const doors =
+    level.doors
+      .map(
+        (door) =>
+          `${door.position.x}:${door.position.y}:${door.orientation}`,
+      )
+      .sort();
+
+  return JSON.stringify({
+    size: candidate.size,
+    rowClues: level.rowClues,
+    columnClues:
+      level.columnClues,
+    monsters:
+      positions(
+        level.monsters,
+      ),
+    chests:
+      positions(
+        level.chests,
+      ),
+    blockers:
+      positions(
+        level.blockers,
+      ),
+    doors,
+    solution:
+      level.solution,
+  });
+}
+
+function runDuplicatePoolChecks(): void {
+  const duplicateConfig:
+    GeneratorConfig = {
+    masterSeed: 123456,
+    acceptedPerArchetype: 6,
+    shortlistPerArchetype: 1,
+    maxAttemptsPerArchetype: 5000,
+  };
+
+  const pool =
+    createCandidatePool(
+      duplicateConfig,
+    );
+
+  assert(
+    pool.completed,
+    'Duplicate regression pool must complete.',
+  );
+
+  const chestOne =
+    pool.archetypes.find(
+      (result) =>
+        result.stats.archetype ===
+        GeneratorArchetype.ChestOneRoom,
+    );
+
+  if (chestOne === undefined) {
+    throw new Error(
+      'Duplicate regression pool must contain chest-one-room results.',
+    );
+  }
+
+  assert(
+    chestOne.accepted.length === 6,
+    'Chest-one-room must still fill all six accepted slots after duplicate rejection.',
+  );
+
+  const signatures =
+    chestOne.accepted.map(
+      (accepted) =>
+        playableCandidateSignatureForSanity(
+          accepted.candidate,
+        ),
+    );
+
+  assert(
+    new Set(signatures).size ===
+      signatures.length,
+    'Chest-one-room accepted pool must not contain duplicate playable puzzles.',
+  );
+
+  const duplicateCount =
+    (
+      chestOne.stats
+        .rejectionCounts as
+        Readonly<
+          Record<
+            string,
+            number
+          >
+        >
+    ).duplicate ?? 0;
+
+  assert(
+    duplicateCount >= 1,
+    'Rejected duplicate playable puzzles must be counted under the duplicate rejection reason.',
+  );
+}
+
+function runBasicPropagationQualityChecks(): void {
+  const level: LevelDefinition = {
+    id:
+      'quality-basic-propagation-overexposed',
+    width: 8,
+    height: 8,
+    rowClues: [
+      2,
+      2,
+      2,
+      5,
+      0,
+      5,
+      3,
+      7,
+    ],
+    columnClues: [
+      3,
+      3,
+      2,
+      7,
+      3,
+      0,
+      3,
+      5,
+    ],
+    monsters: [
+      { x: 7, y: 3 },
+      { x: 0, y: 5 },
+      { x: 2, y: 6 },
+      { x: 4, y: 6 },
+      { x: 7, y: 6 },
+      { x: 5, y: 7 },
+    ],
+    chests: [
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+    ],
+    blockers: [],
+    doors: [],
+    solution: [
+      '...#...#',
+      '...#...#',
+      '...#...#',
+      '#.###.#.',
+      '........',
+      '.#.##.##',
+      '##.#....',
+      '#####.##',
+    ],
+  };
+
+  const report =
+    analyzeLevelQuality(level);
+
+  assert(
+    report.metrics
+      .basicPropagationResolvedWallCount ===
+      21,
+    'Basic line propagation must resolve 21 wall cells for the overexposed fixture.',
+  );
+
+  assert(
+    report.metrics
+      .basicPropagationResolvedNonWallCount ===
+      35,
+    'Basic line propagation must resolve 35 non-wall cells including fixed-open objects.',
+  );
+
+  assert(
+    report.metrics
+      .basicPropagationResolvedCount ===
+      56,
+    'Basic line propagation must resolve 56 of 64 cells for the overexposed fixture.',
+  );
+
+  assert(
+    report.metrics
+      .basicPropagationResolvedRatio ===
+      0.875,
+    'Basic line propagation must resolve exactly 87.5% of the overexposed fixture.',
+  );
+
+  assert(
+    report.passes,
+    'Basic propagation overexposure must remain a soft quality warning, not a hard-quality failure.',
+  );
+
+  assert(
+    report.warnings.some(
+      (warning) =>
+        warning.includes(
+          'basic propagation',
+        ),
+    ),
+    'A level with more than 70% basic propagation coverage must emit a soft warning.',
+  );
+}
+
 function runIntegrationInvariantChecks(): void {
   const shortlistConfig:
     GeneratorConfig = {
@@ -1910,6 +2137,8 @@ async function main(): Promise<void> {
   runRankingChecks();
   runOutputFormatChecks();
   runCliContractChecks();
+  runBasicPropagationQualityChecks();
+  runDuplicatePoolChecks();
   runIntegrationInvariantChecks();
   await runFilesystemCliChecks();
 
