@@ -2,10 +2,17 @@ import {
   getGeneratorMonsterPolicy,
 } from './CandidateFactory';
 
-import type {
-  AcceptedCandidate,
-  GeneratorPoolReport,
-  RankedCandidate,
+import {
+  classifyRoomSpatialCategory,
+} from './CandidateGenerator';
+
+import {
+  GeneratorArchetype,
+  type AcceptedCandidate,
+  type GeneratorBoardSize,
+  type GeneratorPoolReport,
+  type PlannedRoom,
+  type RankedCandidate,
 } from './types';
 
 export function scoreCandidate(
@@ -128,8 +135,23 @@ export function candidateDistance(
       0,
     );
 
+  const roomDistance =
+    roomSpatialDistance(a, b);
+
+  if (roomDistance === null) {
+    return clamp01(
+      total / components.length,
+    );
+  }
+
   return clamp01(
-    total / components.length,
+    (
+      total +
+      roomDistance * 2
+    ) /
+    (
+      components.length + 2
+    ),
   );
 }
 
@@ -153,6 +175,10 @@ export function selectShortlist(
     const archetypeResult
     of pool.archetypes
   ) {
+    const archetype =
+      archetypeResult
+        .stats.archetype;
+
     const available =
       archetypeResult.accepted.map(
         (accepted) => ({
@@ -194,22 +220,42 @@ export function selectShortlist(
         continue;
       }
 
-      let bestIndex = 0;
+      const requiredSize =
+        requiredMissingTwoRoomSize(
+          archetype,
+          available,
+          selected,
+          perArchetype,
+        );
+
+      const eligible =
+        requiredSize === null
+          ? available
+          : available.filter(
+              (entry) =>
+                entry.accepted
+                  .candidate.size ===
+                requiredSize,
+            );
+
+      let bestEntry =
+        eligible[0];
+
       let best =
         rankForSelection(
-          available[0],
+          bestEntry,
           selected,
           selected.length + 1,
         );
 
       for (
         let index = 1;
-        index < available.length;
+        index < eligible.length;
         index += 1
       ) {
         const ranked =
           rankForSelection(
-            available[index],
+            eligible[index],
             selected,
             selected.length + 1,
           );
@@ -220,10 +266,14 @@ export function selectShortlist(
             best,
           ) < 0
         ) {
-          bestIndex = index;
+          bestEntry =
+            eligible[index];
           best = ranked;
         }
       }
+
+      const bestIndex =
+        available.indexOf(bestEntry);
 
       available.splice(
         bestIndex,
@@ -239,9 +289,200 @@ export function selectShortlist(
   return shortlist;
 }
 
+function singleRoomSpatialDistance(
+  sizeA: number,
+  roomA: PlannedRoom,
+  sizeB: number,
+  roomB: PlannedRoom,
+): number {
+  const maxA =
+    sizeA - 3;
+
+  const maxB =
+    sizeB - 3;
+
+  const ax =
+    roomA.topLeft.x / maxA;
+
+  const ay =
+    roomA.topLeft.y / maxA;
+
+  const bx =
+    roomB.topLeft.x / maxB;
+
+  const by =
+    roomB.topLeft.y / maxB;
+
+  const positionDistance =
+    (
+      Math.abs(ax - bx) +
+      Math.abs(ay - by)
+    ) / 2;
+
+  const categoryDistance =
+    classifyRoomSpatialCategory(
+      sizeA,
+      roomA,
+    ) ===
+    classifyRoomSpatialCategory(
+      sizeB,
+      roomB,
+    )
+      ? 0
+      : 1;
+
+  return clamp01(
+    positionDistance * 0.75 +
+    categoryDistance * 0.25,
+  );
+}
+
+function roomSpatialDistance(
+  a: AcceptedCandidate,
+  b: AcceptedCandidate,
+): number | null {
+  const aRooms =
+    a.candidate.rooms;
+
+  const bRooms =
+    b.candidate.rooms;
+
+  if (
+    aRooms.length === 0 ||
+    bRooms.length === 0 ||
+    aRooms.length !==
+      bRooms.length
+  ) {
+    return null;
+  }
+
+  if (
+    aRooms.length === 1 &&
+    bRooms.length === 1
+  ) {
+    return singleRoomSpatialDistance(
+      a.candidate.size,
+      aRooms[0],
+      b.candidate.size,
+      bRooms[0],
+    );
+  }
+
+  if (
+    aRooms.length === 2 &&
+    bRooms.length === 2
+  ) {
+    const direct =
+      (
+        singleRoomSpatialDistance(
+          a.candidate.size,
+          aRooms[0],
+          b.candidate.size,
+          bRooms[0],
+        ) +
+        singleRoomSpatialDistance(
+          a.candidate.size,
+          aRooms[1],
+          b.candidate.size,
+          bRooms[1],
+        )
+      ) / 2;
+
+    const swapped =
+      (
+        singleRoomSpatialDistance(
+          a.candidate.size,
+          aRooms[0],
+          b.candidate.size,
+          bRooms[1],
+        ) +
+        singleRoomSpatialDistance(
+          a.candidate.size,
+          aRooms[1],
+          b.candidate.size,
+          bRooms[0],
+        )
+      ) / 2;
+
+    return Math.min(
+      direct,
+      swapped,
+    );
+  }
+
+  return null;
+}
+
 interface QualityEntry {
   accepted: AcceptedCandidate;
   qualityScore: number;
+}
+
+function requiredMissingTwoRoomSize(
+  archetype:
+    GeneratorArchetype,
+  available:
+    readonly QualityEntry[],
+  selected:
+    readonly RankedCandidate[],
+  perArchetype: number,
+): GeneratorBoardSize | null {
+  if (
+    perArchetype < 2 ||
+    (
+      archetype !==
+        GeneratorArchetype
+          .ChestTwoRooms &&
+      archetype !==
+        GeneratorArchetype
+          .MixedTwoRooms
+    )
+  ) {
+    return null;
+  }
+
+  const poolSizes =
+    new Set(
+      available
+        .map(
+          (entry) =>
+            entry.accepted
+              .candidate.size,
+        )
+        .concat(
+          selected.map(
+            (entry) =>
+              entry.accepted
+                .candidate.size,
+          ),
+        ),
+    );
+
+  if (
+    !poolSizes.has(7) ||
+    !poolSizes.has(8)
+  ) {
+    return null;
+  }
+
+  const selectedSizes =
+    new Set(
+      selected.map(
+        (entry) =>
+          entry.accepted
+            .candidate.size,
+      ),
+    );
+
+  if (!selectedSizes.has(7)) {
+    return 7;
+  }
+
+  if (!selectedSizes.has(8)) {
+    return 8;
+  }
+
+  return null;
 }
 
 function rankForSelection(

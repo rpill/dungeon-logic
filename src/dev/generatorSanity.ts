@@ -1031,6 +1031,7 @@ function runRankingChecks(): void {
   );
 
   runShortlistDiversityChecks();
+  runRankingV12Checks();
 }
 
 function runShortlistDiversityChecks(): void {
@@ -1117,11 +1118,189 @@ function runShortlistDiversityChecks(): void {
   );
 }
 
+
+function runRankingV12Checks(): void {
+  const roomA =
+    roomFixture(0, 0);
+
+  const roomB =
+    roomFixture(0, 2);
+
+  const roomC =
+    roomFixture(2, 2);
+
+  const oneRoomSameA =
+    createRankingFixture({
+      seed: 8101,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestOneRoom,
+      rooms: [roomA],
+    });
+
+  const oneRoomSameB =
+    createRankingFixture({
+      seed: 8102,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestOneRoom,
+      rooms: [roomA],
+    });
+
+  const oneRoomMoved =
+    createRankingFixture({
+      seed: 8103,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestOneRoom,
+      rooms: [roomC],
+    });
+
+  assert(
+    candidateDistance(
+      oneRoomSameA,
+      oneRoomSameB,
+    ) <
+      candidateDistance(
+        oneRoomSameA,
+        oneRoomMoved,
+      ),
+    'Moved/category-different Treasure Room must increase candidate distance.',
+  );
+
+  const pairAB =
+    createRankingFixture({
+      seed: 8201,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomA,
+        roomB,
+      ],
+    });
+
+  const pairBA =
+    createRankingFixture({
+      seed: 8202,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomB,
+        roomA,
+      ],
+    });
+
+  assert(
+    candidateDistance(
+      pairAB,
+      pairBA,
+    ) === 0,
+    'Swapping two-room metadata order must not create fake candidate distance.',
+  );
+
+  const best8 =
+    createRankingFixture({
+      seed: 8301,
+      size: 8,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(0, 0),
+        roomFixture(5, 5),
+      ],
+    });
+
+  const second8 =
+    createRankingFixture({
+      seed: 8302,
+      size: 8,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(0, 2),
+        roomFixture(5, 5),
+      ],
+    });
+
+  const seven =
+    createRankingFixture({
+      seed: 8303,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(0, 0),
+        roomFixture(4, 4),
+      ],
+      metrics: {
+        nearFullWallLineCount: 3,
+      },
+    });
+
+  const thirdChoice =
+    createRankingFixture({
+      seed: 8304,
+      size: 8,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(2, 0),
+        roomFixture(5, 3),
+      ],
+    });
+
+  const twoRoomPool =
+    createRankingPool([
+      best8,
+      second8,
+      seven,
+      thirdChoice,
+    ]);
+
+  const twoRoomShortlist =
+    selectShortlist(
+      twoRoomPool,
+      3,
+    );
+
+  assert(
+    twoRoomShortlist.length === 3,
+    'Two-room shortlist must still contain three candidates.',
+  );
+
+  const selectedSizes =
+    new Set(
+      twoRoomShortlist.map(
+        (ranked) =>
+          ranked.accepted
+            .candidate.size,
+      ),
+    );
+
+  assert(
+    selectedSizes.has(7) &&
+      selectedSizes.has(8),
+    'Two-room shortlist of at least two slots must represent 7x7 and 8x8.',
+  );
+}
+
 function createRankingFixture(
   input: {
     seed: number;
     size: GeneratorBoardSize;
     archetype?: GeneratorArchetypeType;
+    rooms?: readonly PlannedRoom[];
     metrics?: Partial<
       AcceptedCandidate[
       'quality'
@@ -1166,7 +1345,8 @@ function createRankingFixture(
       input.archetype ??
       GeneratorArchetype.MonsterOnly,
     size,
-    rooms: [],
+    rooms:
+      input.rooms ?? [],
     level: {
       id:
         `ranking-${input.seed}`,
@@ -1228,6 +1408,20 @@ function createRankingPool(
   accepted:
     readonly AcceptedCandidate[],
 ): GeneratorPoolReport {
+  const archetype =
+    accepted[0]?.candidate
+      .archetype ??
+    GeneratorArchetype.MonsterOnly;
+
+  assert(
+    accepted.every(
+      (candidate) =>
+        candidate.candidate
+          .archetype === archetype,
+    ),
+    'Ranking fixture pool must contain one archetype.',
+  );
+
   return {
     masterSeed: 1,
     config: {
@@ -1241,8 +1435,7 @@ function createRankingPool(
     archetypes: [
       {
         stats: {
-          archetype:
-            GeneratorArchetype.MonsterOnly,
+          archetype,
           attempts:
             accepted.length,
           accepted:
