@@ -52,6 +52,125 @@ const ORTHOGONAL_DIRECTIONS:
 const EMPTY_KEY_SET =
   new Set<string>();
 
+
+export const RoomSpatialCategory = {
+  Corner: 'corner',
+  Edge: 'edge',
+  Interior: 'interior',
+} as const;
+
+export type RoomSpatialCategory =
+  typeof RoomSpatialCategory[
+    keyof typeof RoomSpatialCategory
+  ];
+
+const ROOM_SPATIAL_CATEGORY_ORDER:
+  readonly RoomSpatialCategory[] = [
+    RoomSpatialCategory.Corner,
+    RoomSpatialCategory.Edge,
+    RoomSpatialCategory.Interior,
+  ];
+
+const TWO_ROOM_SPATIAL_PROFILE_ORDER = [
+  'corner+corner',
+  'corner+edge',
+  'corner+interior',
+  'edge+edge',
+  'edge+interior',
+  'interior+interior',
+] as const;
+
+export function classifyRoomSpatialCategory(
+  size: number,
+  room: PlannedRoom,
+): RoomSpatialCategory {
+  const maxTopLeft =
+    size - 3;
+
+  const touchesHorizontal =
+    room.topLeft.x === 0 ||
+    room.topLeft.x === maxTopLeft;
+
+  const touchesVertical =
+    room.topLeft.y === 0 ||
+    room.topLeft.y === maxTopLeft;
+
+  if (
+    touchesHorizontal &&
+    touchesVertical
+  ) {
+    return RoomSpatialCategory.Corner;
+  }
+
+  if (
+    touchesHorizontal ||
+    touchesVertical
+  ) {
+    return RoomSpatialCategory.Edge;
+  }
+
+  return RoomSpatialCategory.Interior;
+}
+
+export function getRoomSpatialCategories(
+  size: number,
+  rooms: readonly PlannedRoom[],
+): readonly RoomSpatialCategory[] {
+  return rooms
+    .map(
+      (room) =>
+        classifyRoomSpatialCategory(
+          size,
+          room,
+        ),
+    )
+    .sort(
+      (a, b) =>
+        ROOM_SPATIAL_CATEGORY_ORDER.indexOf(a) -
+        ROOM_SPATIAL_CATEGORY_ORDER.indexOf(b),
+    );
+}
+
+function roomSpatialProfileKey(
+  size: number,
+  rooms: readonly PlannedRoom[],
+): string {
+  return getRoomSpatialCategories(
+    size,
+    rooms,
+  ).join('+');
+}
+
+
+function seededPriority<T>(
+  values: readonly T[],
+  random: SeededRandom,
+): readonly T[] {
+  if (values.length === 0) {
+    return [];
+  }
+
+  const targetIndex =
+    random.nextUint32() %
+    values.length;
+
+  const target =
+    values[targetIndex];
+
+  const fallback =
+    random.shuffled(
+      values.filter(
+        (_, index) =>
+          index !== targetIndex,
+      ),
+    );
+
+  return [
+    target,
+    ...fallback,
+  ];
+}
+
 export function generateCandidate(
   input: GenerateCandidateInput,
 ): CandidateGenerationResult {
@@ -507,24 +626,50 @@ function planRoomEnvironment(
   random: SeededRandom,
 ): RoomEnvironment | null {
   const plans =
-    random.shuffled(
-      enumerateRoomPlans(size),
-    );
+    enumerateRoomPlans(size);
 
   if (roomCount === 1) {
-    for (const plan of plans) {
-      const environment =
-        buildRoomEnvironment(
-          [plan],
+    const categoryPriority =
+      seededPriority(
+        ROOM_SPATIAL_CATEGORY_ORDER,
+        random,
+      );
+
+    for (
+      const category
+      of categoryPriority
+    ) {
+      const matchingPlans =
+        random.shuffled(
+          plans.filter(
+            (plan) =>
+              classifyRoomSpatialCategory(
+                size,
+                plan,
+              ) === category,
+          ),
         );
 
-      if (environment !== null) {
-        return environment;
+      for (
+        const plan
+        of matchingPlans
+      ) {
+        const environment =
+          buildRoomEnvironment(
+            [plan],
+          );
+
+        if (environment !== null) {
+          return environment;
+        }
       }
     }
 
     return null;
   }
+
+  const usable:
+    RoomEnvironment[] = [];
 
   for (
     let firstIndex = 0;
@@ -558,8 +703,37 @@ function planRoomEnvironment(
         );
 
       if (environment !== null) {
-        return environment;
+        usable.push(environment);
       }
+    }
+  }
+
+  const profilePriority =
+    seededPriority(
+      TWO_ROOM_SPATIAL_PROFILE_ORDER,
+      random,
+    );
+
+  for (
+    const profileKey
+    of profilePriority
+  ) {
+    const matching =
+      random.shuffled(
+        usable.filter(
+          (environment) =>
+            roomSpatialProfileKey(
+              size,
+              environment.rooms,
+            ) === profileKey,
+        ),
+      );
+
+    const selected =
+      matching[0];
+
+    if (selected !== undefined) {
+      return selected;
     }
   }
 
