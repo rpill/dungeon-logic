@@ -757,7 +757,7 @@ Analyzer различает:
 - `objectAwareForcedWallCount`;
 - `objectAssistedForcedWallCount`.
 
-Generator v1.1 также использует basic propagation exposure metrics:
+Generator v1.2 также использует basic propagation exposure metrics:
 
 - `basicPropagationResolvedWallCount`;
 - `basicPropagationResolvedNonWallCount`;
@@ -777,7 +777,7 @@ Generator v1.1 также использует basic propagation exposure metric
 Они покрывают hard-quality failures, object-assisted deduction, soft geometry warnings, basic-propagation exposure и authored diversity-batch.
 ---
 
-## Generator v1.1
+## Generator v1.2
 
 Реализован постоянный dev-only solution-first generator базовых Monster / Chest puzzles:
 
@@ -798,13 +798,28 @@ Generator v1.1 также использует basic propagation exposure metric
 
 Каждый candidate строится из полной WALL / OPEN geometry, после чего row / column clues автоматически выводятся из solution. Randomness полностью seeded и deterministic: master seed задаёт воспроизводимую последовательность candidate seeds и layouts.
 
+Generator v1.2 content-quality pass:
+
+- Treasure Room generation spatially stratified по `corner / edge / interior` с deterministic fallback;
+- Treasure Room может касаться края или угла доски, если intended external entrance остаётся в bounds;
+- generator-only Monster density policy действует только для Monster-bearing archetypes (`monster-only`, `mixed-one-room`, `mixed-two-rooms`):
+  - 6×6: 5 Monsters остаются accepted, но получают `-4` ranking points; `>5` rejected;
+  - 7×7: 7 Monsters остаются accepted, но получают `-4` ranking points; `>7` rejected;
+  - 8×8: 8 Monsters остаются accepted, но получают `-4` ranking points; `>8` rejected;
+- authored `LevelQualityAnalyzer` thresholds не менялись;
+- two-room archetypes используют A+ accepted-pool coverage: completed pool содержит и 7×7, и 8×8; для покрытия missing size pool может вырасти максимум на один accepted candidate сверх target;
+- two-room shortlist с минимум двумя слотами гарантированно содержит и 7×7, и 8×8;
+- candidate novelty включает weighted Treasure Room spatial distance; для двух комнат matching order-independent;
+- profiler зеркалит Monster-density gate и A+ stopping/size-selection semantics.
+
 Acceptance pipeline:
 
-1. `LevelValidator` подтверждает canonical dungeon rules;
-2. `PuzzleSolver` требует ровно одно решение;
-3. `LevelQualityAnalyzer` отбраковывает hard-quality failures;
-4. любой текущий quality warning переводит candidate в `geometry-warning`;
-5. exact playable duplicate внутри accepted pool текущего archetype получает `duplicate`.
+1. после успешной generation exact playable duplicate внутри accepted pool текущего archetype получает `duplicate`;
+2. generator-only Monster hard-cap rejection (`monster-density`) выполняется до `LevelValidator` / Solver / quality work;
+3. `LevelValidator` подтверждает canonical dungeon rules;
+4. `PuzzleSolver` требует ровно одно решение;
+5. `LevelQualityAnalyzer` отбраковывает hard-quality failures;
+6. любой текущий quality warning переводит candidate в `geometry-warning`.
 
 Если solution-first candidate прошёл `LevelValidator`, но solver вернул `solutionCount === 0`, это считается внутренним invariant error, а не обычным rejection.
 
@@ -818,9 +833,9 @@ Playable duplicate signature включает:
 
 Seed, generated id и generator room metadata в signature не входят.
 
-Важно: текущий dedupe set создаётся отдельно для каждого archetype. Cross-archetype global dedupe пока не гарантируется.
+Важно: текущий dedupe set создаётся отдельно для каждого archetype. Cross-archetype global dedupe пока не гарантируется и остаётся отдельным unfixed bug slice.
 
-Generator v1.1 не поддерживает Blocker и Directional Door в generated geometry:
+Generator v1.2 не поддерживает Blocker и Directional Door в generated geometry:
 
 ```ts
 blockers: []
@@ -829,21 +844,37 @@ doors: []
 
 Default pool:
 
-- 10 accepted candidates на archetype;
-- 50 accepted candidates всего;
-- attempt limit 5000 на archetype.
+- target 10 accepted candidates на archetype;
+- attempt limit 5000 на archetype;
+- для two-room A+ coverage фактический accepted count может быть 10 или 11, если после достижения target отсутствует один поддерживаемый size.
 
 Shortlist выбирается отдельно внутри каждого archetype:
 
 - 3 candidates на archetype;
 - 15 candidates всего;
-- ranking учитывает bounded quality score и diversity / novelty.
+- ranking учитывает bounded quality score и diversity / novelty;
+- для two-room shortlist гарантирует 7×7 + 8×8 representation.
 
 CLI:
 
 `npm run generate:candidates -- --seed <uint32>`
 
-Для master seed `123456` полный run после Generator v1.1 и Treasure Room solver pruning стабильно заполняет 50 accepted candidates и 15 shortlisted candidates.
+Human-readable output маркируется как `Dungeon Logic Generator v1.2` и выводит room top-left positions / spatial profile для review.
+
+Для master seed `123456` Generator v1.2 проверен полным acceptance run:
+
+- все пять archetypes completed в пределах 5000 attempts;
+- `monster-only`: 55 attempts / 10 accepted;
+- `chest-one-room`: 485 attempts / 10 accepted;
+- `chest-two-rooms`: 484 attempts / 10 accepted;
+- `mixed-one-room`: 74 attempts / 10 accepted;
+- `mixed-two-rooms`: 253 attempts / 10 accepted;
+- оба two-room archetypes завершились ровно на 10 accepted, дополнительный 11-й A+ candidate не понадобился;
+- оба two-room accepted pools содержат 7×7 и 8×8;
+- оба two-room shortlists содержат 7×7 и 8×8;
+- `chest-one-room` accepted pool содержит минимум 3 distinct room `topLeft`, shortlist — минимум 2 distinct `topLeft`;
+- ни один accepted Monster-bearing candidate не превышает per-size hard cap; accepted 8×8 с 9–10 Monsters отсутствуют;
+- повторные JSON и Markdown outputs для seed `123456` byte-equivalent.
 
 Выходные dev-artifacts:
 
@@ -886,6 +917,8 @@ Profiler измеряет для каждого generation attempt:
 - quality time;
 - total time;
 - solver diagnostics.
+
+Generator v1.2 profiler использует те же Monster-density и A+ completion helpers, что и normal candidate factory. В verified seed `123456` profile было 10 `monster-density` attempts с `solverMs=0.00`, то есть hard-cap rejection действительно происходит до Solver.
 
 Для master seed `123456` до Treasure Room pruning основной bottleneck находился в `chest-one-room`: solver time был около `260209.68 ms`, а полный профиль по сумме archetypes — около `284789 ms`.
 
@@ -993,7 +1026,7 @@ Undo не входит в текущий vertical slice и должен возв
 
 ## Level production
 
-Реализован dev-only Generator v1.1 candidate factory + shortlist pipeline, solver diagnostics и profiling pipeline.
+Реализован dev-only Generator v1.2 candidate factory + shortlist pipeline, solver diagnostics и profiling pipeline.
 
 Пока не реализованы:
 
@@ -1004,7 +1037,7 @@ Undo не входит в текущий vertical slice и должен возв
 - difficulty estimation;
 - global cross-archetype duplicate rejection.
 
-Validator, optimized Solver v1, Level Quality Analyzer и Generator v1.1 образуют быстрый технический pipeline для поиска и отбора candidate levels, но финальный выбор shipping levels всё ещё требует ручного review и playtest.
+Validator, optimized Solver v1, Level Quality Analyzer и Generator v1.2 образуют быстрый технический pipeline для поиска и отбора candidate levels, но финальный выбор shipping levels всё ещё требует ручного review и playtest.
 ---
 
 ## Product systems
@@ -1045,28 +1078,23 @@ Validator, optimized Solver v1, Level Quality Analyzer и Generator v1.1 обр�
 17. dev-инструментом детерминированно генерировать accepted Monster / Chest candidate pool и diversity-aware shortlist;
 18. dev-инструментом профилировать generator pipeline и focused pathological solver seeds.
 
-Static Field Mechanics v1, optimized Solver v1, Level Quality Analyzer и Generator v1.1 функционально добавлены в dev/puzzle pipeline.
+Static Field Mechanics v1, optimized Solver v1, Level Quality Analyzer и Generator v1.2 функционально добавлены в dev/puzzle pipeline.
 ---
 
 # Next Steps
 
 Ближайший порядок разработки:
 
-1. Перейти от performance work обратно к content quality: текущий full profile уже быстрый, поэтому не добавлять новые solver optimizations без нового измеренного bottleneck.
+1. Ручно просмотреть `.generated/shortlist-123456.md` после Generator v1.2 и playtest-ить удачные candidates из пяти archetypes как потенциальную основу новых authored уровней.
 
-2. Ручно просмотреть `.generated/shortlist-123456.md` и candidate pool после v1.1, зафиксировать конкретные повторяющиеся проблемы generator content:
-   - Chest-one-room может выглядеть слишком template-like;
-   - Monster-only может давать слишком много Monster;
-   - two-room shortlist может недостаточно разнообразить размеры.
+2. Удачные generated layouts переносить в `src/data/levels/` только после ручного review / playtest и затем снова прогонять validator / solver / quality sanity.
 
-3. После конкретного review отдельно спроектировать Generator v1.2 content-quality slice. Не смешивать его с solver optimization.
+3. Исправить latent dedupe mismatch отдельным маленьким bug slice: текущий duplicate set работает per-archetype, а global cross-archetype dedupe пока не гарантируется.
 
-4. Исправить latent dedupe mismatch отдельным маленьким bug slice: текущий duplicate set работает per-archetype, а global cross-archetype dedupe пока не гарантируется.
+4. На реальных candidates следить за generator / solver profiling; не добавлять новые solver optimizations без нового измеренного bottleneck.
 
-5. Удачные generated layouts переносить в `src/data/levels/` только после ручного review / playtest и затем снова прогонять validator / solver / quality sanity.
+5. Отдельно проектировать difficulty estimation / logical solver только если станет нужен контроль progression, hints или автоматическая оценка сложности.
 
-6. Отдельно проектировать difficulty estimation / logical solver только если станет нужен контроль progression, hints или автоматическая оценка сложности.
+6. ORYX visual pass делать поверх стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
 
-7. ORYX visual pass делать поверх стабильной puzzle logic, не смешивая визуальную работу с изменением правил.
-
-8. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.
+7. Progression, daily, monetization и другие meta-системы не добавлять раньше работающего набора качественных puzzle levels.

@@ -12,7 +12,9 @@ import {
 } from '../puzzle/generator/CandidateFactory';
 
 import {
+  CandidateStatus,
   GeneratorArchetype,
+  RejectionReason,
   type GeneratedCandidate,
 } from '../puzzle/generator/types';
 
@@ -20,6 +22,7 @@ import {
   formatGeneratorProfileReport,
   profileGeneratedCandidate,
   profileGeneratorRun,
+  type GeneratorRunProfile,
 } from './profileGenerator';
 
 import {
@@ -105,6 +108,44 @@ function runCandidateProfileChecks(): void {
   );
 }
 
+function normalizeRunProfile(
+  profile: GeneratorRunProfile,
+): unknown {
+  return {
+    masterSeed:
+      profile.masterSeed,
+    config:
+      profile.config,
+    completed:
+      profile.completed,
+    acceptedCandidateIds:
+      profile.acceptedCandidateIds,
+    archetypes:
+      profile.archetypes,
+    attempts:
+      profile.attempts.map(
+        (attempt) => ({
+          archetype:
+            attempt.archetype,
+          attempt:
+            attempt.attempt,
+          candidateSeed:
+            attempt.candidateSeed,
+          size:
+            attempt.size,
+          candidateId:
+            attempt.candidateId,
+          status:
+            attempt.status,
+          diagnostic:
+            attempt.diagnostic,
+          solverDiagnostics:
+            attempt.solverDiagnostics,
+        }),
+      ),
+  };
+}
+
 function runGeneratorRunProfileChecks(): void {
   const config = {
     masterSeed: 123456,
@@ -118,6 +159,23 @@ function runGeneratorRunProfileChecks(): void {
 
   const profiled =
     profileGeneratorRun(config);
+
+  const repeated =
+    profileGeneratorRun(config);
+
+  assert(
+    JSON.stringify(
+      normalizeRunProfile(
+        profiled,
+      ),
+    ) ===
+      JSON.stringify(
+        normalizeRunProfile(
+          repeated,
+        ),
+      ),
+    'Profiled generator run must be deterministic after timing fields are removed.',
+  );
 
   assert(
     profiled.completed ===
@@ -237,6 +295,105 @@ function runGeneratorRunProfileChecks(): void {
     ),
     'Accepted generator attempts must expose solver diagnostics.',
   );
+}
+
+function findMonsterDensityProfile():
+  GeneratorRunProfile {
+  for (
+    let seed = 1;
+    seed <= 200;
+    seed += 1
+  ) {
+    const profile =
+      profileGeneratorRun({
+        masterSeed: seed,
+        acceptedPerArchetype: 1,
+        shortlistPerArchetype: 1,
+        maxAttemptsPerArchetype: 300,
+      });
+
+    if (
+      profile.attempts.some(
+        (attempt) =>
+          attempt.status ===
+            RejectionReason
+              .MonsterDensity,
+      )
+    ) {
+      return profile;
+    }
+  }
+
+  throw new Error(
+    'Expected a deterministic profile with at least one monster-density rejection within seed bound.',
+  );
+}
+
+function runProfilerV12Checks(): void {
+  const coverageProfile =
+    profileGeneratorRun({
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 5000,
+    });
+
+  for (
+    const archetype
+    of [
+      GeneratorArchetype
+        .ChestTwoRooms,
+      GeneratorArchetype
+        .MixedTwoRooms,
+    ]
+  ) {
+    const acceptedAttempts =
+      coverageProfile.attempts
+        .filter(
+          (attempt) =>
+            attempt.archetype ===
+              archetype &&
+            attempt.status ===
+              CandidateStatus.Accepted,
+        );
+
+    assert(
+      new Set(
+        acceptedAttempts.map(
+          (attempt) =>
+            attempt.size,
+        ),
+      ).size === 2,
+      `${archetype} profiler must mirror A+ 7x7/8x8 coverage.`,
+    );
+  }
+
+  const densityProfile =
+    findMonsterDensityProfile();
+
+  for (
+    const attempt
+    of densityProfile.attempts
+  ) {
+    if (
+      attempt.status !==
+        RejectionReason
+          .MonsterDensity
+    ) {
+      continue;
+    }
+
+    assert(
+      attempt.solverDiagnostics ===
+        null,
+      'Monster-density rejection must happen before Solver diagnostics exist.',
+    );
+
+    assert(
+      attempt.timings.solverMs === 0,
+      'Monster-density rejection must spend zero recorded Solver time.',
+    );
+  }
 }
 
 function runProfileReportChecks(): void {
@@ -371,6 +528,12 @@ async function main(): Promise<void> {
     'PASS: candidate evaluation profiling',
   );
 
+  runProfilerV12Checks();
+
+  console.info(
+    'PASS: Generator v1.2 profiler parity',
+  );
+
   runGeneratorRunProfileChecks();
 
   console.info(
@@ -390,7 +553,7 @@ async function main(): Promise<void> {
   );
 
   console.info(
-    '4/4 checks passed',
+    '5/5 checks passed',
   );
 }
 
@@ -400,3 +563,4 @@ void main().catch(
     process.exitCode = 1;
   },
 );
+

@@ -1564,11 +1564,13 @@ function runOutputFormatChecks(): void {
 
   const requiredMarkdownParts =
     [
-      'Dungeon Logic Generator v1',
+      '# Dungeon Logic Generator v1.2',
       'Master seed',
       'archetype',
       'candidate seed',
       'size',
+      'room top-lefts:',
+      'room spatial profile:',
       'row clues',
       'column clues',
       'Monsters',
@@ -1603,6 +1605,20 @@ function runOutputFormatChecks(): void {
     serializable.schemaVersion === 1,
     'Serializable generator report must contain schemaVersion: 1.',
   );
+
+  for (
+    const archetypeResult
+    of report.pool.archetypes
+  ) {
+    assert(
+      typeof archetypeResult
+        .stats.rejectionCounts[
+          RejectionReason
+            .MonsterDensity
+        ] === 'number',
+      `${archetypeResult.stats.archetype} report must expose numeric monster-density rejection count.`,
+    );
+  }
 }
 
 
@@ -1741,9 +1757,9 @@ async function runFilesystemCliChecks(): Promise<void> {
 
     assert(
       markdown.includes(
-        'Dungeon Logic Generator v1',
+        '# Dungeon Logic Generator v1.2',
       ),
-      'Written Markdown shortlist must contain the generator title.',
+      'Written Markdown shortlist must contain the v1.2 generator title.',
     );
   } finally {
     await rm(
@@ -2871,3 +2887,4 @@ void main().catch(
     process.exitCode = 1;
   },
 );
+

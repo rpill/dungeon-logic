@@ -13,8 +13,7 @@ dungeon-logic/
 │           ├── 2026-09-02-generator-v1-design.md
 │           ├── 2026-09-02-solver-v1-design.md
 │           ├── 2026-09-03-generator-v1-2-content-quality-design.md
-│           ├── 2026-09-03-treasure-room-solver-pruning-design.md
-│           └── 2026-09-03-typescript-migration-board-boundaries-design.md
+│           └── 2026-09-03-treasure-room-solver-pruning-design.md
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg

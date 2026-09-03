@@ -17,6 +17,10 @@ import {
 } from '../puzzle/generator/CandidateFactory';
 
 import {
+  getRoomSpatialCategories,
+} from '../puzzle/generator/CandidateGenerator';
+
+import {
   selectShortlist,
 } from '../puzzle/generator/CandidateRanker';
 
@@ -97,7 +101,7 @@ export function formatShortlistMarkdown(
   report: GeneratorRunReport,
 ): string {
   const lines: string[] = [
-    '# Dungeon Logic Generator v1',
+    '# Dungeon Logic Generator v1.2',
     '',
     `Master seed: ${report.masterSeed}`,
     '',
@@ -160,12 +164,32 @@ function appendCandidate(
   const metrics =
     accepted.quality.metrics;
 
+  const roomTopLefts =
+    candidate.rooms.length === 0
+      ? 'none'
+      : candidate.rooms
+          .map(
+            (room) =>
+              `(${room.topLeft.x},${room.topLeft.y})`,
+          )
+          .join(', ');
+
+  const roomProfile =
+    candidate.rooms.length === 0
+      ? 'none'
+      : getRoomSpatialCategories(
+          candidate.size,
+          candidate.rooms,
+        ).join(' + ');
+
   lines.push(
     `### #${ranked.rankWithinArchetype} ${candidate.id}`,
     '',
     `- archetype: ${candidate.archetype}`,
     `- candidate seed: ${candidate.seed}`,
     `- size: ${candidate.size}x${candidate.size}`,
+    `- room top-lefts: ${roomTopLefts}`,
+    `- room spatial profile: ${roomProfile}`,
     `- row clues: ${level.rowClues.join(', ')}`,
     `- column clues: ${level.columnClues.join(', ')}`,
     `- Monsters: ${formatPositions(level.monsters)}`,
@@ -308,7 +332,7 @@ function printRunSummary(
   paths: GeneratorOutputPaths,
 ): void {
   console.info(
-    `[Dungeon Logic] Generator v1 seed ${report.masterSeed}`,
+    `[Dungeon Logic] Generator v1.2 seed ${report.masterSeed}`,
   );
 
   for (
@@ -325,6 +349,7 @@ function printRunSummary(
         `accepted=${stats.accepted}`,
         `generation-failed=${stats.rejectionCounts[RejectionReason.GenerationFailed]}`,
         `duplicate=${stats.rejectionCounts[RejectionReason.Duplicate]}`,
+        `monster-density=${stats.rejectionCounts[RejectionReason.MonsterDensity]}`,
         `invalid=${stats.rejectionCounts[RejectionReason.Invalid]}`,
         `non-unique=${stats.rejectionCounts[RejectionReason.NonUnique]}`,
         `hard-quality=${stats.rejectionCounts[RejectionReason.HardQuality]}`,
@@ -398,3 +423,4 @@ if (isDirectExecution()) {
     },
   );
 }
+

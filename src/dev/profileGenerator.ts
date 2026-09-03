@@ -21,7 +21,12 @@ import {
 } from '../puzzle/solver/PuzzleSolver';
 
 import {
-  ALLOWED_SIZES,
+  chooseArchetypeAttemptSize,
+  getGeneratorMonsterPolicy,
+  isArchetypePoolComplete,
+} from '../puzzle/generator/CandidateFactory';
+
+import {
   ALL_GENERATOR_ARCHETYPES,
   CandidateStatus,
   RejectionReason,
@@ -58,6 +63,7 @@ export interface GeneratedCandidateProfile {
 export type GeneratorAttemptProfileStatus =
   | typeof RejectionReason.GenerationFailed
   | typeof RejectionReason.Duplicate
+  | typeof RejectionReason.MonsterDensity
   | CandidateEvaluation['status'];
 
 export interface GeneratorAttemptProfileTimings {
@@ -112,6 +118,8 @@ export function profileGeneratorRun(
   const acceptedCandidateIds:
     string[] = [];
 
+  let completed = true;
+
   for (
     const archetype
     of ALL_GENERATOR_ARCHETYPES
@@ -119,14 +127,21 @@ export function profileGeneratorRun(
     const acceptedSignatures =
       new Set<string>();
 
+    const acceptedSizes =
+      new Set<GeneratorBoardSize>();
+
     let attempt = 0;
     let accepted = 0;
 
     while (
       attempt <
         config.maxAttemptsPerArchetype &&
-      accepted <
-        config.acceptedPerArchetype
+      !isArchetypePoolComplete(
+        archetype,
+        accepted,
+        acceptedSizes,
+        config.acceptedPerArchetype,
+      )
     ) {
       attempt += 1;
 
@@ -146,8 +161,12 @@ export function profileGeneratorRun(
         );
 
       const size =
-        random.choose(
-          ALLOWED_SIZES[archetype],
+        chooseArchetypeAttemptSize(
+          archetype,
+          accepted,
+          acceptedSizes,
+          config.acceptedPerArchetype,
+          random,
         );
 
       const generationStart =
@@ -227,6 +246,39 @@ export function profileGeneratorRun(
         continue;
       }
 
+      const monsterPolicy =
+        getGeneratorMonsterPolicy(
+          generation.candidate,
+        );
+
+      if (monsterPolicy.reject) {
+        attempts.push({
+          archetype,
+          attempt,
+          candidateSeed,
+          size,
+          candidateId:
+            generation.candidate.id,
+          status:
+            RejectionReason
+              .MonsterDensity,
+          diagnostic:
+            monsterPolicy.diagnostic,
+          solverDiagnostics: null,
+          timings: {
+            generationMs,
+            validationMs: 0,
+            solverMs: 0,
+            qualityMs: 0,
+            totalMs:
+              performance.now() -
+              attemptStart,
+          },
+        });
+
+        continue;
+      }
+
       const profile =
         profileGeneratedCandidate(
           generation.candidate,
@@ -241,6 +293,8 @@ export function profileGeneratorRun(
         );
 
         accepted += 1;
+
+        acceptedSizes.add(size);
 
         acceptedCandidateIds.push(
           generation.candidate.id,
@@ -276,6 +330,18 @@ export function profileGeneratorRun(
       });
     }
 
+    const archetypeCompleted =
+      isArchetypePoolComplete(
+        archetype,
+        accepted,
+        acceptedSizes,
+        config.acceptedPerArchetype,
+      );
+
+    if (!archetypeCompleted) {
+      completed = false;
+    }
+
     archetypes.push({
       archetype,
       attempts: attempt,
@@ -291,12 +357,7 @@ export function profileGeneratorRun(
       masterSeed:
         config.masterSeed >>> 0,
     },
-    completed:
-      archetypes.every(
-        (entry) =>
-          entry.accepted ===
-          config.acceptedPerArchetype,
-      ),
+    completed,
     acceptedCandidateIds,
     attempts,
     archetypes,
@@ -765,3 +826,4 @@ function describeValidationFailure(
     failedFlags.join(', ')
   );
 }
+
