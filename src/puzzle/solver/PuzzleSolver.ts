@@ -25,8 +25,59 @@ interface SearchContext {
     | null;
 }
 
+export interface SolverDiagnostics {
+  nodesVisited: number;
+  branches: number;
+  propagationPasses: number;
+  maxDepth: number;
+  completeCandidatesChecked: number;
+}
+
+export interface SolveWithDiagnosticsResult {
+  result: SolveResult;
+  diagnostics: SolverDiagnostics;
+}
+
+type MutableSolverDiagnostics =
+  SolverDiagnostics;
+
 export function solveLevel(
   level: LevelDefinition,
+): SolveResult {
+  return runSolve(
+    level,
+    null,
+  );
+}
+
+export function solveLevelWithDiagnostics(
+  level: LevelDefinition,
+): SolveWithDiagnosticsResult {
+  const diagnostics:
+    MutableSolverDiagnostics = {
+    nodesVisited: 0,
+    branches: 0,
+    propagationPasses: 0,
+    maxDepth: 0,
+    completeCandidatesChecked: 0,
+  };
+
+  const result =
+    runSolve(
+      level,
+      diagnostics,
+    );
+
+  return {
+    result,
+    diagnostics,
+  };
+}
+
+function runSolve(
+  level: LevelDefinition,
+  diagnostics:
+    MutableSolverDiagnostics | null,
 ): SolveResult {
   new PuzzleState(level);
 
@@ -38,7 +89,12 @@ export function solveLevel(
     firstSolution: null,
   };
 
-  search(state, context);
+  search(
+    state,
+    context,
+    diagnostics,
+    0,
+  );
 
   return {
     solutionCount:
@@ -51,16 +107,31 @@ export function solveLevel(
 function search(
   state: SearchState,
   context: SearchContext,
+  diagnostics:
+    MutableSolverDiagnostics | null,
+  depth: number,
 ): void {
   if (context.solutionCount === 2) {
     return;
+  }
+
+  if (diagnostics !== null) {
+    diagnostics.nodesVisited += 1;
+    diagnostics.maxDepth =
+      Math.max(
+        diagnostics.maxDepth,
+        depth,
+      );
   }
 
   const checkpoint =
     state.checkpoint();
 
   const propagated =
-    propagateConstraints(state);
+    propagateConstraints(
+      state,
+      diagnostics,
+    );
 
   if (
     !propagated ||
@@ -77,6 +148,11 @@ function search(
   }
 
   if (state.isComplete()) {
+    if (diagnostics !== null) {
+      diagnostics
+        .completeCandidatesChecked += 1;
+    }
+
     acceptCompleteCandidate(
       state,
       context,
@@ -99,6 +175,8 @@ function search(
     context,
     next,
     SearchCellState.Wall,
+    diagnostics,
+    depth,
   );
 
   if (context.solutionCount < 2) {
@@ -107,6 +185,8 @@ function search(
       context,
       next,
       SearchCellState.Open,
+      diagnostics,
+      depth,
     );
   }
 
@@ -120,7 +200,14 @@ function branch(
   value:
     | typeof SearchCellState.Wall
     | typeof SearchCellState.Open,
+  diagnostics:
+    MutableSolverDiagnostics | null,
+  depth: number,
 ): void {
+  if (diagnostics !== null) {
+    diagnostics.branches += 1;
+  }
+
   const checkpoint =
     state.checkpoint();
 
@@ -131,7 +218,12 @@ function branch(
       value,
     )
   ) {
-    search(state, context);
+    search(
+      state,
+      context,
+      diagnostics,
+      depth + 1,
+    );
   }
 
   state.rollback(checkpoint);
@@ -139,10 +231,16 @@ function branch(
 
 function propagateConstraints(
   state: SearchState,
+  diagnostics:
+    MutableSolverDiagnostics | null,
 ): boolean {
   let changed = true;
 
   while (changed) {
+    if (diagnostics !== null) {
+      diagnostics.propagationPasses += 1;
+    }
+
     const before =
       state.checkpoint();
 

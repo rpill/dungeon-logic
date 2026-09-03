@@ -9,6 +9,7 @@ import { PuzzleState } from '../puzzle/PuzzleState';
 import {
   propagateDoorConstraints,
   solveLevel,
+  solveLevelWithDiagnostics,
 } from '../puzzle/solver/PuzzleSolver';
 
 import { SearchState } from '../puzzle/solver/SearchState';
@@ -44,6 +45,10 @@ export function runSolverSanityChecks(): void {
     {
       name: 'ambiguous solver stops at 2+',
       run: checkAmbiguousFixture,
+    },
+    {
+      name: 'solver diagnostics are deterministic',
+      run: checkSolverDiagnostics,
     },
     {
       name: 'malformed fixed metadata throws',
@@ -330,6 +335,103 @@ function checkAmbiguousFixture(): void {
       result.firstSolution ?? [],
     ),
     'Repeated deterministic solve must return the same firstSolution.',
+  );
+}
+
+
+function checkSolverDiagnostics(): void {
+  const level: LevelDefinition = {
+    id: 'solver-diagnostics-ambiguous-4x4',
+    width: 4,
+    height: 4,
+    rowClues: [1, 1, 1, 1],
+    columnClues: [1, 1, 1, 1],
+    monsters: [],
+    chests: [],
+    blockers: [],
+    doors: [],
+    solution: [
+      '....',
+      '....',
+      '....',
+      '....',
+    ],
+  };
+
+  const baseline =
+    solveLevel(level);
+
+  const profiled =
+    solveLevelWithDiagnostics(level);
+
+  assert(
+    profiled.result.solutionCount ===
+      baseline.solutionCount,
+    'Diagnostics solve must preserve solutionCount.',
+  );
+
+  assert(
+    arraysEqual(
+      profiled.result.firstSolution,
+      baseline.firstSolution ?? [],
+    ),
+    'Diagnostics solve must preserve firstSolution.',
+  );
+
+  const diagnostics =
+    profiled.diagnostics;
+
+  assert(
+    Number.isInteger(
+      diagnostics.nodesVisited,
+    ) &&
+      diagnostics.nodesVisited > 0,
+    'Solver diagnostics must count visited search nodes.',
+  );
+
+  assert(
+    Number.isInteger(
+      diagnostics.branches,
+    ) &&
+      diagnostics.branches > 0,
+    'Solver diagnostics must count DFS branch attempts.',
+  );
+
+  assert(
+    Number.isInteger(
+      diagnostics.propagationPasses,
+    ) &&
+      diagnostics.propagationPasses > 0,
+    'Solver diagnostics must count propagation fixed-point passes.',
+  );
+
+  assert(
+    Number.isInteger(
+      diagnostics.maxDepth,
+    ) &&
+      diagnostics.maxDepth > 0,
+    'Solver diagnostics must record maximum DFS depth.',
+  );
+
+  assert(
+    Number.isInteger(
+      diagnostics.completeCandidatesChecked,
+    ) &&
+      diagnostics.completeCandidatesChecked >= 2,
+    'Ambiguous diagnostics fixture must check at least two complete candidates.',
+  );
+
+  const repeated =
+    solveLevelWithDiagnostics(level);
+
+  assert(
+    JSON.stringify(
+      repeated.diagnostics,
+    ) ===
+      JSON.stringify(
+        diagnostics,
+      ),
+    'Solver diagnostics counters must be deterministic for the same level.',
   );
 }
 

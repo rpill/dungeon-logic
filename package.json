@@ -10,7 +10,8 @@
     "context": "node scripts/chatgpt-context.mjs",
     "context:last": "node scripts/chatgpt-context.mjs --last-commit",
     "sanity:generator": "tsx src/dev/generatorSanity.ts",
-    "generate:candidates": "tsx src/dev/generateCandidates.ts"
+    "generate:candidates": "tsx src/dev/generateCandidates.ts",
+    "profile:generator": "tsx src/dev/profileGeneratorCli.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
