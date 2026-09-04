@@ -58,6 +58,10 @@ export interface DifficultyProfile {
     number;
   readonly treasureRoomVariantSteps:
     number;
+  readonly treasureRoomStructuralConsensusSteps:
+    number;
+  readonly treasureRoomHypothesisConsequenceSteps:
+    number;
   readonly reasons:
     readonly string[];
 }

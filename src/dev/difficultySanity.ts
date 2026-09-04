@@ -63,6 +63,8 @@ function createHumanResult(
     directSteps?: number;
     ordinaryContradictions?: number;
     treasureRoomVariantSteps?: number;
+    treasureRoomStructuralConsensusSteps?: number;
+    treasureRoomHypothesisConsequenceSteps?: number;
     unknownRemaining?: number;
     advancedRules?: readonly (
       | 'door'
@@ -84,13 +86,21 @@ function createHumanResult(
   ruleCounts[HumanRule.TreasureRoomVariant] =
     input.treasureRoomVariantSteps ?? 0;
 
+  ruleCounts[HumanRule.TreasureRoomStructuralConsensus] =
+    input.treasureRoomStructuralConsensusSteps ?? 0;
+
+  ruleCounts[HumanRule.TreasureRoomHypothesisConsequence] =
+    input.treasureRoomHypothesisConsequenceSteps ?? 0;
+
   for (const rule of input.advancedRules ?? []) {
     ruleCounts[rule] = 1;
   }
 
   const contradictionSteps =
     (input.ordinaryContradictions ?? 0) +
-    (input.treasureRoomVariantSteps ?? 0);
+    (input.treasureRoomVariantSteps ?? 0) +
+    (input.treasureRoomStructuralConsensusSteps ?? 0) +
+    (input.treasureRoomHypothesisConsequenceSteps ?? 0);
 
   return {
     status:
@@ -154,6 +164,36 @@ function runBandChecks(): void {
       `Expected band ${expected}, got ${actual}.`,
     );
   }
+
+  const structuralExpert =
+    analyzeDifficulty(
+      createLevel(6),
+      createHumanResult({
+        treasureRoomStructuralConsensusSteps: 1,
+      }),
+    );
+
+  assert(
+    structuralExpert.band === DifficultyBand.Expert &&
+      structuralExpert.reasoningTier === ReasoningTier.ExpertLookahead &&
+      structuralExpert.components.lookaheadLoad === 1,
+    'Treasure Room structural consensus must force expert lookahead.',
+  );
+
+  const consequenceExpert =
+    analyzeDifficulty(
+      createLevel(6),
+      createHumanResult({
+        treasureRoomHypothesisConsequenceSteps: 1,
+      }),
+    );
+
+  assert(
+    consequenceExpert.band === DifficultyBand.Expert &&
+      consequenceExpert.reasoningTier === ReasoningTier.ExpertLookahead &&
+      consequenceExpert.components.lookaheadLoad === 1,
+    'Treasure Room hypothesis consequence must force expert lookahead.',
+  );
 }
 
 function runScoreBoundaryChecks(): void {
@@ -280,6 +320,12 @@ function runDeterminismChecks(): void {
       'Difficulty components must stay in 0..1.',
     );
   }
+
+  assert(
+    first.treasureRoomStructuralConsensusSteps === 0 &&
+      first.treasureRoomHypothesisConsequenceSteps === 0,
+    'Difficulty profile must expose zero counts for unused Treasure Room v2 reasoning.',
+  );
 
   assert(
     DifficultyTarget.Any === 'any',

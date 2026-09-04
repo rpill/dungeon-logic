@@ -15,10 +15,59 @@ import {
   SearchCellState,
 } from '../puzzle/solver/types';
 
+import {
+  HumanRule,
+  HumanSolveStatus,
+} from '../puzzle/human-solver/types';
+
 import type {
   GridPosition,
   LevelDefinition,
 } from '../puzzle/types';
+
+const treasureRoomStructuralOnlyRegression: LevelDefinition = {
+  id: 'human-tr-structural-regression',
+  width: 8,
+  height: 8,
+  rowClues: [2, 4, 3, 1, 3, 4, 3, 5],
+  columnClues: [3, 4, 3, 3, 2, 5, 2, 3],
+  monsters: [],
+  chests: [{ x: 2, y: 4 }],
+  blockers: [],
+  doors: [],
+  solution: [
+    '#......#',
+    '..####..',
+    '.#...##.',
+    '.#......',
+    '.#...##.',
+    '..####..',
+    '#....#.#',
+    '####...#',
+  ],
+};
+
+const treasureRoomConsequenceRegression: LevelDefinition = {
+  id: 'human-tr-consequence-regression',
+  width: 8,
+  height: 8,
+  rowClues: [5, 2, 5, 2, 2, 3, 5, 2],
+  columnClues: [3, 4, 3, 2, 3, 4, 2, 5],
+  monsters: [],
+  chests: [{ x: 2, y: 3 }],
+  blockers: [],
+  doors: [],
+  solution: [
+    '###...##',
+    '#...#...',
+    '..#####.',
+    '.#...#..',
+    '.#.....#',
+    '.#...#.#',
+    '..####.#',
+    '#......#',
+  ],
+};
 
 interface ViableRoomCandidateShape {
   cells:
@@ -2016,6 +2065,70 @@ function checkDepthOneContradictionSolve(): void {
   );
 }
 
+function checkTreasureRoomStructuralConsensusRegression(): void {
+  const result =
+    analyzeHumanSolvability(
+      treasureRoomStructuralOnlyRegression,
+    );
+
+  assert(
+    result.status ===
+      HumanSolveStatus.SolvedWithContradiction,
+    'Structural-consensus regression must solve with contradiction-tier reasoning.',
+  );
+
+  assert(
+    result.unknownRemaining === 0,
+    'Structural-consensus regression must leave no unknown cells.',
+  );
+
+  assert(
+    result.ruleCounts[
+      HumanRule.TreasureRoomStructuralConsensus
+    ] === 1,
+    'Structural-consensus regression must use exactly one structural-consensus step.',
+  );
+
+  assert(
+    result.ruleCounts[
+      HumanRule.TreasureRoomHypothesisConsequence
+    ] === 0,
+    'Structural-consensus regression must not require hypothesis-consequence reasoning.',
+  );
+}
+
+function checkTreasureRoomHypothesisConsequenceRegression(): void {
+  const result =
+    analyzeHumanSolvability(
+      treasureRoomConsequenceRegression,
+    );
+
+  assert(
+    result.status ===
+      HumanSolveStatus.SolvedWithContradiction,
+    'Hypothesis-consequence regression must solve with contradiction-tier reasoning.',
+  );
+
+  assert(
+    result.unknownRemaining === 0,
+    'Hypothesis-consequence regression must leave no unknown cells.',
+  );
+
+  assert(
+    result.ruleCounts[
+      HumanRule.TreasureRoomStructuralConsensus
+    ] === 1,
+    'Hypothesis-consequence regression must first use one structural-consensus step.',
+  );
+
+  assert(
+    result.ruleCounts[
+      HumanRule.TreasureRoomHypothesisConsequence
+    ] === 1,
+    'Hypothesis-consequence regression must use exactly one consequence-consensus step.',
+  );
+}
+
 function main(): void {
   console.info(
     '[Dungeon Logic] Human solver sanity',
@@ -2141,8 +2254,20 @@ function main(): void {
     'PASS: depth-one contradiction solve',
   );
 
+  checkTreasureRoomStructuralConsensusRegression();
+
   console.info(
-    '98/98 checks passed',
+    'PASS: treasure room structural consensus regression',
+  );
+
+  checkTreasureRoomHypothesisConsequenceRegression();
+
+  console.info(
+    'PASS: treasure room hypothesis consequence regression',
+  );
+
+  console.info(
+    '98 legacy checks + Treasure Room v2 regressions passed',
   );
 }
 

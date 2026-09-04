@@ -114,6 +114,8 @@ const HUMAN_RULE_ORDER = [
   HumanRule.TreasureRoomInterior,
   HumanRule.TreasureRoomEntrance,
   HumanRule.TreasureRoomVariant,
+  HumanRule.TreasureRoomStructuralConsensus,
+  HumanRule.TreasureRoomHypothesisConsequence,
   HumanRule.MonsterDeadEnd,
   HumanRule.HallwayNotDeadEnd,
   HumanRule.Open2x2,
@@ -582,6 +584,8 @@ export function formatHumanAnalysisMarkdown(
       `  - lookahead load: ${analysis.difficulty.components.lookaheadLoad}`,
       `  - ordinary contradictions: ${analysis.difficulty.ordinaryContradictions}`,
       `  - treasure room variant steps: ${analysis.difficulty.treasureRoomVariantSteps}`,
+      `  - treasure room structural consensus steps: ${analysis.difficulty.treasureRoomStructuralConsensusSteps}`,
+      `  - treasure room hypothesis consequence steps: ${analysis.difficulty.treasureRoomHypothesisConsequenceSteps}`,
       '  - reasons:',
       ...analysis.difficulty.reasons.map(
         (reason) =>

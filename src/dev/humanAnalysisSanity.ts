@@ -224,6 +224,12 @@ async function main(): Promise<void> {
     ) &&
     markdown.includes(
       '- lookahead load:',
+    ) &&
+    markdown.includes(
+      '- treasure room structural consensus steps:',
+    ) &&
+    markdown.includes(
+      '- treasure room hypothesis consequence steps:',
     ),
     'Human-analysis Markdown must expose status, rule counts, and difficulty.',
   );
@@ -276,6 +282,12 @@ async function main(): Promise<void> {
       ) &&
       json.includes(
         '"maximumScore"',
+      ) &&
+      json.includes(
+        '"treasureRoomStructuralConsensusSteps"',
+      ) &&
+      json.includes(
+        '"treasureRoomHypothesisConsequenceSteps"',
       ),
       'Human-analysis JSON must serialize Difficulty v1 summary and profiles.',
     );

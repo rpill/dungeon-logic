@@ -1684,6 +1684,8 @@ function createDifficultyFixture(
     },
     ordinaryContradictions: 0,
     treasureRoomVariantSteps: 0,
+    treasureRoomStructuralConsensusSteps: 0,
+    treasureRoomHypothesisConsequenceSteps: 0,
     reasons: [],
   };
 }

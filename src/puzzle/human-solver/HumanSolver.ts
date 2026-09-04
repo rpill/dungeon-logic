@@ -60,6 +60,63 @@ export type TreasureRoomVariantInferenceResult =
       kind: 'invalid';
     };
 
+export interface TreasureRoomStructuralConsensusInference {
+  assignments:
+    readonly HumanAssignment[];
+  chest: GridPosition;
+  survivingVariants: number;
+  survivingFootprints: number;
+}
+
+export type TreasureRoomStructuralConsensusInferenceResult =
+  | {
+      kind: 'move';
+      move:
+        TreasureRoomStructuralConsensusInference;
+    }
+  | {
+      kind: 'none';
+    }
+  | {
+      kind: 'invalid';
+    };
+
+export interface TreasureRoomHypothesisConsequenceInference {
+  assignments:
+    readonly HumanAssignment[];
+  chest: GridPosition;
+  survivingVariants: number;
+  survivingFootprints: number;
+  directStepsMinimum: number;
+  directStepsMaximum: number;
+}
+
+export type TreasureRoomHypothesisConsequenceInferenceResult =
+  | {
+      kind: 'move';
+      move:
+        TreasureRoomHypothesisConsequenceInference;
+    }
+  | {
+      kind: 'none';
+    }
+  | {
+      kind: 'invalid';
+    };
+
+interface TreasureRoomVariantBranch {
+  candidate: RoomCandidate;
+  entrance: GridPosition;
+  directSteps: number;
+  cells: readonly (readonly SearchSnapshotCell[])[];
+}
+
+type SearchSnapshotCell =
+  | typeof SearchCellState.Unassigned
+  | typeof SearchCellState.Wall
+  | typeof SearchCellState.Open
+  | null;
+
 interface ContradictionMove {
   assignment: HumanAssignment;
   proof: HumanContradictionProof;
@@ -208,27 +265,15 @@ export function analyzeHumanSolvability(
 
     if (
       roomVariant.kind ===
-      'none'
+      'move'
     ) {
-      return buildResult(
-        HumanSolveStatus.Stuck,
-        state,
-        steps,
-      );
-    }
+      const roomMove =
+        roomVariant.move;
 
-    const roomMove =
-      roomVariant.move;
-
-    for (
-      const assignment
-      of roomMove.assignments
-    ) {
       if (
-        !state.assign(
-          assignment.position.x,
-          assignment.position.y,
-          assignment.value,
+        !applyAssignments(
+          state,
+          roomMove.assignments,
         )
       ) {
         return buildResult(
@@ -237,27 +282,143 @@ export function analyzeHumanSolvability(
           steps,
         );
       }
+
+      steps.push({
+        index: steps.length + 1,
+        tier:
+          HumanDeductionTier
+            .Contradiction,
+        rule:
+          HumanRule
+            .TreasureRoomVariant,
+        assignments:
+          roomMove.assignments,
+        explanation:
+          roomMove.uniqueEntrance
+            ? `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves exactly one full room-and-entrance variant, so its room and boundary are forced.`
+            : `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves ${roomMove.survivingVariants} variants that all share one 3x3 footprint, so that room interior is forced OPEN.`,
+        proof: null,
+      });
+
+      usedContradiction = true;
+      continue;
     }
 
-    steps.push({
-      index: steps.length + 1,
-      tier:
-        HumanDeductionTier
-          .Contradiction,
-      rule:
-        HumanRule
-          .TreasureRoomVariant,
-      assignments:
-        roomMove.assignments,
-      explanation:
-        roomMove.uniqueEntrance
-          ? `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves exactly one full room-and-entrance variant, so its room and boundary are forced.`
-          : `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves ${roomMove.survivingVariants} variants that all share one 3x3 footprint, so that room interior is forced OPEN.`,
-      proof: null,
-    });
+    const structuralConsensus =
+      findTreasureRoomStructuralConsensusInference(
+        state,
+      );
 
-    usedContradiction = true;
-    continue;
+    if (
+      structuralConsensus.kind ===
+      'invalid'
+    ) {
+      return buildResult(
+        HumanSolveStatus.Invalid,
+        state,
+        steps,
+      );
+    }
+
+    if (
+      structuralConsensus.kind ===
+      'move'
+    ) {
+      const move =
+        structuralConsensus.move;
+
+      if (
+        !applyAssignments(
+          state,
+          move.assignments,
+        )
+      ) {
+        return buildResult(
+          HumanSolveStatus.Invalid,
+          state,
+          steps,
+        );
+      }
+
+      steps.push({
+        index: steps.length + 1,
+        tier:
+          HumanDeductionTier
+            .Contradiction,
+        rule:
+          HumanRule
+            .TreasureRoomStructuralConsensus,
+        assignments:
+          move.assignments,
+        explanation:
+          `Testing every direct-surviving Treasure Room plus sole entrance for Chest at (${move.chest.x},${move.chest.y}) leaves ${move.survivingVariants} variants across ${move.survivingFootprints} footprints; the committed cells have the same structural OPEN/WALL requirement in every survivor.`,
+        proof: null,
+      });
+
+      usedContradiction = true;
+      continue;
+    }
+
+    const consequence =
+      findTreasureRoomHypothesisConsequenceInference(
+        state,
+      );
+
+    if (
+      consequence.kind ===
+      'invalid'
+    ) {
+      return buildResult(
+        HumanSolveStatus.Invalid,
+        state,
+        steps,
+      );
+    }
+
+    if (
+      consequence.kind ===
+      'move'
+    ) {
+      const move =
+        consequence.move;
+
+      if (
+        !applyAssignments(
+          state,
+          move.assignments,
+        )
+      ) {
+        return buildResult(
+          HumanSolveStatus.Invalid,
+          state,
+          steps,
+        );
+      }
+
+      steps.push({
+        index: steps.length + 1,
+        tier:
+          HumanDeductionTier
+            .Contradiction,
+        rule:
+          HumanRule
+            .TreasureRoomHypothesisConsequence,
+        assignments:
+          move.assignments,
+        explanation:
+          `Testing all ${move.survivingVariants} direct-surviving Treasure Room hypotheses for Chest at (${move.chest.x},${move.chest.y}) across ${move.survivingFootprints} footprints produces the same downstream cell states after direct closure (${move.directStepsMinimum}..${move.directStepsMaximum} direct steps per survivor), so those shared consequences are forced.`,
+        proof: null,
+      });
+
+      usedContradiction = true;
+      continue;
+    }
+
+    return buildResult(
+      HumanSolveStatus.Stuck,
+      state,
+      steps,
+    );
   }
 }
 
@@ -390,6 +551,500 @@ export function findTreasureRoomVariantInference(
   return {
     kind: 'none',
   };
+}
+
+export function findTreasureRoomStructuralConsensusInference(
+  state: SearchState,
+): TreasureRoomStructuralConsensusInferenceResult {
+  for (
+    const chest
+    of state.level.chests
+  ) {
+    const branches =
+      collectSurvivingTreasureRoomBranches(
+        state,
+        chest,
+      );
+
+    if (branches.kind !== 'ok') {
+      return branches;
+    }
+
+    const assignments =
+      collectStructuralConsensusAssignments(
+        state,
+        branches.variants,
+      );
+
+    if (assignments.length === 0) {
+      continue;
+    }
+
+    return {
+      kind: 'move',
+      move: {
+        assignments,
+        chest: clonePosition(chest),
+        survivingVariants:
+          branches.variants.length,
+        survivingFootprints:
+          countDistinctFootprints(
+            branches.variants,
+          ),
+      },
+    };
+  }
+
+  return { kind: 'none' };
+}
+
+export function findTreasureRoomHypothesisConsequenceInference(
+  state: SearchState,
+): TreasureRoomHypothesisConsequenceInferenceResult {
+  const baseline =
+    snapshotSearchState(state);
+
+  for (
+    const chest
+    of state.level.chests
+  ) {
+    const branches =
+      collectSurvivingTreasureRoomBranches(
+        state,
+        chest,
+      );
+
+    if (branches.kind !== 'ok') {
+      return branches;
+    }
+
+    const assignments =
+      collectConsequenceConsensusAssignments(
+        state,
+        baseline,
+        branches.variants,
+      );
+
+    if (assignments.length === 0) {
+      continue;
+    }
+
+    const directStepCounts =
+      branches.variants.map(
+        (branch) =>
+          branch.directSteps,
+      );
+
+    return {
+      kind: 'move',
+      move: {
+        assignments,
+        chest: clonePosition(chest),
+        survivingVariants:
+          branches.variants.length,
+        survivingFootprints:
+          countDistinctFootprints(
+            branches.variants,
+          ),
+        directStepsMinimum:
+          Math.min(
+            ...directStepCounts,
+          ),
+        directStepsMaximum:
+          Math.max(
+            ...directStepCounts,
+          ),
+      },
+    };
+  }
+
+  return { kind: 'none' };
+}
+
+type SurvivingTreasureRoomBranchesResult =
+  | {
+      kind: 'ok';
+      variants:
+        readonly TreasureRoomVariantBranch[];
+    }
+  | {
+      kind: 'invalid';
+    };
+
+function collectSurvivingTreasureRoomBranches(
+  state: SearchState,
+  chest: GridPosition,
+): SurvivingTreasureRoomBranchesResult {
+  const candidates =
+    state
+      .getViableTreasureRoomCandidates(
+        chest,
+      );
+
+  if (candidates.length === 0) {
+    return { kind: 'invalid' };
+  }
+
+  const variants:
+    TreasureRoomVariantBranch[] = [];
+
+  for (
+    const candidate
+    of candidates
+  ) {
+    for (
+      const entrance
+      of candidate.boundary
+    ) {
+      const branch =
+        evaluateTreasureRoomVariantBranch(
+          state,
+          candidate,
+          entrance,
+        );
+
+      if (branch !== null) {
+        variants.push(branch);
+      }
+    }
+  }
+
+  if (variants.length === 0) {
+    return { kind: 'invalid' };
+  }
+
+  return {
+    kind: 'ok',
+    variants,
+  };
+}
+
+function evaluateTreasureRoomVariantBranch(
+  state: SearchState,
+  candidate: RoomCandidate,
+  entrance: GridPosition,
+): TreasureRoomVariantBranch | null {
+  const checkpoint =
+    state.checkpoint();
+
+  if (
+    !applyTreasureRoomVariant(
+      state,
+      candidate,
+      entrance,
+    )
+  ) {
+    state.rollback(checkpoint);
+    return null;
+  }
+
+  const direct =
+    runDirectFixedPoint(state);
+
+  let survives =
+    direct.ok;
+
+  if (
+    survives &&
+    state.isComplete()
+  ) {
+    survives =
+      validatePuzzle(
+        materializePuzzle(state),
+      ).isSolved;
+  }
+
+  const branch =
+    survives
+      ? {
+          candidate,
+          entrance:
+            clonePosition(entrance),
+          directSteps:
+            direct.steps.length,
+          cells:
+            snapshotSearchState(
+              state,
+            ),
+        }
+      : null;
+
+  state.rollback(checkpoint);
+
+  return branch;
+}
+
+function collectStructuralConsensusAssignments(
+  state: SearchState,
+  branches:
+    readonly TreasureRoomVariantBranch[],
+): readonly HumanAssignment[] {
+  const requirementMaps =
+    branches.map(
+      (branch) =>
+        structuralRequirements(
+          branch,
+        ),
+    );
+
+  const assignments:
+    HumanAssignment[] = [];
+
+  for (
+    const [key, value]
+    of requirementMaps[0]
+  ) {
+    if (
+      !requirementMaps.every(
+        (requirements) =>
+          requirements.get(key) ===
+          value,
+      )
+    ) {
+      continue;
+    }
+
+    const position =
+      parsePositionKey(key);
+
+    if (
+      !state.isMutableCell(
+        position.x,
+        position.y,
+      ) ||
+      state.getCellState(
+        position.x,
+        position.y,
+      ) !==
+        SearchCellState.Unassigned
+    ) {
+      continue;
+    }
+
+    assignments.push({
+      position,
+      value,
+    });
+  }
+
+  assignments.sort(
+    compareAssignments,
+  );
+
+  return assignments;
+}
+
+function collectConsequenceConsensusAssignments(
+  state: SearchState,
+  baseline:
+    readonly (readonly SearchSnapshotCell[])[],
+  branches:
+    readonly TreasureRoomVariantBranch[],
+): readonly HumanAssignment[] {
+  const assignments:
+    HumanAssignment[] = [];
+
+  for (
+    let y = 0;
+    y < state.level.height;
+    y += 1
+  ) {
+    for (
+      let x = 0;
+      x < state.level.width;
+      x += 1
+    ) {
+      if (
+        baseline[y][x] !==
+          SearchCellState.Unassigned ||
+        !state.isMutableCell(x, y)
+      ) {
+        continue;
+      }
+
+      const first =
+        branches[0].cells[y][x];
+
+      if (
+        first !==
+          SearchCellState.Wall &&
+        first !==
+          SearchCellState.Open
+      ) {
+        continue;
+      }
+
+      if (
+        branches.every(
+          (branch) =>
+            branch.cells[y][x] ===
+            first,
+        )
+      ) {
+        assignments.push({
+          position: { x, y },
+          value: first,
+        });
+      }
+    }
+  }
+
+  return assignments;
+}
+
+function structuralRequirements(
+  branch: TreasureRoomVariantBranch,
+): ReadonlyMap<
+  string,
+  | typeof SearchCellState.Open
+  | typeof SearchCellState.Wall
+> {
+  const result =
+    new Map<
+      string,
+      | typeof SearchCellState.Open
+      | typeof SearchCellState.Wall
+    >();
+
+  for (
+    const position
+    of branch.candidate.cells
+  ) {
+    result.set(
+      positionKey(position),
+      SearchCellState.Open,
+    );
+  }
+
+  for (
+    const position
+    of branch.candidate.boundary
+  ) {
+    result.set(
+      positionKey(position),
+      samePosition(
+        position,
+        branch.entrance,
+      )
+        ? SearchCellState.Open
+        : SearchCellState.Wall,
+    );
+  }
+
+  return result;
+}
+
+function snapshotSearchState(
+  state: SearchState,
+): readonly (readonly SearchSnapshotCell[])[] {
+  const rows:
+    SearchSnapshotCell[][] = [];
+
+  for (
+    let y = 0;
+    y < state.level.height;
+    y += 1
+  ) {
+    const row:
+      SearchSnapshotCell[] = [];
+
+    for (
+      let x = 0;
+      x < state.level.width;
+      x += 1
+    ) {
+      row.push(
+        state.getCellState(x, y),
+      );
+    }
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function countDistinctFootprints(
+  branches:
+    readonly TreasureRoomVariantBranch[],
+): number {
+  return new Set(
+    branches.map(
+      (branch) =>
+        roomFootprintKey(
+          branch.candidate,
+        ),
+    ),
+  ).size;
+}
+
+function applyAssignments(
+  state: SearchState,
+  assignments:
+    readonly HumanAssignment[],
+): boolean {
+  for (
+    const assignment
+    of assignments
+  ) {
+    if (
+      !state.assign(
+        assignment.position.x,
+        assignment.position.y,
+        assignment.value,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function positionKey(
+  position: GridPosition,
+): string {
+  return `${position.x}:${position.y}`;
+}
+
+function parsePositionKey(
+  key: string,
+): GridPosition {
+  const [x, y] =
+    key.split(':').map(Number);
+
+  return { x, y };
+}
+
+function clonePosition(
+  position: GridPosition,
+): GridPosition {
+  return {
+    x: position.x,
+    y: position.y,
+  };
+}
+
+function samePosition(
+  left: GridPosition,
+  right: GridPosition,
+): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y
+  );
+}
+
+function compareAssignments(
+  left: HumanAssignment,
+  right: HumanAssignment,
+): number {
+  return (
+    left.position.y -
+      right.position.y ||
+    left.position.x -
+      right.position.x
+  );
 }
 
 function treasureRoomVariantSurvives(

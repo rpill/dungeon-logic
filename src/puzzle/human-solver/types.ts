@@ -39,6 +39,10 @@ export const HumanRule = {
     'treasure-room-entrance',
   TreasureRoomVariant:
     'treasure-room-variant',
+  TreasureRoomStructuralConsensus:
+    'treasure-room-structural-consensus',
+  TreasureRoomHypothesisConsequence:
+    'treasure-room-hypothesis-consequence',
   MonsterDeadEnd: 'monster-dead-end',
   HallwayNotDeadEnd:
     'hallway-not-dead-end',
@@ -57,6 +61,8 @@ export type DirectHumanRule =
     HumanRule,
     | typeof HumanRule.Contradiction
     | typeof HumanRule.TreasureRoomVariant
+    | typeof HumanRule.TreasureRoomStructuralConsensus
+    | typeof HumanRule.TreasureRoomHypothesisConsequence
   >;
 
 export interface HumanAssignment {
@@ -116,6 +122,8 @@ export function createEmptyHumanRuleCounts():
     [HumanRule.TreasureRoomInterior]: 0,
     [HumanRule.TreasureRoomEntrance]: 0,
     [HumanRule.TreasureRoomVariant]: 0,
+    [HumanRule.TreasureRoomStructuralConsensus]: 0,
+    [HumanRule.TreasureRoomHypothesisConsequence]: 0,
     [HumanRule.MonsterDeadEnd]: 0,
     [HumanRule.HallwayNotDeadEnd]: 0,
     [HumanRule.Open2x2]: 0,

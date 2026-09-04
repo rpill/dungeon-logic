@@ -52,6 +52,16 @@ export function analyzeDifficulty(
       HumanRule.TreasureRoomVariant
     ];
 
+  const treasureRoomStructuralConsensusSteps =
+    humanResult.ruleCounts[
+      HumanRule.TreasureRoomStructuralConsensus
+    ];
+
+  const treasureRoomHypothesisConsequenceSteps =
+    humanResult.ruleCounts[
+      HumanRule.TreasureRoomHypothesisConsequence
+    ];
+
   if (
     humanResult.status ===
       HumanSolveStatus.Stuck ||
@@ -62,6 +72,8 @@ export function analyzeDifficulty(
       humanResult,
       ordinaryContradictions,
       treasureRoomVariantSteps,
+      treasureRoomStructuralConsensusSteps,
+      treasureRoomHypothesisConsequenceSteps,
     );
   }
 
@@ -69,6 +81,8 @@ export function analyzeDifficulty(
     classifySolved(
       ordinaryContradictions,
       treasureRoomVariantSteps,
+      treasureRoomStructuralConsensusSteps,
+      treasureRoomHypothesisConsequenceSteps,
     );
 
   const rawComponents =
@@ -78,6 +92,8 @@ export function analyzeDifficulty(
       classification.band,
       ordinaryContradictions,
       treasureRoomVariantSteps,
+      treasureRoomStructuralConsensusSteps,
+      treasureRoomHypothesisConsequenceSteps,
     );
 
   const score =
@@ -118,6 +134,8 @@ export function analyzeDifficulty(
     },
     ordinaryContradictions,
     treasureRoomVariantSteps,
+    treasureRoomStructuralConsensusSteps,
+    treasureRoomHypothesisConsequenceSteps,
     reasons:
       buildReasons(
         level,
@@ -125,6 +143,8 @@ export function analyzeDifficulty(
         classification,
         ordinaryContradictions,
         treasureRoomVariantSteps,
+        treasureRoomStructuralConsensusSteps,
+        treasureRoomHypothesisConsequenceSteps,
         advancedFamiliesUsed,
       ),
   };
@@ -134,6 +154,8 @@ function createUnratedProfile(
   humanResult: HumanSolveResult,
   ordinaryContradictions: number,
   treasureRoomVariantSteps: number,
+  treasureRoomStructuralConsensusSteps: number,
+  treasureRoomHypothesisConsequenceSteps: number,
 ): DifficultyProfile {
   const reason =
     humanResult.status ===
@@ -155,6 +177,8 @@ function createUnratedProfile(
     },
     ordinaryContradictions,
     treasureRoomVariantSteps,
+    treasureRoomStructuralConsensusSteps,
+    treasureRoomHypothesisConsequenceSteps,
     reasons: [reason],
   };
 }
@@ -162,9 +186,13 @@ function createUnratedProfile(
 function classifySolved(
   ordinaryContradictions: number,
   treasureRoomVariantSteps: number,
+  treasureRoomStructuralConsensusSteps: number,
+  treasureRoomHypothesisConsequenceSteps: number,
 ): SolvedClassification {
   if (
     treasureRoomVariantSteps >= 1 ||
+    treasureRoomStructuralConsensusSteps >= 1 ||
+    treasureRoomHypothesisConsequenceSteps >= 1 ||
     ordinaryContradictions >= 9
   ) {
     return {
@@ -207,6 +235,8 @@ function calculateComponents(
   band: SolvedClassification['band'],
   ordinaryContradictions: number,
   treasureRoomVariantSteps: number,
+  treasureRoomStructuralConsensusSteps: number,
+  treasureRoomHypothesisConsequenceSteps: number,
 ): DifficultyComponents {
   const boardLoad =
     clamp01(
@@ -240,6 +270,8 @@ function calculateComponents(
         band,
         ordinaryContradictions,
         treasureRoomVariantSteps,
+        treasureRoomStructuralConsensusSteps,
+        treasureRoomHypothesisConsequenceSteps,
       ),
   };
 }
@@ -248,6 +280,8 @@ function getLookaheadLoad(
   band: SolvedClassification['band'],
   ordinaryContradictions: number,
   treasureRoomVariantSteps: number,
+  treasureRoomStructuralConsensusSteps: number,
+  treasureRoomHypothesisConsequenceSteps: number,
 ): number {
   if (
     band === DifficultyBand.Easy
@@ -275,7 +309,9 @@ function getLookaheadLoad(
   }
 
   if (
-    treasureRoomVariantSteps >= 1
+    treasureRoomVariantSteps >= 1 ||
+    treasureRoomStructuralConsensusSteps >= 1 ||
+    treasureRoomHypothesisConsequenceSteps >= 1
   ) {
     return 1;
   }
@@ -362,6 +398,8 @@ function buildReasons(
   classification: SolvedClassification,
   ordinaryContradictions: number,
   treasureRoomVariantSteps: number,
+  treasureRoomStructuralConsensusSteps: number,
+  treasureRoomHypothesisConsequenceSteps: number,
   advancedFamiliesUsed: number,
 ): readonly string[] {
   const reasons: string[] = [];
@@ -402,6 +440,34 @@ function buildReasons(
   ) {
     reasons.push(
       `Requires Treasure Room variant reasoning (${treasureRoomVariantSteps} steps).`,
+    );
+  }
+
+  if (
+    treasureRoomStructuralConsensusSteps === 1
+  ) {
+    reasons.push(
+      'Requires Treasure Room structural consensus reasoning (1 step).',
+    );
+  } else if (
+    treasureRoomStructuralConsensusSteps > 1
+  ) {
+    reasons.push(
+      `Requires Treasure Room structural consensus reasoning (${treasureRoomStructuralConsensusSteps} steps).`,
+    );
+  }
+
+  if (
+    treasureRoomHypothesisConsequenceSteps === 1
+  ) {
+    reasons.push(
+      'Requires Treasure Room hypothesis consequence reasoning (1 step).',
+    );
+  } else if (
+    treasureRoomHypothesisConsequenceSteps > 1
+  ) {
+    reasons.push(
+      `Requires Treasure Room hypothesis consequence reasoning (${treasureRoomHypothesisConsequenceSteps} steps).`,
     );
   }
 
