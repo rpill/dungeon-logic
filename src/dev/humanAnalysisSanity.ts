@@ -12,6 +12,10 @@ import {
   tmpdir,
 } from 'node:os';
 
+import {
+  DifficultyBand,
+} from '../puzzle/difficulty/types';
+
 import type {
   LevelDefinition,
 } from '../puzzle/types';
@@ -130,6 +134,33 @@ async function main(): Promise<void> {
     'Human analysis summary must count solved-direct levels.',
   );
 
+  assert(
+    report.levels.every(
+      (entry) =>
+        entry.difficulty.version ===
+        1,
+    ),
+    'Every human-analysis level must carry Difficulty v1.',
+  );
+
+  assert(
+    report.levels[0].difficulty.band ===
+      DifficultyBand.Easy,
+    'Direct human-analysis fixture must be easy.',
+  );
+
+  assert(
+    Object.values(
+      report.summary.difficulty
+        .bandCounts,
+    ).reduce(
+      (sum, value) =>
+        sum + value,
+      0,
+    ) === report.summary.total,
+    'Difficulty band summary must cover every analyzed level.',
+  );
+
   const generatedLevels =
     extractGeneratedShortlistLevels(
       {
@@ -169,8 +200,32 @@ async function main(): Promise<void> {
     ) &&
     markdown.includes(
       'line-fill',
+    ) &&
+    markdown.includes(
+      '- difficulty:',
+    ) &&
+    markdown.includes(
+      '- band:',
+    ) &&
+    markdown.includes(
+      '- score:',
+    ) &&
+    markdown.includes(
+      '- reasoning tier:',
+    ) &&
+    markdown.includes(
+      '- board load:',
+    ) &&
+    markdown.includes(
+      '- direct load:',
+    ) &&
+    markdown.includes(
+      '- advanced rule load:',
+    ) &&
+    markdown.includes(
+      '- lookahead load:',
     ),
-    'Human-analysis Markdown must expose status and rule counts.',
+    'Human-analysis Markdown must expose status, rule counts, and difficulty.',
   );
 
   const tempRoot =
@@ -204,6 +259,25 @@ async function main(): Promise<void> {
       json.endsWith('\n') &&
       md.endsWith('\n'),
       'Human-analysis output files must end with a newline.',
+    );
+
+    assert(
+      json.includes(
+        '"difficulty"',
+      ) &&
+      json.includes(
+        '"bandCounts"',
+      ) &&
+      json.includes(
+        '"minimumScore"',
+      ) &&
+      json.includes(
+        '"medianScore"',
+      ) &&
+      json.includes(
+        '"maximumScore"',
+      ),
+      'Human-analysis JSON must serialize Difficulty v1 summary and profiles.',
     );
 
     const second =

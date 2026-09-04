@@ -9,6 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  DifficultyBand,
+  DifficultyTarget,
+  type DifficultyProfile,
+} from '../puzzle/difficulty/types';
+
+import {
   SeededRandom,
   deriveCandidateSeed,
 } from '../puzzle/generator/SeededRandom';
@@ -40,6 +46,7 @@ import {
   buildGeneratorRunReport,
   createSerializableReport,
   formatShortlistMarkdown,
+  parseGeneratorCliArgs,
   parseMasterSeed,
   writeGeneratorOutputs,
 } from './generateCandidates';
@@ -464,6 +471,32 @@ function runAcceptancePipelineChecks(): void {
   assert(
     accepted !== null,
     'Expected at least one generated candidate to pass the full acceptance pipeline.',
+  );
+
+  if (accepted === null) {
+    throw new Error(
+      'Accepted fixture unexpectedly missing.',
+    );
+  }
+
+  const acceptedEvaluation =
+    evaluateCandidate(accepted);
+
+  assert(
+    acceptedEvaluation.status ===
+      'accepted' &&
+      acceptedEvaluation.accepted
+        .difficulty.version === 1,
+    'Accepted candidate must carry Difficulty v1.',
+  );
+
+  assert(
+    !Object.values(
+      RejectionReason,
+    ).includes(
+      'difficulty' as RejectionReason,
+    ),
+    'Difficulty must not become a generator rejection reason.',
   );
 
   const invalidCandidate =
@@ -1032,6 +1065,7 @@ function runRankingChecks(): void {
 
   runShortlistDiversityChecks();
   runRankingV12Checks();
+  runDifficultyTargetRankingChecks();
 }
 
 function runShortlistDiversityChecks(): void {
@@ -1295,6 +1329,365 @@ function runRankingV12Checks(): void {
   );
 }
 
+function runDifficultyTargetRankingChecks(): void {
+  const easy =
+    createRankingFixture({
+      seed: 9101,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Easy,
+          12,
+        ),
+    });
+
+  const medium =
+    createRankingFixture({
+      seed: 9102,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          37,
+        ),
+    });
+
+  const hard =
+    createRankingFixture({
+      seed: 9103,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Hard,
+          62,
+        ),
+    });
+
+  const expert =
+    createRankingFixture({
+      seed: 9104,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Expert,
+          87,
+        ),
+    });
+
+  const bandPool =
+    createRankingPool([
+      easy,
+      medium,
+      hard,
+      expert,
+    ]);
+
+  for (
+    const target
+    of [
+      DifficultyTarget.Easy,
+      DifficultyTarget.Medium,
+      DifficultyTarget.Hard,
+      DifficultyTarget.Expert,
+    ] as const
+  ) {
+    const selected =
+      selectShortlist(
+        bandPool,
+        1,
+        target,
+      );
+
+    assert(
+      selected[0].accepted
+        .difficulty.band === target,
+      `${target} target must prefer an exact-band candidate.`,
+    );
+  }
+
+  const qualityMedium =
+    createRankingFixture({
+      seed: 9201,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          37,
+        ),
+    });
+
+  const weakerExpert =
+    createRankingFixture({
+      seed: 9202,
+      size: 7,
+      metrics: {
+        nearFullWallLineCount: 2,
+      },
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Expert,
+          87,
+        ),
+    });
+
+  const fallback =
+    selectShortlist(
+      createRankingPool([
+        weakerExpert,
+        qualityMedium,
+      ]),
+      1,
+      DifficultyTarget.Hard,
+    );
+
+  assert(
+    fallback[0].accepted
+      .candidate.seed ===
+      qualityMedium.candidate.seed,
+    'Equal band distance must preserve existing quality preference before score-center distance.',
+  );
+
+  const centerMedium =
+    createRankingFixture({
+      seed: 9301,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          45,
+        ),
+    });
+
+  const centerExpert =
+    createRankingFixture({
+      seed: 9302,
+      size: 7,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Expert,
+          78,
+        ),
+    });
+
+  const centerChoice =
+    selectShortlist(
+      createRankingPool([
+        centerMedium,
+        centerExpert,
+      ]),
+      1,
+      DifficultyTarget.Hard,
+    );
+
+  assert(
+    centerChoice[0].accepted
+      .candidate.seed ===
+      centerExpert.candidate.seed,
+    'Score-center proximity must break a later tie inside equal band distance.',
+  );
+
+  const unrated =
+    createRankingFixture({
+      seed: 9401,
+      size: 7,
+      metrics: {
+        objectAssistedForcedWallCount:
+          100,
+      },
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Unrated,
+          null,
+        ),
+    });
+
+  const rated =
+    createRankingFixture({
+      seed: 9402,
+      size: 7,
+      metrics: {
+        nearFullWallLineCount: 3,
+      },
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Easy,
+          12,
+        ),
+    });
+
+  const unratedFallback =
+    selectShortlist(
+      createRankingPool([
+        unrated,
+        rated,
+      ]),
+      1,
+      DifficultyTarget.Expert,
+    );
+
+  assert(
+    unratedFallback[0].accepted
+      .candidate.seed ===
+      rated.candidate.seed,
+    'Specific targets must rank rated candidates ahead of unrated candidates.',
+  );
+
+  const anyPool =
+    createRankingPool([
+      easy,
+      medium,
+      hard,
+      expert,
+    ]);
+
+  const legacyAny =
+    selectShortlist(
+      anyPool,
+      3,
+    );
+
+  const explicitAny =
+    selectShortlist(
+      anyPool,
+      3,
+      DifficultyTarget.Any,
+    );
+
+  assert(
+    JSON.stringify(
+      legacyAny.map(
+        (entry) =>
+          entry.accepted
+            .candidate.seed,
+      ),
+    ) ===
+      JSON.stringify(
+        explicitAny.map(
+          (entry) =>
+            entry.accepted
+              .candidate.seed,
+        ),
+      ),
+    'Explicit any target must preserve the legacy shortlist ordering.',
+  );
+
+  const hard8a =
+    createRankingFixture({
+      seed: 9501,
+      size: 8,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(0, 0),
+        roomFixture(5, 5),
+      ],
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Hard,
+          62,
+        ),
+    });
+
+  const hard8b =
+    createRankingFixture({
+      seed: 9502,
+      size: 8,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(0, 2),
+        roomFixture(5, 5),
+      ],
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Hard,
+          63,
+        ),
+    });
+
+  const medium7 =
+    createRankingFixture({
+      seed: 9503,
+      size: 7,
+      archetype:
+        GeneratorArchetype
+          .ChestTwoRooms,
+      rooms: [
+        roomFixture(0, 0),
+        roomFixture(4, 4),
+      ],
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          37,
+        ),
+    });
+
+  const targetedTwoRoom =
+    selectShortlist(
+      createRankingPool([
+        hard8a,
+        hard8b,
+        medium7,
+      ]),
+      3,
+      DifficultyTarget.Hard,
+    );
+
+  const targetedSizes =
+    new Set(
+      targetedTwoRoom.map(
+        (entry) =>
+          entry.accepted
+            .candidate.size,
+      ),
+    );
+
+  assert(
+    targetedSizes.has(7) &&
+      targetedSizes.has(8),
+    'Two-room 7x7/8x8 coverage must remain stronger than difficulty preference.',
+  );
+}
+
+function createDifficultyFixture(
+  band:
+    | 'easy'
+    | 'medium'
+    | 'hard'
+    | 'expert'
+    | 'unrated' =
+      DifficultyBand.Easy,
+  score: number | null = 12,
+): DifficultyProfile {
+  return {
+    version: 1,
+    score,
+    band,
+    reasoningTier:
+      band === 'easy'
+        ? 'direct'
+        : band === 'medium'
+          ? 'contradiction-light'
+          : band === 'hard'
+            ? 'contradiction-heavy'
+            : band === 'expert'
+              ? 'expert-lookahead'
+              : 'unrated',
+    components: {
+      boardLoad: 0,
+      directLoad: 0,
+      advancedRuleLoad: 0,
+      lookaheadLoad: 0,
+    },
+    ordinaryContradictions: 0,
+    treasureRoomVariantSteps: 0,
+    reasons: [],
+  };
+}
+
 function createRankingFixture(
   input: {
     seed: number;
@@ -1308,6 +1701,7 @@ function createRankingFixture(
     >;
     monsterCount?: number;
     fill?: '#' | '.';
+    difficulty?: DifficultyProfile;
   },
 ): AcceptedCandidate {
   const size =
@@ -1373,6 +1767,9 @@ function createRankingFixture(
   return {
     candidate,
     solutionCount: 1,
+    difficulty:
+      input.difficulty ??
+      createDifficultyFixture(),
     quality: {
       passes: true,
       issues: [],
@@ -1470,6 +1867,66 @@ function runCliContractChecks(): void {
     'CLI seed parser must accept a valid uint32 decimal seed.',
   );
 
+  const defaultOptions =
+    parseGeneratorCliArgs([
+      '--seed',
+      '123456',
+    ]);
+
+  assert(
+    defaultOptions.masterSeed ===
+      123456 &&
+    defaultOptions.difficultyTarget ===
+      DifficultyTarget.Any,
+    'Generator CLI must default difficulty target to any.',
+  );
+
+  const expertOptions =
+    parseGeneratorCliArgs([
+      '--seed',
+      '123456',
+      '--difficulty',
+      'expert',
+    ]);
+
+  assert(
+    expertOptions.masterSeed ===
+      123456 &&
+    expertOptions.difficultyTarget ===
+      DifficultyTarget.Expert,
+    'Generator CLI must parse an explicit expert difficulty target.',
+  );
+
+  for (
+    const args
+    of [
+      ['--seed', '123456', '--difficulty'],
+      ['--seed', '123456', '--difficulty', 'unrated'],
+      ['--seed', '123456', '--difficulty', 'impossible'],
+      ['--difficulty', 'hard', '--seed', '123456'],
+      ['--seed', '123456', 'hard', '--difficulty'],
+    ]
+  ) {
+    expectThrow(
+      () => {
+        parseGeneratorCliArgs(args);
+      },
+      `Invalid difficulty CLI args must throw: ${JSON.stringify(args)}`,
+    );
+  }
+
+  expectThrow(
+    () => {
+      parseMasterSeed([
+        '--seed',
+        '123456',
+        '--difficulty',
+        'hard',
+      ]);
+    },
+    'Legacy parseMasterSeed helper must keep its exact two-argument contract.',
+  );
+
   for (
     const args
     of [
@@ -1510,6 +1967,12 @@ function runCliContractChecks(): void {
   );
 
   assert(
+    report.difficultyTarget ===
+      DifficultyTarget.Any,
+    'Generator run report must default difficulty target to any.',
+  );
+
+  assert(
     report.pool.completed,
     'Small deterministic CLI report must complete.',
   );
@@ -1547,6 +2010,8 @@ function runOutputFormatChecks(): void {
   const report = {
     schemaVersion: 1 as const,
     masterSeed: 123456,
+    difficultyTarget:
+      DifficultyTarget.Any,
     config: {
       masterSeed: 123456,
       acceptedPerArchetype: 1,
@@ -1566,6 +2031,7 @@ function runOutputFormatChecks(): void {
     [
       '# Dungeon Logic Generator v1.2',
       'Master seed',
+      'Difficulty target: any',
       'archetype',
       'candidate seed',
       'size',
@@ -1576,6 +2042,9 @@ function runOutputFormatChecks(): void {
       'Monsters',
       'Chests',
       'solutionCount: 1',
+      'difficulty band:',
+      'difficulty score:',
+      'difficulty reasoning tier:',
       'wall density',
       'thick-wall ratio',
       'wall/open boundary',
@@ -1604,6 +2073,17 @@ function runOutputFormatChecks(): void {
     'schemaVersion' in serializable &&
     serializable.schemaVersion === 1,
     'Serializable generator report must contain schemaVersion: 1.',
+  );
+
+  assert(
+    typeof serializable ===
+      'object' &&
+    serializable !== null &&
+    'difficultyTarget' in
+      serializable &&
+    serializable.difficultyTarget ===
+      DifficultyTarget.Any,
+    'Serializable generator report must include difficultyTarget.',
   );
 
   for (
@@ -1679,6 +2159,8 @@ async function runFilesystemCliChecks(): Promise<void> {
   const report = {
     schemaVersion: 1 as const,
     masterSeed: 123456,
+    difficultyTarget:
+      DifficultyTarget.Any,
     config: {
       masterSeed: 123456,
       acceptedPerArchetype: 1,
@@ -2887,4 +3369,3 @@ void main().catch(
     process.exitCode = 1;
   },
 );
-

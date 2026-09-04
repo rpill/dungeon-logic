@@ -7,6 +7,11 @@ import type {
   LevelQualityReport,
 } from '../quality/LevelQualityAnalyzer';
 
+import type {
+  DifficultyProfile,
+  DifficultyTarget,
+} from '../difficulty/types';
+
 export const GeneratorArchetype = {
   MonsterOnly: 'monster-only',
   ChestOneRoom: 'chest-one-room',
@@ -74,6 +79,7 @@ export interface AcceptedCandidate {
   candidate: GeneratedCandidate;
   quality: LevelQualityReport;
   solutionCount: 1;
+  difficulty: DifficultyProfile;
 }
 
 export type CandidateEvaluation =
@@ -158,6 +164,7 @@ export interface RankedCandidate {
 export interface GeneratorRunReport {
   schemaVersion: 1;
   masterSeed: number;
+  difficultyTarget: DifficultyTarget;
   config: GeneratorConfig;
   pool: GeneratorPoolReport;
   shortlist:

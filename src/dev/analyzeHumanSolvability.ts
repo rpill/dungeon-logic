@@ -13,6 +13,14 @@ import {
 } from '../data/levels';
 
 import {
+  analyzeDifficulty,
+} from '../puzzle/difficulty/DifficultyAnalyzer';
+
+import type {
+  DifficultyProfile,
+} from '../puzzle/difficulty/types';
+
+import {
   analyzeHumanSolvability,
 } from '../puzzle/human-solver/HumanSolver';
 
@@ -51,6 +59,23 @@ export interface HumanLevelAnalysis {
   width: number;
   height: number;
   result: HumanSolveResult;
+  difficulty: DifficultyProfile;
+}
+
+export interface HumanDifficultyBandCounts {
+  easy: number;
+  medium: number;
+  hard: number;
+  expert: number;
+  unrated: number;
+}
+
+export interface HumanDifficultySummary {
+  bandCounts:
+    HumanDifficultyBandCounts;
+  minimumScore: number | null;
+  medianScore: number | null;
+  maximumScore: number | null;
 }
 
 export interface HumanAnalysisStatusCounts {
@@ -67,6 +92,7 @@ export interface HumanAnalysisSummary {
   contradictionSteps: number;
   assignments: number;
   unknownRemaining: number;
+  difficulty: HumanDifficultySummary;
 }
 
 export interface HumanAnalysisReport {
@@ -155,15 +181,24 @@ export function analyzeHumanLevels(
 ): HumanAnalysisReport {
   const analyses =
     levels.map(
-      (level) => ({
-        id: level.id,
-        width: level.width,
-        height: level.height,
-        result:
+      (level) => {
+        const result =
           analyzeHumanSolvability(
             level,
-          ),
-      }),
+          );
+
+        return {
+          id: level.id,
+          width: level.width,
+          height: level.height,
+          result,
+          difficulty:
+            analyzeDifficulty(
+              level,
+              result,
+            ),
+        };
+      },
     );
 
   const statusCounts:
@@ -179,6 +214,17 @@ export function analyzeHumanLevels(
   let contradictionSteps = 0;
   let assignments = 0;
   let unknownRemaining = 0;
+
+  const difficultyBandCounts:
+    HumanDifficultyBandCounts = {
+    easy: 0,
+    medium: 0,
+    hard: 0,
+    expert: 0,
+    unrated: 0,
+  };
+
+  const ratedScores: number[] = [];
 
   for (
     const analysis
@@ -198,7 +244,24 @@ export function analyzeHumanLevels(
     unknownRemaining +=
       analysis.result
         .unknownRemaining;
+
+    difficultyBandCounts[
+      analysis.difficulty.band
+    ] += 1;
+
+    if (
+      analysis.difficulty.score !==
+      null
+    ) {
+      ratedScores.push(
+        analysis.difficulty.score,
+      );
+    }
   }
+
+  ratedScores.sort(
+    (a, b) => a - b,
+  );
 
   return {
     schemaVersion: 1,
@@ -210,9 +273,43 @@ export function analyzeHumanLevels(
       contradictionSteps,
       assignments,
       unknownRemaining,
+      difficulty: {
+        bandCounts:
+          difficultyBandCounts,
+        minimumScore:
+          ratedScores[0] ?? null,
+        medianScore:
+          median(ratedScores),
+        maximumScore:
+          ratedScores[
+            ratedScores.length - 1
+          ] ?? null,
+      },
     },
     levels: analyses,
   };
+}
+
+function median(
+  values: readonly number[],
+): number | null {
+  if (values.length === 0) {
+    return null;
+  }
+
+  const middle =
+    Math.floor(
+      values.length / 2,
+    );
+
+  if (values.length % 2 === 1) {
+    return values[middle];
+  }
+
+  return (
+    values[middle - 1] +
+    values[middle]
+  ) / 2;
 }
 
 export function extractGeneratedShortlistLevels(
@@ -449,6 +546,15 @@ export function formatHumanAnalysisMarkdown(
     `- contradiction steps: ${report.summary.contradictionSteps}`,
     `- assignments: ${report.summary.assignments}`,
     `- unknown remaining: ${report.summary.unknownRemaining}`,
+    '- difficulty:',
+    `  - easy: ${report.summary.difficulty.bandCounts.easy}`,
+    `  - medium: ${report.summary.difficulty.bandCounts.medium}`,
+    `  - hard: ${report.summary.difficulty.bandCounts.hard}`,
+    `  - expert: ${report.summary.difficulty.bandCounts.expert}`,
+    `  - unrated: ${report.summary.difficulty.bandCounts.unrated}`,
+    `  - minimum score: ${formatNullableNumber(report.summary.difficulty.minimumScore)}`,
+    `  - median score: ${formatNullableNumber(report.summary.difficulty.medianScore)}`,
+    `  - maximum score: ${formatNullableNumber(report.summary.difficulty.maximumScore)}`,
     '',
   ];
 
@@ -465,6 +571,22 @@ export function formatHumanAnalysisMarkdown(
       `- contradiction steps: ${analysis.result.contradictionSteps}`,
       `- assignments: ${analysis.result.assignments}`,
       `- unknown remaining: ${analysis.result.unknownRemaining}`,
+      '- difficulty:',
+      `  - version: ${analysis.difficulty.version}`,
+      `  - band: ${analysis.difficulty.band}`,
+      `  - score: ${formatNullableNumber(analysis.difficulty.score)}`,
+      `  - reasoning tier: ${analysis.difficulty.reasoningTier}`,
+      `  - board load: ${analysis.difficulty.components.boardLoad}`,
+      `  - direct load: ${analysis.difficulty.components.directLoad}`,
+      `  - advanced rule load: ${analysis.difficulty.components.advancedRuleLoad}`,
+      `  - lookahead load: ${analysis.difficulty.components.lookaheadLoad}`,
+      `  - ordinary contradictions: ${analysis.difficulty.ordinaryContradictions}`,
+      `  - treasure room variant steps: ${analysis.difficulty.treasureRoomVariantSteps}`,
+      '  - reasons:',
+      ...analysis.difficulty.reasons.map(
+        (reason) =>
+          `    - ${reason}`,
+      ),
       '- rule counts:',
     );
 
@@ -514,6 +636,14 @@ export function formatHumanAnalysisMarkdown(
   }
 
   return lines.join('\n');
+}
+
+function formatNullableNumber(
+  value: number | null,
+): string {
+  return value === null
+    ? 'null'
+    : String(value);
 }
 
 function formatSource(
@@ -664,12 +794,15 @@ function printHumanAnalysisSummary(
     of report.levels
   ) {
     console.info(
-      `${analysis.id}: ${analysis.result.status} direct=${analysis.result.directSteps} contradiction=${analysis.result.contradictionSteps} unknown=${analysis.result.unknownRemaining}`,
+      `${analysis.id}: ${analysis.result.status} direct=${analysis.result.directSteps} contradiction=${analysis.result.contradictionSteps} unknown=${analysis.result.unknownRemaining} difficulty=${analysis.difficulty.band} score=${formatNullableNumber(analysis.difficulty.score)}`,
     );
   }
 
   console.info(
     `summary: total=${report.summary.total} direct=${report.summary.statusCounts['solved-direct']} contradiction=${report.summary.statusCounts['solved-with-contradiction']} stuck=${report.summary.statusCounts.stuck} invalid=${report.summary.statusCounts.invalid}`,
+  );
+  console.info(
+    `difficulty: easy=${report.summary.difficulty.bandCounts.easy} medium=${report.summary.difficulty.bandCounts.medium} hard=${report.summary.difficulty.bandCounts.hard} expert=${report.summary.difficulty.bandCounts.expert} unrated=${report.summary.difficulty.bandCounts.unrated} min=${formatNullableNumber(report.summary.difficulty.minimumScore)} median=${formatNullableNumber(report.summary.difficulty.medianScore)} max=${formatNullableNumber(report.summary.difficulty.maximumScore)}`,
   );
   console.info(
     `wrote: ${paths.jsonPath}`,

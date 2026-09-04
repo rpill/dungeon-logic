@@ -95,6 +95,7 @@ function runCandidateProfileChecks(): void {
     profiled.timings.validationMs,
     profiled.timings.solverMs,
     profiled.timings.qualityMs,
+    profiled.timings.humanDifficultyMs,
     profiled.timings.totalMs,
   ];
 
@@ -295,6 +296,25 @@ function runGeneratorRunProfileChecks(): void {
     ),
     'Accepted generator attempts must expose solver diagnostics.',
   );
+
+  assert(
+    profiled.attempts.every(
+      (attempt) =>
+        attempt.status ===
+          CandidateStatus.Accepted ||
+        attempt.timings
+          .humanDifficultyMs === 0,
+    ),
+    'Rejected generator attempts must spend zero recorded Human Solver/Difficulty Analyzer time.',
+  );
+
+  assert(
+    baseline.accepted.every(
+      (accepted) =>
+        accepted.difficulty.version === 1,
+    ),
+    'Baseline accepted candidates must carry Difficulty v1 profiles.',
+  );
 }
 
 function findMonsterDensityProfile():
@@ -393,6 +413,12 @@ function runProfilerV12Checks(): void {
       attempt.timings.solverMs === 0,
       'Monster-density rejection must spend zero recorded Solver time.',
     );
+
+    assert(
+      attempt.timings
+        .humanDifficultyMs === 0,
+      'Monster-density rejection must spend zero recorded Human Solver/Difficulty Analyzer time.',
+    );
   }
 }
 
@@ -422,6 +448,7 @@ function runProfileReportChecks(): void {
     'monster-only',
     'mixed-two-rooms',
     'solverMs=',
+    'humanDifficultyMs=',
     'nodes=',
   ];
 
@@ -563,4 +590,3 @@ void main().catch(
     process.exitCode = 1;
   },
 );
-

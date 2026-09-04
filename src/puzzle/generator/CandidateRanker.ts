@@ -1,4 +1,10 @@
 import {
+  DifficultyBand,
+  DifficultyTarget,
+  type DifficultyTarget as DifficultyTargetType,
+} from '../difficulty/types';
+
+import {
   getGeneratorMonsterPolicy,
 } from './CandidateFactory';
 
@@ -158,6 +164,9 @@ export function candidateDistance(
 export function selectShortlist(
   pool: GeneratorPoolReport,
   perArchetype: number,
+  difficultyTarget:
+    DifficultyTargetType =
+      DifficultyTarget.Any,
 ): readonly RankedCandidate[] {
   if (
     !Number.isInteger(perArchetype) ||
@@ -189,7 +198,15 @@ export function selectShortlist(
       );
 
     available.sort(
-      compareQualityThenSeed,
+      difficultyTarget ===
+        DifficultyTarget.Any
+        ? compareQualityThenSeed
+        : (a, b) =>
+            compareInitialForTarget(
+              a,
+              b,
+              difficultyTarget,
+            ),
     );
 
     const selected:
@@ -261,9 +278,18 @@ export function selectShortlist(
           );
 
         if (
-          compareSelection(
-            ranked,
-            best,
+          (
+            difficultyTarget ===
+              DifficultyTarget.Any
+              ? compareSelection(
+                  ranked,
+                  best,
+                )
+              : compareSelectionForTarget(
+                  ranked,
+                  best,
+                  difficultyTarget,
+                )
           ) < 0
         ) {
           bestEntry =
@@ -287,6 +313,181 @@ export function selectShortlist(
   }
 
   return shortlist;
+}
+
+const DIFFICULTY_BAND_INDEX = {
+  [DifficultyBand.Easy]: 0,
+  [DifficultyBand.Medium]: 1,
+  [DifficultyBand.Hard]: 2,
+  [DifficultyBand.Expert]: 3,
+} as const;
+
+const DIFFICULTY_TARGET_CENTER = {
+  [DifficultyTarget.Easy]: 12,
+  [DifficultyTarget.Medium]: 37,
+  [DifficultyTarget.Hard]: 62,
+  [DifficultyTarget.Expert]: 87,
+} as const;
+
+function difficultyBandDistance(
+  accepted: AcceptedCandidate,
+  target: DifficultyTargetType,
+): number {
+  if (target === DifficultyTarget.Any) {
+    return 0;
+  }
+
+  const band =
+    accepted.difficulty.band;
+
+  if (band === DifficultyBand.Unrated) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.abs(
+    DIFFICULTY_BAND_INDEX[band] -
+      DIFFICULTY_BAND_INDEX[target],
+  );
+}
+
+function difficultyScoreDistance(
+  accepted: AcceptedCandidate,
+  target: DifficultyTargetType,
+): number {
+  if (target === DifficultyTarget.Any) {
+    return 0;
+  }
+
+  const score =
+    accepted.difficulty.score;
+
+  if (score === null) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.abs(
+    score -
+      DIFFICULTY_TARGET_CENTER[target],
+  );
+}
+
+function compareInitialForTarget(
+  a: QualityEntry,
+  b: QualityEntry,
+  target: Exclude<
+    DifficultyTargetType,
+    typeof DifficultyTarget.Any
+  >,
+): number {
+  const aBandDistance =
+    difficultyBandDistance(
+      a.accepted,
+      target,
+    );
+
+  const bBandDistance =
+    difficultyBandDistance(
+      b.accepted,
+      target,
+    );
+
+  if (aBandDistance !== bBandDistance) {
+    return aBandDistance <
+      bBandDistance
+      ? -1
+      : 1;
+  }
+
+  if (a.qualityScore !== b.qualityScore) {
+    return b.qualityScore -
+      a.qualityScore;
+  }
+
+  const aScoreDistance =
+    difficultyScoreDistance(
+      a.accepted,
+      target,
+    );
+
+  const bScoreDistance =
+    difficultyScoreDistance(
+      b.accepted,
+      target,
+    );
+
+  if (aScoreDistance !== bScoreDistance) {
+    return aScoreDistance <
+      bScoreDistance
+      ? -1
+      : 1;
+  }
+
+  return (
+    a.accepted.candidate.seed -
+    b.accepted.candidate.seed
+  );
+}
+
+function compareSelectionForTarget(
+  a: RankedCandidate,
+  b: RankedCandidate,
+  target: Exclude<
+    DifficultyTargetType,
+    typeof DifficultyTarget.Any
+  >,
+): number {
+  const aBandDistance =
+    difficultyBandDistance(
+      a.accepted,
+      target,
+    );
+
+  const bBandDistance =
+    difficultyBandDistance(
+      b.accepted,
+      target,
+    );
+
+  if (aBandDistance !== bBandDistance) {
+    return aBandDistance <
+      bBandDistance
+      ? -1
+      : 1;
+  }
+
+  if (a.selectionScore !== b.selectionScore) {
+    return b.selectionScore -
+      a.selectionScore;
+  }
+
+  if (a.qualityScore !== b.qualityScore) {
+    return b.qualityScore -
+      a.qualityScore;
+  }
+
+  const aScoreDistance =
+    difficultyScoreDistance(
+      a.accepted,
+      target,
+    );
+
+  const bScoreDistance =
+    difficultyScoreDistance(
+      b.accepted,
+      target,
+    );
+
+  if (aScoreDistance !== bScoreDistance) {
+    return aScoreDistance <
+      bScoreDistance
+      ? -1
+      : 1;
+  }
+
+  return (
+    a.accepted.candidate.seed -
+    b.accepted.candidate.seed
+  );
 }
 
 function singleRoomSpatialDistance(

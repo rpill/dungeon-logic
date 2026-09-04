@@ -5,6 +5,14 @@ import {
 import { PuzzleState } from '../PuzzleState';
 
 import {
+  analyzeDifficulty,
+} from '../difficulty/DifficultyAnalyzer';
+
+import {
+  analyzeHumanSolvability,
+} from '../human-solver/HumanSolver';
+
+import {
   analyzeLevelQuality,
 } from '../quality/LevelQualityAnalyzer';
 
@@ -207,6 +215,17 @@ export function evaluateCandidate(
     };
   }
 
+  const humanResult =
+    analyzeHumanSolvability(
+      candidate.level,
+    );
+
+  const difficulty =
+    analyzeDifficulty(
+      candidate.level,
+      humanResult,
+    );
+
   return {
     status:
       CandidateStatus.Accepted,
@@ -214,6 +233,7 @@ export function evaluateCandidate(
       candidate,
       quality,
       solutionCount: 1,
+      difficulty,
     },
     diagnostic: null,
   };

@@ -12,6 +12,14 @@ import {
 } from '../puzzle/types';
 
 import {
+  analyzeDifficulty,
+} from '../puzzle/difficulty/DifficultyAnalyzer';
+
+import {
+  analyzeHumanSolvability,
+} from '../puzzle/human-solver/HumanSolver';
+
+import {
   analyzeLevelQuality,
 } from '../puzzle/quality/LevelQualityAnalyzer';
 
@@ -50,6 +58,7 @@ export interface CandidateProfileTimings {
   validationMs: number;
   solverMs: number;
   qualityMs: number;
+  humanDifficultyMs: number;
   totalMs: number;
 }
 
@@ -71,6 +80,7 @@ export interface GeneratorAttemptProfileTimings {
   validationMs: number;
   solverMs: number;
   qualityMs: number;
+  humanDifficultyMs: number;
   totalMs: number;
 }
 
@@ -201,6 +211,7 @@ export function profileGeneratorRun(
             validationMs: 0,
             solverMs: 0,
             qualityMs: 0,
+            humanDifficultyMs: 0,
             totalMs:
               performance.now() -
               attemptStart,
@@ -237,6 +248,7 @@ export function profileGeneratorRun(
             validationMs: 0,
             solverMs: 0,
             qualityMs: 0,
+            humanDifficultyMs: 0,
             totalMs:
               performance.now() -
               attemptStart,
@@ -270,6 +282,7 @@ export function profileGeneratorRun(
             validationMs: 0,
             solverMs: 0,
             qualityMs: 0,
+            humanDifficultyMs: 0,
             totalMs:
               performance.now() -
               attemptStart,
@@ -323,6 +336,9 @@ export function profileGeneratorRun(
             profile.timings.solverMs,
           qualityMs:
             profile.timings.qualityMs,
+          humanDifficultyMs:
+            profile.timings
+              .humanDifficultyMs,
           totalMs:
             performance.now() -
             attemptStart,
@@ -412,8 +428,14 @@ export function formatGeneratorProfileReport(
         'qualityMs',
       );
 
+    const humanDifficultyMs =
+      sumAttemptTime(
+        attempts,
+        'humanDifficultyMs',
+      );
+
     lines.push(
-      `${archetypeProfile.archetype}: attempts=${archetypeProfile.attempts} accepted=${archetypeProfile.accepted} totalMs=${formatMs(totalMs)} generationMs=${formatMs(generationMs)} solverMs=${formatMs(solverMs)} qualityMs=${formatMs(qualityMs)}`,
+      `${archetypeProfile.archetype}: attempts=${archetypeProfile.attempts} accepted=${archetypeProfile.accepted} totalMs=${formatMs(totalMs)} generationMs=${formatMs(generationMs)} solverMs=${formatMs(solverMs)} qualityMs=${formatMs(qualityMs)} humanDifficultyMs=${formatMs(humanDifficultyMs)}`,
     );
   }
 
@@ -438,7 +460,7 @@ export function formatGeneratorProfileReport(
       );
 
     lines.push(
-      `${status}: attempts=${attempts.length} totalMs=${formatMs(sumAttemptTime(attempts, 'totalMs'))} solverMs=${formatMs(sumAttemptTime(attempts, 'solverMs'))}`,
+      `${status}: attempts=${attempts.length} totalMs=${formatMs(sumAttemptTime(attempts, 'totalMs'))} solverMs=${formatMs(sumAttemptTime(attempts, 'solverMs'))} humanDifficultyMs=${formatMs(sumAttemptTime(attempts, 'humanDifficultyMs'))}`,
     );
   }
 
@@ -544,6 +566,7 @@ function formatAttemptLine(
     ` generationMs=${formatMs(attempt.timings.generationMs)}` +
     ` solverMs=${formatMs(attempt.timings.solverMs)}` +
     ` qualityMs=${formatMs(attempt.timings.qualityMs)}` +
+    ` humanDifficultyMs=${formatMs(attempt.timings.humanDifficultyMs)}` +
     ` nodes=${diagnostics?.nodesVisited ?? 0}` +
     ` branches=${diagnostics?.branches ?? 0}` +
     ` propagationPasses=${diagnostics?.propagationPasses ?? 0}` +
@@ -589,6 +612,7 @@ export function profileGeneratedCandidate(
       validationMs,
       0,
       0,
+      0,
     );
   }
 
@@ -628,6 +652,7 @@ export function profileGeneratedCandidate(
       validationMs,
       solverMs,
       0,
+      0,
     );
   }
 
@@ -657,6 +682,7 @@ export function profileGeneratedCandidate(
       validationMs,
       solverMs,
       qualityMs,
+      0,
     );
   }
 
@@ -676,8 +702,27 @@ export function profileGeneratedCandidate(
       validationMs,
       solverMs,
       qualityMs,
+      0,
     );
   }
+
+  const humanDifficultyStart =
+    performance.now();
+
+  const humanResult =
+    analyzeHumanSolvability(
+      candidate.level,
+    );
+
+  const difficulty =
+    analyzeDifficulty(
+      candidate.level,
+      humanResult,
+    );
+
+  const humanDifficultyMs =
+    performance.now() -
+    humanDifficultyStart;
 
   return finishProfile(
     totalStart,
@@ -688,6 +733,7 @@ export function profileGeneratedCandidate(
         candidate,
         quality,
         solutionCount: 1,
+        difficulty,
       },
       diagnostic: null,
     },
@@ -695,6 +741,7 @@ export function profileGeneratedCandidate(
     validationMs,
     solverMs,
     qualityMs,
+    humanDifficultyMs,
   );
 }
 
@@ -706,6 +753,7 @@ function finishProfile(
   validationMs: number,
   solverMs: number,
   qualityMs: number,
+  humanDifficultyMs: number,
 ): GeneratedCandidateProfile {
   return {
     evaluation,
@@ -714,6 +762,7 @@ function finishProfile(
       validationMs,
       solverMs,
       qualityMs,
+      humanDifficultyMs,
       totalMs:
         performance.now() -
         totalStart,
@@ -826,4 +875,3 @@ function describeValidationFailure(
     failedFlags.join(', ')
   );
 }
-

@@ -13,6 +13,11 @@ import {
 } from 'node:url';
 
 import {
+  DifficultyTarget,
+  type DifficultyTarget as DifficultyTargetType,
+} from '../puzzle/difficulty/types';
+
+import {
   createCandidatePool,
 } from '../puzzle/generator/CandidateFactory';
 
@@ -33,7 +38,65 @@ import {
 } from '../puzzle/generator/types';
 
 
+export interface GeneratorCliOptions {
+  masterSeed: number;
+  difficultyTarget:
+    DifficultyTargetType;
+}
+
 export function parseMasterSeed(
+  args: readonly string[],
+): number {
+  if (args.length !== 2) {
+    throw new Error(
+      'Usage: npm run generate:candidates -- --seed <uint32>',
+    );
+  }
+
+  return parseSeedPair(args);
+}
+
+export function parseGeneratorCliArgs(
+  args: readonly string[],
+): GeneratorCliOptions {
+  if (
+    args.length !== 2 &&
+    args.length !== 4
+  ) {
+    throw new Error(
+      'Usage: npm run generate:candidates -- --seed <uint32> [--difficulty any|easy|medium|hard|expert]',
+    );
+  }
+
+  const masterSeed =
+    parseSeedPair(
+      args.slice(0, 2),
+    );
+
+  if (args.length === 2) {
+    return {
+      masterSeed,
+      difficultyTarget:
+        DifficultyTarget.Any,
+    };
+  }
+
+  if (args[2] !== '--difficulty') {
+    throw new Error(
+      'Usage: npm run generate:candidates -- --seed <uint32> [--difficulty any|easy|medium|hard|expert]',
+    );
+  }
+
+  return {
+    masterSeed,
+    difficultyTarget:
+      parseDifficultyTarget(
+        args[3],
+      ),
+  };
+}
+
+function parseSeedPair(
   args: readonly string[],
 ): number {
   if (
@@ -62,8 +125,38 @@ export function parseMasterSeed(
   return seed;
 }
 
+function parseDifficultyTarget(
+  value: string | undefined,
+): DifficultyTargetType {
+  const targets:
+    readonly DifficultyTargetType[] = [
+      DifficultyTarget.Any,
+      DifficultyTarget.Easy,
+      DifficultyTarget.Medium,
+      DifficultyTarget.Hard,
+      DifficultyTarget.Expert,
+    ];
+
+  const match =
+    targets.find(
+      (target) =>
+        target === value,
+    );
+
+  if (match === undefined) {
+    throw new Error(
+      'Difficulty target must be one of: any, easy, medium, hard, expert.',
+    );
+  }
+
+  return match;
+}
+
 export function buildGeneratorRunReport(
   config: GeneratorConfig,
+  difficultyTarget:
+    DifficultyTargetType =
+      DifficultyTarget.Any,
 ): GeneratorRunReport {
   const pool =
     createCandidatePool(config);
@@ -73,12 +166,14 @@ export function buildGeneratorRunReport(
       ? selectShortlist(
           pool,
           config.shortlistPerArchetype,
+          difficultyTarget,
         )
       : [];
 
   return {
     schemaVersion: 1,
     masterSeed: pool.masterSeed,
+    difficultyTarget,
     config: pool.config,
     pool,
     shortlist,
@@ -91,6 +186,8 @@ export function createSerializableReport(
   return {
     schemaVersion: report.schemaVersion,
     masterSeed: report.masterSeed,
+    difficultyTarget:
+      report.difficultyTarget,
     config: report.config,
     pool: report.pool,
     shortlist: report.shortlist,
@@ -104,6 +201,7 @@ export function formatShortlistMarkdown(
     '# Dungeon Logic Generator v1.2',
     '',
     `Master seed: ${report.masterSeed}`,
+    `Difficulty target: ${report.difficultyTarget}`,
     '',
   ];
 
@@ -195,6 +293,9 @@ function appendCandidate(
     `- Monsters: ${formatPositions(level.monsters)}`,
     `- Chests: ${formatPositions(level.chests)}`,
     `- solutionCount: ${accepted.solutionCount}`,
+    `- difficulty band: ${accepted.difficulty.band}`,
+    `- difficulty score: ${accepted.difficulty.score ?? 'null'}`,
+    `- difficulty reasoning tier: ${accepted.difficulty.reasoningTier}`,
     `- quality score: ${ranked.qualityScore}`,
     `- diversity score: ${ranked.diversityScore}`,
     `- selection score: ${ranked.selectionScore}`,
@@ -301,16 +402,20 @@ export async function writeGeneratorOutputs(
 }
 
 async function runCli(): Promise<void> {
-  const masterSeed =
-    parseMasterSeed(
+  const options =
+    parseGeneratorCliArgs(
       process.argv.slice(2),
     );
 
   const report =
-    buildGeneratorRunReport({
-      ...DEFAULT_GENERATOR_CONFIG,
-      masterSeed,
-    });
+    buildGeneratorRunReport(
+      {
+        ...DEFAULT_GENERATOR_CONFIG,
+        masterSeed:
+          options.masterSeed,
+      },
+      options.difficultyTarget,
+    );
 
   const paths =
     await writeGeneratorOutputs(
@@ -333,6 +438,10 @@ function printRunSummary(
 ): void {
   console.info(
     `[Dungeon Logic] Generator v1.2 seed ${report.masterSeed}`,
+  );
+
+  console.info(
+    `Difficulty target: ${report.difficultyTarget}`,
   );
 
   for (
