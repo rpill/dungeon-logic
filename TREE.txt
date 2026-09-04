@@ -7,9 +7,11 @@ dungeon-logic/
 │       │   ├── 2026-09-02-solver-v1.md
 │       │   ├── 2026-09-03-generator-v1-2-content-quality.md
 │       │   ├── 2026-09-03-human-solvability.md
-│       │   └── 2026-09-03-treasure-room-solver-pruning.md
+│       │   ├── 2026-09-03-treasure-room-solver-pruning.md
+│       │   └── 2026-09-04-difficulty-analysis-v1.md
 │       ├── reports/
-│       │   └── 2026-09-03-human-solvability-baseline.md
+│       │   ├── 2026-09-03-human-solvability-baseline.md
+│       │   └── 2026-09-04-difficulty-v1-baseline.md
 │       └── specs/
 │           ├── 2026-09-01-phaser-bootstrap-design.md
 │           ├── 2026-09-01-static-field-mechanics-design.md
@@ -17,7 +19,8 @@ dungeon-logic/
 │           ├── 2026-09-02-solver-v1-design.md
 │           ├── 2026-09-03-generator-v1-2-content-quality-design.md
 │           ├── 2026-09-03-human-solvability-design.md
-│           └── 2026-09-03-treasure-room-solver-pruning-design.md
+│           ├── 2026-09-03-treasure-room-solver-pruning-design.md
+│           └── 2026-09-04-difficulty-analysis-v1-design.md
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
@@ -43,8 +46,13 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
+│   │   ├── analyzeDifficultyCorpus.ts
 │   │   ├── analyzeHumanSolvability.ts
 │   │   ├── benchmarkTreasureRoomPruning.ts
+│   │   ├── DifficultyCorpusAnalyzer.ts
+│   │   ├── DifficultyCorpusOutput.ts
+│   │   ├── difficultyCorpusSanity.ts
+│   │   ├── difficultySanity.ts
 │   │   ├── gameBoardLayoutSanity.ts
 │   │   ├── generateCandidates.ts
 │   │   ├── generatedPlaytestSanity.ts
@@ -59,6 +67,9 @@ dungeon-logic/
 │   │   ├── treasureRoomPruningSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/
+│   │   ├── difficulty/
+│   │   │   ├── DifficultyAnalyzer.ts
+│   │   │   └── types.ts
 │   │   ├── generator/
 │   │   │   ├── CandidateFactory.ts
 │   │   │   ├── CandidateGenerator.ts
