@@ -1,5 +1,6 @@
 import {
   analyzeHumanSolvability,
+  findTreasureRoomVariantInference,
 } from '../puzzle/human-solver/HumanSolver';
 
 import {
@@ -670,6 +671,88 @@ const connectivityBridge:
   ],
 };
 
+
+const treasureRoomVariantSharedFootprint:
+  LevelDefinition = {
+  id: 'human-room-variant-shared-footprint',
+  width: 8,
+  height: 8,
+  rowClues: [
+    5,
+    2,
+    5,
+    2,
+    3,
+    2,
+    4,
+    3,
+  ],
+  columnClues: [
+    2,
+    5,
+    3,
+    2,
+    2,
+    5,
+    2,
+    5,
+  ],
+  monsters: [],
+  chests: [
+    {
+      x: 2,
+      y: 5,
+    },
+  ],
+  blockers: [],
+  doors: [],
+  solution: Array(8).fill(
+    '........',
+  ),
+};
+
+const treasureRoomVariantUniqueEntrance:
+  LevelDefinition = {
+  id: 'human-room-variant-unique-entrance',
+  width: 8,
+  height: 8,
+  rowClues: [
+    2,
+    3,
+    3,
+    4,
+    2,
+    3,
+    5,
+    2,
+  ],
+  columnClues: [
+    5,
+    2,
+    2,
+    3,
+    3,
+    2,
+    5,
+    2,
+  ],
+  monsters: [],
+  chests: [
+    {
+      x: 0,
+      y: 2,
+    },
+    {
+      x: 5,
+      y: 5,
+    },
+  ],
+  blockers: [],
+  doors: [],
+  solution: Array(8).fill(
+    '........',
+  ),
+};
 
 const contradictionSolved:
   LevelDefinition = {
@@ -1622,6 +1705,195 @@ function checkConnectivityContradiction(): void {
 }
 
 
+function checkTreasureRoomVariantSharedFootprint(): void {
+  const result =
+    analyzeHumanSolvability(
+      treasureRoomVariantSharedFootprint,
+    );
+
+  assert(
+    result.status ===
+      'solved-with-contradiction',
+    'Treasure Room variant filtering must turn the shared-footprint fixture into a contradiction-tier solve.',
+  );
+
+  const variantStep =
+    result.steps.find(
+      (step) =>
+        step.rule ===
+          'treasure-room-variant',
+    );
+
+  assert(
+    variantStep !== undefined,
+    'Shared-footprint fixture must record a Treasure Room variant step.',
+  );
+
+  assert(
+    variantStep.tier ===
+      'contradiction',
+    'Treasure Room variant reasoning must count as contradiction-tier, not direct.',
+  );
+
+  assert(
+    variantStep.assignments.length === 8,
+    'Shared-footprint variant step must assign only the eight mutable cells of the forced 3x3 room interior.',
+  );
+
+  assert(
+    variantStep.assignments.every(
+      (assignment) =>
+        assignment.value ===
+          SearchCellState.Open &&
+        assignment.position.x >= 2 &&
+        assignment.position.x <= 4 &&
+        assignment.position.y >= 3 &&
+        assignment.position.y <= 5,
+    ),
+    'Shared-footprint variant step must force only the common Treasure Room interior OPEN.',
+  );
+
+  assert(
+    !variantStep.assignments.some(
+      (assignment) =>
+        assignment.value ===
+          SearchCellState.Wall,
+    ),
+    'Multiple surviving entrances must not trigger broad boundary-consensus WALL assignments.',
+  );
+
+  assert(
+    variantStep.proof === null,
+    'Treasure Room structural variant step must not masquerade as a single-cell contradiction proof.',
+  );
+}
+
+function checkTreasureRoomVariantUniqueEntrance(): void {
+  const state =
+    new SearchState(
+      treasureRoomVariantUniqueEntrance,
+    );
+
+  const committed:
+    readonly [
+      number,
+      number,
+      | typeof SearchCellState.Open
+      | typeof SearchCellState.Wall,
+    ][] = [
+      [1, 2, SearchCellState.Open],
+      [2, 2, SearchCellState.Open],
+      [0, 5, SearchCellState.Wall],
+      [0, 6, SearchCellState.Wall],
+      [0, 7, SearchCellState.Wall],
+      [2, 7, SearchCellState.Open],
+      [3, 7, SearchCellState.Open],
+      [5, 7, SearchCellState.Open],
+      [6, 7, SearchCellState.Open],
+    ];
+
+  for (
+    const [x, y, value]
+    of committed
+  ) {
+    assert(
+      state.assign(
+        x,
+        y,
+        value,
+      ),
+      'Treasure Room variant diagnostic fixture must accept its committed stuck-state assignments.',
+    );
+  }
+
+  const directBefore =
+    runDirectFixedPoint(
+      state,
+    );
+
+  assert(
+    directBefore.ok &&
+      directBefore.steps.length === 0,
+    'Treasure Room variant diagnostic state must begin at a direct fixed point.',
+  );
+
+  const first =
+    findTreasureRoomVariantInference(
+      state,
+    );
+
+  assert(
+    first.kind === 'move' &&
+      first.move.chest.x === 0 &&
+      first.move.chest.y === 2 &&
+      first.move.uniqueEntrance === false,
+    'First structural inference must identify the shared footprint around Chest (0,2) without inventing an entrance.',
+  );
+
+  if (first.kind === 'move') {
+    for (
+      const assignment
+      of first.move.assignments
+    ) {
+      assert(
+        state.assign(
+          assignment.position.x,
+          assignment.position.y,
+          assignment.value,
+        ),
+        'Shared-footprint inference assignments must apply cleanly to the diagnostic state.',
+      );
+    }
+  }
+
+  const directAfterFirst =
+    runDirectFixedPoint(
+      state,
+    );
+
+  assert(
+    directAfterFirst.ok,
+    'Direct propagation after the first structural room inference must remain feasible.',
+  );
+
+  const second =
+    findTreasureRoomVariantInference(
+      state,
+    );
+
+  assert(
+    second.kind === 'move' &&
+      second.move.chest.x === 5 &&
+      second.move.chest.y === 5 &&
+      second.move.uniqueEntrance,
+    'Second structural inference must reduce Chest (5,5) to one full room+entrance variant.',
+  );
+
+  assert(
+    second.kind === 'move' &&
+      second.move.assignments.some(
+        (assignment) =>
+          assignment.position.x === 2 &&
+          assignment.position.y === 4 &&
+          assignment.value ===
+            SearchCellState.Open,
+      ),
+    'Exactly one surviving full variant must force its sole entrance (2,4) OPEN.',
+  );
+
+  assert(
+    second.kind === 'move' &&
+      second.move.assignments.some(
+        (assignment) =>
+          assignment.position.x === 3 &&
+          assignment.position.y === 2 &&
+          assignment.value ===
+            SearchCellState.Wall,
+      ),
+    'Exactly one surviving full variant must close every remaining mutable non-entrance boundary cell as ordinary WALL.',
+  );
+}
+
 function checkDepthOneContradictionSolve(): void {
   const result =
     analyzeHumanSolvability(
@@ -1851,6 +2123,18 @@ function main(): void {
     'PASS: connectivity contradiction',
   );
 
+  checkTreasureRoomVariantSharedFootprint();
+
+  console.info(
+    'PASS: treasure room variant shared footprint',
+  );
+
+  checkTreasureRoomVariantUniqueEntrance();
+
+  console.info(
+    'PASS: treasure room variant unique entrance',
+  );
+
   checkDepthOneContradictionSolve();
 
   console.info(
@@ -1858,7 +2142,7 @@ function main(): void {
   );
 
   console.info(
-    '87/87 checks passed',
+    '98/98 checks passed',
   );
 }
 

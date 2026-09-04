@@ -1,13 +1,15 @@
-# Human Solvability Baseline — 2026-09-03
+# Human Solvability Baseline — 2026-09-04
 
 This report records the first deterministic baseline for the separate human-like
-solver. It is a dev/offline analyzer and does not change Generator v1.2
-acceptance, authored level registration, GameScene, BoardView, or canonical
-LevelValidator semantics.
+solver after adding bounded Treasure Room variant reasoning.
+
+The analyzer is a dev/offline diagnostic tool. It does not change Generator
+v1.2 acceptance, authored level registration, GameScene, BoardView, or
+canonical LevelValidator semantics.
 
 ## Human solver model
 
-The analyzer uses:
+The analyzer currently uses:
 
 1. direct row/column deductions;
 2. Directional Door deductions;
@@ -16,13 +18,38 @@ The analyzer uses:
 5. non-Monster hallway dead-end deductions outside every viable Treasure Room;
 6. forbidden OPEN 2x2 deductions outside viable Treasure Rooms;
 7. mandatory potential-connectivity articulation deductions;
-8. bounded depth-1 proof by contradiction.
+8. bounded depth-1 proof by contradiction on a single mutable cell;
+9. bounded Treasure Room variant reasoning.
 
-Contradiction probing is strictly depth-1. A probe assigns one cell, runs only
-the direct deduction fixed point, records a contradiction if one is reached,
-rolls back completely, and may then commit the opposite value. It never nests
-another hypothetical contradiction probe and never calls the DFS uniqueness
-solver as an oracle.
+Treasure Room variant reasoning is classified as contradiction-tier.
+
+For one Chest, the solver enumerates currently viable combinations of:
+
+```text
+3x3 Treasure Room footprint
++
+exactly one Treasure Room entrance
+```
+
+Each variant is checked by applying only that structural assumption and running
+the existing DIRECT fixed point. No nested contradiction probing is allowed.
+
+Variants that directly contradict the existing rules are discarded.
+
+The solver then commits only Treasure Room facts justified by every surviving
+variant:
+
+- when every surviving variant has the same 3x3 footprint, remaining mutable
+  interior cells of that footprint are committed OPEN;
+- when exactly one full room+entrance variant survives, its entrance is
+  committed OPEN and every remaining mutable non-entrance boundary cell is
+  committed WALL.
+
+The solver does not commit arbitrary board-wide consensus assignments produced
+inside hypothetical variants.
+
+The existing single-cell depth-1 contradiction scan keeps priority over this
+heavier Treasure Room variant analysis.
 
 The canonical LevelValidator is still used only to validate a complete
 materialized board.
@@ -63,17 +90,38 @@ Authored analysis writes:
 .generated/human-analysis-authored.md
 ```
 
-No timestamps or wall-clock timings are written to these reports.
+No timestamps or wall-clock timings are written to these generated reports.
 
-## Current-repository authored baseline
+## Verification
 
-These results were produced by the user's current repository with:
+After adding Treasure Room variant reasoning, the user-local regression runs
+reported:
 
 ```text
-npm run analyze:human -- --authored
+Human solver sanity:   98/98 checks passed
+Human analysis sanity: 15/15 checks passed
 ```
 
-| Level | Status | Direct steps | Contradiction steps | Unknown |
+The full repository `sanity:generator` and `build` are still expected as the
+final repository-level regression gate before committing this follow-up.
+
+## Current authored baseline
+
+Current-repository result:
+
+```text
+total=12
+solved-direct=6
+solved-with-contradiction=6
+stuck=0
+invalid=0
+directSteps=212
+contradictionSteps=39
+assignments=539
+unknownRemaining=0
+```
+
+| Level | Status | Direct steps | Contradiction-tier steps | Unknown |
 | --- | --- | ---: | ---: | ---: |
 | level-001 | solved-direct | 11 | 0 | 0 |
 | level-002 | solved-direct | 12 | 0 | 0 |
@@ -85,38 +133,58 @@ npm run analyze:human -- --authored
 | level-008 | solved-with-contradiction | 19 | 1 | 0 |
 | level-009 | solved-direct | 15 | 0 | 0 |
 | level-010 | solved-with-contradiction | 27 | 9 | 0 |
-| level-011 | stuck | 0 | 9 | 53 |
+| level-011 | solved-with-contradiction | 17 | 10 | 0 |
 | level-012 | solved-with-contradiction | 23 | 7 | 0 |
 
-Summary:
+### Former authored stuck: level-011
+
+Before Treasure Room variant reasoning:
 
 ```text
-total=12
-solved-direct=6
-solved-with-contradiction=5
-stuck=1
-invalid=0
+status=stuck
+directSteps=0
+contradictionSteps=9
+unknownRemaining=53
 ```
 
-This means half of the current authored batch is not solvable by direct rules
-alone under the present human model. `level-011` remains stuck even after nine
-successful depth-1 contradiction deductions, with 53 mutable cells still
-unknown.
+After the new rule:
+
+```text
+status=solved-with-contradiction
+directSteps=17
+contradictionSteps=10
+unknownRemaining=0
+treasure-room-variant rule count=1
+ordinary contradiction rule count=9
+```
+
+The important distinction is that `contradictionSteps` counts every
+contradiction-tier proof step, while `ruleCounts.contradiction` counts only the
+ordinary single-cell contradiction rule. A `treasure-room-variant` step is
+therefore included in `contradictionSteps` but has its own rule-count bucket.
 
 ## Generator v1.2 shortlist baseline — seed 123456
 
-These results were produced by the user's current repository with:
+Current-repository result:
 
 ```text
-npm run analyze:human -- --seed 123456 --shortlist
+total=15
+solved-direct=10
+solved-with-contradiction=5
+stuck=0
+invalid=0
+directSteps=290
+contradictionSteps=32
+assignments=762
+unknownRemaining=0
 ```
 
-| Candidate | Status | Direct steps | Contradiction steps | Unknown |
+| Candidate | Status | Direct steps | Contradiction-tier steps | Unknown |
 | --- | --- | ---: | ---: | ---: |
 | generated-monster-only-7-2491075932 | solved-direct | 20 | 0 | 0 |
 | generated-monster-only-8-361304057 | solved-with-contradiction | 26 | 1 | 0 |
 | generated-monster-only-7-512302628 | solved-with-contradiction | 24 | 2 | 0 |
-| generated-chest-one-room-8-2568418654 | stuck | 0 | 0 | 63 |
+| generated-chest-one-room-8-2568418654 | solved-with-contradiction | 30 | 20 | 0 |
 | generated-chest-one-room-7-3193369624 | solved-direct | 16 | 0 | 0 |
 | generated-chest-one-room-8-4193628777 | solved-with-contradiction | 22 | 1 | 0 |
 | generated-chest-two-rooms-8-214184125 | solved-with-contradiction | 26 | 8 | 0 |
@@ -129,69 +197,75 @@ npm run analyze:human -- --seed 123456 --shortlist
 | generated-mixed-two-rooms-7-4032331667 | solved-direct | 13 | 0 | 0 |
 | generated-mixed-two-rooms-7-3373527181 | solved-direct | 15 | 0 | 0 |
 
-Summary:
+### Former generated stuck: generated-chest-one-room-8-2568418654
+
+Before Treasure Room variant reasoning:
 
 ```text
-total=15
-solved-direct=10
-solved-with-contradiction=4
-stuck=1
-invalid=0
-```
-
-The most important generated outlier is:
-
-```text
-generated-chest-one-room-8-2568418654
 status=stuck
 directSteps=0
 contradictionSteps=0
 unknownRemaining=63
 ```
 
-The current human model cannot find even the first deduction on this candidate.
+Diagnostic investigation found nine initially viable Treasure Room footprints.
+When complete `room footprint + sole entrance` variants were filtered using
+DIRECT deductions only, every surviving variant shared the same Treasure Room
+footprint.
 
-## First comparison
+After adding bounded Treasure Room variant reasoning:
 
-Under the current rule model:
+```text
+status=solved-with-contradiction
+directSteps=30
+contradictionSteps=20
+unknownRemaining=0
+treasure-room-variant rule count=1
+ordinary contradiction rule count=19
+```
+
+So the level was not evidence that Generator v1.2 necessarily produced a
+guess-only puzzle. It exposed a missing structural reasoning rule in the human
+solver.
+
+## First difficulty comparison
+
+Under the current model:
 
 ```text
 Authored:
-  direct  = 6 / 12 = 50.0%
-  contradiction = 5 / 12 = 41.7%
-  stuck = 1 / 12 = 8.3%
+  solved-direct             6 / 12 = 50.0%
+  solved-with-contradiction 6 / 12 = 50.0%
+  stuck                     0 / 12 = 0.0%
 
 Generated shortlist:
-  direct  = 10 / 15 = 66.7%
-  contradiction = 4 / 15 = 26.7%
-  stuck = 1 / 15 = 6.7%
+  solved-direct             10 / 15 = 66.7%
+  solved-with-contradiction  5 / 15 = 33.3%
+  stuck                      0 / 15 = 0.0%
 ```
 
-So the reviewed generated shortlist is not broadly harder than the authored
-batch according to this analyzer. In fact, a larger share of generated
-shortlist levels are direct-only.
+The reviewed generated shortlist is therefore not broadly harder than the
+authored batch according to the current analyzer. A larger share of the
+generated shortlist is direct-only.
 
-However, individual outliers matter. The 8x8 chest-one-room candidate above is
-qualitatively different from most of the pool because the analyzer cannot make
-a single opening deduction.
-
-These statuses are diagnostic, not final human difficulty labels. A `stuck`
-result means only that the current modeled rule set cannot continue. It does
-not prove that a human cannot find another valid deduction pattern that has not
-yet been implemented.
+This does not yet define player-facing difficulty. Contradiction-step count,
+direct-step count, board size, branching burden, visual pattern recognition,
+and human playtest friction are different signals and should not be collapsed
+into an invented easy/medium/hard threshold yet.
 
 ## Scope boundary
 
-Human-solvability results do not yet gate Generator v1.2 acceptance or ranking.
+All 27 currently analyzed authored/shortlisted levels are solvable by the
+current human model without invoking the DFS uniqueness solver as a solving
+oracle and without contradiction lookahead deeper than the explicitly bounded
+rules above.
 
-No easy/medium/hard thresholds are defined yet. The next useful work is to
-inspect traces for the two stuck cases (`level-011` and
-`generated-chest-one-room-8-2568418654`) and determine whether:
+This is a useful first completeness boundary, not proof that the human solver
+models every reasonable human deduction.
 
-1. the level genuinely requires deeper guessing;
-2. the human solver is missing a reasonable direct deduction rule;
-3. the generator should eventually penalize/reject a specific structural
-   pattern.
+Human-solvability results still do not gate Generator v1.2 acceptance or
+ranking.
 
-Difficulty calibration should use these traces plus human playtesting rather
-than invented thresholds.
+The next generator/difficulty decision should be based on these traces plus
+human playtesting rather than adding more human-solver rules without a concrete
+counterexample.

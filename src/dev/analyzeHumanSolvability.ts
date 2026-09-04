@@ -87,6 +87,7 @@ const HUMAN_RULE_ORDER = [
   HumanRule.Door,
   HumanRule.TreasureRoomInterior,
   HumanRule.TreasureRoomEntrance,
+  HumanRule.TreasureRoomVariant,
   HumanRule.MonsterDeadEnd,
   HumanRule.HallwayNotDeadEnd,
   HumanRule.Open2x2,

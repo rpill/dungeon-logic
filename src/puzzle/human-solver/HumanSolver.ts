@@ -6,10 +6,14 @@ import { PuzzleState } from '../PuzzleState';
 
 import {
   CellState,
+  type GridPosition,
   type LevelDefinition,
 } from '../types';
 
-import { SearchState } from '../solver/SearchState';
+import {
+  SearchState,
+  type RoomCandidate,
+} from '../solver/SearchState';
 
 import {
   SearchCellState,
@@ -30,6 +34,31 @@ import {
   type HumanSolveResult,
   type HumanSolveStep,
 } from './types';
+
+interface TreasureRoomVariant {
+  candidate: RoomCandidate;
+  entrance: GridPosition;
+}
+
+export interface TreasureRoomVariantInference {
+  assignments:
+    readonly HumanAssignment[];
+  chest: GridPosition;
+  survivingVariants: number;
+  uniqueEntrance: boolean;
+}
+
+export type TreasureRoomVariantInferenceResult =
+  | {
+      kind: 'move';
+      move: TreasureRoomVariantInference;
+    }
+  | {
+      kind: 'none';
+    }
+  | {
+      kind: 'invalid';
+    };
 
 interface ContradictionMove {
   assignment: HumanAssignment;
@@ -123,6 +152,62 @@ export function analyzeHumanSolvability(
 
     if (
       contradiction.kind ===
+      'move'
+    ) {
+      const move =
+        contradiction.move;
+
+      if (
+        !state.assign(
+          move.assignment.position.x,
+          move.assignment.position.y,
+          move.assignment.value,
+        )
+      ) {
+        return buildResult(
+          HumanSolveStatus.Invalid,
+          state,
+          steps,
+        );
+      }
+
+      steps.push({
+        index: steps.length + 1,
+        tier:
+          HumanDeductionTier
+            .Contradiction,
+        rule:
+          HumanRule.Contradiction,
+        assignments: [
+          move.assignment,
+        ],
+        explanation:
+          `Assuming (${move.proof.assumption.position.x},${move.proof.assumption.position.y}) is ${move.proof.assumption.value.toUpperCase()} leads to a direct contradiction, so it must be ${move.assignment.value.toUpperCase()}.`,
+        proof: move.proof,
+      });
+
+      usedContradiction = true;
+      continue;
+    }
+
+    const roomVariant =
+      findTreasureRoomVariantInference(
+        state,
+      );
+
+    if (
+      roomVariant.kind ===
+      'invalid'
+    ) {
+      return buildResult(
+        HumanSolveStatus.Invalid,
+        state,
+        steps,
+      );
+    }
+
+    if (
+      roomVariant.kind ===
       'none'
     ) {
       return buildResult(
@@ -132,21 +217,26 @@ export function analyzeHumanSolvability(
       );
     }
 
-    const move =
-      contradiction.move;
+    const roomMove =
+      roomVariant.move;
 
-    if (
-      !state.assign(
-        move.assignment.position.x,
-        move.assignment.position.y,
-        move.assignment.value,
-      )
+    for (
+      const assignment
+      of roomMove.assignments
     ) {
-      return buildResult(
-        HumanSolveStatus.Invalid,
-        state,
-        steps,
-      );
+      if (
+        !state.assign(
+          assignment.position.x,
+          assignment.position.y,
+          assignment.value,
+        )
+      ) {
+        return buildResult(
+          HumanSolveStatus.Invalid,
+          state,
+          steps,
+        );
+      }
     }
 
     steps.push({
@@ -155,16 +245,19 @@ export function analyzeHumanSolvability(
         HumanDeductionTier
           .Contradiction,
       rule:
-        HumanRule.Contradiction,
-      assignments: [
-        move.assignment,
-      ],
+        HumanRule
+          .TreasureRoomVariant,
+      assignments:
+        roomMove.assignments,
       explanation:
-        `Assuming (${move.proof.assumption.position.x},${move.proof.assumption.position.y}) is ${move.proof.assumption.value.toUpperCase()} leads to a direct contradiction, so it must be ${move.assignment.value.toUpperCase()}.`,
-      proof: move.proof,
+        roomMove.uniqueEntrance
+          ? `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves exactly one full room-and-entrance variant, so its room and boundary are forced.`
+          : `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves ${roomMove.survivingVariants} variants that all share one 3x3 footprint, so that room interior is forced OPEN.`,
+      proof: null,
     });
 
     usedContradiction = true;
+    continue;
   }
 }
 
@@ -189,6 +282,351 @@ function appendDirectSteps(
       proof: null,
     });
   }
+}
+
+export function findTreasureRoomVariantInference(
+  state: SearchState,
+): TreasureRoomVariantInferenceResult {
+  for (
+    const chest
+    of state.level.chests
+  ) {
+    const candidates =
+      state
+        .getViableTreasureRoomCandidates(
+          chest,
+        );
+
+    if (candidates.length === 0) {
+      return {
+        kind: 'invalid',
+      };
+    }
+
+    const surviving:
+      TreasureRoomVariant[] = [];
+
+    for (
+      const candidate
+      of candidates
+    ) {
+      for (
+        const entrance
+        of candidate.boundary
+      ) {
+        if (
+          treasureRoomVariantSurvives(
+            state,
+            candidate,
+            entrance,
+          )
+        ) {
+          surviving.push({
+            candidate,
+            entrance,
+          });
+        }
+      }
+    }
+
+    if (surviving.length === 0) {
+      return {
+        kind: 'invalid',
+      };
+    }
+
+    const footprintKeys =
+      new Set(
+        surviving.map(
+          (variant) =>
+            roomFootprintKey(
+              variant.candidate,
+            ),
+        ),
+      );
+
+    if (footprintKeys.size !== 1) {
+      continue;
+    }
+
+    const onlyVariant =
+      surviving.length === 1
+        ? surviving[0]
+        : null;
+
+    const assignments =
+      onlyVariant === null
+        ? collectRoomInteriorAssignments(
+            state,
+            surviving[0]
+              .candidate,
+          )
+        : collectFullRoomVariantAssignments(
+            state,
+            onlyVariant.candidate,
+            onlyVariant.entrance,
+          );
+
+    if (assignments.length === 0) {
+      continue;
+    }
+
+    return {
+      kind: 'move',
+      move: {
+        assignments,
+        chest: {
+          x: chest.x,
+          y: chest.y,
+        },
+        survivingVariants:
+          surviving.length,
+        uniqueEntrance:
+          onlyVariant !== null,
+      },
+    };
+  }
+
+  return {
+    kind: 'none',
+  };
+}
+
+function treasureRoomVariantSurvives(
+  state: SearchState,
+  candidate: RoomCandidate,
+  entrance: GridPosition,
+): boolean {
+  const checkpoint =
+    state.checkpoint();
+
+  const applied =
+    applyTreasureRoomVariant(
+      state,
+      candidate,
+      entrance,
+    );
+
+  if (!applied) {
+    state.rollback(
+      checkpoint,
+    );
+    return false;
+  }
+
+  const direct =
+    runDirectFixedPoint(
+      state,
+    );
+
+  let survives =
+    direct.ok;
+
+  if (
+    survives &&
+    state.isComplete()
+  ) {
+    survives =
+      validatePuzzle(
+        materializePuzzle(
+          state,
+        ),
+      ).isSolved;
+  }
+
+  state.rollback(
+    checkpoint,
+  );
+
+  return survives;
+}
+
+function applyTreasureRoomVariant(
+  state: SearchState,
+  candidate: RoomCandidate,
+  entrance: GridPosition,
+): boolean {
+  for (
+    const position
+    of candidate.cells
+  ) {
+    if (
+      !applyVariantRequirement(
+        state,
+        position,
+        SearchCellState.Open,
+        false,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  for (
+    const position
+    of candidate.boundary
+  ) {
+    const isEntrance =
+      position.x === entrance.x &&
+      position.y === entrance.y;
+
+    if (
+      !applyVariantRequirement(
+        state,
+        position,
+        isEntrance
+          ? SearchCellState.Open
+          : SearchCellState.Wall,
+        !isEntrance,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function applyVariantRequirement(
+  state: SearchState,
+  position: GridPosition,
+  value:
+    | typeof SearchCellState.Open
+    | typeof SearchCellState.Wall,
+  blockerMayClose: boolean,
+): boolean {
+  const current =
+    state.getCellState(
+      position.x,
+      position.y,
+    );
+
+  if (current === value) {
+    return true;
+  }
+
+  if (current === null) {
+    return (
+      blockerMayClose &&
+      value ===
+        SearchCellState.Wall
+    );
+  }
+
+  if (
+    current !==
+      SearchCellState.Unassigned ||
+    !state.isMutableCell(
+      position.x,
+      position.y,
+    )
+  ) {
+    return false;
+  }
+
+  return state.assign(
+    position.x,
+    position.y,
+    value,
+  );
+}
+
+function collectRoomInteriorAssignments(
+  state: SearchState,
+  candidate: RoomCandidate,
+): readonly HumanAssignment[] {
+  const assignments:
+    HumanAssignment[] = [];
+
+  for (
+    const position
+    of candidate.cells
+  ) {
+    if (
+      state.getCellState(
+        position.x,
+        position.y,
+      ) !==
+        SearchCellState.Unassigned ||
+      !state.isMutableCell(
+        position.x,
+        position.y,
+      )
+    ) {
+      continue;
+    }
+
+    assignments.push({
+      position: {
+        x: position.x,
+        y: position.y,
+      },
+      value:
+        SearchCellState.Open,
+    });
+  }
+
+  return assignments;
+}
+
+function collectFullRoomVariantAssignments(
+  state: SearchState,
+  candidate: RoomCandidate,
+  entrance: GridPosition,
+): readonly HumanAssignment[] {
+  const assignments = [
+    ...collectRoomInteriorAssignments(
+      state,
+      candidate,
+    ),
+  ];
+
+  for (
+    const position
+    of candidate.boundary
+  ) {
+    if (
+      state.getCellState(
+        position.x,
+        position.y,
+      ) !==
+        SearchCellState.Unassigned ||
+      !state.isMutableCell(
+        position.x,
+        position.y,
+      )
+    ) {
+      continue;
+    }
+
+    const isEntrance =
+      position.x === entrance.x &&
+      position.y === entrance.y;
+
+    assignments.push({
+      position: {
+        x: position.x,
+        y: position.y,
+      },
+      value:
+        isEntrance
+          ? SearchCellState.Open
+          : SearchCellState.Wall,
+    });
+  }
+
+  return assignments;
+}
+
+function roomFootprintKey(
+  candidate: RoomCandidate,
+): string {
+  const topLeft =
+    candidate.cells[0];
+
+  return (
+    `${topLeft.x}:${topLeft.y}`
+  );
 }
 
 function findContradictionMove(

@@ -37,6 +37,8 @@ export const HumanRule = {
     'treasure-room-interior',
   TreasureRoomEntrance:
     'treasure-room-entrance',
+  TreasureRoomVariant:
+    'treasure-room-variant',
   MonsterDeadEnd: 'monster-dead-end',
   HallwayNotDeadEnd:
     'hallway-not-dead-end',
@@ -53,7 +55,8 @@ export type HumanRule =
 export type DirectHumanRule =
   Exclude<
     HumanRule,
-    typeof HumanRule.Contradiction
+    | typeof HumanRule.Contradiction
+    | typeof HumanRule.TreasureRoomVariant
   >;
 
 export interface HumanAssignment {
@@ -112,6 +115,7 @@ export function createEmptyHumanRuleCounts():
     [HumanRule.Door]: 0,
     [HumanRule.TreasureRoomInterior]: 0,
     [HumanRule.TreasureRoomEntrance]: 0,
+    [HumanRule.TreasureRoomVariant]: 0,
     [HumanRule.MonsterDeadEnd]: 0,
     [HumanRule.HallwayNotDeadEnd]: 0,
     [HumanRule.Open2x2]: 0,
