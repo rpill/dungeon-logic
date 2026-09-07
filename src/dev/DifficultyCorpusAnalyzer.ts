@@ -8,6 +8,10 @@ import {
   selectShortlist,
 } from '../puzzle/generator/CandidateRanker';
 
+import type {
+  TargetedDifficultyTarget,
+} from '../puzzle/generator/DifficultyTargetPolicy';
+
 import {
   ALL_GENERATOR_ARCHETYPES,
   type GeneratorArchetype,
@@ -16,6 +20,10 @@ import {
 
 export interface DifficultyCorpusCliOptions {
   seeds: readonly number[];
+  difficulty:
+    | 'legacy-any'
+    | TargetedDifficultyTarget
+    | 'all';
 }
 
 export interface DifficultyCorpusBandCounts {
@@ -148,11 +156,17 @@ export function parseDifficultyCorpusArgs(
   args: readonly string[],
 ): DifficultyCorpusCliOptions {
   if (
-    args.length !== 2 ||
-    args[0] !== '--seeds'
+    args.length !== 2 &&
+    args.length !== 4
   ) {
     throw new Error(
-      'Usage: npm run analyze:difficulty-corpus -- --seeds <uint32,uint32,...>',
+      'Usage: npm run analyze:difficulty-corpus -- --seeds <uint32,uint32,...> [--difficulty easy|medium|hard|expert|all]',
+    );
+  }
+
+  if (args[0] !== '--seeds') {
+    throw new Error(
+      'Usage: npm run analyze:difficulty-corpus -- --seeds <uint32,uint32,...> [--difficulty easy|medium|hard|expert|all]',
     );
   }
 
@@ -205,7 +219,48 @@ export function parseDifficultyCorpusArgs(
     );
   }
 
-  return { seeds };
+  if (args.length === 2) {
+    return {
+      seeds,
+      difficulty: 'legacy-any',
+    };
+  }
+
+  if (args[2] !== '--difficulty') {
+    throw new Error(
+      'Usage: npm run analyze:difficulty-corpus -- --seeds <uint32,uint32,...> [--difficulty easy|medium|hard|expert|all]',
+    );
+  }
+
+  const difficulty =
+    args[3];
+
+  if (difficulty === 'all') {
+    return {
+      seeds,
+      difficulty: 'all',
+    };
+  }
+
+  if (
+    difficulty ===
+      DifficultyTarget.Easy ||
+    difficulty ===
+      DifficultyTarget.Medium ||
+    difficulty ===
+      DifficultyTarget.Hard ||
+    difficulty ===
+      DifficultyTarget.Expert
+  ) {
+    return {
+      seeds,
+      difficulty,
+    };
+  }
+
+  throw new Error(
+    'Corpus difficulty must be one of: easy, medium, hard, expert, all.',
+  );
 }
 
 export function summarizeDifficultyCorpus(

@@ -9,6 +9,10 @@ import {
 } from '../difficulty/DifficultyAnalyzer';
 
 import {
+  DifficultyTarget,
+} from '../difficulty/types';
+
+import {
   analyzeHumanSolvability,
 } from '../human-solver/HumanSolver';
 
@@ -33,6 +37,19 @@ import {
 import {
   generateCandidate,
 } from './CandidateGenerator';
+
+import {
+  TARGETED_ARCHETYPE_QUOTAS,
+  TARGETED_POOL_SIZE,
+  getTargetedArchetypeQuota,
+  getTargetedReservoirGoal,
+  isTargetedDifficultyTarget,
+  type TargetedDifficultyTarget,
+} from './DifficultyTargetPolicy';
+
+import {
+  selectTargetedPoolFromReservoirs,
+} from './CandidateRanker';
 
 import {
   ALLOWED_SIZES,
@@ -372,6 +389,29 @@ export function createCandidatePool(
 ): GeneratorPoolReport {
   validateGeneratorConfig(config);
 
+  const difficultyTarget =
+    config.difficultyTarget ??
+    DifficultyTarget.Any;
+
+  if (
+    !isTargetedDifficultyTarget(
+      difficultyTarget,
+    )
+  ) {
+    return createCompatibilityCandidatePool(
+      omitDifficultyTarget(config),
+    );
+  }
+
+  return createTargetedCandidatePool(
+    config,
+    difficultyTarget,
+  );
+}
+
+function createCompatibilityCandidatePool(
+  config: GeneratorConfig,
+): GeneratorPoolReport {
   const archetypes:
     ArchetypePoolResult[] = [];
 
@@ -413,6 +453,425 @@ export function createCandidatePool(
           !result.exhausted,
       ),
   };
+}
+
+interface TargetedArchetypeReservoirResult {
+  archetype: GeneratorArchetype;
+  attempts: number;
+  reservoir:
+    readonly AcceptedCandidate[];
+  rejectionCounts:
+    Readonly<
+      Record<
+        RejectionReasonType,
+        number
+      >
+    >;
+  rejectionSamples:
+    readonly RejectionSample[];
+  exhausted: boolean;
+}
+
+function createTargetedCandidatePool(
+  config: GeneratorConfig,
+  target: TargetedDifficultyTarget,
+): GeneratorPoolReport {
+  const reservoirResults:
+    TargetedArchetypeReservoirResult[] = [];
+
+  const reservoirs =
+    createEmptyReservoirMap();
+
+  for (
+    const archetype
+    of ALL_GENERATOR_ARCHETYPES
+  ) {
+    const result =
+      createTargetedArchetypeReservoir(
+        config,
+        archetype,
+        target,
+      );
+
+    reservoirResults.push(result);
+    reservoirs[archetype] =
+      [...result.reservoir];
+  }
+
+  const selection =
+    selectTargetedPoolFromReservoirs(
+      reservoirs,
+      target,
+      TARGETED_ARCHETYPE_QUOTAS[
+        target
+      ],
+      TARGETED_POOL_SIZE,
+    );
+
+  const archetypes:
+    ArchetypePoolResult[] =
+      ALL_GENERATOR_ARCHETYPES.map(
+        (archetype) => {
+          const reservoirResult =
+            reservoirResults.find(
+              (entry) =>
+                entry.archetype ===
+                archetype,
+            );
+
+          if (
+            reservoirResult ===
+            undefined
+          ) {
+            throw new Error(
+              `Missing targeted reservoir result for ${archetype}.`,
+            );
+          }
+
+          const finalAccepted =
+            selection.byArchetype[
+              archetype
+            ];
+
+          return {
+            stats: {
+              archetype,
+              attempts:
+                reservoirResult.attempts,
+              accepted:
+                finalAccepted.length,
+              rejectionCounts:
+                reservoirResult
+                  .rejectionCounts,
+            },
+            accepted: finalAccepted,
+            rejectionSamples:
+              reservoirResult
+                .rejectionSamples,
+            exhausted:
+              reservoirResult.exhausted,
+          };
+        },
+      );
+
+  const exactCount =
+    selection.accepted.filter(
+      (entry) =>
+        entry.difficulty.band ===
+        target,
+    ).length;
+
+  const fallbackCount =
+    selection.accepted.length -
+    exactCount;
+
+  const targetedArchetypes =
+    ALL_GENERATOR_ARCHETYPES.map(
+      (archetype) => {
+        const reservoirResult =
+          reservoirResults.find(
+            (entry) =>
+              entry.archetype ===
+              archetype,
+          );
+
+        if (
+          reservoirResult ===
+          undefined
+        ) {
+          throw new Error(
+            `Missing targeted reservoir diagnostics for ${archetype}.`,
+          );
+        }
+
+        const finalAccepted =
+          selection.byArchetype[
+            archetype
+          ];
+
+        const archetypeExact =
+          finalAccepted.filter(
+            (entry) =>
+              entry.difficulty.band ===
+              target,
+          ).length;
+
+        return {
+          archetype,
+          nominalQuota:
+            getTargetedArchetypeQuota(
+              target,
+              archetype,
+            ),
+          reservoirGoal:
+            getTargetedReservoirGoal(
+              target,
+              archetype,
+            ),
+          reservoirCount:
+            reservoirResult
+              .reservoir.length,
+          finalAccepted:
+            finalAccepted.length,
+          exactCount:
+            archetypeExact,
+          fallbackCount:
+            finalAccepted.length -
+            archetypeExact,
+        };
+      },
+    );
+
+  return {
+    masterSeed:
+      config.masterSeed >>> 0,
+    config: {
+      ...config,
+      masterSeed:
+        config.masterSeed >>> 0,
+      difficultyTarget: target,
+    },
+    archetypes,
+    accepted:
+      selection.accepted,
+    completed:
+      selection.accepted.length ===
+      TARGETED_POOL_SIZE,
+    targeting: {
+      difficultyTarget: target,
+      requestedPoolSize:
+        TARGETED_POOL_SIZE,
+      nominalQuotas:
+        TARGETED_ARCHETYPE_QUOTAS[
+          target
+        ],
+      archetypes:
+        targetedArchetypes,
+      exactCount,
+      fallbackCount,
+      exactRate:
+        selection.accepted.length === 0
+          ? 0
+          : roundMetric(
+              exactCount /
+              selection.accepted.length,
+            ),
+      backfillUsed:
+        selection.backfillCount > 0,
+      backfillCount:
+        selection.backfillCount,
+      missingSlots:
+        Math.max(
+          0,
+          TARGETED_POOL_SIZE -
+          selection.accepted.length,
+        ),
+    },
+  };
+}
+
+function createTargetedArchetypeReservoir(
+  config: GeneratorConfig,
+  archetype: GeneratorArchetype,
+  target: TargetedDifficultyTarget,
+): TargetedArchetypeReservoirResult {
+  const reservoir:
+    AcceptedCandidate[] = [];
+
+  const rejectionCounts =
+    createEmptyRejectionCounts();
+
+  const rejectionSamples:
+    RejectionSample[] = [];
+
+  const acceptedSignatures =
+    new Set<string>();
+
+  const acceptedSizes =
+    new Set<GeneratorBoardSize>();
+
+  const quota =
+    getTargetedArchetypeQuota(
+      target,
+      archetype,
+    );
+
+  const reservoirGoal =
+    getTargetedReservoirGoal(
+      target,
+      archetype,
+    );
+
+  let attempts = 0;
+
+  while (
+    attempts <
+      config.maxAttemptsPerArchetype &&
+    reservoir.length <
+      reservoirGoal
+  ) {
+    attempts += 1;
+
+    const candidateSeed =
+      deriveCandidateSeed(
+        config.masterSeed,
+        archetype,
+        attempts,
+      );
+
+    const random =
+      new SeededRandom(
+        candidateSeed,
+      );
+
+    const size =
+      chooseArchetypeAttemptSize(
+        archetype,
+        reservoir.length,
+        acceptedSizes,
+        quota,
+        random,
+      );
+
+    const generation =
+      generateCandidate({
+        archetype,
+        size,
+        seed: candidateSeed,
+      });
+
+    if (generation.ok === false) {
+      recordRejection(
+        rejectionCounts,
+        rejectionSamples,
+        attempts,
+        candidateSeed,
+        RejectionReason.GenerationFailed,
+        generation.reason,
+      );
+      continue;
+    }
+
+    const signature =
+      playableCandidateSignature(
+        generation.candidate,
+      );
+
+    if (
+      acceptedSignatures.has(
+        signature,
+      )
+    ) {
+      recordRejection(
+        rejectionCounts,
+        rejectionSamples,
+        attempts,
+        candidateSeed,
+        RejectionReason.Duplicate,
+        'Playable puzzle duplicates an already accepted candidate.',
+      );
+      continue;
+    }
+
+    const monsterPolicy =
+      getGeneratorMonsterPolicy(
+        generation.candidate,
+      );
+
+    if (monsterPolicy.reject) {
+      recordRejection(
+        rejectionCounts,
+        rejectionSamples,
+        attempts,
+        candidateSeed,
+        RejectionReason
+          .MonsterDensity,
+        monsterPolicy.diagnostic ??
+          'Monster density rejected candidate.',
+      );
+      continue;
+    }
+
+    const evaluation =
+      evaluateCandidate(
+        generation.candidate,
+      );
+
+    if (
+      evaluation.status ===
+      CandidateStatus.Accepted
+    ) {
+      acceptedSignatures.add(
+        signature,
+      );
+      reservoir.push(
+        evaluation.accepted,
+      );
+      acceptedSizes.add(
+        evaluation.accepted
+          .candidate.size,
+      );
+      continue;
+    }
+
+    recordRejection(
+      rejectionCounts,
+      rejectionSamples,
+      attempts,
+      candidateSeed,
+      rejectionReasonForStatus(
+        evaluation.status,
+      ),
+      evaluation.diagnostic,
+    );
+  }
+
+  return {
+    archetype,
+    attempts,
+    reservoir,
+    rejectionCounts,
+    rejectionSamples,
+    exhausted:
+      reservoir.length <
+      reservoirGoal,
+  };
+}
+
+function createEmptyReservoirMap():
+  Record<
+    GeneratorArchetype,
+    AcceptedCandidate[]
+  > {
+  return {
+    [GeneratorArchetype.MonsterOnly]: [],
+    [GeneratorArchetype.ChestOneRoom]: [],
+    [GeneratorArchetype.ChestTwoRooms]: [],
+    [GeneratorArchetype.MixedOneRoom]: [],
+    [GeneratorArchetype.MixedTwoRooms]: [],
+  };
+}
+
+function omitDifficultyTarget(
+  config: GeneratorConfig,
+): GeneratorConfig {
+  const {
+    difficultyTarget: _difficultyTarget,
+    ...compatibilityConfig
+  } = config;
+
+  return compatibilityConfig;
+}
+
+function roundMetric(
+  value: number,
+): number {
+  return (
+    Math.round(
+      value * 1_000_000,
+    ) /
+    1_000_000
+  );
 }
 
 function createArchetypePool(
@@ -679,6 +1138,20 @@ function validateGeneratorConfig(
   ) {
     throw new RangeError(
       'maxAttemptsPerArchetype must be positive.',
+    );
+  }
+
+  if (
+    config.difficultyTarget !==
+      undefined &&
+    !Object.values(
+      DifficultyTarget,
+    ).includes(
+      config.difficultyTarget,
+    )
+  ) {
+    throw new RangeError(
+      'difficultyTarget must be any, easy, medium, hard, or expert.',
     );
   }
 }

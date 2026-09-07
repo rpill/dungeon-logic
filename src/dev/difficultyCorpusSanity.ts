@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 import {
   writeDifficultyCorpusOutputs,
+  writeTargetedDifficultyCorpusOutputs,
 } from './DifficultyCorpusOutput';
 
 import {
@@ -16,6 +17,10 @@ import {
   parseDifficultyCorpusArgs,
   summarizeDifficultyCorpus,
 } from './DifficultyCorpusAnalyzer';
+
+import {
+  summarizeTargetedDifficultyCorpus,
+} from './TargetedDifficultyCorpusAnalyzer';
 
 import {
   DifficultyBand,
@@ -30,6 +35,7 @@ import {
   type ArchetypePoolResult,
   type GeneratorArchetype as GeneratorArchetypeType,
   type GeneratorPoolReport,
+  type GeneratorRunReport,
 } from '../puzzle/generator/types';
 
 function assert(
@@ -59,6 +65,40 @@ function checkCliParsing(): void {
     'CLI must preserve explicit seed order.',
   );
 
+  assert(
+    parsed.difficulty === 'legacy-any',
+    'Legacy corpus CLI must preserve the original any-pool mode.',
+  );
+
+  const targeted =
+    parseDifficultyCorpusArgs([
+      '--seeds',
+      '42,7',
+      '--difficulty',
+      'medium',
+    ]);
+
+  assert(
+    targeted.difficulty ===
+      DifficultyBand.Medium &&
+      JSON.stringify(targeted.seeds) ===
+        JSON.stringify([42, 7]),
+    'Targeted corpus CLI must parse a rated difficulty target without reordering seeds.',
+  );
+
+  const allTargets =
+    parseDifficultyCorpusArgs([
+      '--seeds',
+      '1',
+      '--difficulty',
+      'all',
+    ]);
+
+  assert(
+    allTargets.difficulty === 'all',
+    'Targeted corpus CLI must expose the all-target mode.',
+  );
+
   for (
     const args
     of [
@@ -70,6 +110,10 @@ function checkCliParsing(): void {
       ['--seeds', '-1,2'],
       ['--seeds', '1,4294967296'],
       ['--seeds', '1,1'],
+      ['--seeds', '1', '--difficulty'],
+      ['--seeds', '1', '--difficulty', 'any'],
+      ['--seeds', '1', '--difficulty', 'impossible'],
+      ['--difficulty', 'medium', '--seeds', '1'],
     ]
   ) {
     assertThrows(
@@ -408,6 +452,189 @@ function createEmptyRejectionCounts():
   };
 }
 
+function createTargetedRunReport(
+  seed: number,
+  target:
+    | typeof DifficultyBand.Easy
+    | typeof DifficultyBand.Medium
+    | typeof DifficultyBand.Hard
+    | typeof DifficultyBand.Expert,
+  band: DifficultyBandType,
+): GeneratorRunReport {
+  const pool = createPool(seed, band);
+
+  const quotas = {
+    [GeneratorArchetype.MonsterOnly]: 1,
+    [GeneratorArchetype.ChestOneRoom]: 1,
+    [GeneratorArchetype.ChestTwoRooms]: 1,
+    [GeneratorArchetype.MixedOneRoom]: 1,
+    [GeneratorArchetype.MixedTwoRooms]: 1,
+  } as const;
+
+  const exactCount =
+    pool.accepted.filter(
+      (accepted) =>
+        accepted.difficulty.band === target,
+    ).length;
+
+  const targetedPool: GeneratorPoolReport = {
+    ...pool,
+    config: {
+      ...pool.config,
+      difficultyTarget: target,
+    },
+    targeting: {
+      difficultyTarget: target,
+      requestedPoolSize: 50,
+      nominalQuotas: quotas,
+      archetypes:
+        ALL_GENERATOR_ARCHETYPES.map(
+          (archetype) => ({
+            archetype,
+            nominalQuota: 1,
+            reservoirGoal: 2,
+            reservoirCount: 1,
+            finalAccepted: 1,
+            exactCount:
+              band === target ? 1 : 0,
+            fallbackCount:
+              band === target ? 0 : 1,
+          }),
+        ),
+      exactCount,
+      fallbackCount:
+        pool.accepted.length - exactCount,
+      exactRate:
+        exactCount / pool.accepted.length,
+      backfillUsed: false,
+      backfillCount: 0,
+      missingSlots: 0,
+    },
+  };
+
+  const shortlist =
+    targetedPool.accepted
+      .slice(0, 3)
+      .map(
+        (accepted, index) => ({
+          accepted,
+          qualityScore: 100,
+          diversityScore: index === 0 ? 1 : 0.5,
+          selectionScore: 100,
+          rankWithinArchetype: 1,
+        }),
+      );
+
+  const shortlistExact =
+    shortlist.filter(
+      (entry) =>
+        entry.accepted.difficulty.band === target,
+    ).length;
+
+  const shortlistArchetypeCounts = {
+    [GeneratorArchetype.MonsterOnly]: 0,
+    [GeneratorArchetype.ChestOneRoom]: 0,
+    [GeneratorArchetype.ChestTwoRooms]: 0,
+    [GeneratorArchetype.MixedOneRoom]: 0,
+    [GeneratorArchetype.MixedTwoRooms]: 0,
+  };
+
+  for (const entry of shortlist) {
+    shortlistArchetypeCounts[
+      entry.accepted.candidate.archetype
+    ] += 1;
+  }
+
+  return {
+    schemaVersion: 1,
+    masterSeed: seed,
+    difficultyTarget: target,
+    config: targetedPool.config,
+    pool: targetedPool,
+    shortlist,
+    shortlistTargeting: {
+      difficultyTarget: target,
+      requestedShortlistSize: 15,
+      exactCount: shortlistExact,
+      fallbackCount:
+        shortlist.length - shortlistExact,
+      exactRate:
+        shortlist.length === 0
+          ? 0
+          : shortlistExact / shortlist.length,
+      archetypeCounts:
+        shortlistArchetypeCounts,
+    },
+  };
+}
+
+function checkTargetedCorpusSummary(): void {
+  const reports = [
+    createTargetedRunReport(
+      11,
+      DifficultyBand.Medium,
+      DifficultyBand.Medium,
+    ),
+    createTargetedRunReport(
+      22,
+      DifficultyBand.Medium,
+      DifficultyBand.Hard,
+    ),
+  ];
+
+  const report =
+    summarizeTargetedDifficultyCorpus(
+      reports,
+    );
+
+  assert(
+    report.mode === 'targeted' &&
+      JSON.stringify(report.seeds) ===
+        JSON.stringify([11, 22]) &&
+      JSON.stringify(report.targets) ===
+        JSON.stringify([DifficultyBand.Medium]),
+    'Targeted corpus must preserve deterministic seed order and target identity.',
+  );
+
+  const medium = report.summaries[0];
+
+  assert(
+    medium !== undefined &&
+      medium.seedCount === 2 &&
+      medium.completedSeeds === 2 &&
+      medium.totalAccepted === 10 &&
+      medium.poolExact === 5 &&
+      medium.poolFallback === 5 &&
+      medium.poolExactRate === 0.5,
+    'Targeted corpus must aggregate exact/fallback pool arithmetic.',
+  );
+
+  assert(
+    medium.shortlistSlots === 6 &&
+      medium.shortlistExact === 3 &&
+      medium.shortlistFallback === 3 &&
+      medium.shortlistExactRate === 0.5,
+    'Targeted corpus must aggregate global shortlist exact/fallback arithmetic.',
+  );
+
+  assert(
+    medium.backfillSeeds === 0 &&
+      medium.unrated === 0,
+    'Synthetic targeted corpus must expose backfill and unrated counts.',
+  );
+
+  const repeated =
+    summarizeTargetedDifficultyCorpus(
+      reports,
+    );
+
+  assert(
+    JSON.stringify(report) ===
+      JSON.stringify(repeated),
+    'Targeted corpus summary must be deterministic.',
+  );
+}
+
 function assertThrows(
   action: () => void,
   message: string,
@@ -511,13 +738,100 @@ async function checkOutputWriter(): Promise<void> {
   }
 }
 
+async function checkTargetedOutputWriter(): Promise<void> {
+  const report =
+    summarizeTargetedDifficultyCorpus([
+      createTargetedRunReport(
+        11,
+        DifficultyBand.Medium,
+        DifficultyBand.Medium,
+      ),
+      createTargetedRunReport(
+        22,
+        DifficultyBand.Medium,
+        DifficultyBand.Hard,
+      ),
+    ]);
+
+  const directory =
+    await mkdtemp(
+      join(
+        tmpdir(),
+        'dungeon-logic-targeted-difficulty-corpus-',
+      ),
+    );
+
+  try {
+    const first =
+      await writeTargetedDifficultyCorpusOutputs(
+        report,
+        directory,
+      );
+
+    const firstJson =
+      await readFile(first.jsonPath, 'utf8');
+    const firstMarkdown =
+      await readFile(first.markdownPath, 'utf8');
+
+    const second =
+      await writeTargetedDifficultyCorpusOutputs(
+        report,
+        directory,
+      );
+
+    const secondJson =
+      await readFile(second.jsonPath, 'utf8');
+    const secondMarkdown =
+      await readFile(second.markdownPath, 'utf8');
+
+    assert(
+      firstJson === secondJson &&
+        firstMarkdown === secondMarkdown,
+      'Repeated targeted corpus writes must be byte-identical.',
+    );
+
+    assert(
+      first.jsonPath.endsWith(
+        'difficulty-corpus-medium.json',
+      ) &&
+        first.markdownPath.endsWith(
+          'difficulty-corpus-medium.md',
+        ),
+      'Single-target corpus filenames must include the target band.',
+    );
+
+    assert(
+      firstMarkdown.includes(
+        '# Dungeon Logic Targeted Difficulty Corpus',
+      ) &&
+        firstMarkdown.includes(
+          '## Archetype contribution',
+        ) &&
+        firstMarkdown.includes(
+          '## Per-seed results',
+        ),
+      'Targeted corpus Markdown must expose summary, archetype contribution, and per-seed diagnostics.',
+    );
+  } finally {
+    await rm(
+      directory,
+      {
+        recursive: true,
+        force: true,
+      },
+    );
+  }
+}
+
 async function main(): Promise<void> {
   checkCliParsing();
   checkCorpusSummary();
+  checkTargetedCorpusSummary();
   await checkOutputWriter();
+  await checkTargetedOutputWriter();
 
   console.info(
-    '[Dungeon Logic] Difficulty corpus sanity: CLI + aggregation + coverage + target fallback + deterministic outputs passed',
+    '[Dungeon Logic] Difficulty corpus sanity: legacy + targeted CLI, aggregation, exact/fallback, coverage, and deterministic outputs passed',
   );
 }
 

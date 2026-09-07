@@ -5,6 +5,16 @@ import {
 } from '../difficulty/types';
 
 import {
+  TARGETED_ARCHETYPE_QUOTAS,
+  TARGETED_POOL_SIZE,
+  TARGETED_SHORTLIST_SIZE,
+  TARGETED_SHORTLIST_SOFT_CAP,
+  difficultyBandDistance as policyDifficultyBandDistance,
+  type TargetedArchetypeQuotaMap,
+  type TargetedDifficultyTarget,
+} from './DifficultyTargetPolicy';
+
+import {
   getGeneratorMonsterPolicy,
 } from './CandidateFactory';
 
@@ -13,6 +23,7 @@ import {
 } from './CandidateGenerator';
 
 import {
+  ALL_GENERATOR_ARCHETYPES,
   GeneratorArchetype,
   type AcceptedCandidate,
   type GeneratorBoardSize,
@@ -158,6 +169,828 @@ export function candidateDistance(
     (
       components.length + 2
     ),
+  );
+}
+
+export interface TargetedPoolSelection {
+  accepted:
+    readonly AcceptedCandidate[];
+  byArchetype:
+    Readonly<
+      Record<
+        GeneratorArchetype,
+        readonly AcceptedCandidate[]
+      >
+    >;
+  backfillCount: number;
+}
+
+export function selectTargetedPoolFromReservoirs(
+  reservoirs:
+    Readonly<
+      Record<
+        GeneratorArchetype,
+        readonly AcceptedCandidate[]
+      >
+    >,
+  target: TargetedDifficultyTarget,
+  quotas: TargetedArchetypeQuotaMap,
+  requestedTotal = TARGETED_POOL_SIZE,
+): TargetedPoolSelection {
+  if (
+    !Number.isInteger(requestedTotal) ||
+    requestedTotal < 0
+  ) {
+    throw new RangeError(
+      'requestedTotal must be a non-negative integer.',
+    );
+  }
+
+  const nominalByArchetype =
+    createEmptyAcceptedByArchetype();
+
+  const selectedSet =
+    new Set<AcceptedCandidate>();
+
+  const nominalAccepted:
+    AcceptedCandidate[] = [];
+
+  for (
+    const archetype
+    of ALL_GENERATOR_ARCHETYPES
+  ) {
+    const quota =
+      Math.max(
+        0,
+        Math.floor(
+          quotas[archetype],
+        ),
+      );
+
+    const selected =
+      selectTargetedArchetypeCandidates(
+        reservoirs[archetype],
+        archetype,
+        target,
+        quota,
+      );
+
+    nominalByArchetype[archetype] =
+      selected;
+
+    for (const accepted of selected) {
+      selectedSet.add(accepted);
+      nominalAccepted.push(accepted);
+    }
+  }
+
+  const accepted =
+    nominalAccepted.slice(
+      0,
+      requestedTotal,
+    );
+
+  const acceptedSet =
+    new Set<AcceptedCandidate>(accepted);
+
+  const surplus:
+    AcceptedCandidate[] = [];
+
+  for (
+    const archetype
+    of ALL_GENERATOR_ARCHETYPES
+  ) {
+    for (
+      const candidate
+      of reservoirs[archetype]
+    ) {
+      if (!selectedSet.has(candidate)) {
+        surplus.push(candidate);
+      }
+    }
+  }
+
+  surplus.sort(
+    (left, right) =>
+      compareTargetPreference(
+        left,
+        right,
+        target,
+      ),
+  );
+
+  let backfillCount = 0;
+
+  for (const candidate of surplus) {
+    if (
+      accepted.length >=
+      requestedTotal
+    ) {
+      break;
+    }
+
+    if (acceptedSet.has(candidate)) {
+      continue;
+    }
+
+    accepted.push(candidate);
+    acceptedSet.add(candidate);
+    backfillCount += 1;
+  }
+
+  const byArchetype =
+    createEmptyAcceptedByArchetype();
+
+  for (const candidate of accepted) {
+    byArchetype[
+      candidate.candidate.archetype
+    ].push(candidate);
+  }
+
+  return {
+    accepted,
+    byArchetype,
+    backfillCount,
+  };
+}
+
+function selectTargetedArchetypeCandidates(
+  reservoir:
+    readonly AcceptedCandidate[],
+  archetype: GeneratorArchetype,
+  target: TargetedDifficultyTarget,
+  quota: number,
+): AcceptedCandidate[] {
+  if (
+    quota <= 0 ||
+    reservoir.length === 0
+  ) {
+    return [];
+  }
+
+  const byDistance =
+    new Map<
+      number,
+      AcceptedCandidate[]
+    >();
+
+  for (const accepted of reservoir) {
+    const distance =
+      policyDifficultyBandDistance(
+        target,
+        accepted.difficulty.band,
+      );
+
+    const group =
+      byDistance.get(distance);
+
+    if (group === undefined) {
+      byDistance.set(
+        distance,
+        [accepted],
+      );
+    } else {
+      group.push(accepted);
+    }
+  }
+
+  const distances =
+    [...byDistance.keys()].sort(
+      (a, b) => a - b,
+    );
+
+  const selected:
+    RankedCandidate[] = [];
+
+  for (const distance of distances) {
+    if (selected.length >= quota) {
+      break;
+    }
+
+    const group =
+      byDistance.get(distance);
+
+    if (group === undefined) {
+      continue;
+    }
+
+    const available =
+      group.map(
+        (accepted) => ({
+          accepted,
+          qualityScore:
+            scoreCandidate(accepted),
+        }),
+      );
+
+    available.sort(
+      compareQualityThenSeed,
+    );
+
+    while (
+      available.length > 0 &&
+      selected.length < quota
+    ) {
+      const requiredSize =
+        requiredMissingTargetedTwoRoomSize(
+          archetype,
+          available,
+          selected,
+          quota - selected.length,
+        );
+
+      const eligible =
+        requiredSize === null
+          ? available
+          : available.filter(
+              (entry) =>
+                entry.accepted
+                  .candidate.size ===
+                requiredSize,
+            );
+
+      const candidates =
+        eligible.length > 0
+          ? eligible
+          : available;
+
+      let bestEntry =
+        candidates[0];
+
+      let best =
+        rankForSelection(
+          bestEntry,
+          selected,
+          rankWithinArchetypeFor(
+            selected,
+            archetype,
+          ) + 1,
+        );
+
+      for (
+        let index = 1;
+        index < candidates.length;
+        index += 1
+      ) {
+        const ranked =
+          rankForSelection(
+            candidates[index],
+            selected,
+            rankWithinArchetypeFor(
+              selected,
+              archetype,
+            ) + 1,
+          );
+
+        if (
+          compareSelection(
+            ranked,
+            best,
+          ) < 0
+        ) {
+          bestEntry =
+            candidates[index];
+          best = ranked;
+        }
+      }
+
+      available.splice(
+        available.indexOf(bestEntry),
+        1,
+      );
+
+      selected.push(best);
+    }
+  }
+
+  return selected.map(
+    (ranked) => ranked.accepted,
+  );
+}
+
+function requiredMissingTargetedTwoRoomSize(
+  archetype: GeneratorArchetype,
+  available:
+    readonly QualityEntry[],
+  selected:
+    readonly RankedCandidate[],
+  remainingSlots: number,
+): GeneratorBoardSize | null {
+  if (
+    remainingSlots <= 0 ||
+    (
+      archetype !==
+        GeneratorArchetype
+          .ChestTwoRooms &&
+      archetype !==
+        GeneratorArchetype
+          .MixedTwoRooms
+    )
+  ) {
+    return null;
+  }
+
+  const availableSizes =
+    new Set(
+      available.map(
+        (entry) =>
+          entry.accepted
+            .candidate.size,
+      ),
+    );
+
+  const selectedSizes =
+    new Set(
+      selected
+        .filter(
+          (entry) =>
+            entry.accepted
+              .candidate.archetype ===
+            archetype,
+        )
+        .map(
+          (entry) =>
+            entry.accepted
+              .candidate.size,
+        ),
+    );
+
+  if (
+    selectedSizes.has(7) &&
+    !selectedSizes.has(8) &&
+    availableSizes.has(8)
+  ) {
+    return 8;
+  }
+
+  if (
+    selectedSizes.has(8) &&
+    !selectedSizes.has(7) &&
+    availableSizes.has(7)
+  ) {
+    return 7;
+  }
+
+  if (
+    selectedSizes.size === 0 &&
+    remainingSlots >= 2 &&
+    availableSizes.has(7) &&
+    availableSizes.has(8)
+  ) {
+    return null;
+  }
+
+  return null;
+}
+
+function compareTargetPreference(
+  left: AcceptedCandidate,
+  right: AcceptedCandidate,
+  target: TargetedDifficultyTarget,
+): number {
+  const distanceDelta =
+    policyDifficultyBandDistance(
+      target,
+      left.difficulty.band,
+    ) -
+    policyDifficultyBandDistance(
+      target,
+      right.difficulty.band,
+    );
+
+  if (distanceDelta !== 0) {
+    return distanceDelta;
+  }
+
+  const qualityDelta =
+    scoreCandidate(right) -
+    scoreCandidate(left);
+
+  if (qualityDelta !== 0) {
+    return qualityDelta;
+  }
+
+  return (
+    left.candidate.seed -
+    right.candidate.seed
+  );
+}
+
+function createEmptyAcceptedByArchetype():
+  Record<
+    GeneratorArchetype,
+    AcceptedCandidate[]
+  > {
+  return {
+    [GeneratorArchetype.MonsterOnly]: [],
+    [GeneratorArchetype.ChestOneRoom]: [],
+    [GeneratorArchetype.ChestTwoRooms]: [],
+    [GeneratorArchetype.MixedOneRoom]: [],
+    [GeneratorArchetype.MixedTwoRooms]: [],
+  };
+}
+
+function rankWithinArchetypeFor(
+  selected:
+    readonly RankedCandidate[],
+  archetype: GeneratorArchetype,
+): number {
+  return selected.filter(
+    (entry) =>
+      entry.accepted
+        .candidate.archetype ===
+      archetype,
+  ).length;
+}
+
+export function selectGlobalTargetedShortlist(
+  pool: GeneratorPoolReport,
+  target: TargetedDifficultyTarget,
+): readonly RankedCandidate[] {
+  const exact =
+    pool.accepted.filter(
+      (entry) =>
+        entry.difficulty.band ===
+        target,
+    );
+
+  const fallback =
+    pool.accepted.filter(
+      (entry) =>
+        entry.difficulty.band !==
+        target,
+    );
+
+  const selected:
+    RankedCandidate[] = [];
+
+  const affinityTargets =
+    deriveShortlistAffinityTargets(
+      target,
+    );
+
+  for (
+    const archetype
+    of ALL_GENERATOR_ARCHETYPES
+  ) {
+    while (
+      selected.length <
+        TARGETED_SHORTLIST_SIZE &&
+      rankWithinArchetypeFor(
+        selected,
+        archetype,
+      ) <
+        affinityTargets[archetype]
+    ) {
+      const chosen =
+        takeBestGlobalCandidate(
+          exact,
+          selected,
+          (candidate) =>
+            candidate.candidate
+              .archetype ===
+              archetype &&
+            rankWithinArchetypeFor(
+              selected,
+              archetype,
+            ) <
+              TARGETED_SHORTLIST_SOFT_CAP,
+        );
+
+      if (chosen === null) {
+        break;
+      }
+
+      selected.push(chosen);
+    }
+  }
+
+  fillGlobalCandidates(
+    exact,
+    selected,
+    TARGETED_SHORTLIST_SIZE,
+    true,
+  );
+
+  fillGlobalCandidates(
+    exact,
+    selected,
+    TARGETED_SHORTLIST_SIZE,
+    false,
+  );
+
+  if (
+    selected.length <
+    TARGETED_SHORTLIST_SIZE
+  ) {
+    const fallbackByDistance =
+      new Map<
+        number,
+        AcceptedCandidate[]
+      >();
+
+    for (const candidate of fallback) {
+      const distance =
+        policyDifficultyBandDistance(
+          target,
+          candidate.difficulty.band,
+        );
+
+      const group =
+        fallbackByDistance.get(
+          distance,
+        );
+
+      if (group === undefined) {
+        fallbackByDistance.set(
+          distance,
+          [candidate],
+        );
+      } else {
+        group.push(candidate);
+      }
+    }
+
+    const distances =
+      [...fallbackByDistance.keys()]
+        .sort(
+          (left, right) =>
+            left - right,
+        );
+
+    for (const distance of distances) {
+      if (
+        selected.length >=
+        TARGETED_SHORTLIST_SIZE
+      ) {
+        break;
+      }
+
+      const group =
+        fallbackByDistance.get(
+          distance,
+        );
+
+      if (group === undefined) {
+        continue;
+      }
+
+      fillGlobalCandidates(
+        group,
+        selected,
+        TARGETED_SHORTLIST_SIZE,
+        true,
+      );
+
+      fillGlobalCandidates(
+        group,
+        selected,
+        TARGETED_SHORTLIST_SIZE,
+        false,
+      );
+    }
+  }
+
+  return selected;
+}
+
+function deriveShortlistAffinityTargets(
+  target: TargetedDifficultyTarget,
+): Readonly<
+  Record<
+    GeneratorArchetype,
+    number
+  >
+> {
+  const quotas =
+    TARGETED_ARCHETYPE_QUOTAS[
+      target
+    ];
+
+  const raw =
+    ALL_GENERATOR_ARCHETYPES.map(
+      (archetype, policyIndex) => {
+        const scaled =
+          quotas[archetype] *
+          TARGETED_SHORTLIST_SIZE /
+          TARGETED_POOL_SIZE;
+
+        const floor =
+          Math.floor(scaled);
+
+        return {
+          archetype,
+          policyIndex,
+          base:
+            Math.min(
+              floor,
+              TARGETED_SHORTLIST_SOFT_CAP,
+            ),
+          remainder:
+            scaled - floor,
+        };
+      },
+    );
+
+  const result:
+    Record<
+      GeneratorArchetype,
+      number
+    > = {
+      [GeneratorArchetype.MonsterOnly]: 0,
+      [GeneratorArchetype.ChestOneRoom]: 0,
+      [GeneratorArchetype.ChestTwoRooms]: 0,
+      [GeneratorArchetype.MixedOneRoom]: 0,
+      [GeneratorArchetype.MixedTwoRooms]: 0,
+    };
+
+  let assigned = 0;
+
+  for (const entry of raw) {
+    result[entry.archetype] =
+      entry.base;
+    assigned += entry.base;
+  }
+
+  const remainderOrder =
+    [...raw].sort(
+      (left, right) => {
+        if (
+          left.remainder !==
+          right.remainder
+        ) {
+          return (
+            right.remainder -
+            left.remainder
+          );
+        }
+
+        return (
+          left.policyIndex -
+          right.policyIndex
+        );
+      },
+    );
+
+  while (
+    assigned <
+    TARGETED_SHORTLIST_SIZE
+  ) {
+    let progressed = false;
+
+    for (
+      const entry
+      of remainderOrder
+    ) {
+      if (
+        assigned >=
+        TARGETED_SHORTLIST_SIZE
+      ) {
+        break;
+      }
+
+      if (
+        result[entry.archetype] >=
+        TARGETED_SHORTLIST_SOFT_CAP
+      ) {
+        continue;
+      }
+
+      result[entry.archetype] += 1;
+      assigned += 1;
+      progressed = true;
+    }
+
+    if (!progressed) {
+      break;
+    }
+  }
+
+  return result;
+}
+
+function fillGlobalCandidates(
+  available:
+    AcceptedCandidate[],
+  selected:
+    RankedCandidate[],
+  limit: number,
+  enforceSoftCap: boolean,
+): void {
+  while (
+    selected.length < limit &&
+    available.length > 0
+  ) {
+    const chosen =
+      takeBestGlobalCandidate(
+        available,
+        selected,
+        (candidate) =>
+          !enforceSoftCap ||
+          rankWithinArchetypeFor(
+            selected,
+            candidate.candidate
+              .archetype,
+          ) <
+            TARGETED_SHORTLIST_SOFT_CAP,
+      );
+
+    if (chosen === null) {
+      break;
+    }
+
+    selected.push(chosen);
+  }
+}
+
+function takeBestGlobalCandidate(
+  available:
+    AcceptedCandidate[],
+  selected:
+    readonly RankedCandidate[],
+  isEligible:
+    (candidate: AcceptedCandidate) =>
+      boolean,
+): RankedCandidate | null {
+  let bestAccepted:
+    AcceptedCandidate | null = null;
+
+  let bestRanked:
+    RankedCandidate | null = null;
+
+  for (
+    const accepted
+    of available
+  ) {
+    if (!isEligible(accepted)) {
+      continue;
+    }
+
+    const ranked =
+      rankGlobalCandidate(
+        accepted,
+        selected,
+      );
+
+    if (
+      bestRanked === null ||
+      compareSelection(
+        ranked,
+        bestRanked,
+      ) < 0
+    ) {
+      bestAccepted = accepted;
+      bestRanked = ranked;
+    }
+  }
+
+  if (
+    bestAccepted === null ||
+    bestRanked === null
+  ) {
+    return null;
+  }
+
+  available.splice(
+    available.indexOf(bestAccepted),
+    1,
+  );
+
+  return bestRanked;
+}
+
+function rankGlobalCandidate(
+  accepted: AcceptedCandidate,
+  selected:
+    readonly RankedCandidate[],
+): RankedCandidate {
+  const qualityScore =
+    scoreCandidate(accepted);
+
+  const rankWithinArchetype =
+    rankWithinArchetypeFor(
+      selected,
+      accepted.candidate.archetype,
+    ) + 1;
+
+  if (selected.length === 0) {
+    return {
+      accepted,
+      qualityScore,
+      diversityScore: 0,
+      selectionScore:
+        qualityScore,
+      rankWithinArchetype,
+    };
+  }
+
+  return rankForSelection(
+    {
+      accepted,
+      qualityScore,
+    },
+    selected,
+    rankWithinArchetype,
   );
 }
 

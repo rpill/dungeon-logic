@@ -12,6 +12,10 @@ import type {
   DifficultyTarget,
 } from '../difficulty/types';
 
+import type {
+  TargetedDifficultyTarget,
+} from './DifficultyTargetPolicy';
+
 export const GeneratorArchetype = {
   MonsterOnly: 'monster-only',
   ChestOneRoom: 'chest-one-room',
@@ -35,6 +39,7 @@ export interface GeneratorConfig {
   acceptedPerArchetype: number;
   shortlistPerArchetype: number;
   maxAttemptsPerArchetype: number;
+  difficultyTarget?: DifficultyTarget;
 }
 
 export interface PlannedRoom {
@@ -143,6 +148,53 @@ export interface ArchetypePoolResult {
   exhausted: boolean;
 }
 
+export interface TargetedArchetypePoolDiagnostics {
+  archetype: GeneratorArchetype;
+  nominalQuota: number;
+  reservoirGoal: number;
+  reservoirCount: number;
+  finalAccepted: number;
+  exactCount: number;
+  fallbackCount: number;
+}
+
+export interface TargetedPoolDiagnostics {
+  difficultyTarget:
+    TargetedDifficultyTarget;
+  requestedPoolSize: 50;
+  nominalQuotas:
+    Readonly<
+      Record<
+        GeneratorArchetype,
+        number
+      >
+    >;
+  archetypes:
+    readonly TargetedArchetypePoolDiagnostics[];
+  exactCount: number;
+  fallbackCount: number;
+  exactRate: number;
+  backfillUsed: boolean;
+  backfillCount: number;
+  missingSlots: number;
+}
+
+export interface TargetedShortlistDiagnostics {
+  difficultyTarget:
+    TargetedDifficultyTarget;
+  requestedShortlistSize: 15;
+  exactCount: number;
+  fallbackCount: number;
+  exactRate: number;
+  archetypeCounts:
+    Readonly<
+      Record<
+        GeneratorArchetype,
+        number
+      >
+    >;
+}
+
 export interface GeneratorPoolReport {
   masterSeed: number;
   config: GeneratorConfig;
@@ -151,6 +203,7 @@ export interface GeneratorPoolReport {
   accepted:
     readonly AcceptedCandidate[];
   completed: boolean;
+  targeting?: TargetedPoolDiagnostics;
 }
 
 export interface RankedCandidate {
@@ -169,6 +222,8 @@ export interface GeneratorRunReport {
   pool: GeneratorPoolReport;
   shortlist:
     readonly RankedCandidate[];
+  shortlistTargeting?:
+    TargetedShortlistDiagnostics;
 }
 
 export const DEFAULT_GENERATOR_CONFIG:

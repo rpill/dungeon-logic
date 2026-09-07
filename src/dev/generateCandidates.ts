@@ -18,6 +18,12 @@ import {
 } from '../puzzle/difficulty/types';
 
 import {
+  TARGETED_POOL_SIZE,
+  TARGETED_SHORTLIST_SIZE,
+  isTargetedDifficultyTarget,
+} from '../puzzle/generator/DifficultyTargetPolicy';
+
+import {
   createCandidatePool,
 } from '../puzzle/generator/CandidateFactory';
 
@@ -26,11 +32,13 @@ import {
 } from '../puzzle/generator/CandidateGenerator';
 
 import {
+  selectGlobalTargetedShortlist,
   selectShortlist,
 } from '../puzzle/generator/CandidateRanker';
 
 import {
   DEFAULT_GENERATOR_CONFIG,
+  GeneratorArchetype,
   RejectionReason,
   type GeneratorConfig,
   type GeneratorRunReport,
@@ -158,26 +166,134 @@ export function buildGeneratorRunReport(
     DifficultyTargetType =
       DifficultyTarget.Any,
 ): GeneratorRunReport {
+  const resolvedTarget =
+    difficultyTarget ===
+      DifficultyTarget.Any
+      ? config.difficultyTarget ??
+        DifficultyTarget.Any
+      : difficultyTarget;
+
   const pool =
-    createCandidatePool(config);
+    createCandidatePool(
+      isTargetedDifficultyTarget(
+        resolvedTarget,
+      )
+        ? {
+            ...config,
+            difficultyTarget:
+              resolvedTarget,
+          }
+        : config,
+    );
 
   const shortlist =
     pool.completed
-      ? selectShortlist(
-          pool,
-          config.shortlistPerArchetype,
-          difficultyTarget,
+      ? isTargetedDifficultyTarget(
+          resolvedTarget,
         )
+        ? selectGlobalTargetedShortlist(
+            pool,
+            resolvedTarget,
+          )
+        : selectShortlist(
+            pool,
+            config.shortlistPerArchetype,
+            DifficultyTarget.Any,
+          )
       : [];
+
+  const shortlistTargeting =
+    isTargetedDifficultyTarget(
+      resolvedTarget,
+    )
+      ? createTargetedShortlistDiagnostics(
+          shortlist,
+          resolvedTarget,
+        )
+      : undefined;
 
   return {
     schemaVersion: 1,
     masterSeed: pool.masterSeed,
-    difficultyTarget,
+    difficultyTarget:
+      resolvedTarget,
     config: pool.config,
     pool,
     shortlist,
+    ...(shortlistTargeting ===
+    undefined
+      ? {}
+      : { shortlistTargeting }),
   };
+}
+
+function createTargetedShortlistDiagnostics(
+  shortlist:
+    readonly RankedCandidate[],
+  target:
+    Exclude<
+      DifficultyTargetType,
+      typeof DifficultyTarget.Any
+    >,
+): NonNullable<
+  GeneratorRunReport[
+    'shortlistTargeting'
+  ]
+> {
+  const archetypeCounts = {
+    [GeneratorArchetype.MonsterOnly]: 0,
+    [GeneratorArchetype.ChestOneRoom]: 0,
+    [GeneratorArchetype.ChestTwoRooms]: 0,
+    [GeneratorArchetype.MixedOneRoom]: 0,
+    [GeneratorArchetype.MixedTwoRooms]: 0,
+  };
+
+  let exactCount = 0;
+
+  for (const ranked of shortlist) {
+    const archetype =
+      ranked.accepted.candidate
+        .archetype;
+
+    archetypeCounts[archetype] += 1;
+
+    if (
+      ranked.accepted.difficulty
+        .band === target
+    ) {
+      exactCount += 1;
+    }
+  }
+
+  const fallbackCount =
+    shortlist.length - exactCount;
+
+  return {
+    difficultyTarget: target,
+    requestedShortlistSize:
+      TARGETED_SHORTLIST_SIZE,
+    exactCount,
+    fallbackCount,
+    exactRate:
+      shortlist.length === 0
+        ? 0
+        : roundMetric(
+            exactCount /
+            shortlist.length,
+          ),
+    archetypeCounts,
+  };
+}
+
+function roundMetric(
+  value: number,
+): number {
+  return (
+    Math.round(
+      value * 1_000_000,
+    ) /
+    1_000_000
+  );
 }
 
 export function createSerializableReport(
@@ -191,6 +307,13 @@ export function createSerializableReport(
     config: report.config,
     pool: report.pool,
     shortlist: report.shortlist,
+    ...(report.shortlistTargeting ===
+    undefined
+      ? {}
+      : {
+          shortlistTargeting:
+            report.shortlistTargeting,
+        }),
   };
 }
 
@@ -205,11 +328,54 @@ export function formatShortlistMarkdown(
     '',
   ];
 
+  const targetedPool =
+    report.pool.targeting;
+
+  const targetedShortlist =
+    report.shortlistTargeting;
+
+  if (
+    targetedPool !== undefined &&
+    targetedShortlist !== undefined
+  ) {
+    lines.push(
+      `Targeted pool: ${TARGETED_POOL_SIZE} requested`,
+      `Pool exact: ${targetedPool.exactCount}`,
+      `Pool fallback: ${targetedPool.fallbackCount}`,
+      `Global backfill: ${targetedPool.backfillCount}`,
+      `Shortlist exact: ${targetedShortlist.exactCount}/${TARGETED_SHORTLIST_SIZE}`,
+      `Shortlist fallback: ${targetedShortlist.fallbackCount}/${TARGETED_SHORTLIST_SIZE}`,
+      '',
+    );
+  }
+
   if (report.shortlist.length === 0) {
     lines.push(
       '_No shortlisted candidates._',
       '',
     );
+
+    return lines.join('\n');
+  }
+
+  if (
+    targetedPool !== undefined &&
+    targetedShortlist !== undefined
+  ) {
+    lines.push(
+      '## Global targeted shortlist',
+      '',
+    );
+
+    for (
+      const ranked
+      of report.shortlist
+    ) {
+      appendCandidate(
+        lines,
+        ranked,
+      );
+    }
 
     return lines.join('\n');
   }
@@ -474,6 +640,20 @@ function printRunSummary(
   console.info(
     `Shortlisted: ${report.shortlist.length}`,
   );
+
+  if (
+    report.pool.targeting !==
+      undefined &&
+    report.shortlistTargeting !==
+      undefined
+  ) {
+    console.info(
+      `Targeted pool exact=${report.pool.targeting.exactCount} fallback=${report.pool.targeting.fallbackCount} backfill=${report.pool.targeting.backfillCount} missing=${report.pool.targeting.missingSlots}`,
+    );
+    console.info(
+      `Targeted shortlist exact=${report.shortlistTargeting.exactCount} fallback=${report.shortlistTargeting.fallbackCount}`,
+    );
+  }
 
   console.info(
     `JSON: ${paths.jsonPath}`,

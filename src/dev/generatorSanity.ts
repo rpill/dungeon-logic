@@ -14,6 +14,16 @@ import {
   type DifficultyProfile,
 } from '../puzzle/difficulty/types';
 
+
+import {
+  TARGETED_POOL_SIZE,
+  TARGETED_SHORTLIST_SIZE,
+  TARGETED_SHORTLIST_SOFT_CAP,
+  difficultyBandDistance,
+  getTargetedArchetypeQuota,
+  getTargetedReservoirGoal,
+} from '../puzzle/generator/DifficultyTargetPolicy';
+
 import {
   SeededRandom,
   deriveCandidateSeed,
@@ -39,7 +49,9 @@ import {
 import {
   candidateDistance,
   scoreCandidate,
+  selectGlobalTargetedShortlist,
   selectShortlist,
+  selectTargetedPoolFromReservoirs,
 } from '../puzzle/generator/CandidateRanker';
 
 import {
@@ -164,6 +176,123 @@ function findCandidateForArchetype(
 
   throw new Error(
     `Expected generated candidate for ${archetype} ${size}x${size}.`,
+  );
+}
+
+
+function runDifficultyTargetPolicyChecks(): void {
+  assert(
+    TARGETED_POOL_SIZE === 50,
+    'Targeted pool size must be 50.',
+  );
+
+  assert(
+    TARGETED_SHORTLIST_SIZE === 15,
+    'Targeted shortlist size must be 15.',
+  );
+
+  assert(
+    TARGETED_SHORTLIST_SOFT_CAP === 9,
+    'Targeted shortlist soft cap must be 9.',
+  );
+
+  const expected = {
+    easy: [18, 16, 10, 4, 2],
+    medium: [10, 10, 16, 8, 6],
+    hard: [4, 4, 14, 20, 8],
+    expert: [2, 2, 6, 10, 30],
+  } as const;
+
+  const archetypes = [
+    GeneratorArchetype.MonsterOnly,
+    GeneratorArchetype.MixedOneRoom,
+    GeneratorArchetype.MixedTwoRooms,
+    GeneratorArchetype.ChestTwoRooms,
+    GeneratorArchetype.ChestOneRoom,
+  ] as const;
+
+  for (
+    const target
+    of [
+      DifficultyTarget.Easy,
+      DifficultyTarget.Medium,
+      DifficultyTarget.Hard,
+      DifficultyTarget.Expert,
+    ] as const
+  ) {
+    const quotas =
+      archetypes.map(
+        (archetype) =>
+          getTargetedArchetypeQuota(
+            target,
+            archetype,
+          ),
+      );
+
+    assert(
+      JSON.stringify(quotas) ===
+      JSON.stringify(expected[target]),
+      `${target} affinity quotas must match the approved v2 profile.`,
+    );
+
+    assert(
+      quotas.reduce(
+        (sum, value) => sum + value,
+        0,
+      ) === 50,
+      `${target} affinity quotas must sum to 50.`,
+    );
+
+    for (const archetype of archetypes) {
+      assert(
+        getTargetedReservoirGoal(
+          target,
+          archetype,
+        ) ===
+          2 *
+          getTargetedArchetypeQuota(
+            target,
+            archetype,
+          ),
+        `${target}/${archetype} reservoir goal must be 2x quota.`,
+      );
+    }
+  }
+
+  assert(
+    difficultyBandDistance(
+      DifficultyTarget.Medium,
+      DifficultyBand.Medium,
+    ) === 0,
+    'Exact target band distance must be zero.',
+  );
+
+  assert(
+    difficultyBandDistance(
+      DifficultyTarget.Medium,
+      DifficultyBand.Easy,
+    ) === 1 &&
+      difficultyBandDistance(
+        DifficultyTarget.Medium,
+        DifficultyBand.Hard,
+      ) === 1,
+    'Adjacent rated bands must have distance one.',
+  );
+
+  assert(
+    difficultyBandDistance(
+      DifficultyTarget.Medium,
+      DifficultyBand.Expert,
+    ) === 2,
+    'Expert must be distance two from medium.',
+  );
+
+  assert(
+    difficultyBandDistance(
+      DifficultyTarget.Expert,
+      DifficultyBand.Unrated,
+    ) > 3,
+    'Unrated must rank below every rated fallback.',
   );
 }
 
@@ -1066,6 +1195,7 @@ function runRankingChecks(): void {
   runShortlistDiversityChecks();
   runRankingV12Checks();
   runDifficultyTargetRankingChecks();
+  runGeneratorDifficultyV2Checks();
 }
 
 function runShortlistDiversityChecks(): void {
@@ -1690,6 +1820,438 @@ function createDifficultyFixture(
   };
 }
 
+function runGeneratorDifficultyV2Checks(): void {
+  const medium8 =
+    createRankingFixture({
+      seed: 9701,
+      size: 8,
+      archetype:
+        GeneratorArchetype.ChestTwoRooms,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          37,
+        ),
+    });
+
+  const medium8Second =
+    createRankingFixture({
+      seed: 9702,
+      size: 8,
+      archetype:
+        GeneratorArchetype.ChestTwoRooms,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          39,
+        ),
+    });
+
+  const hard7 =
+    createRankingFixture({
+      seed: 9703,
+      size: 7,
+      archetype:
+        GeneratorArchetype.ChestTwoRooms,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Hard,
+          62,
+        ),
+    });
+
+  const exactSizeSelection =
+    selectTargetedPoolFromReservoirs(
+      createTargetedReservoirs({
+        [GeneratorArchetype.ChestTwoRooms]: [
+          medium8,
+          medium8Second,
+          hard7,
+        ],
+      }),
+      DifficultyTarget.Medium,
+      createTargetedQuotaFixture({
+        [GeneratorArchetype.ChestTwoRooms]: 2,
+      }),
+      2,
+    );
+
+  assert(
+    exactSizeSelection.accepted.length === 2 &&
+      exactSizeSelection.accepted.every(
+        (entry) =>
+          entry.difficulty.band ===
+          DifficultyBand.Medium,
+      ),
+    'Targeted pool size diversity must never replace exact target candidates with fallback candidates.',
+  );
+
+  const medium7 =
+    createRankingFixture({
+      seed: 9704,
+      size: 7,
+      archetype:
+        GeneratorArchetype.ChestTwoRooms,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          36,
+        ),
+    });
+
+  const sameTierSizes =
+    selectTargetedPoolFromReservoirs(
+      createTargetedReservoirs({
+        [GeneratorArchetype.ChestTwoRooms]: [
+          medium8,
+          medium8Second,
+          medium7,
+        ],
+      }),
+      DifficultyTarget.Medium,
+      createTargetedQuotaFixture({
+        [GeneratorArchetype.ChestTwoRooms]: 2,
+      }),
+      2,
+    );
+
+  assert(
+    new Set(
+      sameTierSizes.accepted.map(
+        (entry) =>
+          entry.candidate.size,
+      ),
+    ).size === 2,
+    'Targeted two-room selection must prefer 7x7/8x8 coverage inside the same difficulty tier.',
+  );
+
+  const surplusExact =
+    createRankingFixture({
+      seed: 9711,
+      size: 7,
+      archetype:
+        GeneratorArchetype.MonsterOnly,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          37,
+        ),
+    });
+
+  const nominalExact =
+    createRankingFixture({
+      seed: 9712,
+      size: 7,
+      archetype:
+        GeneratorArchetype.MonsterOnly,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          38,
+        ),
+    });
+
+  const fallbackOther =
+    createRankingFixture({
+      seed: 9713,
+      size: 7,
+      archetype:
+        GeneratorArchetype.MixedOneRoom,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Hard,
+          62,
+        ),
+    });
+
+  const backfilled =
+    selectTargetedPoolFromReservoirs(
+      createTargetedReservoirs({
+        [GeneratorArchetype.MonsterOnly]: [
+          nominalExact,
+          surplusExact,
+        ],
+        [GeneratorArchetype.MixedOneRoom]: [
+          fallbackOther,
+        ],
+      }),
+      DifficultyTarget.Medium,
+      createTargetedQuotaFixture({
+        [GeneratorArchetype.MonsterOnly]: 1,
+        [GeneratorArchetype.ChestOneRoom]: 1,
+      }),
+      2,
+    );
+
+  assert(
+    backfilled.accepted.length === 2 &&
+      backfilled.backfillCount === 1 &&
+      backfilled.accepted.every(
+        (entry) =>
+          entry.difficulty.band ===
+          DifficultyBand.Medium,
+      ),
+    'Global targeted backfill must prefer exact surplus from another archetype over fallback candidates.',
+  );
+
+  const exactChestOne =
+    Array.from(
+      { length: 12 },
+      (_, index) =>
+        createRankingFixture({
+          seed: 9800 + index,
+          size: 8,
+          archetype:
+            GeneratorArchetype.ChestOneRoom,
+          difficulty:
+            createDifficultyFixture(
+              DifficultyBand.Expert,
+              87,
+            ),
+        }),
+    );
+
+  const exactChestTwo =
+    Array.from(
+      { length: 3 },
+      (_, index) =>
+        createRankingFixture({
+          seed: 9820 + index,
+          size: index === 0 ? 7 : 8,
+          archetype:
+            GeneratorArchetype.ChestTwoRooms,
+          difficulty:
+            createDifficultyFixture(
+              DifficultyBand.Expert,
+              88,
+            ),
+        }),
+    );
+
+  const exactGlobalPool =
+    createMultiArchetypeRankingPool([
+      ...exactChestOne,
+      ...exactChestTwo,
+    ]);
+
+  const exactGlobalShortlist =
+    selectGlobalTargetedShortlist(
+      exactGlobalPool,
+      DifficultyTarget.Expert,
+    );
+
+  assert(
+    exactGlobalShortlist.length ===
+      TARGETED_SHORTLIST_SIZE &&
+      exactGlobalShortlist.every(
+        (entry) =>
+          entry.accepted.difficulty.band ===
+          DifficultyBand.Expert,
+      ) &&
+      exactGlobalShortlist.filter(
+        (entry) =>
+          entry.accepted.candidate.archetype ===
+          GeneratorArchetype.ChestOneRoom,
+      ).length === 12,
+    'Global targeted shortlist must relax the soft cap rather than replace exact candidates with fallback.',
+  );
+
+  const twelveExact =
+    exactChestOne.slice(0, 9).concat(
+      exactChestTwo,
+    );
+
+  const hardFallback =
+    Array.from(
+      { length: 3 },
+      (_, index) =>
+        createRankingFixture({
+          seed: 9850 + index,
+          size: 7,
+          archetype:
+            GeneratorArchetype.MixedTwoRooms,
+          difficulty:
+            createDifficultyFixture(
+              DifficultyBand.Hard,
+              62,
+            ),
+        }),
+    );
+
+  const mediumFallback =
+    createRankingFixture({
+      seed: 9860,
+      size: 7,
+      archetype:
+        GeneratorArchetype.MonsterOnly,
+      difficulty:
+        createDifficultyFixture(
+          DifficultyBand.Medium,
+          37,
+        ),
+    });
+
+  const fallbackShortlist =
+    selectGlobalTargetedShortlist(
+      createMultiArchetypeRankingPool([
+        ...twelveExact,
+        ...hardFallback,
+        mediumFallback,
+      ]),
+      DifficultyTarget.Expert,
+    );
+
+  assert(
+    fallbackShortlist.length === 15 &&
+      fallbackShortlist.filter(
+        (entry) =>
+          entry.accepted.difficulty.band ===
+          DifficultyBand.Expert,
+      ).length === 12 &&
+      fallbackShortlist.filter(
+        (entry) =>
+          entry.accepted.difficulty.band ===
+          DifficultyBand.Hard,
+      ).length === 3 &&
+      fallbackShortlist.every(
+        (entry) =>
+          entry.accepted.difficulty.band !==
+          DifficultyBand.Medium,
+      ),
+    'Global targeted shortlist must exhaust the nearest fallback band before considering a farther band.',
+  );
+
+  const legacyPool =
+    createCandidatePool({
+      masterSeed: 123456,
+      acceptedPerArchetype: 1,
+      shortlistPerArchetype: 1,
+      maxAttemptsPerArchetype: 1,
+    });
+
+  assert(
+    legacyPool.targeting === undefined &&
+      legacyPool.config.difficultyTarget ===
+        undefined,
+    'Legacy any generation must not add targeted diagnostics or serialized target config.',
+  );
+
+  const targetedPool =
+    createCandidatePool({
+      masterSeed: 123456,
+      acceptedPerArchetype: 10,
+      shortlistPerArchetype: 3,
+      maxAttemptsPerArchetype: 1,
+      difficultyTarget:
+        DifficultyTarget.Medium,
+    });
+
+  assert(
+    targetedPool.targeting?.difficultyTarget ===
+      DifficultyTarget.Medium &&
+      targetedPool.targeting.requestedPoolSize ===
+        TARGETED_POOL_SIZE &&
+      targetedPool.targeting.missingSlots ===
+        TARGETED_POOL_SIZE -
+          targetedPool.accepted.length,
+    'Targeted pool must expose deterministic target diagnostics even when a tiny attempt budget cannot complete the pool.',
+  );
+}
+
+function createTargetedReservoirs(
+  overrides:
+    Partial<
+      Record<
+        GeneratorArchetypeType,
+        readonly AcceptedCandidate[]
+      >
+    >,
+): Record<
+  GeneratorArchetypeType,
+  readonly AcceptedCandidate[]
+> {
+  return {
+    [GeneratorArchetype.MonsterOnly]: [],
+    [GeneratorArchetype.ChestOneRoom]: [],
+    [GeneratorArchetype.ChestTwoRooms]: [],
+    [GeneratorArchetype.MixedOneRoom]: [],
+    [GeneratorArchetype.MixedTwoRooms]: [],
+    ...overrides,
+  };
+}
+
+function createTargetedQuotaFixture(
+  overrides:
+    Partial<
+      Record<
+        GeneratorArchetypeType,
+        number
+      >
+    >,
+): Readonly<
+  Record<
+    GeneratorArchetypeType,
+    number
+  >
+> {
+  return {
+    [GeneratorArchetype.MonsterOnly]: 0,
+    [GeneratorArchetype.ChestOneRoom]: 0,
+    [GeneratorArchetype.ChestTwoRooms]: 0,
+    [GeneratorArchetype.MixedOneRoom]: 0,
+    [GeneratorArchetype.MixedTwoRooms]: 0,
+    ...overrides,
+  };
+}
+
+function createMultiArchetypeRankingPool(
+  accepted:
+    readonly AcceptedCandidate[],
+): GeneratorPoolReport {
+  return {
+    masterSeed: 1,
+    config: {
+      masterSeed: 1,
+      acceptedPerArchetype: 10,
+      shortlistPerArchetype: 3,
+      maxAttemptsPerArchetype: 1,
+    },
+    archetypes:
+      ALL_GENERATOR_ARCHETYPES.map(
+        (archetype) => {
+          const entries =
+            accepted.filter(
+              (entry) =>
+                entry.candidate.archetype ===
+                archetype,
+            );
+
+          return {
+            stats: {
+              archetype,
+              attempts: entries.length,
+              accepted: entries.length,
+              rejectionCounts: {
+                'generation-failed': 0,
+                duplicate: 0,
+                'monster-density': 0,
+                invalid: 0,
+                'non-unique': 0,
+                'hard-quality': 0,
+                'geometry-warning': 0,
+              },
+            },
+            accepted: entries,
+            rejectionSamples: [],
+            exhausted: false,
+          };
+        },
+      ),
+    accepted,
+    completed: true,
+  };
+}
+
 function createRankingFixture(
   input: {
     seed: number;
@@ -1987,6 +2549,48 @@ function runCliContractChecks(): void {
   assert(
     report.shortlist.length === 5,
     'Small deterministic CLI report must shortlist one candidate per archetype.',
+  );
+
+  assert(
+    report.pool.targeting === undefined &&
+      report.shortlistTargeting === undefined,
+    'Legacy any run report must omit targeted-only diagnostics.',
+  );
+
+  const targetedReport =
+    buildGeneratorRunReport(
+      {
+        masterSeed: 1,
+        acceptedPerArchetype: 1,
+        shortlistPerArchetype: 1,
+        maxAttemptsPerArchetype: 1,
+      },
+      DifficultyTarget.Medium,
+    );
+
+  assert(
+    targetedReport.pool.targeting
+      ?.difficultyTarget ===
+      DifficultyTarget.Medium,
+    'Targeted run report must expose pool target diagnostics.',
+  );
+
+  assert(
+    targetedReport.shortlistTargeting
+      ?.difficultyTarget ===
+      DifficultyTarget.Medium,
+    'Targeted run report must expose shortlist target diagnostics.',
+  );
+
+  assert(
+    targetedReport.shortlistTargeting ===
+      undefined ||
+      targetedReport.shortlistTargeting
+        .exactCount +
+        targetedReport.shortlistTargeting
+          .fallbackCount ===
+        targetedReport.shortlist.length,
+    'Targeted shortlist exact/fallback arithmetic must match shortlist length.',
   );
 }
 
@@ -3344,6 +3948,7 @@ function runTwoRoomCoverageV12Checks(): void {
 }
 
 async function main(): Promise<void> {
+  runDifficultyTargetPolicyChecks();
   runRngChecks();
   runMonsterOnlyChecks();
   runArchetypeChecks();

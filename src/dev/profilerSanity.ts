@@ -7,6 +7,10 @@ import {
 } from '../data/levels/level001';
 
 import {
+  DifficultyTarget,
+} from '../puzzle/difficulty/types';
+
+import {
   createCandidatePool,
   evaluateCandidate,
 } from '../puzzle/generator/CandidateFactory';
@@ -27,6 +31,7 @@ import {
 
 import {
   buildProfileGeneratorCliReport,
+  parseProfileGeneratorCliArgs,
   parseProfileMasterSeed,
 } from './profileGeneratorCli';
 
@@ -422,6 +427,116 @@ function runProfilerV12Checks(): void {
   }
 }
 
+function runTargetedProfilerParityChecks(): void {
+  const config = {
+    masterSeed: 1,
+    acceptedPerArchetype: 1,
+    shortlistPerArchetype: 1,
+    maxAttemptsPerArchetype: 1,
+    difficultyTarget:
+      DifficultyTarget.Medium,
+  } as const;
+
+  const factory =
+    createCandidatePool(config);
+
+  const profiled =
+    profileGeneratorRun(config);
+
+  assert(
+    profiled.completed ===
+      factory.completed,
+    'Targeted profiler/factory completion must match.',
+  );
+
+  assert(
+    JSON.stringify(
+      profiled.acceptedCandidateIds,
+    ) ===
+      JSON.stringify(
+        factory.accepted.map(
+          (entry) =>
+            entry.candidate.id,
+        ),
+      ),
+    'Targeted profiler must select the same final candidate IDs as CandidateFactory.',
+  );
+
+  for (const archetype of factory.archetypes) {
+    const profiledArchetype =
+      profiled.archetypes.find(
+        (entry) =>
+          entry.archetype ===
+          archetype.stats.archetype,
+      );
+
+    const targetedDiagnostics =
+      factory.targeting?.archetypes.find(
+        (entry) =>
+          entry.archetype ===
+          archetype.stats.archetype,
+      );
+
+    assert(
+      profiledArchetype !== undefined,
+      `Targeted profiler must contain ${archetype.stats.archetype}.`,
+    );
+
+    assert(
+      targetedDiagnostics !== undefined,
+      `Targeted factory diagnostics must contain ${archetype.stats.archetype}.`,
+    );
+
+    if (
+      profiledArchetype === undefined ||
+      targetedDiagnostics === undefined
+    ) {
+      throw new Error(
+        'Expected targeted profiler/factory archetype diagnostics.',
+      );
+    }
+
+    assert(
+      profiledArchetype.attempts ===
+        archetype.stats.attempts,
+      `${archetype.stats.archetype} targeted profiler attempts must match factory.`,
+    );
+
+    assert(
+      profiledArchetype.reservoirAccepted ===
+        targetedDiagnostics.reservoirCount,
+      `${archetype.stats.archetype} targeted profiler reservoir count must match factory.`,
+    );
+
+    assert(
+      profiledArchetype.accepted ===
+        archetype.stats.accepted,
+      `${archetype.stats.archetype} targeted profiler final accepted count must match factory.`,
+    );
+  }
+
+  assert(
+    profiled.targeting?.exactCount ===
+      factory.targeting?.exactCount &&
+      profiled.targeting?.fallbackCount ===
+        factory.targeting?.fallbackCount &&
+      profiled.targeting?.backfillCount ===
+        factory.targeting?.backfillCount,
+    'Targeted profiler/factory targeting diagnostics must match.',
+  );
+
+  assert(
+    profiled.attempts.every(
+      (attempt) =>
+        attempt.status ===
+          CandidateStatus.Accepted ||
+        attempt.timings
+          .humanDifficultyMs === 0,
+    ),
+    'Rejected targeted profiler attempts must spend zero recorded Human Solver/Difficulty Analyzer time.',
+  );
+}
+
 function runProfileReportChecks(): void {
   const config = {
     masterSeed: 123456,
@@ -473,6 +588,26 @@ async function runProfileCliChecks():
       ],
     ) === 123456,
     'Profiler CLI must parse a decimal uint32 seed.',
+  );
+
+  assert(
+    parseProfileGeneratorCliArgs([
+      '--seed',
+      '123456',
+    ]).difficultyTarget ===
+      DifficultyTarget.Any,
+    'Profiler CLI must preserve legacy any mode when no difficulty is supplied.',
+  );
+
+  assert(
+    parseProfileGeneratorCliArgs([
+      '--seed',
+      '123456',
+      '--difficulty',
+      'hard',
+    ]).difficultyTarget ===
+      DifficultyTarget.Hard,
+    'Profiler CLI must parse a targeted difficulty.',
   );
 
   let invalidSeedThrew = false;
@@ -567,6 +702,12 @@ async function main(): Promise<void> {
     'PASS: generator run profiling parity',
   );
 
+  runTargetedProfilerParityChecks();
+
+  console.info(
+    'PASS: targeted generator profiler parity',
+  );
+
   runProfileReportChecks();
 
   console.info(
@@ -580,7 +721,7 @@ async function main(): Promise<void> {
   );
 
   console.info(
-    '5/5 checks passed',
+    '6/6 checks passed',
   );
 }
 
