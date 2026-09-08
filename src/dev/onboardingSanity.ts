@@ -1,5 +1,9 @@
 import { CellState } from '../puzzle/types';
-import { createOnboardingFlow, shouldShowContextualOnboarding } from '../onboarding/OnboardingFlow';
+import {
+  createOnboardingFlow,
+  isOnboardingStepSatisfied,
+  shouldShowContextualOnboarding,
+} from '../onboarding/OnboardingFlow';
 import { campaignManifest } from '../content/campaign/manifest';
 import { createCampaignGameSceneData } from '../runtime/GameLaunch';
 
@@ -8,46 +12,69 @@ function assert(condition: boolean, message: string): asserts condition {
 }
 
 const level1 = createOnboardingFlow('campaign-001');
-assert(level1.length === 5, 'Level 001 has five contextual onboarding steps.');
-assert(level1[0]?.target === 'clue', 'Level 001 starts by explaining a clue.');
-assert(level1[1]?.target === 'tool-wall', 'Level 001 then asks for the Wall tool.');
+assert(level1.length === 2, 'Level 001 has two action-driven onboarding steps with no Continue-only step.');
+
+const wallsStep = level1[0];
+assert(wallsStep?.target === 'board-cells', 'Level 001 starts with an actionable multi-cell wall deduction.');
+assert(wallsStep.expectedState === CellState.Wall, 'First 001 action requires walls.');
+assert(wallsStep.cells.length === 5, 'First 001 action requires all five forced walls, not only one wall.');
 assert(
-  level1[2]?.target === 'board-cell'
-  && level1[2].x === 0
-  && level1[2].y === 0
-  && level1[2].expectedState === CellState.Wall,
-  'Level 001 asks the player to place a wall at (0,0).',
+  wallsStep.cells.map(({ x, y }) => `${x},${y}`).join('|') === '0,0|1,0|3,0|4,0|5,0',
+  'First 001 action targets the five editable cells in the row clue 5.',
 );
-assert(level1[3]?.target === 'tool-floor', 'Level 001 then introduces Floor.');
 assert(
-  level1[4]?.target === 'board-cell'
-  && level1[4].x === 1
-  && level1[4].y === 5
-  && level1[4].expectedState === CellState.Floor,
-  'Level 001 asks the player to mark (1,5) as floor.',
+  wallsStep.guideClue?.axis === 'row' && wallsStep.guideClue.index === 0,
+  'First 001 action keeps row clue 5 highlighted.',
+);
+
+const oneWall = new Map<string, string>([['0,0', CellState.Wall]]);
+assert(
+  isOnboardingStepSatisfied(
+    wallsStep,
+    (x, y) => (oneWall.get(`${x},${y}`) as typeof CellState.Wall | undefined) ?? CellState.Unknown,
+  ) === false,
+  'Putting only one of the five walls must not advance onboarding to the row clue 0.',
+);
+
+const allWalls = new Map<string, string>(wallsStep.cells.map(({ x, y }) => [`${x},${y}`, CellState.Wall]));
+assert(
+  isOnboardingStepSatisfied(
+    wallsStep,
+    (x, y) => (allWalls.get(`${x},${y}`) as typeof CellState.Wall | undefined) ?? CellState.Unknown,
+  ) === true,
+  'Onboarding advances only after all five forced walls are placed.',
+);
+
+const floorStep = level1[1];
+assert(floorStep?.target === 'board-cells', 'Second 001 step is also action-driven.');
+assert(floorStep.expectedState === CellState.Floor, 'Second 001 action requires floor marks.');
+assert(floorStep.cells.length === 5, 'Row clue 0 tutorial asks for every editable floor cell in that row.');
+assert(
+  floorStep.guideClue?.axis === 'row' && floorStep.guideClue.index === 5,
+  'Row clue 0 is not introduced until the five-wall step is complete.',
 );
 
 const level2 = createOnboardingFlow('campaign-002');
-assert(level2.length === 2, 'Level 002 has two contextual chest steps.');
+assert(level2.length === 1, 'Level 002 has one actionable chest-room step with no Continue-only explanation.');
+const roomStep = level2[0];
 assert(
-  level2[0]?.target === 'board-cell'
-  && level2[0].x === 6
-  && level2[0].y === 2
-  && level2[0].expectedState === undefined,
-  'Level 002 first highlights the fixed chest at (6,2).',
-);
-assert(
-  level2[1]?.target === 'board-cell'
-  && level2[1].x === 5
-  && level2[1].y === 2
-  && level2[1].expectedState === CellState.Floor,
-  'Level 002 then asks for the interior floor consequence at (5,2).',
+  roomStep?.target === 'board-cells'
+  && roomStep.expectedState === CellState.Floor
+  && roomStep.cells.length === 1
+  && roomStep.cells[0]?.x === 5
+  && roomStep.cells[0]?.y === 2,
+  'Level 002 teaches the room rule through the concrete floor consequence at (5,2).',
 );
 
 assert(createOnboardingFlow('campaign-003').length === 0, 'Level 003 has no blocking tutorial flow.');
 const level4 = createOnboardingFlow('campaign-004');
-assert(level4.length === 1 && level4[0]?.target === 'message', 'Level 004 has one short combined-rules message.');
-assert(createOnboardingFlow('campaign-005').length === 0, 'Level 005 has no blocking tutorial flow.');
+assert(
+  level4.length === 1
+  && level4[0]?.target === 'message'
+  && level4[0].autoAdvanceMs > 0,
+  'Level 004 combined-rules note auto-advances without requiring Continue.',
+);
+assert(createOnboardingFlow('campaign-005').length === 0, 'Level 005 has no blocking onboarding flow.');
 assert(createOnboardingFlow('campaign-999').length === 0, 'Unknown levels have no contextual onboarding.');
 
 assert(shouldShowContextualOnboarding('campaign-001', []) === true, 'Fresh level 001 shows onboarding.');
@@ -71,4 +98,4 @@ const launchFourth = createCampaignGameSceneData(campaignManifest[3], {
 });
 assert(launchFourth.contextualOnboarding === true, 'First incomplete campaign-004 launch enables the combined-rules message.');
 
-console.info('[Dungeon Logic] Onboarding sanity: exact 001/002/004 contextual flow + replay gating passed');
+console.info('[Dungeon Logic] Onboarding sanity: action-driven 001/002 + auto message 004 passed');

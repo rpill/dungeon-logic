@@ -8,7 +8,11 @@ import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PuzzleState } from '../puzzle/PuzzleState';
-import { createOnboardingFlow, type OnboardingStep } from '../onboarding/OnboardingFlow';
+import {
+  createOnboardingFlow,
+  isOnboardingStepSatisfied,
+  type OnboardingStep,
+} from '../onboarding/OnboardingFlow';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -227,13 +231,14 @@ export class GameScene extends Phaser.Scene {
     let onboardingIndex = onboardingSteps.length > 0 ? 0 : -1;
     onboardingOpen = onboardingIndex >= 0;
 
-    const onboardingGuide = this.add.rectangle(0, 0, 1, 1, 0xd0b978, 0.18)
-      .setVisible(false)
-      .setDepth(40);
+    const onboardingGuides = Array.from({ length: 12 }, () => (
+      this.add.rectangle(0, 0, 1, 1, 0xd0b978, 0.18)
+        .setVisible(false)
+        .setDepth(40)
+    ));
     const onboardingPanel = this.add.rectangle(0, 0, 1, 1, 0x171b20, 0.96)
       .setVisible(false)
-      .setDepth(50)
-      .setInteractive({ useHandCursor: true });
+      .setDepth(50);
     const onboardingText = this.add.text(0, 0, '', {
       fontFamily: 'monospace',
       fontSize: '14px',
@@ -253,25 +258,20 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setVisible(false)
       .setDepth(51);
+    let onboardingAutoAdvance: Phaser.Time.TimerEvent | null = null;
 
     const currentOnboardingStep = (): OnboardingStep | null => (
       onboardingIndex >= 0 ? onboardingSteps[onboardingIndex] ?? null : null
     );
 
-    const stepCanContinueFromCallout = (step: OnboardingStep | null): boolean => {
-      if (step === null) return false;
-      if (step.target === 'clue' || step.target === 'message') return true;
-      if (step.target === 'board-cell') return step.expectedState === undefined;
-      if (step.target === 'tool-wall' || step.target === 'tool-floor') {
-        return !showTouchToolButtons;
-      }
-      return false;
+    const hideOnboardingGuides = (): void => {
+      for (const guide of onboardingGuides) guide.setVisible(false);
     };
 
     const relayoutOnboarding = (): void => {
       const step = currentOnboardingStep();
+      hideOnboardingGuides();
       if (!onboardingOpen || step === null) {
-        onboardingGuide.setVisible(false);
         onboardingPanel.setVisible(false);
         onboardingText.setVisible(false);
         onboardingActionText.setVisible(false);
@@ -281,8 +281,8 @@ export class GameScene extends Phaser.Scene {
       const toolbarTop = Math.min(
         ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
       );
-      const panelWidth = Math.min(this.scale.width - 24, this.scale.width < 700 ? 360 : 520);
-      const panelHeight = this.scale.width < 700 ? 78 : 68;
+      const panelWidth = Math.min(this.scale.width - 24, this.scale.width < 700 ? 372 : 560);
+      const panelHeight = this.scale.width < 700 ? 92 : 76;
       const panelX = this.scale.width / 2;
       const panelY = toolbarTop - panelHeight / 2 - 10;
 
@@ -291,52 +291,63 @@ export class GameScene extends Phaser.Scene {
         .setDisplaySize(panelWidth, panelHeight)
         .setVisible(true);
       onboardingText
-        .setPosition(panelX, panelY - 8)
+        .setPosition(panelX, panelY - 10)
         .setWordWrapWidth(Math.max(120, panelWidth - 26), true)
         .setFontSize(this.scale.width < 700 ? 13 : 14)
         .setText(step.message)
         .setVisible(true);
 
-      const canContinue = stepCanContinueFromCallout(step);
       let action = '';
-      if (canContinue) {
-        action = this.scale.width < 700 ? 'НАЖМИ, ЧТОБЫ ПРОДОЛЖИТЬ' : 'КЛИКНИ, ЧТОБЫ ПРОДОЛЖИТЬ';
-      } else if (step.target === 'tool-wall') {
-        action = 'НАЖМИ СТЕНА';
-      } else if (step.target === 'tool-floor') {
-        action = 'НАЖМИ ПОЛ';
-      } else if (step.target === 'board-cell') {
-        action = 'СДЕЛАЙ ХОД В ПОДСВЕЧЕННОЙ КЛЕТКЕ';
+      if (step.target === 'board-cells') {
+        const wallStep = step.expectedState === 'wall';
+        if (showTouchToolButtons) {
+          action = wallStep
+            ? 'ПОСТАВЬ ВСЕ ПОДСВЕЧЕННЫЕ СТЕНЫ'
+            : 'ВЫБЕРИ ПОЛ И ОТМЕТЬ ВСЕ ПОДСВЕЧЕННЫЕ КЛЕТКИ';
+        } else {
+          action = wallStep
+            ? 'ЛКМ: ПОСТАВЬ ВСЕ ПОДСВЕЧЕННЫЕ СТЕНЫ'
+            : 'ПКМ: ОТМЕТЬ ВСЕ ПОДСВЕЧЕННЫЕ КЛЕТКИ КАК ПОЛ';
+        }
       }
       onboardingActionText
         .setPosition(panelX, panelY + panelHeight / 2 - 13)
         .setText(action)
         .setVisible(action.length > 0);
 
-      let guideX = 0;
-      let guideY = 0;
-      let guideSize = Math.max(1, boardLayout.cellSize - 6);
-      let showGuide = false;
+      if (step.target !== 'board-cells') return;
 
-      if (step.target === 'clue') {
-        if (step.axis === 'row') {
-          guideX = boardLayout.originX - boardLayout.cellSize / 2;
-          guideY = boardLayout.originY + step.index * boardLayout.cellSize + boardLayout.cellSize / 2;
+      const guideSize = Math.max(1, boardLayout.cellSize - 6);
+      let guideIndex = 0;
+      const placeGuide = (x: number, y: number): void => {
+        const guide = onboardingGuides[guideIndex++];
+        if (guide === undefined) return;
+        guide
+          .setPosition(x, y)
+          .setDisplaySize(guideSize, guideSize)
+          .setVisible(true);
+      };
+
+      if (step.guideClue !== undefined) {
+        if (step.guideClue.axis === 'row') {
+          placeGuide(
+            boardLayout.originX - boardLayout.cellSize / 2,
+            boardLayout.originY + step.guideClue.index * boardLayout.cellSize + boardLayout.cellSize / 2,
+          );
         } else {
-          guideX = boardLayout.originX + step.index * boardLayout.cellSize + boardLayout.cellSize / 2;
-          guideY = boardLayout.originY - boardLayout.cellSize / 2;
+          placeGuide(
+            boardLayout.originX + step.guideClue.index * boardLayout.cellSize + boardLayout.cellSize / 2,
+            boardLayout.originY - boardLayout.cellSize / 2,
+          );
         }
-        showGuide = true;
-      } else if (step.target === 'board-cell') {
-        guideX = boardLayout.originX + step.x * boardLayout.cellSize + boardLayout.cellSize / 2;
-        guideY = boardLayout.originY + step.y * boardLayout.cellSize + boardLayout.cellSize / 2;
-        showGuide = true;
       }
 
-      onboardingGuide
-        .setPosition(guideX, guideY)
-        .setDisplaySize(guideSize, guideSize)
-        .setVisible(showGuide);
+      for (const { x, y } of step.cells) {
+        placeGuide(
+          boardLayout.originX + x * boardLayout.cellSize + boardLayout.cellSize / 2,
+          boardLayout.originY + y * boardLayout.cellSize + boardLayout.cellSize / 2,
+        );
+      }
     };
 
     const controlsLocked = (): boolean => solved || onboardingOpen || resetDialogOpen;
@@ -344,8 +355,8 @@ export class GameScene extends Phaser.Scene {
     const onboardingAllowsTool = (tool: 'wall' | 'floor'): boolean => {
       const step = currentOnboardingStep();
       if (!onboardingOpen || step === null) return true;
-      if (step.target === 'board-cell' && step.expectedState !== undefined) return true;
-      return step.target === `tool-${tool}`;
+      if (step.target !== 'board-cells') return false;
+      return step.expectedState === tool;
     };
 
     const syncToolbar = (): void => {
@@ -369,12 +380,9 @@ export class GameScene extends Phaser.Scene {
           || !toolAllowed
           || buttonState.disabled
           || (buttonState.id === 'reset' && interaction.getEditCount() === 0);
-        const guided = onboardingOpen && (
-          (step?.target === 'tool-wall' && buttonState.id === 'wall')
-          || (step?.target === 'tool-floor' && buttonState.id === 'floor')
-          || (step?.target === 'board-cell' && step.expectedState === 'wall' && buttonState.id === 'wall')
-          || (step?.target === 'board-cell' && step.expectedState === 'floor' && buttonState.id === 'floor')
-        );
+        const guided = onboardingOpen
+          && step?.target === 'board-cells'
+          && buttonState.id === step.expectedState;
         const fill = disabled
           ? 0x191d22
           : guided
@@ -395,10 +403,16 @@ export class GameScene extends Phaser.Scene {
       }
     };
 
+    const cancelOnboardingAutoAdvance = (): void => {
+      onboardingAutoAdvance?.destroy();
+      onboardingAutoAdvance = null;
+    };
+
     const finishOnboarding = (): void => {
+      cancelOnboardingAutoAdvance();
       onboardingIndex = -1;
       onboardingOpen = false;
-      board?.setInputCellTarget(null);
+      board?.setInputCellTargets(null);
       if (!solved && !resetDialogOpen) {
         board?.setInputEnabled(true);
       }
@@ -408,7 +422,35 @@ export class GameScene extends Phaser.Scene {
       syncToolbar();
     };
 
+    function advanceOnboarding(): void {
+      if (!onboardingOpen) return;
+      onboardingIndex += 1;
+      if (onboardingIndex >= onboardingSteps.length) {
+        finishOnboarding();
+        return;
+      }
+      applyOnboardingStep();
+    }
+
     const applyOnboardingStep = (): void => {
+      cancelOnboardingAutoAdvance();
+
+      while (true) {
+        const step = currentOnboardingStep();
+        if (step === null) {
+          finishOnboarding();
+          return;
+        }
+        if (
+          step.target === 'board-cells'
+          && isOnboardingStepSatisfied(step, (x, y) => puzzle.getCellState(x, y))
+        ) {
+          onboardingIndex += 1;
+          continue;
+        }
+        break;
+      }
+
       const step = currentOnboardingStep();
       if (step === null) {
         finishOnboarding();
@@ -417,49 +459,28 @@ export class GameScene extends Phaser.Scene {
 
       pauseActiveTimer();
       statusText.setVisible(false);
-      board?.setInputCellTarget(null);
+      board?.setInputCellTargets(null);
 
-      if (step.target === 'board-cell' && step.expectedState !== undefined) {
-        board?.setInputCellTarget({ x: step.x, y: step.y });
+      if (step.target === 'board-cells') {
+        board?.setInputCellTargets(step.cells);
         board?.setInputEnabled(true);
       } else {
         board?.setInputEnabled(false);
+        onboardingAutoAdvance = this.time.delayedCall(step.autoAdvanceMs, () => {
+          onboardingAutoAdvance = null;
+          advanceOnboarding();
+        });
       }
 
       relayoutOnboarding();
       syncToolbar();
     };
 
-    const advanceOnboarding = (): void => {
-      if (!onboardingOpen) return;
-      onboardingIndex += 1;
-      if (onboardingIndex >= onboardingSteps.length) {
-        finishOnboarding();
-        return;
-      }
-      applyOnboardingStep();
-    };
-
-    onboardingPanel.on('pointerup', () => {
-      if (stepCanContinueFromCallout(currentOnboardingStep())) {
-        advanceOnboarding();
-      }
-    });
-
     const setActiveTool = (tool: 'wall' | 'floor'): void => {
       if (solved || resetDialogOpen) return;
       if (onboardingOpen && !onboardingAllowsTool(tool)) return;
 
       board?.setActiveTool(tool);
-      const step = currentOnboardingStep();
-      if (
-        onboardingOpen
-        && ((step?.target === 'tool-wall' && tool === 'wall')
-          || (step?.target === 'tool-floor' && tool === 'floor'))
-      ) {
-        advanceOnboarding();
-        return;
-      }
       syncToolbar();
     };
 
@@ -575,9 +596,8 @@ export class GameScene extends Phaser.Scene {
       const step = currentOnboardingStep();
       if (
         onboardingOpen
-        && step?.target === 'board-cell'
-        && step.expectedState !== undefined
-        && puzzle.getCellState(step.x, step.y) === step.expectedState
+        && step !== null
+        && isOnboardingStepSatisfied(step, (x, y) => puzzle.getCellState(x, y))
       ) {
         advanceOnboarding();
       }
@@ -786,6 +806,7 @@ export class GameScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       pauseActiveTimer();
+      cancelOnboardingAutoAdvance();
       timerRefresh.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
       keyboard?.off('keydown', handleKeyDown);
