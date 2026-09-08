@@ -9,6 +9,7 @@ import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { createOnboardingFlow, type OnboardingStep } from '../onboarding/OnboardingFlow';
+import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
@@ -117,6 +118,18 @@ export class GameScene extends Phaser.Scene {
     })
       .setOrigin(0, 0.5)
       .setInteractive({ useHandCursor: true });
+
+    const helpText = this.add.text(
+      this.scale.width - chrome.actionInset,
+      chrome.titleY + safeTop,
+      this.scale.width < 700 ? 'ⓘ' : 'ⓘ Правила',
+      {
+        fontFamily: 'monospace',
+        fontSize: `${chrome.actionFontSize}px`,
+        color: '#89929d',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
     const profileService = launchData.context.mode === 'campaign'
       ? this.getPlayerProfileService()
@@ -636,6 +649,15 @@ export class GameScene extends Phaser.Scene {
       void leave();
     });
 
+    helpText.on('pointerup', () => {
+      if (resetDialogOpen) return;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'GameScene' });
+      this.scene.pause();
+    });
+
     const keyboard = this.input.keyboard;
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.repeat || controlsLocked()) return;
@@ -688,6 +710,11 @@ export class GameScene extends Phaser.Scene {
         .setPosition(nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.actionFontSize);
 
+      helpText
+        .setPosition(width - nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
+        .setFontSize(nextChrome.actionFontSize)
+        .setText(width < 700 ? 'ⓘ' : 'ⓘ Правила');
+
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);
         if (visual === undefined) continue;
@@ -737,6 +764,19 @@ export class GameScene extends Phaser.Scene {
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
+    const handleSceneResume = (): void => {
+      if (onboardingOpen) {
+        applyOnboardingStep();
+        return;
+      }
+      if (!solved && !resetDialogOpen) {
+        board?.setInputEnabled(true);
+      }
+      resumeActiveTimer();
+      syncToolbar();
+    };
+    this.events.on(Phaser.Scenes.Events.RESUME, handleSceneResume);
+
     const timerRefresh = this.time.addEvent({
       delay: 250,
       loop: true,
@@ -749,6 +789,7 @@ export class GameScene extends Phaser.Scene {
       timerRefresh.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
       keyboard?.off('keydown', handleKeyDown);
+      this.events.off(Phaser.Scenes.Events.RESUME, handleSceneResume);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }

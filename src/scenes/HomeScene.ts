@@ -8,6 +8,7 @@ import {
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
 import { createCampaignGameSceneData } from '../runtime/GameLaunch';
+import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
   ARCHIVE_SCENE_KEY,
@@ -112,6 +113,18 @@ export class HomeScene extends Phaser.Scene {
       '#d8d1c4',
       () => this.scene.start(ARCHIVE_SCENE_KEY),
     );
+
+    const helpLink = this.add.text(this.scale.width - 16, 18, 'ⓘ КАК ИГРАТЬ', {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '12px' : '14px',
+      color: '#89929d',
+      fontStyle: 'bold',
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    helpLink.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!this.pointerGate.canActivate(pointer.id)) return;
+      this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'HomeScene' });
+      this.scene.pause();
+    });
 
     const handleResize = (): void => {
       if (this.scene.isActive()) this.scene.restart();
