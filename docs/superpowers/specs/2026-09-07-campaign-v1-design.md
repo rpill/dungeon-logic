@@ -1,7 +1,7 @@
 # Dungeon Logic Campaign v1 Design
 
 **Date:** 2026-09-07  
-**Status:** Approved design, ready for implementation planning  
+**Status:** Approved design, revised with chapter/theme progression  
 **Project:** `dungeon-logic`  
 **Runtime:** Phaser 4 / TypeScript / Vite  
 
@@ -20,7 +20,7 @@ The campaign system must provide:
 - a deterministic dev-only promotion path from generated candidates into stable campaign content;
 - strict separation between production campaign content and `.generated` dev artifacts.
 
-The first playable pilot contains 5 manually curated `easy` `monster-only` campaign levels. The architecture is sized for the planned 30-level Campaign v1 but must not fabricate or auto-promote the remaining 25 levels.
+The first playable pilot contains 5 manually curated levels that deliberately mix `monster-only`, `chest-one-room`, and `mixed-one-room` archetypes while staying within the opening Graveyard visual chapter. The architecture is sized for the planned 30-level Campaign v1 but must not fabricate or auto-promote the remaining 25 levels.
 
 ## 2. Existing Runtime and Compatibility Boundary
 
@@ -53,7 +53,9 @@ Campaign progression is linear.
 - Locked levels cannot be started through the campaign UI.
 - Campaign v1 is completion-only: no stars, move score, timer rating, or performance grading.
 
-The model must remain compatible with a future chapter layer, but Campaign v1 does not implement chapters.
+Campaign v1 includes a lightweight chapter/theme layer used only for content grouping and board visuals. It does **not** implement a world map, chapter-select screen, chapter rewards, or chapter-specific progression rules.
+
+Campaign progress remains level-id based. A chapter/theme reassignment therefore does not require a save migration.
 
 ### 3.2 Campaign content source
 
@@ -79,19 +81,63 @@ Blockers and directional doors remain technical/dev content and are excluded fro
 
 ## 4. Planned Campaign Shape
 
-The planned 30-level curation envelope is:
+Campaign v1 uses four visual chapters. Difficulty rises on average across them, but a chapter is **not** an alias for one exact difficulty band. Breather levels and local difficulty dips are allowed.
 
-| Slots | Allowed archetypes | Allowed difficulty | Purpose |
-| --- | --- | --- | --- |
-| 1–5 | `monster-only` | `easy` | onboarding and core deduction |
-| 6–10 | `chest-one-room` | `easy` | introduce Treasure Room rules |
-| 11–18 | `mixed-one-room` | `easy`, `medium` | combine monsters and one room |
-| 19–24 | `chest-two-rooms`, `mixed-two-rooms` | `medium` | two-room reasoning |
-| 25–30 | `chest-two-rooms`, `mixed-two-rooms` | `medium`, `hard` | late-campaign challenge |
+| Chapter | Slots | Theme | Typical difficulty | Typical board size |
+| --- | --- | --- | --- | --- |
+| I — Overgrown Graveyard | 1–6 | `graveyard` | `easy` | 6×6 → 7×7 |
+| II — Desert Ruins | 7–13 | `desert-ruins` | `easy` → `medium` | mostly 7×7 |
+| III — Sewers / Sunken Dungeon | 14–22 | `sewers` | `medium`, late `hard` | 7×7 → 8×8 |
+| IV — Crypt | 23–30 | `crypt` | `medium` → `hard` | mostly 8×8 |
 
-This is a curation constraint, not an automatic sorter. Difficulty score is a filter and diagnostic, not a command to order levels numerically.
+The target slot rhythm is:
 
-The first implementation pilot promotes only slots 1–5. Slots 6–30 are represented by the curation plan but are not shown in Level Select until actual campaign entries exist.
+| Slot | Chapter | Target archetype | Target difficulty | Target size | Purpose |
+| ---: | --- | --- | --- | --- | --- |
+| 1 | Graveyard | `monster-only` | `easy` | 6×6 | clue + Monster onboarding |
+| 2 | Graveyard | `chest-one-room` | `easy` | 7×7 | Treasure Room onboarding |
+| 3 | Graveyard | `monster-only` | `easy` | 6×6 | reinforce core deduction |
+| 4 | Graveyard | `mixed-one-room` | `easy` | 6×6 | first combined reasoning |
+| 5 | Graveyard | `chest-one-room` | `easy` | 6×6 or 7×7 | first small exam |
+| 6 | Graveyard | `mixed-one-room` | `easy` | 7×7 | chapter finale |
+| 7 | Desert Ruins | `monster-only` | `easy` | 7×7 | visual reset / breather |
+| 8 | Desert Ruins | `mixed-one-room` | `easy` | 7×7 | familiar mechanics in new zone |
+| 9 | Desert Ruins | `chest-one-room` | `medium` | 7×7 | room-focused reasoning |
+| 10 | Desert Ruins | `mixed-one-room` | `medium` | 7×7 | stronger combination |
+| 11 | Desert Ruins | `chest-two-rooms` | `medium` | 7×7 | first two-room puzzle |
+| 12 | Desert Ruins | `monster-only` | `medium` | 7×7 or 8×8 | change of reasoning rhythm |
+| 13 | Desert Ruins | `mixed-two-rooms` | `medium` | 7×7 or 8×8 | chapter finale |
+| 14 | Sewers | `mixed-one-room` | `medium` | 8×8 | new zone with familiar logic |
+| 15 | Sewers | `chest-two-rooms` | `medium` | 8×8 | spatial room reasoning |
+| 16 | Sewers | `monster-only` | `medium` | 8×8 | pure deduction change-up |
+| 17 | Sewers | `mixed-two-rooms` | `medium` | 8×8 | combined pressure |
+| 18 | Sewers | `chest-one-room` | `medium` | 7×7 | breather |
+| 19 | Sewers | `mixed-two-rooms` | `medium` | 8×8 | return to combined pressure |
+| 20 | Sewers | `chest-two-rooms` | `medium` | 8×8 | room-focused variation |
+| 21 | Sewers | `monster-only` | `medium` | 8×8 | reasoning rhythm reset |
+| 22 | Sewers | `mixed-two-rooms` | `medium` or `hard` | 8×8 | chapter finale |
+| 23 | Crypt | `chest-two-rooms` | `medium` | 8×8 | final-zone entry |
+| 24 | Crypt | `mixed-one-room` | `hard` | 8×8 | hard one-room variation |
+| 25 | Crypt | `mixed-two-rooms` | `hard` | 8×8 | late-game core |
+| 26 | Crypt | `monster-only` | `hard` | 8×8 | rare pure challenge |
+| 27 | Crypt | `chest-two-rooms` | `hard` | 8×8 | room challenge |
+| 28 | Crypt | `mixed-two-rooms` | `hard` | 8×8 | high difficulty |
+| 29 | Crypt | `chest-one-room` | `hard` | 8×8 | late variation |
+| 30 | Crypt | `mixed-two-rooms` | `hard` | 8×8 | campaign finale |
+
+This table is a **curation target**, not an automatic numeric sorter. Human readability, deduction quality, and variety may justify changing a neighboring target before promotion. Such a change must be made explicitly in `campaignCurationPlan`; the promotion CLI does not silently bypass the plan.
+
+Campaign-wide curation invariants:
+
+- no archetype appears more than twice consecutively;
+- a new mechanic first appears in a simple form, then returns in mixed contexts;
+- difficulty trends upward in waves rather than increasing every slot;
+- a noticeable spike may be followed by a breather;
+- board size grows gradually rather than by rigid blocks;
+- every visual chapter contains multiple archetypes;
+- `expert` is excluded from the main 30-level campaign and may become separate challenge content later.
+
+The first implementation pilot promotes only slots 1–5 and uses only the `graveyard` theme. Slots 6–30 remain curation-plan entries and are not shown in Level Select until promoted.
 
 ## 5. Architecture
 
@@ -106,11 +152,18 @@ BootScene / launch routing
 CampaignService
         |
         +---- Campaign Manifest
+        +---- Campaign Chapters
         +---- Campaign Progress logic
         +---- CampaignProgressStorage
         |
         v
 LevelSelectScene
+        |
+        v
+Campaign launch resolver
+        |
+        +---- LevelDefinition
+        +---- resolved BoardVisualTheme
         |
         v
 GameScene(campaign)
@@ -142,6 +195,8 @@ src/
   content/
     campaign/
       types.ts
+      chapters.ts
+      themes.ts
       curationPlan.ts
       manifest.ts
       levels/
@@ -149,6 +204,9 @@ src/
         campaign001.ts
         campaign002.ts
         ...
+
+  view/
+    BoardVisualTheme.ts
 
   scenes/
     BootScene.ts
@@ -168,24 +226,38 @@ Responsibilities:
 - `CampaignProgressStorage.ts`: async persistence interface.
 - `LocalCampaignProgressStorage.ts`: browser fallback/local-development implementation.
 - `CampaignService.ts`: manifest + progress orchestration used by scenes.
-- `content/campaign/types.ts`: campaign content/provenance/curation contracts.
-- `curationPlan.ts`: slot constraints and onboarding assignments for planned Campaign v1.
-- `manifest.ts`: ordered runtime campaign entries created from promoted snapshots.
+- `content/campaign/types.ts`: campaign content/provenance/curation/chapter contracts.
+- `chapters.ts`: static Campaign v1 chapter definitions and slot ownership.
+- `themes.ts`: mapping from campaign `themeId` to generic `BoardVisualTheme` definitions using existing project assets.
+- `curationPlan.ts`: per-slot archetype, difficulty, board-size, chapter, and onboarding constraints.
+- `manifest.ts`: ordered runtime campaign entries created from promoted snapshots plus chapter assignments.
 - `levels/*.ts`: immutable promoted `LevelDefinition` snapshots plus provenance metadata.
 - `levels/index.ts`: deterministic static registry of promoted snapshots; promotion tooling regenerates this registry rather than using runtime filesystem access.
+- `view/BoardVisualTheme.ts`: campaign-agnostic visual contract consumed by `GameScene`/`BoardView`.
 - `LevelSelectScene.ts`: campaign hub UI only; no direct storage access.
 - `promoteCampaignLevel.ts`: dev-only deterministic promotion CLI.
 - sanity modules: pure behavioral regression checks without pixel-layout assertions.
+
+`BoardView` may consume the generic visual theme contract but must not import campaign manifests, chapter ids, campaign progress, or promotion metadata.
 
 ## 7. Campaign Content Contracts
 
 ### 7.1 Stable campaign entry
 
 ```ts
+export type CampaignChapterId =
+  | 'graveyard'
+  | 'desert-ruins'
+  | 'sewers'
+  | 'crypt';
+
+export type CampaignThemeId = CampaignChapterId;
+
 export interface CampaignLevelEntry {
   readonly slot: number;
   readonly id: string;
   readonly level: LevelDefinition;
+  readonly chapterId: CampaignChapterId;
   readonly onboarding: readonly CampaignOnboardingId[];
 }
 ```
@@ -199,7 +271,65 @@ Rules:
 - manifest order is slot order;
 - after release, a campaign id is not silently reused for a different puzzle.
 
-### 7.2 Provenance metadata
+### 7.2 Chapter and visual-theme contracts
+
+```ts
+export interface CampaignChapterDefinition {
+  readonly id: CampaignChapterId;
+  readonly title: string;
+  readonly themeId: CampaignThemeId;
+  readonly slots: readonly number[];
+}
+```
+
+Chapter definitions are static content grouping. They do not add chapter-specific save state or progression rules.
+
+The board renderer receives a campaign-agnostic visual contract, for example:
+
+```ts
+export interface BoardVisualTheme {
+  readonly id: string;
+  readonly board: {
+    readonly floorTexture: string;
+    readonly wallTexture: string;
+    readonly roomFloorTexture: string;
+    readonly outerGroundTexture: string;
+  };
+  readonly entities: {
+    readonly monsterTextures: readonly string[];
+    readonly chestTexture: string;
+  };
+  readonly decoration: {
+    readonly propTextures: readonly string[];
+  };
+}
+```
+
+Theme keys must resolve to existing project assets during implementation; Campaign v1 does not add a new external asset dependency. Exact atlas/texture keys are implementation details and must be verified against the current asset tree rather than invented in the spec.
+
+A visual theme may change:
+
+- board floor / surrounding ground;
+- wall appearance;
+- Treasure Room floor appearance;
+- decorative props around the board;
+- Monster appearance;
+- chest appearance;
+- noninteractive environmental details.
+
+A visual theme must **not** change:
+
+- puzzle rules or `LevelDefinition`;
+- row/column clue values or semantics;
+- board topology or cell coordinates;
+- input behavior;
+- WALL / OPEN / UNKNOWN state semantics;
+- HUD/button behavior;
+- progression/save semantics.
+
+A campaign snapshot is therefore mechanically reusable under another theme without changing solver/validator results.
+
+### 7.3 Provenance metadata
 
 Each promoted snapshot keeps dev-facing provenance separate from gameplay rules:
 
@@ -218,7 +348,7 @@ export interface CampaignLevelProvenance {
 
 Provenance is diagnostic metadata. Campaign progression must not depend on source seed or source candidate id.
 
-### 7.3 Onboarding ids
+### 7.4 Onboarding ids
 
 Campaign v1 supports explicit onboarding identifiers:
 
@@ -232,8 +362,10 @@ export type CampaignOnboardingId =
 Initial assignments:
 
 - slot 1: `row-column-clues`, `monster-dead-end`;
-- slots 2–5: no required system-rule onboarding;
-- the first promoted Treasure Room level in the planned campaign (slot 6 under the current curation plan) receives `treasure-room-rule`.
+- slot 2: `treasure-room-rule`;
+- slots 3–5: no new system-rule onboarding.
+
+Because the pilot deliberately mixes archetypes, Treasure Room onboarding occurs in slot 2 rather than being deferred to a later block.
 
 ## 8. Progress Model
 
@@ -420,13 +552,15 @@ export type GameLaunchContext =
   | {
       readonly mode: 'campaign';
       readonly campaignLevelId: string;
+      readonly theme: BoardVisualTheme;
     }
   | {
       readonly mode: 'dev';
+      readonly theme: BoardVisualTheme;
     };
 ```
 
-The routing layer resolves the level before gameplay starts.
+The routing layer resolves the level and visual theme before gameplay starts. Dev launches use one stable default dev theme and never require campaign chapter data.
 
 ## 12. Level Select UX
 
@@ -439,7 +573,7 @@ It contains:
 - visible level numbers;
 - completed, current/unlocked, and locked states.
 
-It does not show unimplemented slots 6–30 during the five-level pilot.
+It does not show unimplemented slots 6–30 during the five-level pilot. Campaign v1 does not require chapter tabs, a chapter map, chapter transitions, or chapter rewards; chapter data exists primarily to resolve board themes and organize curation.
 
 ### 12.1 Level states
 
@@ -510,7 +644,7 @@ Slot 1 introduces:
 - row/column clue meaning;
 - Monster dead-end rule.
 
-The first Treasure Room campaign level introduces the Treasure Room rule once through the same mechanism.
+Slot 2 is the first Treasure Room campaign level and introduces the Treasure Room rule through the same mechanism.
 
 Onboarding UI must not be locked to pixel-exact tests. It may be visually redesigned later while preserving behavior.
 
@@ -537,10 +671,11 @@ Before writing any campaign file, the tool must:
 7. reject `stuck` or `invalid` human status;
 8. run `DifficultyAnalyzer`;
 9. reject `unrated` difficulty;
-10. verify archetype and difficulty against `campaignCurationPlan` for the target slot;
-11. verify the target slot/id is not occupied unless explicit replacement was requested;
-12. rewrite only the snapshot id to the stable campaign id;
-13. validate the resulting campaign registry/manifest before persisting changes.
+10. re-run the existing generator quality acceptance check used for accepted candidates;
+11. verify archetype, difficulty, board size, and chapter assignment against `campaignCurationPlan` for the target slot;
+12. verify the target slot/id is not occupied unless explicit replacement was requested;
+13. rewrite only the snapshot id to the stable campaign id;
+14. validate the resulting campaign registry/manifest/chapter ownership before persisting changes.
 
 ### 15.2 Atomicity
 
@@ -566,22 +701,40 @@ This avoids runtime filesystem access and avoids ad-hoc source patching of scene
 
 ## 16. Pilot Curation Workflow
 
-The first five campaign levels are selected manually.
+The first five campaign levels are manually curated for **variety**, not as five `monster-only` puzzles.
 
-Workflow:
+Target pilot sequence:
 
 ```text
-generate 10–15 easy monster-only candidates
--> use existing generated playtest URLs
--> human playtest/compare candidates
--> select five
--> order them from clearest to more demanding
--> promote to slots 1..5
+001 monster-only      easy 6×6      Graveyard
+002 chest-one-room    easy 7×7      Graveyard
+003 monster-only      easy 6×6      Graveyard
+004 mixed-one-room    easy 6×6      Graveyard
+005 chest-one-room    easy 6×6/7×7  Graveyard
 ```
 
-The five are not chosen automatically by the top five numeric difficulty scores. Human readability and onboarding value may override small score differences.
+Selection workflow:
 
-The remaining 25 levels are not auto-filled after infrastructure lands. They are curated only after the five-level pilot flow has been played end-to-end.
+```text
+generate targeted pools for the required archetype/difficulty/size envelopes
+-> apply Validator / uniqueness / Human Solver / Difficulty / quality filters
+-> compare candidate deduction paths and structures
+-> prefer readable candidates that differ from the preceding 1–2 levels
+-> promote the chosen five into slots 1..5
+```
+
+The user has already confirmed that the sampled easy `monster-only` candidates feel good in play. The assistant may therefore rank/select the pilot candidates itself, provided it follows the approved curation invariants and does not simply choose the lowest five numeric scores.
+
+Candidate ranking for campaign curation considers, in order:
+
+1. human readability and clarity of deductions;
+2. correct onboarding role for the target slot;
+3. novelty versus the previous one or two campaign puzzles;
+4. deduction-path interest and absence of trivial repetition;
+5. appropriate spike/breather role;
+6. existing quality and difficulty diagnostics.
+
+The remaining 25 levels are not auto-filled after infrastructure lands. They are curated after the five-level pilot is played end-to-end.
 
 ## 17. Error Handling
 
@@ -627,6 +780,8 @@ Must cover:
 - duplicate manifest slots fail validation;
 - duplicate manifest ids fail validation;
 - invalid id/slot pairing fails validation;
+- every promoted slot belongs to exactly one valid chapter;
+- manifest chapter ids resolve to known chapter/theme definitions;
 - onboarding is shown only for uncompleted campaign entries;
 - persistence failure keeps in-memory progression usable.
 
@@ -640,7 +795,8 @@ Must cover:
 - missing candidate is rejected;
 - mismatched archetype is rejected;
 - mismatched difficulty is rejected;
-- invalid/nonunique/human-unsolved/unrated candidate is rejected at the corresponding gate;
+- mismatched board size/chapter plan is rejected;
+- invalid/nonunique/human-unsolved/unrated/quality-rejected candidate is rejected at the corresponding gate;
 - failed promotion causes no partial writes;
 - regenerated registry ordering is stable.
 
@@ -652,7 +808,7 @@ Behavioral checks must cover:
 - Boot with authored technical query enters dev GameScene;
 - valid generated playtest query preserves dev flow;
 - locked Level Select entry does not launch;
-- unlocked entry launches the correct campaign snapshot/context;
+- unlocked entry launches the correct campaign snapshot/context/theme;
 - campaign victory completes the correct id;
 - campaign victory shows Next only when a next entry exists;
 - dev victory does not mutate campaign progress;
@@ -665,16 +821,17 @@ No pixel-coordinate assertions for Level Select cards or onboarding presentation
 
 Campaign v1 infrastructure is ready for pilot playtest only when all of the following are true:
 
-- five manually selected `easy` `monster-only` snapshots are promoted as `campaign-001` through `campaign-005`;
+- five manually curated mixed-archetype pilot snapshots are promoted as `campaign-001` through `campaign-005` following the pilot target sequence;
 - fresh progress exposes only campaign slot 1;
 - completing each level unlocks the next exactly once;
 - page reload restores local progress;
 - Level Select accurately displays completed/unlocked/locked states;
 - Continue follows the defined resolution rules;
 - Restart does not mutate progression;
-- slot 1 onboarding appears before first completion and not on replay after completion;
+- slot 1 Monster/clue onboarding and slot 2 Treasure Room onboarding appear before first completion and not on replay after completion;
 - `?level=...` technical flow still works;
 - generated candidate playtest still works in development;
+- all five pilot levels resolve the `graveyard` BoardVisualTheme without changing puzzle mechanics;
 - campaign code does not read `.generated` at runtime;
 - campaign core does not alter puzzle rules/solver/generator behavior;
 - campaign sanity and promotion sanity are green;
@@ -688,8 +845,9 @@ After this gate, the user plays the five-level pilot before slots 6–30 are cur
 Campaign v1 does not implement:
 
 - final visual design for menu/meta UI;
+- creation of new external art packs; Campaign v1 themes use existing project assets;
 - separate main menu;
-- chapters;
+- chapter map/select UI, chapter rewards, chapter transitions, or chapter-specific progression rules;
 - stars, scoring, speed grading, or move grading;
 - daily challenges;
 - achievements;
@@ -722,3 +880,6 @@ The following are hard invariants:
 10. Promotion validates before writing and is deterministic.
 11. The game architecture assumes no custom backend.
 12. The frozen generator is not modified to satisfy Campaign v1.
+13. Chapter/theme data never changes puzzle mechanics or save progression.
+14. Difficulty and visual chapter are correlated by curation but are never treated as the same concept.
+15. Dev/generated playtest uses a stable default visual theme and does not depend on campaign chapter state.

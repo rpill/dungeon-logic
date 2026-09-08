@@ -4,6 +4,11 @@ import './style.css';
 
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
+import { HomeScene } from './scenes/HomeScene';
+import { ArchiveScene } from './scenes/ArchiveScene';
+import { getInitialViewportSize } from './runtime/ResponsiveLayout';
+
+const initialViewport = getInitialViewportSize(window.innerWidth, window.innerHeight);
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -11,8 +16,8 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: 'app',
   disableContextMenu: true,
 
-  width: 1280,
-  height: 720,
+  width: initialViewport.width,
+  height: initialViewport.height,
 
   backgroundColor: '#111318',
 
@@ -20,12 +25,14 @@ const config: Phaser.Types.Core.GameConfig = {
   roundPixels: true,
 
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 
   scene: [
     BootScene,
+    HomeScene,
+    ArchiveScene,
     GameScene,
   ],
 };

@@ -44,6 +44,21 @@ export const levels:
   level012,
   ];
 
+export function tryResolveLevel(
+  value: string | null,
+): LevelDefinition | null {
+  if (value === null) {
+    return null;
+  }
+
+  const levelNumber = Number(value);
+  if (!Number.isInteger(levelNumber)) {
+    return null;
+  }
+
+  return levels[levelNumber - 1] ?? null;
+}
+
 export function resolveLevel(
   value: string | null,
 ): LevelDefinition {

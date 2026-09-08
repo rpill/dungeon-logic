@@ -9,10 +9,12 @@ dungeon-logic/
 │       │   ├── 2026-09-03-human-solvability.md
 │       │   ├── 2026-09-03-treasure-room-solver-pruning.md
 │       │   ├── 2026-09-04-difficulty-analysis-v1.md
-│       │   └── 2026-09-04-generator-difficulty-v2.md
+│       │   ├── 2026-09-04-generator-difficulty-v2.md
+│       │   └── 2026-09-07-campaign-v1.md
 │       ├── reports/
 │       │   ├── 2026-09-03-human-solvability-baseline.md
-│       │   └── 2026-09-04-difficulty-v1-baseline.md
+│       │   ├── 2026-09-04-difficulty-v1-baseline.md
+│       │   └── 2026-09-07-campaign-v1-pilot-curation.md
 │       └── specs/
 │           ├── 2026-09-01-phaser-bootstrap-design.md
 │           ├── 2026-09-01-static-field-mechanics-design.md
@@ -22,8 +24,27 @@ dungeon-logic/
 │           ├── 2026-09-03-human-solvability-design.md
 │           ├── 2026-09-03-treasure-room-solver-pruning-design.md
 │           ├── 2026-09-04-difficulty-analysis-v1-design.md
-│           └── 2026-09-04-generator-difficulty-v2-design.md
+│           ├── 2026-09-04-generator-difficulty-v2-design.md
+│           └── 2026-09-07-campaign-v1-design.md
 ├── public/
+│   ├── assets/
+│   │   ├── board/
+│   │   │   └── graveyard/
+│   │   │       ├── border-bottom.png
+│   │   │       ├── border-left.png
+│   │   │       ├── border-right.png
+│   │   │       ├── border-top.png
+│   │   │       ├── clue-corner.png
+│   │   │       ├── clue-tile.png
+│   │   │       ├── floor-mark.png
+│   │   │       ├── floor.png
+│   │   │       ├── wall-a.png
+│   │   │       ├── wall-b.png
+│   │   │       └── wall-c.png
+│   │   └── oryx/
+│   │       ├── uf_heroes_simple.png
+│   │       ├── uf_items.png
+│   │       └── uf_terrain.png
 │   ├── favicon.svg
 │   └── icons.svg
 ├── scripts/
@@ -32,6 +53,26 @@ dungeon-logic/
 │   ├── board/
 │   │   ├── BoardView.ts
 │   │   └── CellView.ts
+│   ├── campaign/
+│   │   ├── CampaignProgress.ts
+│   │   ├── CampaignProgressStorage.ts
+│   │   ├── CampaignService.ts
+│   │   ├── LocalCampaignProgressStorage.ts
+│   │   └── types.ts
+│   ├── content/
+│   │   └── campaign/
+│   │       ├── levels/
+│   │       │   ├── campaign001.ts
+│   │       │   ├── campaign002.ts
+│   │       │   ├── campaign003.ts
+│   │       │   ├── campaign004.ts
+│   │       │   ├── campaign005.ts
+│   │       │   └── index.ts
+│   │       ├── chapters.ts
+│   │       ├── curationPlan.ts
+│   │       ├── manifest.ts
+│   │       ├── themes.ts
+│   │       └── types.ts
 │   ├── data/
 │   │   └── levels/
 │   │       ├── index.ts
@@ -48,11 +89,18 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
+│   │   ├── CampaignPromotion.ts
+│   │   ├── DifficultyCorpusAnalyzer.ts
+│   │   ├── DifficultyCorpusOutput.ts
+│   │   ├── TargetedDifficultyCorpusAnalyzer.ts
 │   │   ├── analyzeDifficultyCorpus.ts
 │   │   ├── analyzeHumanSolvability.ts
 │   │   ├── benchmarkTreasureRoomPruning.ts
-│   │   ├── DifficultyCorpusAnalyzer.ts
-│   │   ├── DifficultyCorpusOutput.ts
+│   │   ├── campaignPromotionSanity.ts
+│   │   ├── campaignRuntimeSanity.ts
+│   │   ├── campaignSanity.ts
+│   │   ├── campaignThemeSanity.ts
+│   │   ├── boardTileVisualSanity.ts
 │   │   ├── difficultyCorpusSanity.ts
 │   │   ├── difficultySanity.ts
 │   │   ├── gameBoardLayoutSanity.ts
@@ -65,8 +113,8 @@ dungeon-logic/
 │   │   ├── profileGenerator.ts
 │   │   ├── profileGeneratorCli.ts
 │   │   ├── profilerSanity.ts
+│   │   ├── promoteCampaignLevel.ts
 │   │   ├── solverSanity.ts
-│   │   ├── TargetedDifficultyCorpusAnalyzer.ts
 │   │   ├── treasureRoomPruningSanity.ts
 │   │   └── validatorSanity.ts
 │   ├── puzzle/
@@ -93,10 +141,18 @@ dungeon-logic/
 │   │   ├── LevelValidator.ts
 │   │   ├── PuzzleState.ts
 │   │   └── types.ts
+│   ├── runtime/
+│   │   ├── GameLaunch.ts
+│   │   └── LaunchRouting.ts
 │   ├── scenes/
 │   │   ├── BootScene.ts
 │   │   ├── GameBoardLayout.ts
-│   │   └── GameScene.ts
+│   │   ├── GameScene.ts
+│   │   └── LevelSelectScene.ts
+│   ├── view/
+│   │   ├── BoardThemeAssets.ts
+│   │   ├── BoardTileResolver.ts
+│   │   └── BoardVisualTheme.ts
 │   ├── main.ts
 │   └── style.css
 ├── .gitignore

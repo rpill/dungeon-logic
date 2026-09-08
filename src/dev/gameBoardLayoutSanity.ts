@@ -1,3 +1,5 @@
+import * as layoutModule from '../scenes/GameBoardLayout';
+
 interface GameBoardLayout {
   cellSize: number;
   boardWidth: number;
@@ -6,6 +8,9 @@ interface GameBoardLayout {
   originY: number;
 }
 
+type ViewportClass = 'wide' | 'compact' | 'narrow';
+
+type ClassifyViewport = (width: number) => ViewportClass;
 type LayoutCalculator = (
   viewportWidth: number,
   viewportHeight: number,
@@ -13,165 +18,69 @@ type LayoutCalculator = (
   boardRows: number,
 ) => GameBoardLayout;
 
-function assert(
-  condition: boolean,
-  message: string,
-): asserts condition {
-  if (!condition) {
-    throw new Error(message);
-  }
+function assert(condition: boolean, message: string): asserts condition {
+  if (!condition) throw new Error(message);
 }
 
-async function getLayoutCalculator():
-  Promise<LayoutCalculator | null> {
-  const modulePath =
-    '../scenes/GameBoardLayout';
-
-  try {
-    const layoutModule: unknown =
-      await import(modulePath);
-
-    if (
-      typeof layoutModule !== 'object' ||
-      layoutModule === null
-    ) {
-      return null;
-    }
-
-    const descriptor =
-      Object.getOwnPropertyDescriptor(
-        layoutModule,
-        'calculateGameBoardLayout',
-      );
-
-    if (
-      descriptor === undefined ||
-      typeof descriptor.value !==
-        'function'
-    ) {
-      return null;
-    }
-
-    return descriptor.value as
-      LayoutCalculator;
-  } catch {
-    return null;
-  }
+function approxEqual(actual: number, expected: number, epsilon = 0.001): boolean {
+  return Math.abs(actual - expected) <= epsilon;
 }
 
-function checkSafeVerticalLayout(
-  layout: GameBoardLayout,
-  viewportHeight: number,
-  label: string,
-): void {
-  const columnClueCenterY =
-    layout.originY - 32;
+const classifyViewport = (layoutModule as unknown as {
+  classifyViewport?: ClassifyViewport;
+}).classifyViewport;
+const calculateGameBoardLayout = (layoutModule as unknown as {
+  calculateGameBoardLayout?: LayoutCalculator;
+}).calculateGameBoardLayout;
 
-  const boardBottom =
-    layout.originY +
-    layout.boardHeight;
+assert(typeof classifyViewport === 'function', 'classifyViewport() must exist.');
+assert(typeof calculateGameBoardLayout === 'function', 'calculateGameBoardLayout() must exist.');
 
-  assert(
-    columnClueCenterY >= 100,
-    `${label} column clues must stay below the title-safe zone.`,
-  );
+assert(classifyViewport(1280) === 'wide', '1280px viewport is wide.');
+assert(classifyViewport(1100) === 'wide', '1100px is the inclusive wide threshold.');
+assert(classifyViewport(1099) === 'compact', '1099px viewport is compact.');
+assert(classifyViewport(900) === 'compact', '900px viewport is compact.');
+assert(classifyViewport(700) === 'compact', '700px is the inclusive compact threshold.');
+assert(classifyViewport(699) === 'narrow', '699px viewport is narrow.');
+assert(classifyViewport(390) === 'narrow', '390px viewport is narrow.');
 
-  assert(
-    boardBottom <=
-      viewportHeight - 72,
-    `${label} board must stay above the status-safe zone.`,
-  );
-}
+const phoneSeven = calculateGameBoardLayout(390, 844, 7, 7);
+const phoneSevenLeft = phoneSeven.originX - phoneSeven.cellSize;
+const phoneSevenRight = phoneSeven.originX + phoneSeven.boardWidth;
+assert(phoneSeven.cellSize >= 45, '390x844 uses almost the full width for a 7x7 puzzle.');
+assert(phoneSevenLeft >= 12, 'Phone clue gutter stays inside the 12px narrow margin.');
+assert(phoneSevenRight <= 390 - 12, 'Phone puzzle stays inside the right 12px narrow margin.');
+assert(
+  approxEqual((phoneSevenLeft + phoneSevenRight) / 2, 390 / 2),
+  'The complete clue+board puzzle block is horizontally centered on phone.',
+);
+assert(phoneSeven.originY - phoneSeven.cellSize >= 72, 'Phone column clues stay below the narrow header reserve.');
+assert(phoneSeven.originY + phoneSeven.boardHeight <= 844 - 132, 'Phone board stays above the narrow toolbar reserve.');
 
-async function main(): Promise<void> {
-  console.info(
-    '[Dungeon Logic] Game board layout sanity',
-  );
+const phoneSix = calculateGameBoardLayout(390, 844, 6, 6);
+const phoneSixLeft = phoneSix.originX - phoneSix.cellSize;
+const phoneSixRight = phoneSix.originX + phoneSix.boardWidth;
+assert(phoneSix.cellSize >= 52, '390x844 makes a 6x6 puzzle substantially larger than the previous centered-board geometry.');
+assert(
+  approxEqual((phoneSixLeft + phoneSixRight) / 2, 390 / 2),
+  'The complete 6x6 clue+board block is centered on phone.',
+);
 
-  const calculateGameBoardLayout =
-    await getLayoutCalculator();
+const widerPhone = calculateGameBoardLayout(430, 844, 7, 7);
+assert(widerPhone.cellSize >= 50, 'A 430px-wide phone can provide at least 50px 7x7 cells.');
 
-  assert(
-    calculateGameBoardLayout !== null,
-    'Adaptive game board layout calculator must exist.',
-  );
+const desktop = calculateGameBoardLayout(1280, 720, 6, 6);
+assert(desktop.cellSize <= 72, 'Desktop cell size is capped instead of expanding with the viewport.');
+assert(desktop.cellSize >= 64, '6x6 desktop board remains comfortably readable.');
+assert(
+  approxEqual(desktop.originX + desktop.boardWidth / 2, 1280 / 2),
+  'Desktop gameplay board stays horizontally centered.',
+);
+assert(desktop.originY - desktop.cellSize >= 92, 'Desktop clues stay below the wide header reserve.');
+assert(desktop.originY + desktop.boardHeight <= 720 - 96, 'Desktop board stays above the toolbar/status reserve.');
 
-  const viewportWidth = 1280;
-  const viewportHeight = 720;
+const desktopSeven = calculateGameBoardLayout(1280, 720, 7, 7);
+assert(desktopSeven.cellSize < desktop.cellSize, '7x7 scales down when vertical safe space requires it.');
+assert(desktopSeven.cellSize >= 60, '7x7 desktop cells stay comfortably playable.');
 
-  const six =
-    calculateGameBoardLayout(
-      viewportWidth,
-      viewportHeight,
-      6,
-      6,
-    );
-
-  const seven =
-    calculateGameBoardLayout(
-      viewportWidth,
-      viewportHeight,
-      7,
-      7,
-    );
-
-  const eight =
-    calculateGameBoardLayout(
-      viewportWidth,
-      viewportHeight,
-      8,
-      8,
-    );
-
-  assert(
-    six.cellSize === 72,
-    '6x6 must keep the existing 72px cell size.',
-  );
-
-  assert(
-    seven.cellSize === 72,
-    '7x7 must keep the existing 72px cell size.',
-  );
-
-  assert(
-    eight.cellSize < 72,
-    '8x8 must shrink below 72px to fit the UI safely.',
-  );
-
-  assert(
-    eight.cellSize >= 56,
-    '8x8 cells must remain comfortably playable.',
-  );
-
-  for (
-    const [
-      label,
-      layout,
-    ] of [
-      ['6x6', six],
-      ['7x7', seven],
-      ['8x8', eight],
-    ] as const
-  ) {
-    checkSafeVerticalLayout(
-      layout,
-      viewportHeight,
-      label,
-    );
-
-    assert(
-      layout.originX ===
-        (
-          viewportWidth -
-          layout.boardWidth
-        ) / 2,
-      `${label} board must remain horizontally centered.`,
-    );
-  }
-
-  console.info(
-    '8/8 checks passed',
-  );
-}
-
-void main();
+console.info('[Dungeon Logic] Game board layout sanity: viewport classes + full-width centered mobile puzzle passed');

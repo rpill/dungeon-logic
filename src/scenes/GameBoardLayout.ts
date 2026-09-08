@@ -1,3 +1,5 @@
+export type ViewportClass = 'wide' | 'compact' | 'narrow';
+
 export interface GameBoardLayout {
   cellSize: number;
   boardWidth: number;
@@ -6,11 +8,35 @@ export interface GameBoardLayout {
   originY: number;
 }
 
-const DEFAULT_CELL_SIZE = 72;
-const TITLE_SAFE_BOTTOM = 100;
-const COLUMN_CLUE_OFFSET = 32;
-const STATUS_SAFE_HEIGHT = 72;
-const BOARD_VERTICAL_BIAS = 30;
+const WIDE_MIN_WIDTH = 1100;
+const COMPACT_MIN_WIDTH = 700;
+const DESKTOP_MAX_CELL_SIZE = 72;
+
+interface LayoutReserves {
+  readonly margin: number;
+  readonly headerHeight: number;
+  readonly toolbarHeight: number;
+}
+
+export function classifyViewport(width: number): ViewportClass {
+  if (width >= WIDE_MIN_WIDTH) return 'wide';
+  if (width >= COMPACT_MIN_WIDTH) return 'compact';
+  return 'narrow';
+}
+
+function getLayoutReserves(viewportClass: ViewportClass): LayoutReserves {
+  return viewportClass === 'narrow'
+    ? {
+        margin: 12,
+        headerHeight: 72,
+        toolbarHeight: 132,
+      }
+    : {
+        margin: 24,
+        headerHeight: 92,
+        toolbarHeight: 96,
+      };
+}
 
 export function calculateGameBoardLayout(
   viewportWidth: number,
@@ -18,88 +44,59 @@ export function calculateGameBoardLayout(
   boardColumns: number,
   boardRows: number,
 ): GameBoardLayout {
-  if (
-    boardColumns <= 0 ||
-    boardRows <= 0
-  ) {
-    throw new RangeError(
-      'Board dimensions must be positive.',
-    );
+  if (viewportWidth <= 0 || viewportHeight <= 0) {
+    throw new RangeError('Viewport dimensions must be positive.');
+  }
+  if (boardColumns <= 0 || boardRows <= 0) {
+    throw new RangeError('Board dimensions must be positive.');
   }
 
-  const topSafeBoardHeight =
-    viewportHeight -
-    2 *
-      (
-        TITLE_SAFE_BOTTOM -
-        BOARD_VERTICAL_BIAS +
-        COLUMN_CLUE_OFFSET
-      );
+  const viewportClass = classifyViewport(viewportWidth);
+  const { margin, headerHeight, toolbarHeight } = getLayoutReserves(viewportClass);
 
-  const bottomSafeBoardHeight =
-    viewportHeight -
-    2 *
-      (
-        STATUS_SAFE_HEIGHT +
-        BOARD_VERTICAL_BIAS
-      );
+  const availableHeight = viewportHeight - headerHeight - toolbarHeight;
+  if (availableHeight <= 0) {
+    throw new RangeError('Viewport is too small for the puzzle header and toolbar reserves.');
+  }
 
-  const maxBoardHeight = Math.min(
-    topSafeBoardHeight,
-    bottomSafeBoardHeight,
+  // On narrow screens the clue gutter and gameplay board are treated as one
+  // visual puzzle block. Centering that complete block lets the board use
+  // nearly the full phone width instead of wasting a second clue-sized gutter
+  // on the right. Wider layouts keep the gameplay board itself centered.
+  const widthCellDivisor = viewportClass === 'narrow'
+    ? boardColumns + 1
+    : boardColumns + 2;
+  const maxCellFromWidth = Math.floor(
+    (viewportWidth - 2 * margin) / widthCellDivisor,
   );
 
-  const safeCellSize = Math.max(
-    1,
-    Math.floor(
-      maxBoardHeight /
-      boardRows,
-    ),
+  // Vertically, the safe rectangle contains one clue row plus the gameplay
+  // rows. Center that whole stack between the header and toolbar reserves.
+  const maxCellFromHeight = Math.floor(
+    availableHeight / (boardRows + 1),
   );
 
   const cellSize = Math.min(
-    DEFAULT_CELL_SIZE,
-    safeCellSize,
+    DESKTOP_MAX_CELL_SIZE,
+    maxCellFromWidth,
+    maxCellFromHeight,
   );
 
-  const boardWidth =
-    boardColumns * cellSize;
-
-  const boardHeight =
-    boardRows * cellSize;
-
-  const originX =
-    (
-      viewportWidth -
-      boardWidth
-    ) / 2;
-
-  const originY =
-    (
-      viewportHeight -
-      boardHeight
-    ) / 2 +
-    BOARD_VERTICAL_BIAS;
-
-  const columnClueCenterY =
-    originY -
-    COLUMN_CLUE_OFFSET;
-
-  const boardBottom =
-    originY +
-    boardHeight;
-
-  if (
-    columnClueCenterY <
-      TITLE_SAFE_BOTTOM ||
-    boardBottom >
-      viewportHeight -
-        STATUS_SAFE_HEIGHT
-  ) {
-    throw new RangeError(
-      'Viewport is too small for the game board safe zones.',
-    );
+  if (cellSize < 1) {
+    throw new RangeError('Viewport is too small for the game board.');
   }
+
+  const boardWidth = boardColumns * cellSize;
+  const boardHeight = boardRows * cellSize;
+
+  const originX = viewportClass === 'narrow'
+    ? (viewportWidth - (boardWidth + cellSize)) / 2 + cellSize
+    : (viewportWidth - boardWidth) / 2;
+
+  const totalPuzzleHeight = (boardRows + 1) * cellSize;
+  const safeTop = headerHeight;
+  const totalTop = safeTop + (availableHeight - totalPuzzleHeight) / 2;
+  const originY = totalTop + cellSize;
 
   return {
     cellSize,
