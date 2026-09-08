@@ -14,10 +14,13 @@ import {
   type DailyCompletionResult,
 } from '../daily/DailyService';
 import { chooseHint, type PuzzleHint } from '../gameplay/HintService';
+import { MonetizationService } from '../monetization/MonetizationService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { validatePuzzle } from '../puzzle/LevelValidator';
+import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
+import type { PlatformServices } from '../platform/services';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import {
   createOnboardingFlow,
@@ -157,6 +160,20 @@ export class GameScene extends Phaser.Scene {
     const profileService = launchData.context.mode === 'dev'
       ? null
       : this.getPlayerProfileService();
+    const campaignContext = launchData.context.mode === 'campaign'
+      ? launchData.context
+      : null;
+    const platformServices = campaignContext !== null
+      ? this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined
+      : undefined;
+    const monetizationService = profileService !== null && platformServices != null
+      ? MonetizationService.create(profileService, platformServices.ads)
+      : null;
+    const completedCampaignSlot = campaignContext === null
+      ? null
+      : this.getCampaignService().getLevels().find(
+        (entry) => entry.id === campaignContext.campaignLevelId,
+      )?.slot ?? null;
     const puzzleSession = launchData.context.mode !== 'campaign' || profileService === null
       ? null
       : PuzzleSessionService.createCampaign(
@@ -180,6 +197,7 @@ export class GameScene extends Phaser.Scene {
     let hintConfirmContainer: Phaser.GameObjects.Container | null = null;
     let currentHint: PuzzleHint | null = null;
     let completionMode = false;
+    let completionTransitionPending = false;
     const completionButtons: Array<{
       rectangle: Phaser.GameObjects.Rectangle;
       label: Phaser.GameObjects.Text;
@@ -678,7 +696,23 @@ export class GameScene extends Phaser.Scene {
         completionActions.push({
           label: 'ДАЛЬШЕ',
           action: () => {
-            void this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
+            if (completionTransitionPending) return;
+            completionTransitionPending = true;
+            pauseActiveTimer();
+
+            const continueCampaign = async (): Promise<void> => {
+              if (monetizationService !== null && completedCampaignSlot !== null) {
+                await monetizationService.maybeShowCampaignInterstitial(completedCampaignSlot);
+              }
+              if (createVersion !== this.createVersion) return;
+              await this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
+            };
+
+            void continueCampaign().finally(() => {
+              if (createVersion === this.createVersion) {
+                completionTransitionPending = false;
+              }
+            });
           },
         });
       }

@@ -128,6 +128,41 @@ export class PlayerProfileService {
     }));
   }
 
+  recordCampaignCompletionForInterstitial(completedSlot: number): void {
+    if (!Number.isInteger(completedSlot) || completedSlot <= 5) return;
+
+    this.update((profile) => ({
+      ...profile,
+      ads: {
+        ...profile.ads,
+        campaignCompletionsSinceOpportunity:
+          profile.ads.campaignCompletionsSinceOpportunity + 1,
+      },
+    }));
+  }
+
+  consumeCampaignInterstitialOpportunity(): void {
+    this.update((profile) => ({
+      ...profile,
+      ads: {
+        ...profile.ads,
+        campaignCompletionsSinceOpportunity: 0,
+      },
+    }));
+  }
+
+  recordInterstitialShown(atMs: number): void {
+    if (!Number.isFinite(atMs) || atMs < 0) return;
+
+    this.update((profile) => ({
+      ...profile,
+      ads: {
+        ...profile.ads,
+        lastInterstitialAtMs: atMs,
+      },
+    }));
+  }
+
   replaceProfileForPlatformMerge(profile: PlayerProfileV1): PlayerProfileV1 {
     this.profile = normalizePlayerProfile(profile, this.manifest);
     this.dirty = true;
