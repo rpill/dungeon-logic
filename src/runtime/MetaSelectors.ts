@@ -14,6 +14,7 @@ import type { DailyResultSummary } from '../profile/types';
 
 export const HOME_SCENE_KEY = 'HomeScene';
 export const ARCHIVE_SCENE_KEY = 'ArchiveScene';
+export const STATS_SCENE_KEY = 'StatsScene';
 
 export interface MetaCampaignPort {
   getLevels(): readonly CampaignLevelEntry[];

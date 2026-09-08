@@ -194,8 +194,10 @@ export class GameScene extends Phaser.Scene {
 
     const syncTimerIntoSession = (nowMs = readActiveClockMs()): void => {
       const elapsedMs = activeTimer.getElapsedMs(nowMs);
-      if (puzzleSession !== null && elapsedMs > syncedActivePlayMs) {
-        puzzleSession.addActiveTime(elapsedMs - syncedActivePlayMs);
+      if (elapsedMs > syncedActivePlayMs) {
+        const activeDeltaMs = elapsedMs - syncedActivePlayMs;
+        puzzleSession?.addActiveTime(activeDeltaMs);
+        profileService?.addActivePlayTime(activeDeltaMs);
         syncedActivePlayMs = elapsedMs;
       }
       updateTimerText(nowMs);

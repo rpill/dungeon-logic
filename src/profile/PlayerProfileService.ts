@@ -117,6 +117,17 @@ export class PlayerProfileService {
     return true;
   }
 
+  addActivePlayTime(ms: number): void {
+    if (!Number.isFinite(ms) || ms <= 0) return;
+
+    this.update((profile) => ({
+      ...profile,
+      totals: {
+        activePlayMs: profile.totals.activePlayMs + ms,
+      },
+    }));
+  }
+
   replaceProfileForPlatformMerge(profile: PlayerProfileV1): PlayerProfileV1 {
     this.profile = normalizePlayerProfile(profile, this.manifest);
     this.dirty = true;

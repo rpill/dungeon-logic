@@ -17,6 +17,7 @@ import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
   ARCHIVE_SCENE_KEY,
+  STATS_SCENE_KEY,
   getHomeCampaignAction,
   getHomeDailyAction,
   shouldShowDailyEntry,
@@ -127,6 +128,15 @@ export class HomeScene extends Phaser.Scene {
     );
 
     if (dailyVisible) {
+      this.createButton(
+        this.scale.width / 2,
+        mainY + secondaryStep * 3,
+        buttonWidth,
+        narrow ? 52 : 56,
+        'СТАТИСТИКА',
+        '#aeb4bc',
+        () => this.scene.start(STATS_SCENE_KEY),
+      );
       void this.renderDailyEntry(
         profileService,
         mainY + secondaryStep,

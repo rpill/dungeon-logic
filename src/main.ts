@@ -7,6 +7,7 @@ import { GameScene } from './scenes/GameScene';
 import { HomeScene } from './scenes/HomeScene';
 import { ArchiveScene } from './scenes/ArchiveScene';
 import { HelpScene } from './scenes/HelpScene';
+import { StatsScene } from './scenes/StatsScene';
 import { getInitialViewportSize } from './runtime/ResponsiveLayout';
 
 const initialViewport = getInitialViewportSize(window.innerWidth, window.innerHeight);
@@ -34,6 +35,7 @@ const config: Phaser.Types.Core.GameConfig = {
     BootScene,
     HomeScene,
     ArchiveScene,
+    StatsScene,
     GameScene,
     HelpScene,
   ],

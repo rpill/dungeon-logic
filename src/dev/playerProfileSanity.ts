@@ -141,6 +141,11 @@ async function main(): Promise<void> {
   assert(counting.saves.length === 2, 'flush() persists a dirty profile immediately.');
   assert(counting.saves[1].totals.activePlayMs === 500, 'flush() persists the latest state.');
 
+  service.addActivePlayTime(250);
+  service.addActivePlayTime(0);
+  service.addActivePlayTime(Number.NaN);
+  assert(service.getProfile().totals.activePlayMs === 750, 'Active play time adds only positive finite deltas.');
+
   const replacement = createFreshPlayerProfile(manifest);
   service.replaceProfileForPlatformMerge({
     ...replacement,
