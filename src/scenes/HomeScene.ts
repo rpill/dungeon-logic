@@ -17,10 +17,12 @@ import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
   ARCHIVE_SCENE_KEY,
+  SETTINGS_SCENE_KEY,
   STATS_SCENE_KEY,
   getHomeCampaignAction,
   getHomeDailyAction,
   shouldShowDailyEntry,
+  shouldShowSettingsEntry,
 } from '../runtime/MetaSelectors';
 import { classifyViewport } from './GameBoardLayout';
 
@@ -76,8 +78,11 @@ export class HomeScene extends Phaser.Scene {
     const buttonWidth = Math.min(narrow ? this.scale.width - 32 : 360, 420);
     const mainY = narrow ? 215 : 250;
     const mainHeight = narrow ? 58 : 62;
-    const secondaryStep = narrow ? 105 : 118;
     const dailyVisible = shouldShowDailyEntry(profile);
+    const settingsVisible = shouldShowSettingsEntry(profile);
+    const secondaryStep = dailyVisible || settingsVisible
+      ? (narrow ? 88 : 96)
+      : (narrow ? 105 : 118);
 
     if (action.kind === 'choose-level') {
       this.createButton(
@@ -144,6 +149,18 @@ export class HomeScene extends Phaser.Scene {
         narrow ? 52 : 56,
         narrow,
         createVersion,
+      );
+    }
+
+    if (settingsVisible) {
+      this.createButton(
+        this.scale.width / 2,
+        mainY + secondaryStep * 4,
+        buttonWidth,
+        narrow ? 52 : 56,
+        'НАСТРОЙКИ',
+        '#89929d',
+        () => this.scene.start(SETTINGS_SCENE_KEY),
       );
     }
 

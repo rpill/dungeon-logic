@@ -40,6 +40,7 @@
     "sanity:hint": "tsx src/dev/hintSanity.ts",
     "sanity:daily": "tsx src/dev/dailySanity.ts",
     "sanity:stats": "tsx src/dev/statsSanity.ts",
+    "sanity:settings": "tsx src/dev/settingsSanity.ts",
     "dev:yandex:host": "vite --host localhost --port 5173 --strictPort",
     "dev:yandex": "npx --yes @yandex-games/sdk-dev-proxy -h http://localhost:5173 --dev-mode=true",
     "sanity:platform": "tsx src/dev/platformSanity.ts"

@@ -15,6 +15,7 @@ import type { DailyResultSummary } from '../profile/types';
 export const HOME_SCENE_KEY = 'HomeScene';
 export const ARCHIVE_SCENE_KEY = 'ArchiveScene';
 export const STATS_SCENE_KEY = 'StatsScene';
+export const SETTINGS_SCENE_KEY = 'SettingsScene';
 
 export interface MetaCampaignPort {
   getLevels(): readonly CampaignLevelEntry[];
@@ -100,6 +101,10 @@ export function getHomeCampaignAction(
 }
 
 export function shouldShowDailyEntry(profile: PlayerProfileV1): boolean {
+  return profile.campaign.completedLevelIds.includes('campaign-005');
+}
+
+export function shouldShowSettingsEntry(profile: PlayerProfileV1): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
 }
 
