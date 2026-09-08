@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
+import { DAILY_FIXTURE_ENTRIES } from '../content/daily/manifest';
+import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import { runLevelQualitySanityChecks } from '../dev/levelQualitySanity';
 import { runSolverSanityChecks } from '../dev/solverSanity';
 import { runValidatorSanityChecks } from '../dev/validatorSanity';
@@ -55,8 +57,14 @@ export class BootScene extends Phaser.Scene {
     );
     const profileService = await PlayerProfileService.create(campaignManifest, profileStorage);
     const campaignService = CampaignService.create(campaignManifest, profileService);
+    const dailyService = DailyService.create(
+      DAILY_FIXTURE_ENTRIES,
+      profileService,
+      platformServices.clock,
+    );
     this.registry.set(PLAYER_PROFILE_SERVICE_REGISTRY_KEY, profileService);
     this.registry.set(CAMPAIGN_SERVICE_REGISTRY_KEY, campaignService);
+    this.registry.set(DAILY_SERVICE_REGISTRY_KEY, dailyService);
 
     let devLaunch = null;
     try {
