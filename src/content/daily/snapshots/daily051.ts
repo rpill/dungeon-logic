@@ -1,0 +1,71 @@
+import type { DailySnapshotProvenance } from '../types';
+import type { LevelDefinition } from '../../../puzzle/types';
+
+export const level: LevelDefinition = {
+  "id": "daily-051",
+  "width": 7,
+  "height": 7,
+  "rowClues": [
+    4,
+    6,
+    4,
+    1,
+    4,
+    0,
+    4
+  ],
+  "columnClues": [
+    2,
+    2,
+    3,
+    4,
+    4,
+    4,
+    4
+  ],
+  "monsters": [
+    {
+      "x": 2,
+      "y": 0
+    },
+    {
+      "x": 5,
+      "y": 2
+    },
+    {
+      "x": 0,
+      "y": 6
+    },
+    {
+      "x": 2,
+      "y": 6
+    },
+    {
+      "x": 4,
+      "y": 6
+    }
+  ],
+  "chests": [],
+  "blockers": [],
+  "doors": [],
+  "solution": [
+    "...####",
+    ".######",
+    "..###.#",
+    "#......",
+    "#.#.##.",
+    ".......",
+    ".#.#.##"
+  ]
+};
+
+export const provenance: DailySnapshotProvenance = {
+  "sourceSeed": 20260909,
+  "sourceCandidateSeed": 2329254683,
+  "sourceCandidateId": "generated-monster-only-7-2329254683",
+  "sourceArchetype": "monster-only",
+  "difficulty": "medium",
+  "difficultyScore": 44,
+  "humanStatus": "solved-with-contradiction",
+  "targetScore": 45
+};

@@ -10,9 +10,10 @@ import type { DailyEntry } from './types';
 /**
  * Temporary development fixtures only.
  *
- * The release build must replace this tiny fixture set with the separately
- * curated pool of prevalidated Daily snapshots. Runtime Daily selection must
- * never invoke the puzzle generator on the player's device.
+ * Task 24 now provides the separately curated immutable catalog in
+ * `./snapshots`. These dated fixtures stay in place until the catalog is bound
+ * to the real release calendar. Runtime Daily selection must never invoke the
+ * puzzle generator on the player's device.
  */
 export const DAILY_FIXTURE_ENTRIES: readonly DailyEntry[] = [
   {

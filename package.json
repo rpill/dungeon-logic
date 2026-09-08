@@ -48,7 +48,8 @@
     "sanity:monetization": "tsx src/dev/monetizationSanity.ts",
     "sanity:rewarded-hint": "tsx src/dev/rewardedHintSanity.ts",
     "sanity:campaign-release": "tsx src/dev/campaignReleaseSanity.ts",
-    "sanity:level-select-scroll": "tsx src/dev/levelSelectScrollSanity.ts"
+    "sanity:level-select-scroll": "tsx src/dev/levelSelectScrollSanity.ts",
+    "sanity:daily-corpus": "tsx src/dev/dailyCorpusSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
