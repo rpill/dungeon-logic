@@ -24,6 +24,7 @@
     "sanity:puzzle-interaction": "tsx src/dev/puzzleInteractionSanity.ts",
     "campaign:promote": "tsx src/dev/promoteCampaignLevel.ts",
     "sanity:campaign-promotion": "tsx src/dev/campaignPromotionSanity.ts",
+    "sanity:release-curation": "tsx src/dev/releaseCurationSanity.ts",
     "sanity:campaign-runtime": "tsx src/dev/campaignRuntimeSanity.ts",
     "sanity:responsive-shell": "tsx src/dev/responsiveShellSanity.ts",
     "sanity:live-resize": "tsx src/dev/liveResizeSanity.ts",

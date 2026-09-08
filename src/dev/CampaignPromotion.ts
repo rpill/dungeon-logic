@@ -12,6 +12,7 @@ import { HumanSolveStatus, type HumanSolveResult } from '../puzzle/human-solver/
 import type { LevelDefinition } from '../puzzle/types';
 import { getCampaignChapterForSlot } from '../content/campaign/chapters';
 import { getCampaignCurationRule } from '../content/campaign/curationPlan';
+import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import { buildCampaignManifest } from '../content/campaign/manifest';
 import type {
   CampaignLevelProvenance,
@@ -165,6 +166,13 @@ export function analyzeCampaignPromotion(
   if (rule.chapterId !== chapter.id) {
     throw new Error(
       `Campaign slot ${slot} curation chapter ${rule.chapterId} does not match chapter ownership ${chapter.id}.`,
+    );
+  }
+
+  const manuscript = getManuscriptForSlot(slot);
+  if (manuscript === null || rule.manuscriptId !== manuscript.id) {
+    throw new Error(
+      `Campaign slot ${slot} curation manuscript ${rule.manuscriptId} does not match manuscript ownership ${manuscript?.id ?? 'none'}.`,
     );
   }
 

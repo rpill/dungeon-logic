@@ -8,6 +8,7 @@ import type {
   CampaignChapterId,
   CampaignCurationRule,
   CampaignOnboardingId,
+  ManuscriptId,
 } from './types';
 
 type RatedDifficulty = Exclude<DifficultyBand, 'unrated'>;
@@ -15,45 +16,74 @@ type RatedDifficulty = Exclude<DifficultyBand, 'unrated'>;
 function rule(
   slot: number,
   chapterId: CampaignChapterId,
+  manuscriptId: ManuscriptId,
   allowedArchetypes: readonly GeneratorArchetypeValue[],
   allowedDifficulties: readonly RatedDifficulty[],
   allowedSizes: readonly GeneratorBoardSize[],
   onboarding: readonly CampaignOnboardingId[] = [],
 ): CampaignCurationRule {
-  return { slot, chapterId, allowedArchetypes, allowedDifficulties, allowedSizes, onboarding };
+  return {
+    slot,
+    chapterId,
+    manuscriptId,
+    allowedArchetypes,
+    allowedDifficulties,
+    allowedSizes,
+    onboarding,
+  };
 }
 
+const M1: ManuscriptId = 'manuscript-i';
+const M2: ManuscriptId = 'manuscript-ii';
+const M3: ManuscriptId = 'manuscript-iii';
+const M4: ManuscriptId = 'manuscript-iv';
+
+/**
+ * Release-v1 curation allow-list.
+ *
+ * Technical visual chapter ownership intentionally remains separate from
+ * product manuscript ownership. Generic generator support for two-room
+ * archetypes also remains intact; those archetypes are simply not eligible
+ * for release-v1 campaign promotion.
+ */
 export const campaignCurationPlan = [
-  rule(1, 'graveyard', [GeneratorArchetype.MonsterOnly], ['easy'], [6], ['row-column-clues', 'monster-dead-end']),
-  rule(2, 'graveyard', [GeneratorArchetype.ChestOneRoom], ['easy'], [7], ['treasure-room-rule']),
-  rule(3, 'graveyard', [GeneratorArchetype.MonsterOnly], ['easy'], [6]),
-  rule(4, 'graveyard', [GeneratorArchetype.MixedOneRoom], ['easy'], [6]),
-  rule(5, 'graveyard', [GeneratorArchetype.ChestOneRoom], ['easy'], [6, 7]),
-  rule(6, 'graveyard', [GeneratorArchetype.MixedOneRoom], ['easy'], [7]),
-  rule(7, 'desert-ruins', [GeneratorArchetype.MonsterOnly], ['easy'], [7]),
-  rule(8, 'desert-ruins', [GeneratorArchetype.MixedOneRoom], ['easy'], [7]),
-  rule(9, 'desert-ruins', [GeneratorArchetype.ChestOneRoom], ['medium'], [7]),
-  rule(10, 'desert-ruins', [GeneratorArchetype.MixedOneRoom], ['medium'], [7]),
-  rule(11, 'desert-ruins', [GeneratorArchetype.ChestTwoRooms], ['medium'], [7]),
-  rule(12, 'desert-ruins', [GeneratorArchetype.MonsterOnly], ['medium'], [7, 8]),
-  rule(13, 'desert-ruins', [GeneratorArchetype.MixedTwoRooms], ['medium'], [7, 8]),
-  rule(14, 'sewers', [GeneratorArchetype.MixedOneRoom], ['medium'], [8]),
-  rule(15, 'sewers', [GeneratorArchetype.ChestTwoRooms], ['medium'], [8]),
-  rule(16, 'sewers', [GeneratorArchetype.MonsterOnly], ['medium'], [8]),
-  rule(17, 'sewers', [GeneratorArchetype.MixedTwoRooms], ['medium'], [8]),
-  rule(18, 'sewers', [GeneratorArchetype.ChestOneRoom], ['medium'], [7]),
-  rule(19, 'sewers', [GeneratorArchetype.MixedTwoRooms], ['medium'], [8]),
-  rule(20, 'sewers', [GeneratorArchetype.ChestTwoRooms], ['medium'], [8]),
-  rule(21, 'sewers', [GeneratorArchetype.MonsterOnly], ['medium'], [8]),
-  rule(22, 'sewers', [GeneratorArchetype.MixedTwoRooms], ['medium', 'hard'], [8]),
-  rule(23, 'crypt', [GeneratorArchetype.ChestTwoRooms], ['medium'], [8]),
-  rule(24, 'crypt', [GeneratorArchetype.MixedOneRoom], ['hard'], [8]),
-  rule(25, 'crypt', [GeneratorArchetype.MixedTwoRooms], ['hard'], [8]),
-  rule(26, 'crypt', [GeneratorArchetype.MonsterOnly], ['hard'], [8]),
-  rule(27, 'crypt', [GeneratorArchetype.ChestTwoRooms], ['hard'], [8]),
-  rule(28, 'crypt', [GeneratorArchetype.MixedTwoRooms], ['hard'], [8]),
-  rule(29, 'crypt', [GeneratorArchetype.ChestOneRoom], ['hard'], [8]),
-  rule(30, 'crypt', [GeneratorArchetype.MixedTwoRooms], ['hard'], [8]),
+  rule(1, 'graveyard', M1, [GeneratorArchetype.MonsterOnly], ['easy'], [6], ['row-column-clues', 'monster-dead-end']),
+  rule(2, 'graveyard', M1, [GeneratorArchetype.ChestOneRoom], ['easy'], [7], ['treasure-room-rule']),
+  rule(3, 'graveyard', M1, [GeneratorArchetype.MonsterOnly], ['easy'], [6]),
+  rule(4, 'graveyard', M1, [GeneratorArchetype.MixedOneRoom], ['easy'], [6]),
+  rule(5, 'graveyard', M1, [GeneratorArchetype.ChestOneRoom], ['easy'], [6, 7]),
+  rule(6, 'graveyard', M1, [GeneratorArchetype.MixedOneRoom], ['easy', 'medium'], [7]),
+  rule(7, 'desert-ruins', M1, [GeneratorArchetype.MonsterOnly], ['easy', 'medium'], [7]),
+
+  rule(8, 'desert-ruins', M2, [GeneratorArchetype.MonsterOnly], ['easy', 'medium'], [7]),
+  rule(9, 'desert-ruins', M2, [GeneratorArchetype.MonsterOnly], ['medium'], [7]),
+  rule(10, 'desert-ruins', M2, [GeneratorArchetype.MixedOneRoom], ['medium'], [7]),
+  rule(11, 'desert-ruins', M2, [GeneratorArchetype.MonsterOnly], ['medium'], [7]),
+  rule(12, 'desert-ruins', M2, [GeneratorArchetype.MonsterOnly], ['medium', 'hard'], [7]),
+  rule(13, 'desert-ruins', M2, [GeneratorArchetype.MixedOneRoom], ['medium', 'hard'], [7]),
+  rule(14, 'sewers', M2, [GeneratorArchetype.MonsterOnly], ['hard'], [7]),
+
+  rule(15, 'sewers', M3, [GeneratorArchetype.ChestOneRoom], ['medium'], [7]),
+  rule(16, 'sewers', M3, [GeneratorArchetype.ChestOneRoom], ['medium', 'hard'], [7]),
+  rule(17, 'sewers', M3, [GeneratorArchetype.MixedOneRoom], ['medium'], [7]),
+  rule(18, 'sewers', M3, [GeneratorArchetype.ChestOneRoom], ['hard'], [7]),
+  rule(19, 'sewers', M3, [GeneratorArchetype.MixedOneRoom], ['medium', 'hard'], [7]),
+  rule(20, 'sewers', M3, [GeneratorArchetype.ChestOneRoom], ['hard'], [7]),
+  rule(21, 'sewers', M3, [GeneratorArchetype.MixedOneRoom], ['hard'], [7]),
+  rule(22, 'sewers', M3, [GeneratorArchetype.ChestOneRoom, GeneratorArchetype.MixedOneRoom], ['hard'], [7]),
+
+  rule(23, 'crypt', M4, [GeneratorArchetype.MonsterOnly], ['medium', 'hard'], [7, 8]),
+  rule(24, 'crypt', M4, [GeneratorArchetype.ChestOneRoom], ['hard'], [7, 8]),
+  rule(25, 'crypt', M4, [GeneratorArchetype.MixedOneRoom], ['hard'], [7, 8]),
+  rule(26, 'crypt', M4, [GeneratorArchetype.MonsterOnly], ['hard'], [7, 8]),
+  rule(27, 'crypt', M4, [GeneratorArchetype.ChestOneRoom], ['hard'], [7, 8]),
+  rule(28, 'crypt', M4, [GeneratorArchetype.MixedOneRoom], ['hard'], [7, 8]),
+  rule(29, 'crypt', M4, [GeneratorArchetype.MonsterOnly], ['hard'], [7, 8]),
+  rule(30, 'crypt', M4, [
+    GeneratorArchetype.MonsterOnly,
+    GeneratorArchetype.ChestOneRoom,
+    GeneratorArchetype.MixedOneRoom,
+  ], ['hard'], [7, 8]),
 ] as const satisfies readonly CampaignCurationRule[];
 
 export function getCampaignCurationRule(slot: number): CampaignCurationRule {

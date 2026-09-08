@@ -1,5 +1,6 @@
 import { getCampaignChapterForSlot } from './chapters';
 import { getCampaignCurationRule } from './curationPlan';
+import { getManuscriptForSlot } from './manuscripts';
 import { promotedCampaignLevels } from './levels';
 import type {
   CampaignLevelEntry,
@@ -67,6 +68,13 @@ export function buildCampaignManifest(
     if (curation.chapterId !== chapter.id) {
       throw new Error(
         `Curation rule for slot ${source.slot} points to ${curation.chapterId}, but chapter ownership is ${chapter.id}.`,
+      );
+    }
+
+    const manuscript = getManuscriptForSlot(source.slot);
+    if (manuscript === null || curation.manuscriptId !== manuscript.id) {
+      throw new Error(
+        `Curation rule for slot ${source.slot} points to manuscript ${curation.manuscriptId}, but manuscript ownership is ${manuscript?.id ?? 'none'}.`,
       );
     }
 

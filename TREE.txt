@@ -10,7 +10,14 @@ dungeon-logic/
 │       │   ├── 2026-09-03-treasure-room-solver-pruning.md
 │       │   ├── 2026-09-04-difficulty-analysis-v1.md
 │       │   ├── 2026-09-04-generator-difficulty-v2.md
-│       │   └── 2026-09-07-campaign-v1.md
+│       │   ├── 2026-09-07-campaign-v1.md
+│       │   ├── 2026-09-08-dungeon-logic-daily-stats-settings.md
+│       │   ├── 2026-09-08-dungeon-logic-monetization.md
+│       │   ├── 2026-09-08-dungeon-logic-platform-boundary.md
+│       │   ├── 2026-09-08-dungeon-logic-profile-manuscripts-navigation.md
+│       │   ├── 2026-09-08-dungeon-logic-puzzle-session-lifecycle.md
+│       │   ├── 2026-09-08-dungeon-logic-v1-roadmap.md
+│       │   └── 2026-09-08-dungeon-logic-wireframe-puzzle-input.md
 │       ├── reports/
 │       │   ├── 2026-09-03-human-solvability-baseline.md
 │       │   ├── 2026-09-04-difficulty-v1-baseline.md
@@ -25,26 +32,24 @@ dungeon-logic/
 │           ├── 2026-09-03-treasure-room-solver-pruning-design.md
 │           ├── 2026-09-04-difficulty-analysis-v1-design.md
 │           ├── 2026-09-04-generator-difficulty-v2-design.md
-│           └── 2026-09-07-campaign-v1-design.md
+│           ├── 2026-09-07-campaign-v1-design.md
+│           └── 2026-09-08-dungeon-logic-v1-product-ui-design.md
 ├── public/
 │   ├── assets/
-│   │   ├── board/
-│   │   │   └── graveyard/
-│   │   │       ├── border-bottom.png
-│   │   │       ├── border-left.png
-│   │   │       ├── border-right.png
-│   │   │       ├── border-top.png
-│   │   │       ├── clue-corner.png
-│   │   │       ├── clue-tile.png
-│   │   │       ├── floor-mark.png
-│   │   │       ├── floor.png
-│   │   │       ├── wall-a.png
-│   │   │       ├── wall-b.png
-│   │   │       └── wall-c.png
-│   │   └── oryx/
-│   │       ├── uf_heroes_simple.png
-│   │       ├── uf_items.png
-│   │       └── uf_terrain.png
+│   │   └── board/
+│   │       └── graveyard/
+│   │           ├── border-bottom.png
+│   │           ├── border-left.png
+│   │           ├── border-right.png
+│   │           ├── border-top.png
+│   │           ├── clue-corner.png
+│   │           ├── clue-tile.png
+│   │           ├── floor-mark.png
+│   │           ├── floor.png
+│   │           ├── SBS-LICENSE.txt
+│   │           ├── wall-a.png
+│   │           ├── wall-b.png
+│   │           └── wall-c.png
 │   ├── favicon.svg
 │   └── icons.svg
 ├── scripts/
@@ -57,22 +62,30 @@ dungeon-logic/
 │   │   ├── CampaignProgress.ts
 │   │   ├── CampaignProgressStorage.ts
 │   │   ├── CampaignService.ts
+│   │   ├── CampaignUnlocks.ts
 │   │   ├── LocalCampaignProgressStorage.ts
 │   │   └── types.ts
 │   ├── content/
-│   │   └── campaign/
-│   │       ├── levels/
-│   │       │   ├── campaign001.ts
-│   │       │   ├── campaign002.ts
-│   │       │   ├── campaign003.ts
-│   │       │   ├── campaign004.ts
-│   │       │   ├── campaign005.ts
-│   │       │   └── index.ts
-│   │       ├── chapters.ts
-│   │       ├── curationPlan.ts
+│   │   ├── campaign/
+│   │   │   ├── levels/
+│   │   │   │   ├── campaign001.ts
+│   │   │   │   ├── campaign002.ts
+│   │   │   │   ├── campaign003.ts
+│   │   │   │   ├── campaign004.ts
+│   │   │   │   ├── campaign005.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── chapters.ts
+│   │   │   ├── curationPlan.ts
+│   │   │   ├── manifest.ts
+│   │   │   ├── manuscripts.ts
+│   │   │   ├── themes.ts
+│   │   │   └── types.ts
+│   │   └── daily/
 │   │       ├── manifest.ts
-│   │       ├── themes.ts
 │   │       └── types.ts
+│   ├── daily/
+│   │   ├── DailySelector.ts
+│   │   └── DailyService.ts
 │   ├── data/
 │   │   └── levels/
 │   │       ├── index.ts
@@ -89,34 +102,83 @@ dungeon-logic/
 │   │       ├── level011.ts
 │   │       └── level012.ts
 │   ├── dev/
-│   │   ├── CampaignPromotion.ts
-│   │   ├── DifficultyCorpusAnalyzer.ts
-│   │   ├── DifficultyCorpusOutput.ts
-│   │   ├── TargetedDifficultyCorpusAnalyzer.ts
 │   │   ├── analyzeDifficultyCorpus.ts
 │   │   ├── analyzeHumanSolvability.ts
+│   │   ├── archiveLayoutSanity.ts
 │   │   ├── benchmarkTreasureRoomPruning.ts
+│   │   ├── boardTileVisualSanity.ts
+│   │   ├── CampaignPromotion.ts
 │   │   ├── campaignPromotionSanity.ts
 │   │   ├── campaignRuntimeSanity.ts
 │   │   ├── campaignSanity.ts
 │   │   ├── campaignThemeSanity.ts
-│   │   ├── boardTileVisualSanity.ts
+│   │   ├── campaignUnlockSanity.ts
+│   │   ├── dailySanity.ts
+│   │   ├── DifficultyCorpusAnalyzer.ts
+│   │   ├── DifficultyCorpusOutput.ts
 │   │   ├── difficultyCorpusSanity.ts
 │   │   ├── difficultySanity.ts
 │   │   ├── gameBoardLayoutSanity.ts
 │   │   ├── generateCandidates.ts
 │   │   ├── generatedPlaytestSanity.ts
 │   │   ├── generatorSanity.ts
+│   │   ├── helpRulesSanity.ts
+│   │   ├── hintSanity.ts
 │   │   ├── humanAnalysisSanity.ts
 │   │   ├── humanSolverSanity.ts
 │   │   ├── levelQualitySanity.ts
+│   │   ├── liveResizeSanity.ts
+│   │   ├── metaNavigationSanity.ts
+│   │   ├── metaPointerGateSanity.ts
+│   │   ├── metaScrollSanity.ts
+│   │   ├── monetizationSanity.ts
+│   │   ├── onboardingSanity.ts
+│   │   ├── platformSanity.ts
+│   │   ├── playerProfileSanity.ts
 │   │   ├── profileGenerator.ts
 │   │   ├── profileGeneratorCli.ts
 │   │   ├── profilerSanity.ts
 │   │   ├── promoteCampaignLevel.ts
+│   │   ├── puzzleInteractionSanity.ts
+│   │   ├── puzzlePointerPolicySanity.ts
+│   │   ├── puzzleSessionSanity.ts
+│   │   ├── responsiveShellSanity.ts
+│   │   ├── rewardedHintSanity.ts
+│   │   ├── settingsSanity.ts
 │   │   ├── solverSanity.ts
+│   │   ├── statsSanity.ts
+│   │   ├── TargetedDifficultyCorpusAnalyzer.ts
 │   │   ├── treasureRoomPruningSanity.ts
-│   │   └── validatorSanity.ts
+│   │   ├── validatorSanity.ts
+│   │   └── wireframeUiSanity.ts
+│   ├── gameplay/
+│   │   ├── ActiveTimer.ts
+│   │   ├── HintService.ts
+│   │   ├── PuzzleInteractionSession.ts
+│   │   ├── PuzzlePointerPolicy.ts
+│   │   ├── PuzzleSessionService.ts
+│   │   └── PuzzleSessionState.ts
+│   ├── help/
+│   │   ├── HelpNavigation.ts
+│   │   └── HelpRules.ts
+│   ├── monetization/
+│   │   ├── InterstitialPolicy.ts
+│   │   └── MonetizationService.ts
+│   ├── onboarding/
+│   │   └── OnboardingFlow.ts
+│   ├── platform/
+│   │   ├── local.ts
+│   │   ├── PlatformRegistry.ts
+│   │   ├── services.ts
+│   │   ├── yandex-globals.d.ts
+│   │   └── yandex.ts
+│   ├── profile/
+│   │   ├── LocalPlayerProfileStorage.ts
+│   │   ├── PlatformPlayerProfileStorage.ts
+│   │   ├── PlayerProfile.ts
+│   │   ├── PlayerProfileService.ts
+│   │   ├── PlayerProfileStorage.ts
+│   │   └── types.ts
 │   ├── puzzle/
 │   │   ├── difficulty/
 │   │   │   ├── DifficultyAnalyzer.ts
@@ -142,13 +204,29 @@ dungeon-logic/
 │   │   ├── PuzzleState.ts
 │   │   └── types.ts
 │   ├── runtime/
+│   │   ├── ArchiveListLayout.ts
 │   │   ├── GameLaunch.ts
-│   │   └── LaunchRouting.ts
+│   │   ├── LaunchRouting.ts
+│   │   ├── MetaPointerGate.ts
+│   │   ├── MetaScroll.ts
+│   │   ├── MetaSelectors.ts
+│   │   ├── PuzzleUiState.ts
+│   │   ├── ResponsiveLayout.ts
+│   │   ├── StatsLayout.ts
+│   │   └── StatsSelectors.ts
 │   ├── scenes/
+│   │   ├── ArchiveScene.ts
 │   │   ├── BootScene.ts
 │   │   ├── GameBoardLayout.ts
 │   │   ├── GameScene.ts
-│   │   └── LevelSelectScene.ts
+│   │   ├── HelpScene.ts
+│   │   ├── HomeScene.ts
+│   │   ├── LevelSelectScene.ts
+│   │   ├── SettingsScene.ts
+│   │   └── StatsScene.ts
+│   ├── settings/
+│   │   ├── SettingsService.ts
+│   │   └── SettingsViewModel.ts
 │   ├── view/
 │   │   ├── BoardThemeAssets.ts
 │   │   ├── BoardTileResolver.ts
@@ -157,6 +235,7 @@ dungeon-logic/
 │   └── style.css
 ├── .gitignore
 ├── CURRENT_STATE.md
+├── dungeon-logic.zip
 ├── index.html
 ├── package-lock.json
 ├── package.json

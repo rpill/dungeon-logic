@@ -42,6 +42,7 @@ export interface CampaignChapterDefinition {
 export interface CampaignCurationRule {
   readonly slot: number;
   readonly chapterId: CampaignChapterId;
+  readonly manuscriptId: ManuscriptId;
   readonly allowedArchetypes: readonly GeneratorArchetype[];
   readonly allowedDifficulties: readonly Exclude<DifficultyBand, 'unrated'>[];
   readonly allowedSizes: readonly GeneratorBoardSize[];
