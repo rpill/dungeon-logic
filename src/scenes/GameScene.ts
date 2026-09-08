@@ -13,7 +13,7 @@ import {
   getRecentDailyHistory,
   type DailyCompletionResult,
 } from '../daily/DailyService';
-import { chooseHint, type PuzzleHint } from '../gameplay/HintService';
+import { chooseHint, requestHint, type PuzzleHint } from '../gameplay/HintService';
 import { MonetizationService } from '../monetization/MonetizationService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
@@ -163,12 +163,14 @@ export class GameScene extends Phaser.Scene {
     const campaignContext = launchData.context.mode === 'campaign'
       ? launchData.context
       : null;
-    const platformServices = campaignContext !== null
+    const platformServices = profileService !== null
       ? this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined
       : undefined;
     const monetizationService = profileService !== null && platformServices != null
       ? MonetizationService.create(profileService, platformServices.ads)
       : null;
+    const rewardedHintAvailable = platformServices?.kind === 'yandex'
+      && monetizationService !== null;
     const completedCampaignSlot = campaignContext === null
       ? null
       : this.getCampaignService().getLevels().find(
@@ -194,6 +196,8 @@ export class GameScene extends Phaser.Scene {
     let resetDialogOpen = false;
     let resetDialog: Phaser.GameObjects.Container | null = null;
     let hintConfirmOpen = false;
+    let hintConfirmMode: 'free' | 'rewarded' | null = null;
+    let rewardedHintRequestPending = false;
     let hintConfirmContainer: Phaser.GameObjects.Container | null = null;
     let currentHint: PuzzleHint | null = null;
     let completionMode = false;
@@ -456,6 +460,7 @@ export class GameScene extends Phaser.Scene {
         interaction.canUndo(),
         showTouchToolButtons,
         profileService?.getFreeHintsRemaining() ?? 0,
+        rewardedHintAvailable,
       );
       const step = currentOnboardingStep();
 
@@ -524,9 +529,11 @@ export class GameScene extends Phaser.Scene {
     };
 
     const closeHintConfirm = (): void => {
+      if (rewardedHintRequestPending) return;
       hintConfirmContainer?.destroy(true);
       hintConfirmContainer = null;
       hintConfirmOpen = false;
+      hintConfirmMode = null;
       if (!solved && !onboardingOpen && !resetDialogOpen) {
         board?.setInputEnabled(true);
       }
@@ -536,17 +543,8 @@ export class GameScene extends Phaser.Scene {
       syncToolbar();
     };
 
-    const deliverFreeHint = (): void => {
-      if (profileService === null) {
-        closeHintConfirm();
-        return;
-      }
-
-      const hint = chooseHint(puzzle);
-      if (hint === null || !profileService.consumeFreeHint()) {
-        closeHintConfirm();
-        return;
-      }
+    const applyDeliveredHint = (hint: PuzzleHint): void => {
+      if (profileService === null) return;
 
       if (puzzleSession !== null) {
         puzzleSession.recordHint();
@@ -559,6 +557,40 @@ export class GameScene extends Phaser.Scene {
         board?.setActiveTool(hint.state === 'wall' ? 'wall' : 'floor');
       }
       savePuzzleSession();
+    };
+
+    const deliverConfirmedHint = async (): Promise<void> => {
+      if (profileService === null || rewardedHintRequestPending) {
+        closeHintConfirm();
+        return;
+      }
+
+      const rewardedMode = hintConfirmMode === 'rewarded';
+      if (rewardedMode && (monetizationService === null || !rewardedHintAvailable)) {
+        closeHintConfirm();
+        return;
+      }
+
+      rewardedHintRequestPending = true;
+      if (rewardedMode) {
+        statusText
+          .setText('ЗАГРУЗКА РЕКЛАМЫ…')
+          .setColor('#d0b978')
+          .setVisible(true);
+      }
+
+      await requestHint({
+        puzzle,
+        consumeFreeHint: () => profileService.consumeFreeHint(),
+        requestRewarded: monetizationService === null
+          ? null
+          : () => monetizationService.requestRewardedHint(),
+        recordRewardedHintUsed: () => profileService.recordRewardedHintUsed(),
+        deliverHint: applyDeliveredHint,
+      });
+
+      rewardedHintRequestPending = false;
+      if (createVersion !== this.createVersion || !this.scene.isActive()) return;
       closeHintConfirm();
     };
 
@@ -588,29 +620,40 @@ export class GameScene extends Phaser.Scene {
         color: '#d8d1c4',
         fontStyle: 'bold',
       }).setOrigin(0.5);
-      const confirmLabel = this.add.text(showX, 0, 'ПОКАЗАТЬ', {
+      const confirmLabel = this.add.text(
+        showX,
+        0,
+        hintConfirmMode === 'rewarded' ? 'РЕКЛАМА' : 'ПОКАЗАТЬ',
+        {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#f5ded7',
         fontStyle: 'bold',
-      }).setOrigin(0.5);
+        },
+      ).setOrigin(0.5);
 
       cancel.on('pointerup', closeHintConfirm);
-      confirm.on('pointerup', deliverFreeHint);
+      confirm.on('pointerup', () => {
+        void deliverConfirmedHint();
+      });
       container.add([cancel, confirm, cancelLabel, confirmLabel]);
     };
 
     const showHintConfirm = (): void => {
-      if (controlsLocked() || profileService === null) return;
+      if (controlsLocked() || profileService === null || chooseHint(puzzle) === null) return;
       const remaining = profileService.getFreeHintsRemaining();
-      if (remaining <= 0 || chooseHint(puzzle) === null) return;
+      const mode: 'free' | 'rewarded' = remaining > 0 ? 'free' : 'rewarded';
+      if (mode === 'rewarded' && !rewardedHintAvailable) return;
 
       hintConfirmOpen = true;
+      hintConfirmMode = mode;
       board?.setInputEnabled(false);
       pauseActiveTimer();
       setToolbarVisible(false);
       statusText
-        .setText(`Показать одну клетку? Бесплатных подсказок: ${remaining}`)
+        .setText(mode === 'rewarded'
+          ? '1 РЕКЛАМА = 1 ПОДСКАЗКА. ПОКАЗАТЬ РЕКЛАМУ?'
+          : `Показать одну клетку? Бесплатных подсказок: ${remaining}`)
         .setColor('#d0b978')
         .setVisible(true);
       renderHintConfirm();
@@ -1063,6 +1106,7 @@ export class GameScene extends Phaser.Scene {
       false,
       showTouchToolButtons,
       profileService?.getFreeHintsRemaining() ?? 0,
+      rewardedHintAvailable,
     );
     for (const buttonState of initialToolbarState.buttons) {
       const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);

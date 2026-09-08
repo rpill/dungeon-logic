@@ -44,7 +44,8 @@
     "dev:yandex:host": "vite --host localhost --port 5173 --strictPort",
     "dev:yandex": "npx --yes @yandex-games/sdk-dev-proxy -h http://localhost:5173 --dev-mode=true",
     "sanity:platform": "tsx src/dev/platformSanity.ts",
-    "sanity:monetization": "tsx src/dev/monetizationSanity.ts"
+    "sanity:monetization": "tsx src/dev/monetizationSanity.ts",
+    "sanity:rewarded-hint": "tsx src/dev/rewardedHintSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

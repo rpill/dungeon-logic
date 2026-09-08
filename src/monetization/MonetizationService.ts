@@ -1,4 +1,4 @@
-import type { AdsPort } from '../platform/services';
+import type { AdsPort, RewardedResult } from '../platform/services';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import { isInterstitialEligible } from './InterstitialPolicy';
 
@@ -25,6 +25,15 @@ export class MonetizationService {
     now: MonetizationNow = () => Date.now(),
   ): MonetizationService {
     return new MonetizationService(profileService, ads, now);
+  }
+
+  async requestRewardedHint(): Promise<RewardedResult> {
+    try {
+      return await this.ads.showRewarded();
+    } catch (error) {
+      console.warn('[Dungeon Logic] Rewarded hint request failed; no hint granted.', error);
+      return 'unavailable';
+    }
   }
 
   async maybeShowCampaignInterstitial(completedSlot: number): Promise<void> {

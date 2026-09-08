@@ -9,7 +9,7 @@ import {
 import { MonetizationService } from '../monetization/MonetizationService';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { AdsPort, InterstitialResult } from '../platform/services';
+import type { AdsPort, InterstitialResult, RewardedResult } from '../platform/services';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -71,9 +71,15 @@ class FakeAds implements AdsPort {
   interstitialCalls = 0;
   rewardedCalls = 0;
   private interstitialResult: InterstitialResult;
+  private rewardedResult: RewardedResult;
+  private rejectRewarded = false;
 
-  constructor(interstitialResult: InterstitialResult) {
+  constructor(
+    interstitialResult: InterstitialResult,
+    rewardedResult: RewardedResult = 'unavailable',
+  ) {
     this.interstitialResult = interstitialResult;
+    this.rewardedResult = rewardedResult;
   }
 
   setInterstitialResult(result: InterstitialResult): void {
@@ -85,9 +91,22 @@ class FakeAds implements AdsPort {
     return this.interstitialResult;
   }
 
-  async showRewarded(): Promise<'unavailable'> {
+  setRewardedResult(result: RewardedResult): void {
+    this.rewardedResult = result;
+    this.rejectRewarded = false;
+  }
+
+  rejectNextRewarded(): void {
+    this.rejectRewarded = true;
+  }
+
+  async showRewarded(): Promise<RewardedResult> {
     this.rewardedCalls += 1;
-    return 'unavailable';
+    if (this.rejectRewarded) {
+      this.rejectRewarded = false;
+      throw new Error('rewarded failed');
+    }
+    return this.rewardedResult;
   }
 }
 
@@ -230,6 +249,62 @@ async function main(): Promise<void> {
     'Campaign Next transition resolves after the ad promise even if profile persistence is still pending.',
   );
 
+
+  const rewardedProfile = await createProfileService();
+  rewardedProfile.consumeFreeHint();
+  rewardedProfile.consumeFreeHint();
+  rewardedProfile.consumeFreeHint();
+  const rewardedAds = new FakeAds('unavailable', 'rewarded');
+  const rewardedMonetization = MonetizationService.create(rewardedProfile, rewardedAds);
+  const freeBeforeRewarded = rewardedProfile.getFreeHintsRemaining();
+  const totalUsedBeforeRewarded = rewardedProfile.getProfile().hints.totalUsed;
+  assert(
+    await rewardedMonetization.requestRewardedHint() === 'rewarded',
+    'Rewarded ad result is preserved for hint policy.',
+  );
+  assert(rewardedAds.rewardedCalls === 1, 'Explicit rewarded request calls AdsPort exactly once.');
+  assert(
+    rewardedProfile.getFreeHintsRemaining() === freeBeforeRewarded,
+    'Rewarded permission never refills the permanent free hint counter.',
+  );
+  assert(
+    rewardedProfile.getProfile().hints.totalUsed === totalUsedBeforeRewarded,
+    'Watching the ad alone does not count a hint before a hint is actually delivered.',
+  );
+  rewardedProfile.recordRewardedHintUsed();
+  assert(
+    rewardedProfile.getProfile().hints.totalUsed === totalUsedBeforeRewarded + 1,
+    'A delivered rewarded hint increments total hint usage exactly once.',
+  );
+  assert(
+    rewardedProfile.getFreeHintsRemaining() === 0,
+    'Recording a rewarded hint still does not alter freeRemaining.',
+  );
+
+  rewardedAds.setRewardedResult('closed');
+  assert(
+    await rewardedMonetization.requestRewardedHint() === 'closed',
+    'Closing rewarded video preserves the closed result.',
+  );
+  rewardedAds.setRewardedResult('unavailable');
+  assert(
+    await rewardedMonetization.requestRewardedHint() === 'unavailable',
+    'Unavailable rewarded video preserves the unavailable result.',
+  );
+  rewardedAds.rejectNextRewarded();
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    assert(
+      await rewardedMonetization.requestRewardedHint() === 'unavailable',
+      'Rejected rewarded ad promise maps to unavailable.',
+    );
+  } finally {
+    console.warn = warn;
+  }
+
+  await rewardedProfile.flush();
+
   const campaignServiceSource = readFileSync('src/campaign/CampaignService.ts', 'utf8');
   assert(
     campaignServiceSource.includes('recordCampaignCompletionForInterstitial'),
@@ -257,7 +332,21 @@ async function main(): Promise<void> {
     'Campaign Next pauses active time, awaits the interstitial opportunity, then starts the next level.',
   );
 
-  console.info('[Dungeon Logic] Monetization sanity: interstitial policy + campaign opportunity service passed');
+  const rewardedCallOccurrences = gameSceneSource.match(/requestRewardedHint/g) ?? [];
+  assert(
+    rewardedCallOccurrences.length === 1,
+    'GameScene has exactly one explicit rewarded-hint request path.',
+  );
+  assert(
+    gameSceneSource.includes('1 РЕКЛАМА = 1 ПОДСКАЗКА'),
+    'Rewarded hint path requires explicit confirmation copy before requesting the ad.',
+  );
+  assert(
+    gameSceneSource.includes('recordRewardedHintUsed'),
+    'GameScene records rewarded hint usage only when it delivers the hint.',
+  );
+
+  console.info('[Dungeon Logic] Monetization sanity: interstitial + rewarded hint policies passed');
 }
 
 void main();

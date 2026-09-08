@@ -35,6 +35,7 @@ export function createPuzzleToolbarState(
   canUndo: boolean,
   showToolButtons = true,
   freeHintsRemaining = 0,
+  rewardedHintAvailable = false,
 ): PuzzleToolbarState {
   const buttons: PuzzleToolbarButtonState[] = [];
 
@@ -50,9 +51,13 @@ export function createPuzzleToolbarState(
     { id: 'reset', label: 'RESET', active: false, disabled: false },
     {
       id: 'hint',
-      label: freeHintsRemaining > 0 ? `HINT ×${freeHintsRemaining}` : 'HINT',
+      label: freeHintsRemaining > 0
+        ? `HINT ×${freeHintsRemaining}`
+        : rewardedHintAvailable
+          ? 'HINT ▶'
+          : 'HINT',
       active: false,
-      disabled: freeHintsRemaining <= 0,
+      disabled: freeHintsRemaining <= 0 && !rewardedHintAvailable,
     },
   );
 

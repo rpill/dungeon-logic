@@ -117,6 +117,16 @@ export class PlayerProfileService {
     return true;
   }
 
+  recordRewardedHintUsed(): void {
+    this.update((profile) => ({
+      ...profile,
+      hints: {
+        ...profile.hints,
+        totalUsed: profile.hints.totalUsed + 1,
+      },
+    }));
+  }
+
   addActivePlayTime(ms: number): void {
     if (!Number.isFinite(ms) || ms <= 0) return;
 
