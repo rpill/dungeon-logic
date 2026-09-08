@@ -21,6 +21,7 @@ export class BoardView {
 
   private inputEnabled = true;
   private gestureActive = false;
+  private inputCellTarget: { readonly x: number; readonly y: number } | null = null;
 
   private readonly cells: CellView[][] = [];
   private readonly clueBackings: Phaser.GameObjects.Rectangle[] = [];
@@ -91,6 +92,11 @@ export class BoardView {
     if (!enabled) {
       this.endGesture();
     }
+  }
+
+  setInputCellTarget(target: { readonly x: number; readonly y: number } | null): void {
+    this.endGesture();
+    this.inputCellTarget = target;
   }
 
   relayout(originX: number, originY: number, cellSize: number): void {
@@ -253,6 +259,12 @@ export class BoardView {
     if (!this.inputEnabled) {
       return;
     }
+    if (
+      this.inputCellTarget !== null
+      && (this.inputCellTarget.x !== x || this.inputCellTarget.y !== y)
+    ) {
+      return;
+    }
 
     pointer.event?.preventDefault?.();
 
@@ -280,6 +292,12 @@ export class BoardView {
       return;
     }
     if (!this.gestureActive) {
+      return;
+    }
+    if (
+      this.inputCellTarget !== null
+      && (this.inputCellTarget.x !== x || this.inputCellTarget.y !== y)
+    ) {
       return;
     }
     if (!pointer.isDown) {

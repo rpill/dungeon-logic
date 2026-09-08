@@ -35,7 +35,7 @@
     "sanity:meta-scroll": "tsx src/dev/metaScrollSanity.ts",
     "sanity:meta-pointer-gate": "tsx src/dev/metaPointerGateSanity.ts",
     "sanity:puzzle-session": "tsx src/dev/puzzleSessionSanity.ts",
-    "sanity:archive-layout": "tsx src/dev/archiveLayoutSanity.ts"
+    "sanity:onboarding": "tsx src/dev/onboardingSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

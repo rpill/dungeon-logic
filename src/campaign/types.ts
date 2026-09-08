@@ -38,5 +38,7 @@ export type GameLaunchContext =
 export interface GameSceneData {
   readonly level: LevelDefinition;
   readonly context: GameLaunchContext;
+  /** Legacy onboarding ids remain for campaign-content compatibility. */
   readonly onboarding: readonly CampaignOnboardingId[];
+  readonly contextualOnboarding: boolean;
 }

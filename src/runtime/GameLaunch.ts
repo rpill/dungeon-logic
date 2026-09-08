@@ -9,6 +9,7 @@ import type {
   CampaignOnboardingId,
 } from '../content/campaign/types';
 import type { LevelDefinition } from '../puzzle/types';
+import { shouldShowContextualOnboarding } from '../onboarding/OnboardingFlow';
 
 export const ONBOARDING_COPY: Readonly<Record<CampaignOnboardingId, string>> = {
   'row-column-clues': 'Numbers show how many wall cells belong in each row and column.',
@@ -38,6 +39,7 @@ export function createDevGameSceneData(level: LevelDefinition): GameSceneData {
       mode: 'dev',
     },
     onboarding: [],
+    contextualOnboarding: false,
   };
 }
 
@@ -54,6 +56,10 @@ export function createCampaignGameSceneData(
     onboarding: shouldShowCampaignOnboarding(entry, progress)
       ? entry.onboarding
       : [],
+    contextualOnboarding: shouldShowContextualOnboarding(
+      entry.id,
+      progress.completedLevelIds,
+    ),
   };
 }
 

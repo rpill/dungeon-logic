@@ -8,6 +8,7 @@ import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PuzzleState } from '../puzzle/PuzzleState';
+import { createOnboardingFlow, type OnboardingStep } from '../onboarding/OnboardingFlow';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
@@ -15,7 +16,6 @@ import {
 import {
   completeGameLaunch,
   createNextCampaignGameSceneData,
-  createOnboardingMessages,
   getCampaignCompletionActions,
 } from '../runtime/GameLaunch';
 import { ARCHIVE_SCENE_KEY } from '../runtime/MetaSelectors';
@@ -131,7 +131,7 @@ export class GameScene extends Phaser.Scene {
     const puzzle = puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
     puzzleSession?.saveNow();
     const interaction = new PuzzleInteractionSession(puzzle);
-    const layout = calculateSafeBoardLayout();
+    let boardLayout = calculateSafeBoardLayout();
 
     let board: BoardView | null = null;
     let solved = false;
@@ -207,7 +207,133 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(0.5);
 
+    const onboardingSteps = launchData.context.mode === 'campaign'
+      && launchData.contextualOnboarding
+      ? createOnboardingFlow(launchData.context.campaignLevelId)
+      : [];
+    let onboardingIndex = onboardingSteps.length > 0 ? 0 : -1;
+    onboardingOpen = onboardingIndex >= 0;
+
+    const onboardingGuide = this.add.rectangle(0, 0, 1, 1, 0xd0b978, 0.18)
+      .setVisible(false)
+      .setDepth(40);
+    const onboardingPanel = this.add.rectangle(0, 0, 1, 1, 0x171b20, 0.96)
+      .setVisible(false)
+      .setDepth(50)
+      .setInteractive({ useHandCursor: true });
+    const onboardingText = this.add.text(0, 0, '', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#f0e6d2',
+      align: 'center',
+      wordWrap: { width: 420 },
+    })
+      .setOrigin(0.5)
+      .setVisible(false)
+      .setDepth(51);
+    const onboardingActionText = this.add.text(0, 0, '', {
+      fontFamily: 'monospace',
+      fontSize: '11px',
+      color: '#d0b978',
+      fontStyle: 'bold',
+    })
+      .setOrigin(0.5)
+      .setVisible(false)
+      .setDepth(51);
+
+    const currentOnboardingStep = (): OnboardingStep | null => (
+      onboardingIndex >= 0 ? onboardingSteps[onboardingIndex] ?? null : null
+    );
+
+    const stepCanContinueFromCallout = (step: OnboardingStep | null): boolean => {
+      if (step === null) return false;
+      if (step.target === 'clue' || step.target === 'message') return true;
+      if (step.target === 'board-cell') return step.expectedState === undefined;
+      if (step.target === 'tool-wall' || step.target === 'tool-floor') {
+        return !showTouchToolButtons;
+      }
+      return false;
+    };
+
+    const relayoutOnboarding = (): void => {
+      const step = currentOnboardingStep();
+      if (!onboardingOpen || step === null) {
+        onboardingGuide.setVisible(false);
+        onboardingPanel.setVisible(false);
+        onboardingText.setVisible(false);
+        onboardingActionText.setVisible(false);
+        return;
+      }
+
+      const toolbarTop = Math.min(
+        ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
+      );
+      const panelWidth = Math.min(this.scale.width - 24, this.scale.width < 700 ? 360 : 520);
+      const panelHeight = this.scale.width < 700 ? 78 : 68;
+      const panelX = this.scale.width / 2;
+      const panelY = toolbarTop - panelHeight / 2 - 10;
+
+      onboardingPanel
+        .setPosition(panelX, panelY)
+        .setDisplaySize(panelWidth, panelHeight)
+        .setVisible(true);
+      onboardingText
+        .setPosition(panelX, panelY - 8)
+        .setWordWrapWidth(Math.max(120, panelWidth - 26), true)
+        .setFontSize(this.scale.width < 700 ? 13 : 14)
+        .setText(step.message)
+        .setVisible(true);
+
+      const canContinue = stepCanContinueFromCallout(step);
+      let action = '';
+      if (canContinue) {
+        action = this.scale.width < 700 ? 'НАЖМИ, ЧТОБЫ ПРОДОЛЖИТЬ' : 'КЛИКНИ, ЧТОБЫ ПРОДОЛЖИТЬ';
+      } else if (step.target === 'tool-wall') {
+        action = 'НАЖМИ СТЕНА';
+      } else if (step.target === 'tool-floor') {
+        action = 'НАЖМИ ПОЛ';
+      } else if (step.target === 'board-cell') {
+        action = 'СДЕЛАЙ ХОД В ПОДСВЕЧЕННОЙ КЛЕТКЕ';
+      }
+      onboardingActionText
+        .setPosition(panelX, panelY + panelHeight / 2 - 13)
+        .setText(action)
+        .setVisible(action.length > 0);
+
+      let guideX = 0;
+      let guideY = 0;
+      let guideSize = Math.max(1, boardLayout.cellSize - 6);
+      let showGuide = false;
+
+      if (step.target === 'clue') {
+        if (step.axis === 'row') {
+          guideX = boardLayout.originX - boardLayout.cellSize / 2;
+          guideY = boardLayout.originY + step.index * boardLayout.cellSize + boardLayout.cellSize / 2;
+        } else {
+          guideX = boardLayout.originX + step.index * boardLayout.cellSize + boardLayout.cellSize / 2;
+          guideY = boardLayout.originY - boardLayout.cellSize / 2;
+        }
+        showGuide = true;
+      } else if (step.target === 'board-cell') {
+        guideX = boardLayout.originX + step.x * boardLayout.cellSize + boardLayout.cellSize / 2;
+        guideY = boardLayout.originY + step.y * boardLayout.cellSize + boardLayout.cellSize / 2;
+        showGuide = true;
+      }
+
+      onboardingGuide
+        .setPosition(guideX, guideY)
+        .setDisplaySize(guideSize, guideSize)
+        .setVisible(showGuide);
+    };
+
     const controlsLocked = (): boolean => solved || onboardingOpen || resetDialogOpen;
+
+    const onboardingAllowsTool = (tool: 'wall' | 'floor'): boolean => {
+      const step = currentOnboardingStep();
+      if (!onboardingOpen || step === null) return true;
+      if (step.target === 'board-cell' && step.expectedState !== undefined) return true;
+      return step.target === `tool-${tool}`;
+    };
 
     const syncToolbar = (): void => {
       const state = createPuzzleToolbarState(
@@ -215,33 +341,112 @@ export class GameScene extends Phaser.Scene {
         interaction.canUndo(),
         showTouchToolButtons,
       );
+      const step = currentOnboardingStep();
 
       for (const buttonState of state.buttons) {
         const visual = toolbarVisuals.get(buttonState.id);
         if (visual === undefined) continue;
 
-        const disabled = controlsLocked()
+        const isToolButton = buttonState.id === 'wall' || buttonState.id === 'floor';
+        const toolAllowed = isToolButton
+          ? onboardingAllowsTool(buttonState.id)
+          : !onboardingOpen;
+        const disabled = solved
+          || resetDialogOpen
+          || !toolAllowed
           || buttonState.disabled
           || (buttonState.id === 'reset' && interaction.getEditCount() === 0);
+        const guided = onboardingOpen && (
+          (step?.target === 'tool-wall' && buttonState.id === 'wall')
+          || (step?.target === 'tool-floor' && buttonState.id === 'floor')
+          || (step?.target === 'board-cell' && step.expectedState === 'wall' && buttonState.id === 'wall')
+          || (step?.target === 'board-cell' && step.expectedState === 'floor' && buttonState.id === 'floor')
+        );
         const fill = disabled
           ? 0x191d22
-          : buttonState.active
-            ? 0x714245
-            : 0x2a3038;
+          : guided
+            ? 0x8a5155
+            : buttonState.active
+              ? 0x714245
+              : 0x2a3038;
         const textColor = disabled
           ? '#5f666f'
-          : buttonState.active
-            ? '#f5ded7'
-            : '#d8d1c4';
+          : guided
+            ? '#fff0e8'
+            : buttonState.active
+              ? '#f5ded7'
+              : '#d8d1c4';
 
         visual.rectangle.setFillStyle(fill, 1);
         visual.label.setColor(textColor);
       }
     };
 
+    const finishOnboarding = (): void => {
+      onboardingIndex = -1;
+      onboardingOpen = false;
+      board?.setInputCellTarget(null);
+      if (!solved && !resetDialogOpen) {
+        board?.setInputEnabled(true);
+      }
+      statusText.setVisible(true);
+      relayoutOnboarding();
+      resumeActiveTimer();
+      syncToolbar();
+    };
+
+    const applyOnboardingStep = (): void => {
+      const step = currentOnboardingStep();
+      if (step === null) {
+        finishOnboarding();
+        return;
+      }
+
+      pauseActiveTimer();
+      statusText.setVisible(false);
+      board?.setInputCellTarget(null);
+
+      if (step.target === 'board-cell' && step.expectedState !== undefined) {
+        board?.setInputCellTarget({ x: step.x, y: step.y });
+        board?.setInputEnabled(true);
+      } else {
+        board?.setInputEnabled(false);
+      }
+
+      relayoutOnboarding();
+      syncToolbar();
+    };
+
+    const advanceOnboarding = (): void => {
+      if (!onboardingOpen) return;
+      onboardingIndex += 1;
+      if (onboardingIndex >= onboardingSteps.length) {
+        finishOnboarding();
+        return;
+      }
+      applyOnboardingStep();
+    };
+
+    onboardingPanel.on('pointerup', () => {
+      if (stepCanContinueFromCallout(currentOnboardingStep())) {
+        advanceOnboarding();
+      }
+    });
+
     const setActiveTool = (tool: 'wall' | 'floor'): void => {
-      if (controlsLocked()) return;
+      if (solved || resetDialogOpen) return;
+      if (onboardingOpen && !onboardingAllowsTool(tool)) return;
+
       board?.setActiveTool(tool);
+      const step = currentOnboardingStep();
+      if (
+        onboardingOpen
+        && ((step?.target === 'tool-wall' && tool === 'wall')
+          || (step?.target === 'tool-floor' && tool === 'floor'))
+      ) {
+        advanceOnboarding();
+        return;
+      }
       syncToolbar();
     };
 
@@ -352,17 +557,28 @@ export class GameScene extends Phaser.Scene {
       void this.finishCampaignLevel(launchData, createVersion, puzzleSession);
     };
 
+    const handleEditCommitted = (): void => {
+      savePuzzleSession();
+      const step = currentOnboardingStep();
+      if (
+        onboardingOpen
+        && step?.target === 'board-cell'
+        && step.expectedState !== undefined
+        && puzzle.getCellState(step.x, step.y) === step.expectedState
+      ) {
+        advanceOnboarding();
+      }
+    };
+
     board = new BoardView(
       this,
       puzzle,
       interaction,
-      layout.originX,
-      layout.originY,
-      layout.cellSize,
+      boardLayout.originX,
+      boardLayout.originY,
+      boardLayout.cellSize,
       handlePuzzleChanged,
-      () => {
-        savePuzzleSession();
-      },
+      handleEditCommitted,
     );
 
     const toolbarActions: Record<PuzzleToolbarButtonId, () => void> = {
@@ -490,12 +706,14 @@ export class GameScene extends Phaser.Scene {
         .setPosition(width / 2, toolbarTop - 18)
         .setFontSize(nextChrome.statusFontSize);
 
+      boardLayout = nextBoardLayout;
       board?.relayout(
-        nextBoardLayout.originX,
-        nextBoardLayout.originY,
-        nextBoardLayout.cellSize,
+        boardLayout.originX,
+        boardLayout.originY,
+        boardLayout.cellSize,
       );
       relayoutResetDialog();
+      relayoutOnboarding();
       syncToolbar();
     };
 
@@ -536,18 +754,11 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    const onboardingMessages = createOnboardingMessages(launchData);
-    if (onboardingMessages.length > 0) {
-      onboardingOpen = true;
-      board.setInputEnabled(false);
-      syncToolbar();
-      this.createOnboardingPanel(onboardingMessages, () => {
-        onboardingOpen = false;
-        if (!solved) board?.setInputEnabled(true);
-        resumeActiveTimer();
-        syncToolbar();
-      });
+    if (onboardingOpen) {
+      applyOnboardingStep();
     } else {
+      board.setInputCellTarget(null);
+      board.setInputEnabled(true);
       resumeActiveTimer();
       syncToolbar();
     }
@@ -574,60 +785,6 @@ export class GameScene extends Phaser.Scene {
 
     if (createVersion !== this.createVersion) return;
     this.createCompletionOverlay(result, service, createVersion);
-  }
-
-  private createOnboardingPanel(
-    messages: readonly string[],
-    onDismiss: () => void,
-  ): void {
-    const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
-    const width = chrome.modalWidth;
-    const height = Math.min(
-      this.scale.height - 32,
-      118 + messages.length * (this.scale.width < 700 ? 62 : 54),
-    );
-    const x = this.scale.width / 2;
-    const y = this.scale.height / 2;
-
-    const panel = this.add.rectangle(x, y, width, height, 0x15191f, 0.97)
-      .setStrokeStyle(3, 0xd0b978);
-
-    const title = this.add.text(x, y - height / 2 + 34, 'How this level works', {
-      fontFamily: 'monospace',
-      fontSize: `${chrome.modalTitleFontSize}px`,
-      color: '#f0e6d2',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    const copy = messages.map((message) => `• ${message}`).join('\n\n');
-    const copyText = this.add.text(x, y - 8, copy, {
-      fontFamily: 'monospace',
-      fontSize: `${chrome.modalCopyFontSize}px`,
-      color: '#d8d1c4',
-      wordWrap: { width: width - (this.scale.width < 700 ? 36 : 80) },
-      align: 'left',
-      lineSpacing: 5,
-    }).setOrigin(0.5);
-
-    const buttonY = y + height / 2 - 34;
-    const button = this.add.rectangle(x, buttonY, 150, 42, 0x2a3038, 1)
-      .setStrokeStyle(2, 0xd0b978)
-      .setInteractive({ useHandCursor: true });
-    const label = this.add.text(x, buttonY, 'Got it', {
-      fontFamily: 'monospace',
-      fontSize: '18px',
-      color: '#f0d28a',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    button.once('pointerdown', () => {
-      panel.destroy();
-      title.destroy();
-      copyText.destroy();
-      button.destroy();
-      label.destroy();
-      onDismiss();
-    });
   }
 
   private createCompletionOverlay(
