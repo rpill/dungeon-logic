@@ -1,7 +1,7 @@
 import type { PuzzleTool } from '../gameplay/PuzzleInteractionSession.ts';
 import { classifyViewport } from '../scenes/GameBoardLayout.ts';
 
-export type PuzzleToolbarButtonId = 'wall' | 'floor' | 'undo' | 'reset';
+export type PuzzleToolbarButtonId = 'wall' | 'floor' | 'undo' | 'reset' | 'hint';
 
 export interface PuzzleToolbarButtonState {
   readonly id: PuzzleToolbarButtonId;
@@ -34,6 +34,7 @@ export function createPuzzleToolbarState(
   activeTool: PuzzleTool,
   canUndo: boolean,
   showToolButtons = true,
+  freeHintsRemaining = 0,
 ): PuzzleToolbarState {
   const buttons: PuzzleToolbarButtonState[] = [];
 
@@ -47,6 +48,12 @@ export function createPuzzleToolbarState(
   buttons.push(
     { id: 'undo', label: 'UNDO', active: false, disabled: !canUndo },
     { id: 'reset', label: 'RESET', active: false, disabled: false },
+    {
+      id: 'hint',
+      label: freeHintsRemaining > 0 ? `HINT ×${freeHintsRemaining}` : 'HINT',
+      active: false,
+      disabled: freeHintsRemaining <= 0,
+    },
   );
 
   return { activeTool, buttons };
@@ -85,7 +92,7 @@ export function calculatePuzzleToolbarLayout(
     const gap = 10;
     const buttonHeight = 48;
     const buttonWidth = viewportClass === 'wide' ? 116 : 104;
-    const totalWidth = buttonWidth * 2 + gap;
+    const totalWidth = buttonWidth * 3 + gap * 2;
     const startX = (viewportWidth - totalWidth) / 2;
     const y = viewportHeight - bottomInset - margin - buttonHeight / 2;
 
@@ -96,6 +103,7 @@ export function calculatePuzzleToolbarLayout(
       buttons: [
         { id: 'undo', x: startX + buttonWidth / 2, y, width: buttonWidth, height: buttonHeight },
         { id: 'reset', x: startX + buttonWidth + gap + buttonWidth / 2, y, width: buttonWidth, height: buttonHeight },
+        { id: 'hint', x: startX + (buttonWidth + gap) * 2 + buttonWidth / 2, y, width: buttonWidth, height: buttonHeight },
       ],
     };
   }
@@ -105,21 +113,24 @@ export function calculatePuzzleToolbarLayout(
     const gapX = 8;
     const gapY = 8;
     const buttonHeight = 48;
-    const buttonWidth = Math.floor((viewportWidth - margin * 2 - gapX) / 2);
+    const toolButtonWidth = Math.floor((viewportWidth - margin * 2 - gapX) / 2);
+    const actionButtonWidth = Math.floor((viewportWidth - margin * 2 - gapX * 2) / 3);
     const bottomY = viewportHeight - bottomInset - margin - buttonHeight / 2;
     const topY = bottomY - buttonHeight - gapY;
-    const leftX = margin + buttonWidth / 2;
-    const rightX = viewportWidth - margin - buttonWidth / 2;
+    const leftToolX = margin + toolButtonWidth / 2;
+    const rightToolX = viewportWidth - margin - toolButtonWidth / 2;
+    const firstActionX = margin + actionButtonWidth / 2;
 
     return {
       mode: 'stacked',
       buttonHeight,
       bottomY,
       buttons: [
-        { id: 'wall', x: leftX, y: topY, width: buttonWidth, height: buttonHeight },
-        { id: 'floor', x: rightX, y: topY, width: buttonWidth, height: buttonHeight },
-        { id: 'undo', x: leftX, y: bottomY, width: buttonWidth, height: buttonHeight },
-        { id: 'reset', x: rightX, y: bottomY, width: buttonWidth, height: buttonHeight },
+        { id: 'wall', x: leftToolX, y: topY, width: toolButtonWidth, height: buttonHeight },
+        { id: 'floor', x: rightToolX, y: topY, width: toolButtonWidth, height: buttonHeight },
+        { id: 'undo', x: firstActionX, y: bottomY, width: actionButtonWidth, height: buttonHeight },
+        { id: 'reset', x: firstActionX + actionButtonWidth + gapX, y: bottomY, width: actionButtonWidth, height: buttonHeight },
+        { id: 'hint', x: firstActionX + (actionButtonWidth + gapX) * 2, y: bottomY, width: actionButtonWidth, height: buttonHeight },
       ],
     };
   }
@@ -127,15 +138,15 @@ export function calculatePuzzleToolbarLayout(
   const buttonHeight = 48;
   const gap = viewportClass === 'wide' ? 12 : 10;
   const widths = viewportClass === 'wide'
-    ? [132, 132, 116, 116]
-    : [116, 116, 104, 104];
-  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * 3;
+    ? [126, 126, 104, 104, 104]
+    : [108, 108, 96, 96, 96];
+  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * 4;
   const startX = (viewportWidth - totalWidth) / 2;
   const bottomMargin = viewportClass === 'wide' ? 22 : 16;
   const y = viewportHeight - bottomInset - bottomMargin - buttonHeight / 2;
   let cursor = startX;
 
-  const ids: readonly PuzzleToolbarButtonId[] = ['wall', 'floor', 'undo', 'reset'];
+  const ids: readonly PuzzleToolbarButtonId[] = ['wall', 'floor', 'undo', 'reset', 'hint'];
   const buttons = ids.map((id, index): PuzzleToolbarButtonLayout => {
     const width = widths[index];
     const button = {

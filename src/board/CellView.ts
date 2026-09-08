@@ -18,6 +18,8 @@ export const WIREFRAME = {
   conflictWall: 0x8d4545,
   hoverTint: 0xf0e6d2,
   hoverAlpha: 0.10,
+  hintTint: 0xd0b978,
+  hintAlpha: 0.24,
   gap: 2,
 } as const;
 
@@ -35,6 +37,7 @@ export class CellView {
   private readonly floor: Phaser.GameObjects.Rectangle;
   private readonly wall: Phaser.GameObjects.Rectangle;
   private readonly hoverOverlay: Phaser.GameObjects.Rectangle;
+  private readonly hintOverlay: Phaser.GameObjects.Rectangle;
   private readonly marker: Phaser.GameObjects.Text;
   private readonly fixedVisual: FixedCellVisual;
 
@@ -42,6 +45,7 @@ export class CellView {
   private state: CellStateValue = CellState.Unknown;
   private conflict = false;
   private hovered = false;
+  private hinted = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -86,6 +90,17 @@ export class CellView {
         visualSize,
         WIREFRAME.hoverTint,
         WIREFRAME.hoverAlpha,
+      )
+      .setVisible(false);
+
+    this.hintOverlay = scene.add
+      .rectangle(
+        centerX,
+        centerY,
+        visualSize,
+        visualSize,
+        WIREFRAME.hintTint,
+        WIREFRAME.hintAlpha,
       )
       .setVisible(false);
 
@@ -149,11 +164,16 @@ export class CellView {
     this.render();
   }
 
+  setHintHighlighted(highlighted: boolean): void {
+    this.hinted = highlighted;
+    this.renderHint();
+  }
+
   relayout(centerX: number, centerY: number, size: number): void {
     this.size = size;
     const visualSize = Math.max(1, size - WIREFRAME.gap);
 
-    for (const rectangle of [this.floor, this.wall, this.hoverOverlay]) {
+    for (const rectangle of [this.floor, this.wall, this.hoverOverlay, this.hintOverlay]) {
       rectangle
         .setPosition(centerX, centerY)
         .setDisplaySize(visualSize, visualSize);
@@ -180,6 +200,7 @@ export class CellView {
         .setText(this.fixedVisual.marker)
         .setVisible(true);
       this.renderHover();
+      this.renderHint();
       return;
     }
 
@@ -213,9 +234,14 @@ export class CellView {
     }
 
     this.renderHover();
+    this.renderHint();
   }
 
   private renderHover(): void {
     this.hoverOverlay.setVisible(this.fixedVisual === null && this.hovered);
+  }
+
+  private renderHint(): void {
+    this.hintOverlay.setVisible(this.fixedVisual === null && this.hinted);
   }
 }

@@ -1,5 +1,6 @@
 import { getCampaignLevelState, shouldShowCampaignOnboarding } from '../campaign/CampaignProgress';
 import type {
+  CampaignCompletionMetadata,
   CampaignCompletionResult,
   CampaignProgressSnapshot,
   GameSceneData,
@@ -24,7 +25,10 @@ export interface LevelSelectItem {
 }
 
 export interface CampaignCompletionPort {
-  completeLevel(id: string): Promise<CampaignCompletionResult>;
+  completeLevel(
+    id: string,
+    resultMetadata?: CampaignCompletionMetadata,
+  ): Promise<CampaignCompletionResult>;
 }
 
 export interface CampaignStartPort {
@@ -88,9 +92,10 @@ export function createOnboardingMessages(data: GameSceneData): readonly string[]
 export async function completeGameLaunch(
   data: GameSceneData,
   campaign: CampaignCompletionPort,
+  resultMetadata?: CampaignCompletionMetadata,
 ): Promise<CampaignCompletionResult | null> {
   if (data.context.mode !== 'campaign') return null;
-  return campaign.completeLevel(data.context.campaignLevelId);
+  return campaign.completeLevel(data.context.campaignLevelId, resultMetadata);
 }
 
 export function getCampaignCompletionActions(

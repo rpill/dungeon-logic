@@ -105,6 +105,14 @@ export class BoardView {
       : new Set(targets.map(({ x, y }) => `${x},${y}`));
   }
 
+  setHintCellTarget(target: { readonly x: number; readonly y: number } | null): void {
+    for (let y = 0; y < this.puzzle.level.height; y += 1) {
+      for (let x = 0; x < this.puzzle.level.width; x += 1) {
+        this.cells[y][x].setHintHighlighted(target !== null && target.x === x && target.y === y);
+      }
+    }
+  }
+
   private isInputCellAllowed(x: number, y: number): boolean {
     return this.inputCellTargets === null || this.inputCellTargets.has(`${x},${y}`);
   }

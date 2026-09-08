@@ -2,7 +2,12 @@ import Phaser from 'phaser';
 
 import { BoardView } from '../board/BoardView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
-import type { CampaignCompletionResult, GameSceneData } from '../campaign/types';
+import type {
+  CampaignCompletionMetadata,
+  CampaignCompletionResult,
+  GameSceneData,
+} from '../campaign/types';
+import { chooseHint, type PuzzleHint } from '../gameplay/HintService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
@@ -21,7 +26,6 @@ import {
 import {
   completeGameLaunch,
   createNextCampaignGameSceneData,
-  getCampaignCompletionActions,
 } from '../runtime/GameLaunch';
 import { ARCHIVE_SCENE_KEY } from '../runtime/MetaSelectors';
 import { calculateGameBoardLayout } from './GameBoardLayout';
@@ -76,10 +80,13 @@ export class GameScene extends Phaser.Scene {
       return Date.now();
     };
 
-    const calculateSafeBoardLayout = () => {
+    const calculateSafeBoardLayout = (extraBottomReserve = 0) => {
       const safeTop = readSafeArea('--safe-area-inset-top');
       const safeBottom = readSafeArea('--safe-area-inset-bottom');
-      const safeHeight = Math.max(1, this.scale.height - safeTop - safeBottom);
+      const safeHeight = Math.max(
+        1,
+        this.scale.height - safeTop - safeBottom - Math.max(0, extraBottomReserve),
+      );
       const layout = calculateGameBoardLayout(
         this.scale.width,
         safeHeight,
@@ -157,6 +164,14 @@ export class GameScene extends Phaser.Scene {
     let onboardingBlocksTimer = false;
     let resetDialogOpen = false;
     let resetDialog: Phaser.GameObjects.Container | null = null;
+    let hintConfirmOpen = false;
+    let hintConfirmContainer: Phaser.GameObjects.Container | null = null;
+    let currentHint: PuzzleHint | null = null;
+    let completionMode = false;
+    const completionButtons: Array<{
+      rectangle: Phaser.GameObjects.Rectangle;
+      label: Phaser.GameObjects.Text;
+    }> = [];
     const activeTimer = new ActiveTimer(puzzleSession?.getActivePlayMs() ?? 0);
     let syncedActivePlayMs = puzzleSession?.getActivePlayMs() ?? 0;
 
@@ -180,7 +195,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const timerMayRun = (): boolean => {
-      if (solved || onboardingBlocksTimer || resetDialogOpen) return false;
+      if (solved || onboardingBlocksTimer || resetDialogOpen || hintConfirmOpen) return false;
       return typeof document === 'undefined' || !document.hidden;
     };
 
@@ -381,7 +396,9 @@ export class GameScene extends Phaser.Scene {
       }
     };
 
-    const controlsLocked = (): boolean => solved || onboardingBlocksInteraction || resetDialogOpen;
+    const controlsLocked = (): boolean => (
+      solved || onboardingBlocksInteraction || resetDialogOpen || hintConfirmOpen
+    );
 
     const onboardingAllowsTool = (tool: 'wall' | 'floor'): boolean => {
       const step = currentOnboardingStep();
@@ -395,6 +412,7 @@ export class GameScene extends Phaser.Scene {
         interaction.getActiveTool(),
         interaction.canUndo(),
         showTouchToolButtons,
+        profileService?.getFreeHintsRemaining() ?? 0,
       );
       const step = currentOnboardingStep();
 
@@ -430,8 +448,212 @@ export class GameScene extends Phaser.Scene {
               : '#d8d1c4';
 
         visual.rectangle.setFillStyle(fill, 1);
-        visual.label.setColor(textColor);
+        visual.label.setText(buttonState.label).setColor(textColor);
       }
+    };
+
+    const setToolbarVisible = (visible: boolean): void => {
+      for (const visual of toolbarVisuals.values()) {
+        visual.rectangle.setVisible(visible);
+        visual.label.setVisible(visible);
+      }
+    };
+
+    const defaultStatusCopy = (): string => (
+      showTouchToolButtons ? '' : 'LMB: Wall   •   RMB: Floor'
+    );
+
+    const refreshStatusText = (): void => {
+      if (completionMode || hintConfirmOpen || onboardingOpen) return;
+      if (currentHint !== null) {
+        statusText
+          .setText(currentHint.state === 'wall'
+            ? 'ПОДСКАЗКА: золотая клетка должна быть СТЕНОЙ'
+            : 'ПОДСКАЗКА: золотая клетка должна быть ПОЛОМ')
+          .setColor('#d0b978')
+          .setVisible(true);
+        return;
+      }
+      statusText
+        .setText(defaultStatusCopy())
+        .setColor('#89929d')
+        .setVisible(true);
+    };
+
+    const closeHintConfirm = (): void => {
+      hintConfirmContainer?.destroy(true);
+      hintConfirmContainer = null;
+      hintConfirmOpen = false;
+      if (!solved && !onboardingOpen && !resetDialogOpen) {
+        board?.setInputEnabled(true);
+      }
+      setToolbarVisible(!completionMode);
+      refreshStatusText();
+      resumeActiveTimer();
+      syncToolbar();
+    };
+
+    const deliverFreeHint = (): void => {
+      if (profileService === null || puzzleSession === null) {
+        closeHintConfirm();
+        return;
+      }
+
+      const hint = chooseHint(puzzle);
+      if (hint === null || !profileService.consumeFreeHint()) {
+        closeHintConfirm();
+        return;
+      }
+
+      puzzleSession.recordHint();
+      currentHint = hint;
+      board?.setHintCellTarget(hint);
+      if (showTouchToolButtons) {
+        board?.setActiveTool(hint.state === 'wall' ? 'wall' : 'floor');
+      }
+      savePuzzleSession();
+      closeHintConfirm();
+    };
+
+    const renderHintConfirm = (): void => {
+      hintConfirmContainer?.destroy(true);
+      hintConfirmContainer = null;
+      if (!hintConfirmOpen) return;
+
+      const safeBottom = readSafeArea('--safe-area-inset-bottom');
+      const width = Math.min(360, this.scale.width - 24);
+      const gap = 10;
+      const buttonWidth = Math.floor((width - gap) / 2);
+      const buttonHeight = 46;
+      const y = this.scale.height - safeBottom - 12 - buttonHeight / 2;
+      const container = this.add.container(this.scale.width / 2, y).setDepth(70);
+      hintConfirmContainer = container;
+
+      const cancelX = -buttonWidth / 2 - gap / 2;
+      const showX = buttonWidth / 2 + gap / 2;
+      const cancel = this.add.rectangle(cancelX, 0, buttonWidth, buttonHeight, 0x2a3038, 1)
+        .setInteractive({ useHandCursor: true });
+      const confirm = this.add.rectangle(showX, 0, buttonWidth, buttonHeight, 0x714245, 1)
+        .setInteractive({ useHandCursor: true });
+      const cancelLabel = this.add.text(cancelX, 0, 'ОТМЕНА', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#d8d1c4',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      const confirmLabel = this.add.text(showX, 0, 'ПОКАЗАТЬ', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#f5ded7',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+
+      cancel.on('pointerup', closeHintConfirm);
+      confirm.on('pointerup', deliverFreeHint);
+      container.add([cancel, confirm, cancelLabel, confirmLabel]);
+    };
+
+    const showHintConfirm = (): void => {
+      if (controlsLocked() || profileService === null) return;
+      const remaining = profileService.getFreeHintsRemaining();
+      if (remaining <= 0 || chooseHint(puzzle) === null) return;
+
+      hintConfirmOpen = true;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      setToolbarVisible(false);
+      statusText
+        .setText(`Показать одну клетку? Бесплатных подсказок: ${remaining}`)
+        .setColor('#d0b978')
+        .setVisible(true);
+      renderHintConfirm();
+      syncToolbar();
+    };
+
+    const clearCompletionButtons = (): void => {
+      for (const visual of completionButtons.splice(0)) {
+        visual.rectangle.destroy();
+        visual.label.destroy();
+      }
+    };
+
+    let completionActions: Array<{ readonly label: string; readonly action: () => void }> = [];
+
+    const renderCompletionButtons = (): void => {
+      clearCompletionButtons();
+      if (!completionMode || completionActions.length === 0) return;
+
+      const safeBottom = readSafeArea('--safe-area-inset-bottom');
+      const gap = 10;
+      const maxWidth = Math.min(this.scale.width - 24, 350);
+      const buttonHeight = 48;
+      const buttonWidth = completionActions.length === 1
+        ? Math.min(190, maxWidth)
+        : Math.floor((maxWidth - gap) / 2);
+      const totalWidth = buttonWidth * completionActions.length + gap * (completionActions.length - 1);
+      const startX = (this.scale.width - totalWidth) / 2;
+      const y = this.scale.height - safeBottom - 12 - buttonHeight / 2;
+
+      completionActions.forEach((definition, index) => {
+        const x = startX + index * (buttonWidth + gap) + buttonWidth / 2;
+        const rectangle = this.add.rectangle(x, y, buttonWidth, buttonHeight, 0x2a3038, 1)
+          .setInteractive({ useHandCursor: true })
+          .setDepth(60);
+        const label = this.add.text(x, y, definition.label, {
+          fontFamily: 'monospace',
+          fontSize: this.scale.width < 700 ? '14px' : '16px',
+          color: '#f0d28a',
+          fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(61);
+        rectangle.on('pointerup', definition.action);
+        completionButtons.push({ rectangle, label });
+      });
+    };
+
+    const showCompletionState = (
+      result: CampaignCompletionResult,
+      metadata: CampaignCompletionMetadata,
+      newBestTime: boolean,
+    ): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      if (this.scale.height < 520) {
+        boardLayout = calculateSafeBoardLayout(40);
+        board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
+      }
+      setToolbarVisible(false);
+      const hintCopy = metadata.minHintsUsed === 0
+        ? 'БЕЗ ПОДСКАЗОК'
+        : `ПОДСКАЗОК: ${metadata.minHintsUsed}`;
+      const recordCopy = newBestTime ? '  ·  НОВЫЙ РЕКОРД' : '';
+      const unlockCopy = result.unlockedManuscript === null
+        ? ''
+        : `
+ОТКРЫТА РУКОПИСЬ ${result.unlockedManuscript.roman} · ${result.unlockedManuscript.title.toUpperCase()}`;
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(`✓ РЕШЕНО  ·  ${formatActiveTime(metadata.bestTimeMs)}  ·  ${hintCopy}${recordCopy}${unlockCopy}`)
+        .setColor('#d8d1c4')
+        .setVisible(true);
+
+      completionActions = [
+        {
+          label: 'АРХИВ',
+          action: () => this.scene.start(ARCHIVE_SCENE_KEY),
+        },
+      ];
+      if (result.recommendedNextLevel !== null) {
+        const service = this.getCampaignService();
+        completionActions.push({
+          label: 'ДАЛЬШЕ',
+          action: () => {
+            void this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
+          },
+        });
+      }
+      renderCompletionButtons();
     };
 
     const cancelOnboardingAutoAdvance = (): void => {
@@ -625,18 +847,54 @@ export class GameScene extends Phaser.Scene {
       pauseActiveTimer();
       savePuzzleSession();
       syncToolbar();
+      setToolbarVisible(false);
+      currentHint = null;
+      board?.setHintCellTarget(null);
+
+      const metadata: CampaignCompletionMetadata = {
+        bestTimeMs: puzzleSession?.getActivePlayMs() ?? activeTimer.getElapsedMs(readActiveClockMs()),
+        minHintsUsed: puzzleSession?.getHintsUsed() ?? 0,
+        solveCount: 1,
+        solvedWithoutHints: (puzzleSession?.getHintsUsed() ?? 0) === 0,
+      };
 
       if (launchData.context.mode === 'dev') {
-        statusText.setText('Dungeon complete!').setColor('#d8d1c4');
+        completionMode = true;
+        statusText
+          .setText(`✓ РЕШЕНО  ·  ${formatActiveTime(metadata.bestTimeMs)}`)
+          .setColor('#d8d1c4')
+          .setVisible(true);
         return;
       }
 
-      statusText.setText('Level complete!').setColor('#d8d1c4');
-      void this.finishCampaignLevel(launchData, createVersion, puzzleSession);
+      const previousResult = profileService?.getProfile().campaign.levelResults[launchData.context.campaignLevelId];
+      const newBestTime = previousResult === undefined || metadata.bestTimeMs < previousResult.bestTimeMs;
+      statusText.setText('').setVisible(false);
+
+      void this.finishCampaignLevel(
+        launchData,
+        createVersion,
+        puzzleSession,
+        metadata,
+      ).then((result) => {
+        if (result === null || createVersion !== this.createVersion) return;
+        this.time.delayedCall(500, () => {
+          if (createVersion !== this.createVersion) return;
+          showCompletionState(result, metadata, newBestTime);
+        });
+      });
     };
 
     const handleEditCommitted = (): void => {
       savePuzzleSession();
+      if (
+        currentHint !== null
+        && puzzle.getCellState(currentHint.x, currentHint.y) === currentHint.state
+      ) {
+        currentHint = null;
+        board?.setHintCellTarget(null);
+        refreshStatusText();
+      }
       const step = currentOnboardingStep();
       if (
         onboardingOpen
@@ -667,9 +925,15 @@ export class GameScene extends Phaser.Scene {
         syncToolbar();
       },
       reset: requestReset,
+      hint: showHintConfirm,
     };
 
-    const initialToolbarState = createPuzzleToolbarState('wall', false, showTouchToolButtons);
+    const initialToolbarState = createPuzzleToolbarState(
+      'wall',
+      false,
+      showTouchToolButtons,
+      profileService?.getFreeHintsRemaining() ?? 0,
+    );
     for (const buttonState of initialToolbarState.buttons) {
       const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
       if (buttonLayout === undefined) continue;
@@ -683,7 +947,7 @@ export class GameScene extends Phaser.Scene {
         1,
       )
         .setInteractive({ useHandCursor: true })
-        .on('pointerdown', toolbarActions[buttonState.id]);
+        .on('pointerup', toolbarActions[buttonState.id]);
       const label = this.add.text(buttonLayout.x, buttonLayout.y, buttonState.label, {
         fontFamily: 'monospace',
         fontSize: this.scale.width < 700 ? '15px' : '16px',
@@ -695,6 +959,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     backText.on('pointerdown', () => {
+      if (hintConfirmOpen) {
+        closeHintConfirm();
+        return;
+      }
       if (resetDialogOpen) return;
       board?.setInputEnabled(false);
       pauseActiveTimer();
@@ -714,7 +982,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     helpText.on('pointerup', () => {
-      if (resetDialogOpen) return;
+      if (resetDialogOpen || hintConfirmOpen || solved) return;
       board?.setInputEnabled(false);
       pauseActiveTimer();
       savePuzzleSession();
@@ -745,6 +1013,9 @@ export class GameScene extends Phaser.Scene {
         case 'KeyR':
           requestReset();
           break;
+        case 'KeyH':
+          showHintConfirm();
+          break;
       }
     };
     keyboard?.on('keydown', handleKeyDown);
@@ -756,7 +1027,7 @@ export class GameScene extends Phaser.Scene {
       const height = this.scale.height;
       const nextChrome = calculatePuzzleChromeLayout(width, height);
       const nextSafeTop = readSafeArea('--safe-area-inset-top');
-      const nextBoardLayout = calculateSafeBoardLayout();
+      const nextBoardLayout = calculateSafeBoardLayout(completionMode && height < 520 ? 40 : 0);
       toolbarLayout = calculatePuzzleToolbarLayout(
         width,
         height,
@@ -796,6 +1067,9 @@ export class GameScene extends Phaser.Scene {
       statusText
         .setPosition(width / 2, toolbarTop - 18)
         .setFontSize(nextChrome.statusFontSize);
+      if (completionMode) {
+        statusText.setWordWrapWidth(Math.max(120, width - 24), true).setAlign('center');
+      }
 
       boardLayout = nextBoardLayout;
       board?.relayout(
@@ -805,6 +1079,8 @@ export class GameScene extends Phaser.Scene {
       );
       relayoutResetDialog();
       relayoutOnboarding();
+      if (hintConfirmOpen) renderHintConfirm();
+      if (completionMode) renderCompletionButtons();
       syncToolbar();
     };
 
@@ -874,11 +1150,12 @@ export class GameScene extends Phaser.Scene {
     launchData: GameSceneData,
     createVersion: number,
     puzzleSession: PuzzleSessionService | null,
-  ): Promise<void> {
+    resultMetadata: CampaignCompletionMetadata,
+  ): Promise<CampaignCompletionResult | null> {
     const service = this.getCampaignService();
-    const result = await completeGameLaunch(launchData, service);
+    const result = await completeGameLaunch(launchData, service, resultMetadata);
 
-    if (createVersion !== this.createVersion || result === null) return;
+    if (createVersion !== this.createVersion || result === null) return null;
 
     if (result.persisted && puzzleSession !== null) {
       puzzleSession.clearActivePuzzle();
@@ -889,51 +1166,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (createVersion !== this.createVersion) return;
-    this.createCompletionOverlay(result, service, createVersion);
-  }
-
-  private createCompletionOverlay(
-    result: CampaignCompletionResult,
-    service: CampaignService,
-    createVersion: number,
-  ): void {
-    const actions = getCampaignCompletionActions(result);
-    const x = this.scale.width / 2;
-    const y = this.scale.height / 2;
-    const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
-    const panelHeight = actions.includes('next') ? 250 : 205;
-    const panelWidth = Math.min(460, chrome.modalWidth);
-
-    this.add.rectangle(x, y, panelWidth, panelHeight, 0x15191f, 0.97)
-      .setStrokeStyle(3, 0xd0b978);
-
-    this.add.text(x, y - panelHeight / 2 + 45, 'Level complete', {
-      fontFamily: 'monospace',
-      fontSize: `${Math.min(28, chrome.modalTitleFontSize + 4)}px`,
-      color: '#f0e6d2',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    let buttonY = y - 5;
-    if (actions.includes('next') && result.recommendedNextLevel !== null) {
-      this.createOverlayButton(x, buttonY, 'Next level', () => {
-        void this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
-      });
-      buttonY += 58;
-    }
-
-    this.createOverlayButton(x, buttonY, 'Archive', () => {
-      this.scene.start(ARCHIVE_SCENE_KEY);
-    });
-
-    if (!result.persisted) {
-      this.add.text(x, y + panelHeight / 2 - 26, 'Progress is kept for this session.', {
-        fontFamily: 'monospace',
-        fontSize: '13px',
-        color: '#89929d',
-      }).setOrigin(0.5);
-    }
+    if (createVersion !== this.createVersion) return null;
+    return result;
   }
 
   private async startNextLevel(
@@ -944,27 +1178,6 @@ export class GameScene extends Phaser.Scene {
     const nextData = await createNextCampaignGameSceneData(nextLevel, service);
     if (createVersion !== this.createVersion) return;
     this.scene.restart(nextData);
-  }
-
-  private createOverlayButton(
-    x: number,
-    y: number,
-    label: string,
-    onActivate: () => void,
-  ): void {
-    const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
-    const button = this.add.rectangle(x, y, chrome.overlayButtonWidth, 44, 0x2a3038, 1)
-      .setStrokeStyle(2, 0xd0b978)
-      .setInteractive({ useHandCursor: true });
-
-    this.add.text(x, y, label, {
-      fontFamily: 'monospace',
-      fontSize: '18px',
-      color: '#f0d28a',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    button.on('pointerdown', onActivate);
   }
 
   private getPlayerProfileService(): PlayerProfileService {

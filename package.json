@@ -36,7 +36,8 @@
     "sanity:meta-pointer-gate": "tsx src/dev/metaPointerGateSanity.ts",
     "sanity:puzzle-session": "tsx src/dev/puzzleSessionSanity.ts",
     "sanity:onboarding": "tsx src/dev/onboardingSanity.ts",
-    "sanity:help-rules": "tsx src/dev/helpRulesSanity.ts"
+    "sanity:help-rules": "tsx src/dev/helpRulesSanity.ts",
+    "sanity:hint": "tsx src/dev/hintSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

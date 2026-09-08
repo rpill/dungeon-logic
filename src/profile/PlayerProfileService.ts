@@ -100,6 +100,23 @@ export class PlayerProfileService {
     return this.profile;
   }
 
+  getFreeHintsRemaining(): number {
+    return this.profile.hints.freeRemaining;
+  }
+
+  consumeFreeHint(): boolean {
+    if (this.profile.hints.freeRemaining <= 0) return false;
+
+    this.update((profile) => ({
+      ...profile,
+      hints: {
+        freeRemaining: Math.max(0, profile.hints.freeRemaining - 1),
+        totalUsed: profile.hints.totalUsed + 1,
+      },
+    }));
+    return true;
+  }
+
   replaceProfileForPlatformMerge(profile: PlayerProfileV1): PlayerProfileV1 {
     this.profile = normalizePlayerProfile(profile, this.manifest);
     this.dirty = true;

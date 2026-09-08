@@ -132,6 +132,7 @@ async function main(): Promise<void> {
 
   let completeCalls = 0;
   let completedId: string | null = null;
+  let completedMetadata: import('../campaign/types').CampaignCompletionMetadata | undefined;
   const firstCompletion = {
     progress: {
       completedLevelIds: ['campaign-001'],
@@ -142,15 +143,26 @@ async function main(): Promise<void> {
     persisted: true,
   } as const;
   const completionPort = {
-    completeLevel: async (id: string) => {
+    completeLevel: async (
+      id: string,
+      metadata?: import('../campaign/types').CampaignCompletionMetadata,
+    ) => {
       completeCalls += 1;
       completedId = id;
+      completedMetadata = metadata;
       return firstCompletion;
     },
   };
-  const campaignCompletion = await completeGameLaunch(campaignData, completionPort);
+  const solveMetadata = {
+    bestTimeMs: 12345,
+    minHintsUsed: 1,
+    solveCount: 1,
+    solvedWithoutHints: false,
+  } as const;
+  const campaignCompletion = await completeGameLaunch(campaignData, completionPort, solveMetadata);
   assert(completeCalls === 1, 'Campaign completion calls CampaignService.completeLevel exactly once.');
   assert(completedId === 'campaign-001', 'Campaign completion passes exact current campaign id.');
+  assert(completedMetadata === solveMetadata, 'Campaign completion forwards exact solve metadata.');
   assert(campaignCompletion === firstCompletion, 'Campaign completion returns service result unchanged.');
 
   completeCalls = 0;
