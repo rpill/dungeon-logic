@@ -1,4 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
@@ -36,6 +37,21 @@ class FakeStorage implements PlayerProfileStorage {
 }
 
 async function main(): Promise<void> {
+  const timer = new ActiveTimer(2_000);
+  assert(timer.getElapsedMs(0) === 2_000, 'Restored timer base is visible before running.');
+  timer.start(1_000);
+  assert(timer.isRunning(), 'Active timer starts running.');
+  assert(timer.getElapsedMs(6_000) === 7_000, 'Five active seconds are added to restored base time.');
+  timer.pause(6_000);
+  assert(!timer.isRunning(), 'Pause stops active timer.');
+  assert(timer.getElapsedMs(16_000) === 7_000, 'Paused interval adds no active time.');
+  timer.resume(16_000);
+  assert(timer.getElapsedMs(18_000) === 9_000, 'Resume continues from paused elapsed time.');
+  timer.pause(18_000);
+  assert(formatActiveTime(0) === '00:00', 'Timer formatter starts at 00:00.');
+  assert(formatActiveTime(61_999) === '01:01', 'Timer formatter floors milliseconds to whole seconds.');
+  assert(formatActiveTime(3_661_000) === '61:01', 'Timer formatter preserves total minutes for long solves.');
+
   const storage = new FakeStorage();
   const profileService = await PlayerProfileService.create(manifest, storage, { saveDelayMs: 60_000 });
   const first = PuzzleSessionService.createCampaign(level, profileService, undefined, 1234);
@@ -96,7 +112,7 @@ async function main(): Promise<void> {
   assert(profileService.getProfile().campaign.activePuzzle === null, 'clearActivePuzzle clears only campaign active puzzle in memory.');
   await profileService.flush();
 
-  console.info('[Dungeon Logic] Puzzle session sanity: round-trip + validation + coalesced profile autosave passed');
+  console.info('[Dungeon Logic] Puzzle session sanity: active timer + round-trip + validation + coalesced profile autosave passed');
 }
 
 void main();

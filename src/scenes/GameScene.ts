@@ -4,6 +4,7 @@ import { BoardView } from '../board/BoardView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type { CampaignCompletionResult, GameSceneData } from '../campaign/types';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
+import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PuzzleState } from '../puzzle/PuzzleState';
@@ -62,6 +63,14 @@ export class GameScene extends Phaser.Scene {
       return Number.isFinite(value) ? Math.max(0, value) : 0;
     };
 
+    const readActiveClockMs = (): number => {
+      if (typeof performance !== 'undefined') {
+        const value = performance.now();
+        if (Number.isFinite(value) && value >= 0) return value;
+      }
+      return Date.now();
+    };
+
     const calculateSafeBoardLayout = () => {
       const safeTop = readSafeArea('--safe-area-inset-top');
       const safeBottom = readSafeArea('--safe-area-inset-bottom');
@@ -87,6 +96,18 @@ export class GameScene extends Phaser.Scene {
       color: '#f0e6d2',
       fontStyle: 'bold',
     }).setOrigin(0.5);
+
+    const timerText = this.add.text(
+      this.scale.width / 2,
+      chrome.titleY + safeTop + (this.scale.width < 700 ? 28 : 34),
+      '00:00',
+      {
+        fontFamily: 'monospace',
+        fontSize: `${Math.max(12, chrome.statusFontSize)}px`,
+        color: '#89929d',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5);
 
     const backText = this.add.text(chrome.actionInset, chrome.titleY + safeTop, '← Back', {
       fontFamily: 'monospace',
@@ -117,6 +138,45 @@ export class GameScene extends Phaser.Scene {
     let onboardingOpen = false;
     let resetDialogOpen = false;
     let resetDialog: Phaser.GameObjects.Container | null = null;
+    const activeTimer = new ActiveTimer(puzzleSession?.getActivePlayMs() ?? 0);
+    let syncedActivePlayMs = puzzleSession?.getActivePlayMs() ?? 0;
+
+    const updateTimerText = (nowMs = readActiveClockMs()): void => {
+      timerText.setText(formatActiveTime(activeTimer.getElapsedMs(nowMs)));
+    };
+
+    const syncTimerIntoSession = (nowMs = readActiveClockMs()): void => {
+      const elapsedMs = activeTimer.getElapsedMs(nowMs);
+      if (puzzleSession !== null && elapsedMs > syncedActivePlayMs) {
+        puzzleSession.addActiveTime(elapsedMs - syncedActivePlayMs);
+        syncedActivePlayMs = elapsedMs;
+      }
+      updateTimerText(nowMs);
+    };
+
+    const pauseActiveTimer = (): void => {
+      const nowMs = readActiveClockMs();
+      activeTimer.pause(nowMs);
+      syncTimerIntoSession(nowMs);
+    };
+
+    const timerMayRun = (): boolean => {
+      if (solved || onboardingOpen || resetDialogOpen) return false;
+      return typeof document === 'undefined' || !document.hidden;
+    };
+
+    const resumeActiveTimer = (): void => {
+      if (!timerMayRun()) return;
+      const nowMs = readActiveClockMs();
+      activeTimer.resume(nowMs);
+      updateTimerText(nowMs);
+    };
+
+    const savePuzzleSession = (): void => {
+      syncTimerIntoSession();
+      puzzleSession?.saveNow();
+    };
+
     const showTouchToolButtons = shouldShowTouchToolButtons(
       typeof window !== 'undefined' && typeof window.matchMedia === 'function'
         ? window.matchMedia('(any-pointer: coarse)').matches
@@ -192,6 +252,7 @@ export class GameScene extends Phaser.Scene {
       if (!solved && !onboardingOpen) {
         board?.setInputEnabled(true);
       }
+      resumeActiveTimer();
       syncToolbar();
     };
 
@@ -204,6 +265,7 @@ export class GameScene extends Phaser.Scene {
       if (resetDialogOpen || solved) return;
       resetDialogOpen = true;
       board?.setInputEnabled(false);
+      pauseActiveTimer();
       syncToolbar();
 
       const modalChrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
@@ -277,6 +339,8 @@ export class GameScene extends Phaser.Scene {
 
       solved = true;
       board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
       syncToolbar();
 
       if (launchData.context.mode === 'dev') {
@@ -297,7 +361,7 @@ export class GameScene extends Phaser.Scene {
       layout.cellSize,
       handlePuzzleChanged,
       () => {
-        puzzleSession?.saveNow();
+        savePuzzleSession();
       },
     );
 
@@ -340,7 +404,8 @@ export class GameScene extends Phaser.Scene {
     backText.on('pointerdown', () => {
       if (resetDialogOpen) return;
       board?.setInputEnabled(false);
-      puzzleSession?.saveNow();
+      pauseActiveTimer();
+      savePuzzleSession();
 
       const leave = async (): Promise<void> => {
         try {
@@ -400,6 +465,9 @@ export class GameScene extends Phaser.Scene {
       titleText
         .setPosition(width / 2, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.titleFontSize);
+      timerText
+        .setPosition(width / 2, nextChrome.titleY + nextSafeTop + (width < 700 ? 28 : 34))
+        .setFontSize(Math.max(12, nextChrome.statusFontSize));
       backText
         .setPosition(nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.actionFontSize);
@@ -432,18 +500,35 @@ export class GameScene extends Phaser.Scene {
     };
 
     const handleVisibilityChange = (): void => {
-      if (typeof document === 'undefined' || !document.hidden || puzzleSession === null) return;
-      puzzleSession.saveNow();
-      void puzzleSession.flush().catch((error) => {
-        console.warn('[Dungeon Logic] Could not flush active puzzle on visibility loss; keeping dirty in-memory state.', error);
-      });
+      if (typeof document === 'undefined') return;
+
+      if (document.hidden) {
+        pauseActiveTimer();
+        savePuzzleSession();
+        if (puzzleSession !== null) {
+          void puzzleSession.flush().catch((error) => {
+            console.warn('[Dungeon Logic] Could not flush active puzzle on visibility loss; keeping dirty in-memory state.', error);
+          });
+        }
+        return;
+      }
+
+      resumeActiveTimer();
     };
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
+    const timerRefresh = this.time.addEvent({
+      delay: 250,
+      loop: true,
+      callback: updateTimerText,
+    });
+
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      pauseActiveTimer();
+      timerRefresh.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
       keyboard?.off('keydown', handleKeyDown);
       if (typeof document !== 'undefined') {
@@ -459,9 +544,11 @@ export class GameScene extends Phaser.Scene {
       this.createOnboardingPanel(onboardingMessages, () => {
         onboardingOpen = false;
         if (!solved) board?.setInputEnabled(true);
+        resumeActiveTimer();
         syncToolbar();
       });
     } else {
+      resumeActiveTimer();
       syncToolbar();
     }
   }
