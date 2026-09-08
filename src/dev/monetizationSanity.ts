@@ -320,7 +320,7 @@ async function main(): Promise<void> {
     adCallOccurrences.length === 1,
     'GameScene has exactly one forced interstitial call path.',
   );
-  const nextLabelIndex = gameSceneSource.indexOf("label: 'ДАЛЬШЕ'");
+  const nextLabelIndex = gameSceneSource.indexOf('label: copy.game.next');
   const adCallIndex = gameSceneSource.indexOf('maybeShowCampaignInterstitial', nextLabelIndex);
   const pauseBeforeAdIndex = gameSceneSource.lastIndexOf('pauseActiveTimer()', adCallIndex);
   const startNextIndex = gameSceneSource.indexOf('await this.startNextLevel', adCallIndex);
@@ -338,8 +338,8 @@ async function main(): Promise<void> {
     'GameScene has exactly one explicit rewarded-hint request path.',
   );
   assert(
-    gameSceneSource.includes('1 РЕКЛАМА = 1 ПОДСКАЗКА'),
-    'Rewarded hint path requires explicit confirmation copy before requesting the ad.',
+    gameSceneSource.includes('copy.game.rewardedPrompt'),
+    'Rewarded hint path requires localized explicit confirmation copy before requesting the ad.',
   );
   assert(
     gameSceneSource.includes('recordRewardedHintUsed'),

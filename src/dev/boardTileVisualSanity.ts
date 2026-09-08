@@ -206,7 +206,7 @@ assert(cellInput === floorRect, 'Floor rectangle is the editable pointer target.
 assert(!wallRect.visible, 'Unknown cell starts with wall rectangle hidden.');
 assert(floorMark !== undefined && !floorMark.visible, 'Unknown cell starts with floor mark hidden.');
 
-const touchPointer = { isDown: true, rightButtonDown: () => false };
+const touchPointer = { isDown: true, wasTouch: true, rightButtonDown: () => false };
 editable.board.setActiveTool('floor');
 cellInput.trigger('pointerdown', touchPointer);
 editable.scene.inputHandlers.get('pointerup')?.();

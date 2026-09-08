@@ -52,7 +52,10 @@
     "sanity:level-select-scroll": "tsx src/dev/levelSelectScrollSanity.ts",
     "sanity:daily-corpus": "tsx src/dev/dailyCorpusSanity.ts",
     "sanity:daily-calendar": "tsx src/dev/dailyCalendarSanity.ts",
-    "sanity:i18n": "tsx src/dev/localizationSanity.ts"
+    "sanity:i18n": "tsx src/dev/localizationSanity.ts",
+    "sanity:release-audit": "node scripts/release-audit-sanity.mjs && node scripts/release-acceptance-sanity.mjs",
+    "audit:release-package": "node scripts/release-audit.mjs",
+    "sanity:release": "node scripts/release-acceptance.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
