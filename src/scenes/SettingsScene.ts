@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
+import { getUiCopy } from '../i18n/UiCopy';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
@@ -42,6 +43,7 @@ export class SettingsScene extends Phaser.Scene {
     );
     const settingsService = new SettingsService(profileService, { vibrationSupported });
     const settings = settingsService.getSettings();
+    const copy = getUiCopy(settings.language);
     const narrow = this.scale.width < 700;
 
     this.add.rectangle(
@@ -53,7 +55,7 @@ export class SettingsScene extends Phaser.Scene {
       1,
     ).setDepth(-1000);
 
-    const back = this.add.text(16, narrow ? 17 : 20, '← ГЛАВНАЯ', {
+    const back = this.add.text(16, narrow ? 17 : 20, copy.common.backHome, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '14px',
       color: '#89929d',
@@ -65,7 +67,7 @@ export class SettingsScene extends Phaser.Scene {
     });
 
     const titleY = narrow ? 66 : 78;
-    this.add.text(this.scale.width / 2, titleY, 'НАСТРОЙКИ', {
+    this.add.text(this.scale.width / 2, titleY, copy.settings.title, {
       fontFamily: 'monospace',
       fontSize: narrow ? '26px' : '32px',
       color: '#f0e6d2',
@@ -75,7 +77,7 @@ export class SettingsScene extends Phaser.Scene {
     const width = Math.min(this.scale.width - (narrow ? 28 : 48), 650);
     const rowHeight = narrow ? 52 : 56;
     const rowGap = narrow ? 10 : 12;
-    const rows = getSettingsRows(settings, settingsService.isVibrationSupported());
+    const rows = getSettingsRows(settings, settingsService.isVibrationSupported(), settings.language);
     const startY = titleY + (narrow ? 70 : 82);
 
     rows.forEach((row, index) => {
@@ -166,7 +168,7 @@ export class SettingsScene extends Phaser.Scene {
         this.scene.pause();
         return;
       case 'reset':
-        this.openResetDialog(service);
+        this.openResetDialog(service, current.language);
         return;
     }
   }
@@ -183,10 +185,11 @@ export class SettingsScene extends Phaser.Scene {
     }
   }
 
-  private openResetDialog(service: SettingsService): void {
+  private openResetDialog(service: SettingsService, language: SupportedLanguage): void {
     if (this.resetDialogOpen || this.mutationPending) return;
     this.resetDialogOpen = true;
 
+    const copy = getUiCopy(language);
     const narrow = this.scale.width < 700;
     const width = Math.min(this.scale.width - 32, narrow ? 350 : 470);
     const height = narrow ? 250 : 238;
@@ -204,16 +207,16 @@ export class SettingsScene extends Phaser.Scene {
     const panel = this.add.rectangle(x, y, width, height, 0x20252c, 1)
       .setStrokeStyle(2, 0x7d4d52)
       .setDepth(2001);
-    const title = this.add.text(x, y - height / 2 + 34, 'СБРОСИТЬ ПРОГРЕСС?', {
+    const title = this.add.text(x, y - height / 2 + 34, copy.settings.resetTitle, {
       fontFamily: 'monospace',
       fontSize: narrow ? '17px' : '19px',
       color: '#f0e6d2',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(2002);
-    const copy = this.add.text(
+    const dialogCopy = this.add.text(
       x,
       y - 22,
-      'Кампания, Daily, статистика и подсказки\nбудут удалены. Настройки сохранятся.',
+      copy.settings.resetBody,
       {
         fontFamily: 'monospace',
         fontSize: narrow ? '12px' : '13px',
@@ -236,13 +239,13 @@ export class SettingsScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x9c5c63)
       .setDepth(2002)
       .setInteractive({ useHandCursor: true });
-    const cancelLabel = this.add.text(cancelX, buttonY, 'ОТМЕНА', {
+    const cancelLabel = this.add.text(cancelX, buttonY, copy.common.cancel, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '13px',
       color: '#d8d1c4',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(2003);
-    const confirmLabel = this.add.text(resetX, buttonY, 'СБРОСИТЬ', {
+    const confirmLabel = this.add.text(resetX, buttonY, copy.common.reset, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '13px',
       color: '#e3a0a6',
@@ -253,7 +256,7 @@ export class SettingsScene extends Phaser.Scene {
       blocker.destroy();
       panel.destroy();
       title.destroy();
-      copy.destroy();
+      dialogCopy.destroy();
       cancel.destroy();
       confirm.destroy();
       cancelLabel.destroy();

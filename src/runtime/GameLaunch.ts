@@ -1,4 +1,5 @@
 import { getCampaignLevelState, shouldShowCampaignOnboarding } from '../campaign/CampaignProgress';
+import type { SupportedLanguage } from '../i18n/Language';
 import type {
   CampaignCompletionMetadata,
   CampaignCompletionResult,
@@ -19,6 +20,12 @@ export const ONBOARDING_COPY: Readonly<Record<CampaignOnboardingId, string>> = {
   'row-column-clues': 'Numbers show how many wall cells belong in each row and column.',
   'monster-dead-end': 'Every Monster must sit at a corridor dead end: exactly one adjacent open floor cell.',
   'treasure-room-rule': 'A Chest belongs inside a 3×3 Treasure Room with exactly one entrance.',
+};
+
+const RU_ONBOARDING_COPY: Readonly<Record<CampaignOnboardingId, string>> = {
+  'row-column-clues': 'Числа показывают, сколько клеток-стен должно быть в каждой строке и каждом столбце.',
+  'monster-dead-end': 'Каждый монстр должен находиться в тупике коридора: рядом ровно одна открытая клетка пола.',
+  'treasure-room-rule': 'Каждый сундук находится внутри комнаты 3×3 с ровно одним входом.',
 };
 
 export interface LevelSelectItem {
@@ -118,8 +125,12 @@ export function createRestartGameSceneData(data: GameSceneData): GameSceneData {
   return data;
 }
 
-export function createOnboardingMessages(data: GameSceneData): readonly string[] {
-  return data.onboarding.map((id) => ONBOARDING_COPY[id]);
+export function createOnboardingMessages(
+  data: GameSceneData,
+  language: SupportedLanguage = 'en',
+): readonly string[] {
+  const copy = language === 'ru' ? RU_ONBOARDING_COPY : ONBOARDING_COPY;
+  return data.onboarding.map((id) => copy[id]);
 }
 
 export async function completeGameLaunch(

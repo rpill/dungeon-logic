@@ -6,6 +6,8 @@ import type {
   ManuscriptDefinition,
   ManuscriptId,
 } from '../content/campaign/types';
+import { getUiCopy } from '../i18n/UiCopy';
+import type { SupportedLanguage } from '../i18n/Language';
 import type { PlayerProfileV1 } from '../profile/types';
 import { isManuscriptUnlocked } from '../campaign/CampaignUnlocks';
 import type { DailyEntry } from '../content/daily/types';
@@ -53,7 +55,7 @@ export interface RealManuscriptViewModel {
   readonly kind: 'real';
   readonly id: ManuscriptId;
   readonly roman: ManuscriptDefinition['roman'];
-  readonly title: ManuscriptDefinition['title'];
+  readonly title: string;
   readonly unlocked: boolean;
   readonly interactive: true;
   readonly state: 'locked' | 'active' | 'passed' | 'complete';
@@ -67,7 +69,7 @@ export interface SealedManuscriptViewModel {
   readonly kind: 'sealed';
   readonly id: 'sealed-v' | 'sealed-vi';
   readonly roman: 'V' | 'VI';
-  readonly title: 'Запечатанная рукопись';
+  readonly title: string;
   readonly interactive: false;
   readonly progress: null;
   readonly requirementText: null;
@@ -146,18 +148,24 @@ function promotedEntriesForManuscript(
 
 function requirementForLockedManuscript(
   manuscriptIndex: number,
+  language: SupportedLanguage,
 ): string | null {
   if (manuscriptIndex <= 0) return null;
   const manuscript = CAMPAIGN_MANUSCRIPTS[manuscriptIndex];
   const previous = CAMPAIGN_MANUSCRIPTS[manuscriptIndex - 1];
-  return `Завершите ${manuscript.requiredPreviousSolved} задач рукописи ${previous.roman}`;
+  return getUiCopy(language).archive.requirement(
+    manuscript.requiredPreviousSolved,
+    previous.roman,
+  );
 }
 
 export function getManuscriptViewModels(
   manifest: readonly CampaignLevelEntry[],
   profile: PlayerProfileV1,
+  language: SupportedLanguage = 'ru',
 ): readonly ManuscriptViewModel[] {
   const completed = new Set(profile.campaign.completedLevelIds);
+  const copy = getUiCopy(language);
 
   const real = CAMPAIGN_MANUSCRIPTS.map((manuscript, index): RealManuscriptViewModel => {
     const promoted = promotedEntriesForManuscript(manifest, manuscript);
@@ -176,7 +184,7 @@ export function getManuscriptViewModels(
       kind: 'real',
       id: manuscript.id,
       roman: manuscript.roman,
-      title: manuscript.title,
+      title: copy.manuscripts[manuscript.id],
       unlocked,
       interactive: true,
       state: !unlocked
@@ -190,7 +198,7 @@ export function getManuscriptViewModels(
         solved,
         total: manuscript.slots.length,
       },
-      requirementText: unlocked ? null : requirementForLockedManuscript(index),
+      requirementText: unlocked ? null : requirementForLockedManuscript(index, language),
       requiredForNext,
       promotedLevelIds: promoted.map((entry) => entry.id),
     };
@@ -201,7 +209,7 @@ export function getManuscriptViewModels(
       kind: 'sealed',
       id: 'sealed-v',
       roman: 'V',
-      title: 'Запечатанная рукопись',
+      title: copy.archive.sealedTitle,
       interactive: false,
       progress: null,
       requirementText: null,
@@ -211,7 +219,7 @@ export function getManuscriptViewModels(
       kind: 'sealed',
       id: 'sealed-vi',
       roman: 'VI',
-      title: 'Запечатанная рукопись',
+      title: copy.archive.sealedTitle,
       interactive: false,
       progress: null,
       requirementText: null,

@@ -19,6 +19,7 @@ import {
   resolvePlatformServices,
 } from '../platform/PlatformRegistry';
 import { createYandexPlatformServices } from '../platform/yandex';
+import { resolveSupportedLanguage } from '../i18n/Language';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   loadGeneratedReportFromDevServer,
@@ -55,7 +56,9 @@ export class BootScene extends Phaser.Scene {
       platformServices.storage,
       new LocalPlayerProfileStorage(),
     );
-    const profileService = await PlayerProfileService.create(campaignManifest, profileStorage);
+    const profileService = await PlayerProfileService.create(campaignManifest, profileStorage, {
+      defaultLanguage: resolveSupportedLanguage(platformServices.environment.language),
+    });
     const campaignService = CampaignService.create(campaignManifest, profileService);
     const dailyService = DailyService.create(
       DAILY_RELEASE_ENTRIES,

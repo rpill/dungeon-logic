@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { getUiCopy } from '../i18n/UiCopy';
+
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import type {
@@ -39,6 +41,7 @@ const STATE_COLOR = {
 } as const;
 
 export class ArchiveScene extends Phaser.Scene {
+  private copy = getUiCopy('ru');
   private selectedManuscriptId: ManuscriptId | null = null;
   private launchPending = false;
   private contentBottom = 0;
@@ -70,7 +73,8 @@ export class ArchiveScene extends Phaser.Scene {
     const campaign = this.getCampaignService();
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
-    const manuscripts = getManuscriptViewModels(campaign.getLevels(), profile);
+    this.copy = getUiCopy(profile.settings.language);
+    const manuscripts = getManuscriptViewModels(campaign.getLevels(), profile, profile.settings.language);
     const viewportClass = classifyViewport(this.scale.width);
 
     if (viewportClass === 'wide') {
@@ -109,10 +113,10 @@ export class ArchiveScene extends Phaser.Scene {
     campaign: CampaignService,
     manuscripts: readonly ManuscriptViewModel[],
   ): void {
-    this.createTopBack('← ГЛАВНАЯ', () => this.scene.start(HOME_SCENE_KEY));
+    this.createTopBack(this.copy.common.backHome, () => this.scene.start(HOME_SCENE_KEY));
     const listLayout = calculateArchiveListLayout(this.scale.width, 'wide', true);
     this.createFixedArchiveHeader(listLayout.headerBottom, 340);
-    this.add.text(36, listLayout.titleY, 'АРХИВ', {
+    this.add.text(36, listLayout.titleY, this.copy.archive.title, {
       fontFamily: 'monospace',
       fontSize: '30px',
       color: '#f0e6d2',
@@ -161,9 +165,9 @@ export class ArchiveScene extends Phaser.Scene {
     this.manuscriptListHeaderBottom = listLayout.headerBottom;
 
     if (!embedded) {
-      this.createTopBack('← ГЛАВНАЯ', () => this.scene.start(HOME_SCENE_KEY));
+      this.createTopBack(this.copy.common.backHome, () => this.scene.start(HOME_SCENE_KEY));
       this.createFixedArchiveHeader(listLayout.headerBottom, this.scale.width);
-      this.add.text(this.scale.width / 2, listLayout.titleY, 'АРХИВ', {
+      this.add.text(this.scale.width / 2, listLayout.titleY, this.copy.archive.title, {
         fontFamily: 'monospace',
         fontSize: narrow ? '28px' : '34px',
         color: '#f0e6d2',
@@ -194,7 +198,7 @@ export class ArchiveScene extends Phaser.Scene {
       }).setOrigin(0, 0.5);
 
       const title = manuscript.kind === 'sealed'
-        ? 'ЗАПЕЧАТАНО'
+        ? this.copy.archive.sealed
         : manuscript.title.toUpperCase();
       this.add.text(centerX - width / 2 + 58, y - (manuscript.kind === 'real' ? 10 : 0), title, {
         fontFamily: 'monospace',
@@ -216,11 +220,11 @@ export class ArchiveScene extends Phaser.Scene {
 
         const subline = manuscript.unlocked
           ? manuscript.state === 'complete'
-            ? 'Завершено полностью'
+            ? this.copy.archive.completedFully
             : manuscript.state === 'passed'
-              ? 'Следующая рукопись открыта'
-              : 'Доступно'
-          : manuscript.requirementText ?? 'Закрыто';
+              ? this.copy.archive.nextManuscriptUnlocked
+              : this.copy.archive.available
+          : manuscript.requirementText ?? this.copy.archive.locked;
         this.add.text(centerX - width / 2 + 58, y + 13, subline, {
           fontFamily: 'monospace',
           fontSize: embedded ? '11px' : narrow ? '11px' : '12px',
@@ -234,7 +238,7 @@ export class ArchiveScene extends Phaser.Scene {
           this.scene.restart({ manuscriptId: manuscript.id });
         });
       } else {
-        this.add.text(centerX - width / 2 + 58, y + 15, 'Содержимое пока неизвестно', {
+        this.add.text(centerX - width / 2 + 58, y + 15, this.copy.archive.contentsUnknown, {
           fontFamily: 'monospace',
           fontSize: embedded ? '10px' : narrow ? '11px' : '12px',
           color: '#686e76',
@@ -253,7 +257,7 @@ export class ArchiveScene extends Phaser.Scene {
     manuscript: RealManuscriptViewModel,
     viewportClass: ViewportClass,
   ): void {
-    this.createTopBack('← АРХИВ', () => {
+    this.createTopBack(this.copy.common.backArchive, () => {
       this.selectedManuscriptId = null;
       this.scene.restart({ manuscriptId: null });
     });
@@ -279,7 +283,7 @@ export class ArchiveScene extends Phaser.Scene {
     const centerX = x + width / 2;
     const titleY = y + (narrow ? 28 : 34);
 
-    this.add.text(centerX, titleY, `РУКОПИСЬ ${manuscript.roman}`, {
+    this.add.text(centerX, titleY, this.copy.archive.manuscript(manuscript.roman), {
       fontFamily: 'monospace',
       fontSize: narrow ? '16px' : viewportClass === 'wide' ? '18px' : '17px',
       color: '#89929d',
@@ -312,7 +316,7 @@ export class ArchiveScene extends Phaser.Scene {
       this.add.text(
         centerX,
         levelsStartY,
-        `До следующей рукописи: ${Math.min(manuscript.progress.solved, manuscript.requiredForNext)} / ${manuscript.requiredForNext}`,
+        this.copy.archive.nextManuscriptProgress(manuscript.progress.solved, manuscript.requiredForNext),
         {
           fontFamily: 'monospace',
           fontSize: narrow ? '12px' : '14px',
@@ -328,7 +332,7 @@ export class ArchiveScene extends Phaser.Scene {
       .sort((left, right) => left.slot - right.slot);
 
     if (promoted.length === 0) {
-      this.add.text(centerX, levelsStartY + 36, 'В текущей сборке пока нет опубликованных уровней этой рукописи.', {
+      this.add.text(centerX, levelsStartY + 36, this.copy.archive.noPublishedLevels, {
         fontFamily: 'monospace',
         fontSize: narrow ? '12px' : '14px',
         color: '#686e76',
@@ -389,7 +393,7 @@ export class ArchiveScene extends Phaser.Scene {
       color,
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    this.add.text(x, y + 17, completed ? '✓ РЕШЕНО' : playable ? 'ДОСТУПНО' : '🔒 ЗАКРЫТО', {
+    this.add.text(x, y + 17, completed ? this.copy.archive.levelSolved : playable ? this.copy.archive.levelAvailable : this.copy.archive.levelLocked, {
       fontFamily: 'monospace',
       fontSize: this.scale.width < 700 ? '10px' : '11px',
       color,

@@ -1,4 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import { isSupportedLanguage, type SupportedLanguage } from '../i18n/Language';
 import { CellState } from '../puzzle/types';
 import type { CampaignProgressV1 } from '../campaign/types';
 import type {
@@ -107,13 +108,16 @@ function normalizeSerializedPuzzleState(
   };
 }
 
-function normalizeSettings(value: unknown): PlayerSettings {
+function normalizeSettings(
+  value: unknown,
+  defaultLanguage: SupportedLanguage,
+): PlayerSettings {
   const raw = isRecord(value) ? value : {};
   return {
     musicEnabled: typeof raw.musicEnabled === 'boolean' ? raw.musicEnabled : true,
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
     vibrationEnabled: typeof raw.vibrationEnabled === 'boolean' ? raw.vibrationEnabled : true,
-    language: typeof raw.language === 'string' && raw.language.length > 0 ? raw.language : 'ru',
+    language: isSupportedLanguage(raw.language) ? raw.language : defaultLanguage,
   };
 }
 
@@ -150,6 +154,7 @@ function normalizeDaily(value: unknown): DailyProfileState {
 
 export function createFreshPlayerProfile(
   _manifest: readonly CampaignLevelEntry[] = [],
+  defaultLanguage: SupportedLanguage = 'ru',
 ): PlayerProfileV1 {
   return {
     schemaVersion: 1,
@@ -171,7 +176,7 @@ export function createFreshPlayerProfile(
       musicEnabled: true,
       soundEnabled: true,
       vibrationEnabled: true,
-      language: 'ru',
+      language: defaultLanguage,
     },
     hints: {
       freeRemaining: 3,
@@ -190,12 +195,13 @@ export function createFreshPlayerProfile(
 export function normalizePlayerProfile(
   raw: unknown,
   manifest: readonly CampaignLevelEntry[],
+  defaultLanguage: SupportedLanguage = 'ru',
 ): PlayerProfileV1 {
   if (!isRecord(raw) || raw.schemaVersion !== 1) {
-    return createFreshPlayerProfile(manifest);
+    return createFreshPlayerProfile(manifest, defaultLanguage);
   }
 
-  const fresh = createFreshPlayerProfile(manifest);
+  const fresh = createFreshPlayerProfile(manifest, defaultLanguage);
   const knownIds = new Set(manifest.map((entry) => entry.id));
   const rawCampaign = isRecord(raw.campaign) ? raw.campaign : {};
   const completedSet = new Set(
@@ -235,7 +241,7 @@ export function normalizePlayerProfile(
       activePuzzle: normalizeSerializedPuzzleState(rawCampaign.activePuzzle, knownIds),
     },
     daily: normalizeDaily(raw.daily),
-    settings: normalizeSettings(raw.settings),
+    settings: normalizeSettings(raw.settings, defaultLanguage),
     hints: {
       freeRemaining: nonNegativeInteger(rawHints.freeRemaining, fresh.hints.freeRemaining),
       totalUsed: nonNegativeInteger(rawHints.totalUsed),
@@ -262,8 +268,9 @@ function looksLikeLegacyCampaignProgress(value: unknown): value is CampaignProgr
 export function migrateLegacyCampaignProgress(
   legacy: unknown,
   manifest: readonly CampaignLevelEntry[],
+  defaultLanguage: SupportedLanguage = 'ru',
 ): PlayerProfileV1 {
-  const fresh = createFreshPlayerProfile(manifest);
+  const fresh = createFreshPlayerProfile(manifest, defaultLanguage);
   if (!looksLikeLegacyCampaignProgress(legacy)) return fresh;
 
   return normalizePlayerProfile({
@@ -273,5 +280,5 @@ export function migrateLegacyCampaignProgress(
       completedLevelIds: legacy.completedLevelIds,
       lastPlayedLevelId: legacy.lastPlayedLevelId,
     },
-  }, manifest);
+  }, manifest, defaultLanguage);
 }

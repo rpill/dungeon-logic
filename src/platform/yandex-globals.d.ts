@@ -16,6 +16,20 @@ interface DungeonLogicYandexRewardedCallbacks extends DungeonLogicYandexAdCallba
 interface DungeonLogicYandexSdk {
   getPlayer(): Promise<DungeonLogicYandexPlayer>;
   serverTime?: () => number;
+  environment?: {
+    i18n?: {
+      lang?: string;
+    };
+  };
+  features?: {
+    LoadingAPI?: {
+      ready?: () => void | Promise<void>;
+    };
+    GameplayAPI?: {
+      start?: () => void | Promise<void>;
+      stop?: () => void | Promise<void>;
+    };
+  };
   adv?: {
     showFullscreenAdv?: (options?: { callbacks?: DungeonLogicYandexAdCallbacks }) => void;
     showRewardedVideo?: (options?: { callbacks?: DungeonLogicYandexRewardedCallbacks }) => void;

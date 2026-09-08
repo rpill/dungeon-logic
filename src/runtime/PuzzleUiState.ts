@@ -1,4 +1,6 @@
 import type { PuzzleTool } from '../gameplay/PuzzleInteractionSession.ts';
+import type { SupportedLanguage } from '../i18n/Language';
+import { getUiCopy } from '../i18n/UiCopy';
 import { classifyViewport } from '../scenes/GameBoardLayout.ts';
 
 export type PuzzleToolbarButtonId = 'wall' | 'floor' | 'undo' | 'reset' | 'hint';
@@ -36,26 +38,28 @@ export function createPuzzleToolbarState(
   showToolButtons = true,
   freeHintsRemaining = 0,
   rewardedHintAvailable = false,
+  language: SupportedLanguage = 'en',
 ): PuzzleToolbarState {
+  const copy = getUiCopy(language).game;
   const buttons: PuzzleToolbarButtonState[] = [];
 
   if (showToolButtons) {
     buttons.push(
-      { id: 'wall', label: 'WALL', active: activeTool === 'wall', disabled: false },
-      { id: 'floor', label: 'FLOOR', active: activeTool === 'floor', disabled: false },
+      { id: 'wall', label: copy.wall, active: activeTool === 'wall', disabled: false },
+      { id: 'floor', label: copy.floor, active: activeTool === 'floor', disabled: false },
     );
   }
 
   buttons.push(
-    { id: 'undo', label: 'UNDO', active: false, disabled: !canUndo },
-    { id: 'reset', label: 'RESET', active: false, disabled: false },
+    { id: 'undo', label: copy.undo, active: false, disabled: !canUndo },
+    { id: 'reset', label: copy.reset, active: false, disabled: false },
     {
       id: 'hint',
       label: freeHintsRemaining > 0
-        ? `HINT ×${freeHintsRemaining}`
+        ? copy.hintFree(freeHintsRemaining)
         : rewardedHintAvailable
-          ? 'HINT ▶'
-          : 'HINT',
+          ? copy.hintRewarded
+          : copy.hint,
       active: false,
       disabled: freeHintsRemaining <= 0 && !rewardedHintAvailable,
     },

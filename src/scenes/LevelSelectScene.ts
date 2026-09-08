@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { getUiCopy } from '../i18n/UiCopy';
+
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { createCampaignGameSceneData, createLevelSelectItems } from '../runtime/GameLaunch';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
@@ -10,13 +12,11 @@ import {
 } from '../runtime/MetaScroll';
 import { calculateLevelSelectLayout } from '../runtime/ResponsiveLayout';
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import {
+  PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
+  PlayerProfileService,
+} from '../profile/PlayerProfileService';
 
-const STATE_LABEL = {
-  completed: 'Completed',
-  current: 'Current',
-  unlocked: 'Unlocked',
-  locked: 'Locked',
-} as const;
 
 const STATE_COLOR = {
   completed: '#8fbf8f',
@@ -55,6 +55,7 @@ export class LevelSelectScene extends Phaser.Scene {
     this.cameras.main.setScroll(0, 0);
 
     const service = this.getCampaignService();
+    const copy = getUiCopy(this.getProfileService().getProfile().settings.language);
     const progress = service.getProgress();
     const items = createLevelSelectItems(service.getLevels(), progress);
     const layout = calculateLevelSelectLayout(
@@ -89,7 +90,7 @@ export class LevelSelectScene extends Phaser.Scene {
         layout.continueWidth,
         layout.continueHeight,
         layout.continueFontSize,
-        `Continue · Level ${continueLevel.slot}`,
+        copy.levelSelect.continueLevel(continueLevel.slot),
         '#f0d28a',
         () => { void this.launchLevel(service, continueLevel); },
       );
@@ -115,7 +116,7 @@ export class LevelSelectScene extends Phaser.Scene {
       this.add.text(
         cardLayout.x,
         cardLayout.y - cardLayout.height * 0.22,
-        `Level ${item.entry.slot}`,
+        copy.levelSelect.level(item.entry.slot),
         {
           fontFamily: 'monospace',
           fontSize: `${layout.cardTitleFontSize}px`,
@@ -127,7 +128,7 @@ export class LevelSelectScene extends Phaser.Scene {
       this.add.text(
         cardLayout.x,
         cardLayout.y + cardLayout.height * 0.22,
-        STATE_LABEL[item.state],
+        copy.levelSelect.state[item.state],
         {
           fontFamily: 'monospace',
           fontSize: `${layout.cardStateFontSize}px`,
@@ -265,6 +266,14 @@ export class LevelSelectScene extends Phaser.Scene {
       this.lastDraggedPointerId === pointer.id
       && Date.now() - this.lastDragEndedAtMs < 160
     );
+  }
+
+  private getProfileService(): PlayerProfileService {
+    const service = this.registry.get(PLAYER_PROFILE_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof PlayerProfileService)) {
+      throw new Error('LevelSelectScene requires PlayerProfileService in Phaser registry.');
+    }
+    return service;
   }
 
   private getCampaignService(): CampaignService {

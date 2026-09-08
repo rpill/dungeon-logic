@@ -14,7 +14,10 @@ import {
   createDailyGameSceneData,
 } from '../runtime/GameLaunch';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
+import { getUiCopy } from '../i18n/UiCopy';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
+import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
+import type { PlatformServices } from '../platform/services';
 import {
   ARCHIVE_SCENE_KEY,
   SETTINGS_SCENE_KEY,
@@ -50,6 +53,7 @@ export class HomeScene extends Phaser.Scene {
     const campaign = this.getCampaignService();
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
+    const copy = getUiCopy(profile.settings.language);
     const action = getHomeCampaignAction(campaign, profile);
     const viewportClass = classifyViewport(this.scale.width);
     const narrow = viewportClass === 'narrow';
@@ -67,7 +71,7 @@ export class HomeScene extends Phaser.Scene {
     this.add.text(
       this.scale.width / 2,
       titleY + (narrow ? 45 : 58),
-      `Архив · ${completed} / 30`,
+      copy.home.archiveProgress(completed, 30),
       {
         fontFamily: 'monospace',
         fontSize: narrow ? '14px' : '17px',
@@ -90,13 +94,13 @@ export class HomeScene extends Phaser.Scene {
         mainY,
         buttonWidth,
         mainHeight,
-        'ВЫБРАТЬ УРОВЕНЬ',
+        copy.home.chooseLevel,
         '#f0d28a',
         () => this.scene.start(ARCHIVE_SCENE_KEY),
       );
     } else {
       const entry = campaign.getLevels().find((candidate) => candidate.id === action.levelId);
-      const label = action.kind === 'start' ? 'НАЧАТЬ' : 'ПРОДОЛЖИТЬ';
+      const label = action.kind === 'start' ? copy.home.start : copy.home.continue;
       this.createButton(
         this.scale.width / 2,
         mainY,
@@ -112,8 +116,8 @@ export class HomeScene extends Phaser.Scene {
       if (entry !== undefined) {
         const manuscript = getManuscriptForSlot(entry.slot);
         const context = manuscript === null
-          ? `Уровень ${String(entry.slot).padStart(2, '0')}`
-          : `Рукопись ${manuscript.roman} · Уровень ${String(entry.slot).padStart(2, '0')}`;
+          ? copy.home.levelContext(entry.slot)
+          : copy.home.manuscriptLevelContext(manuscript.roman, entry.slot);
         this.add.text(this.scale.width / 2, mainY + mainHeight / 2 + 23, context, {
           fontFamily: 'monospace',
           fontSize: narrow ? '13px' : '15px',
@@ -127,7 +131,7 @@ export class HomeScene extends Phaser.Scene {
       mainY + secondaryStep * (dailyVisible ? 2 : 1),
       buttonWidth,
       narrow ? 52 : 56,
-      'АРХИВ',
+      copy.common.archive,
       '#d8d1c4',
       () => this.scene.start(ARCHIVE_SCENE_KEY),
     );
@@ -138,7 +142,7 @@ export class HomeScene extends Phaser.Scene {
         mainY + secondaryStep * 3,
         buttonWidth,
         narrow ? 52 : 56,
-        'СТАТИСТИКА',
+        copy.common.statistics,
         '#aeb4bc',
         () => this.scene.start(STATS_SCENE_KEY),
       );
@@ -158,13 +162,13 @@ export class HomeScene extends Phaser.Scene {
         mainY + secondaryStep * 4,
         buttonWidth,
         narrow ? 52 : 56,
-        'НАСТРОЙКИ',
+        copy.common.settings,
         '#89929d',
         () => this.scene.start(SETTINGS_SCENE_KEY),
       );
     }
 
-    const helpLink = this.add.text(this.scale.width - 16, 18, 'ⓘ КАК ИГРАТЬ', {
+    const helpLink = this.add.text(this.scale.width - 16, 18, copy.common.howToPlay, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '14px',
       color: '#89929d',
@@ -183,6 +187,9 @@ export class HomeScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
     });
+
+    const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
+    void platformServices?.readiness.ready();
   }
 
   private createButton(
@@ -252,7 +259,9 @@ export class HomeScene extends Phaser.Scene {
     }
     if (!this.scene.isActive() || createVersion !== this.createVersion) return;
 
-    const action = getHomeDailyAction(profileService.getProfile(), today);
+    const profile = profileService.getProfile();
+    const copy = getUiCopy(profile.settings.language);
+    const action = getHomeDailyAction(profile, today);
     if (action.kind === 'hidden') return;
 
     if (action.kind === 'unavailable') {
@@ -261,12 +270,12 @@ export class HomeScene extends Phaser.Scene {
         y,
         width,
         height,
-        'DAILY · НЕДОСТУПНО',
+        copy.home.dailyUnavailable,
         '#5f666f',
         () => {},
         false,
       );
-      this.add.text(this.scale.width / 2, y + height / 2 + 20, 'Нет задания на доверенную дату', {
+      this.add.text(this.scale.width / 2, y + height / 2 + 20, copy.home.noDailyForTrustedDate, {
         fontFamily: 'monospace',
         fontSize: narrow ? '11px' : '13px',
         color: '#6f7780',
@@ -280,15 +289,15 @@ export class HomeScene extends Phaser.Scene {
       y,
       width,
       height,
-      solved ? 'DAILY · РЕШЕНО' : 'DAILY · НОВАЯ',
+      solved ? copy.home.dailySolved : copy.home.dailyNew,
       solved ? '#aeb4bc' : '#d0b978',
       () => this.launchDaily(action.entry),
     );
 
-    const streakCopy = action.currentStreak > 0 ? ` · Серия ${action.currentStreak}` : '';
+    const streakCopy = copy.home.streakSuffix(action.currentStreak);
     const detail = solved
-      ? `Лучшее ${this.formatTime(action.result.bestTimeMs)}${streakCopy}`
-      : `Сегодня${streakCopy}`;
+      ? copy.home.best(this.formatTime(action.result.bestTimeMs), streakCopy)
+      : copy.home.today(streakCopy);
     this.add.text(this.scale.width / 2, y + height / 2 + 20, detail, {
       fontFamily: 'monospace',
       fontSize: narrow ? '11px' : '13px',

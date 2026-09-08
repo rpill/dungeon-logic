@@ -28,6 +28,7 @@ import {
   type OnboardingStep,
 } from '../onboarding/OnboardingFlow';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
+import { getUiCopy } from '../i18n/UiCopy';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
@@ -40,6 +41,7 @@ import {
 import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import { calculateGameBoardLayout } from './GameBoardLayout';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
+import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -111,6 +113,8 @@ export class GameScene extends Phaser.Scene {
 
     const safeTop = readSafeArea('--safe-area-inset-top');
     const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
+    const language = this.getPlayerProfileService().getProfile().settings.language;
+    const copy = getUiCopy(language);
 
     const titleText = this.add.text(
       this.scale.width / 2,
@@ -136,7 +140,7 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(0.5);
 
-    const backText = this.add.text(chrome.actionInset, chrome.titleY + safeTop, '← Back', {
+    const backText = this.add.text(chrome.actionInset, chrome.titleY + safeTop, copy.game.back, {
       fontFamily: 'monospace',
       fontSize: `${chrome.actionFontSize}px`,
       color: '#89929d',
@@ -148,7 +152,7 @@ export class GameScene extends Phaser.Scene {
     const helpText = this.add.text(
       this.scale.width - chrome.actionInset,
       chrome.titleY + safeTop,
-      this.scale.width < 700 ? 'ⓘ' : 'ⓘ Правила',
+      this.scale.width < 700 ? 'ⓘ' : copy.game.rules,
       {
         fontFamily: 'monospace',
         fontSize: `${chrome.actionFontSize}px`,
@@ -163,9 +167,7 @@ export class GameScene extends Phaser.Scene {
     const campaignContext = launchData.context.mode === 'campaign'
       ? launchData.context
       : null;
-    const platformServices = profileService !== null
-      ? this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined
-      : undefined;
+    const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
     const monetizationService = profileService !== null && platformServices != null
       ? MonetizationService.create(profileService, platformServices.ads)
       : null;
@@ -209,6 +211,13 @@ export class GameScene extends Phaser.Scene {
     const activeTimer = new ActiveTimer(puzzleSession?.getActivePlayMs() ?? 0);
     let syncedActivePlayMs = puzzleSession?.getActivePlayMs() ?? 0;
     let transientHintsUsed = 0;
+    let sceneOverlayPaused = false;
+    const platformGameplayActivity = platformServices == null
+      ? null
+      : new PlatformGameplayActivity(
+        platformServices.gameplay,
+        platformServices.lifecycle.isPaused(),
+      );
 
     const updateTimerText = (nowMs = readActiveClockMs()): void => {
       timerText.setText(formatActiveTime(activeTimer.getElapsedMs(nowMs)));
@@ -225,18 +234,25 @@ export class GameScene extends Phaser.Scene {
       updateTimerText(nowMs);
     };
 
-    const pauseActiveTimer = (): void => {
-      const nowMs = readActiveClockMs();
-      activeTimer.pause(nowMs);
-      syncTimerIntoSession(nowMs);
-    };
-
-    const timerMayRun = (): boolean => {
-      if (solved || onboardingBlocksTimer || resetDialogOpen || hintConfirmOpen) return false;
+    const internalTimerMayRun = (): boolean => {
+      if (solved || onboardingBlocksTimer || resetDialogOpen || hintConfirmOpen || sceneOverlayPaused) return false;
       return typeof document === 'undefined' || !document.hidden;
     };
 
-    const resumeActiveTimer = (): void => {
+    const timerMayRun = (): boolean => (
+      internalTimerMayRun() && platformGameplayActivity?.isPlatformPaused() !== true
+    );
+
+    const pauseActiveTimer = (syncGameplayMarkup = true): void => {
+      const nowMs = readActiveClockMs();
+      activeTimer.pause(nowMs);
+      syncTimerIntoSession(nowMs);
+      if (syncGameplayMarkup) platformGameplayActivity?.stopInternal();
+    };
+
+    const resumeActiveTimer = (syncGameplayMarkup = true): void => {
+      if (!internalTimerMayRun()) return;
+      if (syncGameplayMarkup) platformGameplayActivity?.startInternal();
       if (!timerMayRun()) return;
       const nowMs = readActiveClockMs();
       activeTimer.resume(nowMs);
@@ -279,7 +295,7 @@ export class GameScene extends Phaser.Scene {
     const statusText = this.add.text(
       this.scale.width / 2,
       Math.min(...toolbarLayout.buttons.map((button) => button.y - button.height / 2)) - 18,
-      showTouchToolButtons ? '' : 'LMB: Wall   •   RMB: Floor',
+      showTouchToolButtons ? '' : copy.game.mouseControls,
       {
         fontFamily: 'monospace',
         fontSize: `${chrome.statusFontSize}px`,
@@ -290,7 +306,7 @@ export class GameScene extends Phaser.Scene {
 
     const onboardingSteps = launchData.context.mode === 'campaign'
       && launchData.contextualOnboarding
-      ? createOnboardingFlow(launchData.context.campaignLevelId)
+      ? createOnboardingFlow(launchData.context.campaignLevelId, language)
       : [];
     let onboardingIndex = onboardingSteps.length > 0 ? 0 : -1;
     onboardingOpen = onboardingIndex >= 0;
@@ -359,12 +375,12 @@ export class GameScene extends Phaser.Scene {
         const wallStep = step.expectedState === 'wall';
         if (showTouchToolButtons) {
           action = wallStep
-            ? 'ПОСТАВЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК СТЕНЫ'
-            : 'ВЫБЕРИ ПОЛ И ОТМЕТЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ';
+            ? copy.game.onboardingTouchWall
+            : copy.game.onboardingTouchFloor;
         } else {
           action = wallStep
-            ? 'ЛКМ: ПОСТАВЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК СТЕНЫ'
-            : 'ПКМ: ОТМЕТЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК ПОЛ';
+            ? copy.game.onboardingMouseWall
+            : copy.game.onboardingMouseFloor;
         }
       }
 
@@ -444,7 +460,11 @@ export class GameScene extends Phaser.Scene {
     };
 
     const controlsLocked = (): boolean => (
-      solved || onboardingBlocksInteraction || resetDialogOpen || hintConfirmOpen
+      solved
+      || onboardingBlocksInteraction
+      || resetDialogOpen
+      || hintConfirmOpen
+      || platformGameplayActivity?.isPlatformPaused() === true
     );
 
     const onboardingAllowsTool = (tool: 'wall' | 'floor'): boolean => {
@@ -461,6 +481,7 @@ export class GameScene extends Phaser.Scene {
         showTouchToolButtons,
         profileService?.getFreeHintsRemaining() ?? 0,
         rewardedHintAvailable,
+        language,
       );
       const step = currentOnboardingStep();
 
@@ -508,7 +529,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const defaultStatusCopy = (): string => (
-      showTouchToolButtons ? '' : 'LMB: Wall   •   RMB: Floor'
+      showTouchToolButtons ? '' : copy.game.mouseControls
     );
 
     const refreshStatusText = (): void => {
@@ -516,8 +537,8 @@ export class GameScene extends Phaser.Scene {
       if (currentHint !== null) {
         statusText
           .setText(currentHint.state === 'wall'
-            ? 'ПОДСКАЗКА: золотая клетка должна быть СТЕНОЙ'
-            : 'ПОДСКАЗКА: золотая клетка должна быть ПОЛОМ')
+            ? copy.game.hintWall
+            : copy.game.hintFloor)
           .setColor('#d0b978')
           .setVisible(true);
         return;
@@ -535,7 +556,7 @@ export class GameScene extends Phaser.Scene {
       hintConfirmOpen = false;
       hintConfirmMode = null;
       if (!solved && !onboardingOpen && !resetDialogOpen) {
-        board?.setInputEnabled(true);
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       setToolbarVisible(!completionMode);
       refreshStatusText();
@@ -574,7 +595,7 @@ export class GameScene extends Phaser.Scene {
       rewardedHintRequestPending = true;
       if (rewardedMode) {
         statusText
-          .setText('ЗАГРУЗКА РЕКЛАМЫ…')
+          .setText(copy.game.loadingAd)
           .setColor('#d0b978')
           .setVisible(true);
       }
@@ -614,7 +635,7 @@ export class GameScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       const confirm = this.add.rectangle(showX, 0, buttonWidth, buttonHeight, 0x714245, 1)
         .setInteractive({ useHandCursor: true });
-      const cancelLabel = this.add.text(cancelX, 0, 'ОТМЕНА', {
+      const cancelLabel = this.add.text(cancelX, 0, copy.common.cancel, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#d8d1c4',
@@ -623,7 +644,7 @@ export class GameScene extends Phaser.Scene {
       const confirmLabel = this.add.text(
         showX,
         0,
-        hintConfirmMode === 'rewarded' ? 'РЕКЛАМА' : 'ПОКАЗАТЬ',
+        hintConfirmMode === 'rewarded' ? copy.game.ad : copy.game.show,
         {
         fontFamily: 'monospace',
         fontSize: '14px',
@@ -652,8 +673,8 @@ export class GameScene extends Phaser.Scene {
       setToolbarVisible(false);
       statusText
         .setText(mode === 'rewarded'
-          ? '1 РЕКЛАМА = 1 ПОДСКАЗКА. ПОКАЗАТЬ РЕКЛАМУ?'
-          : `Показать одну клетку? Бесплатных подсказок: ${remaining}`)
+          ? copy.game.rewardedPrompt
+          : copy.game.freeHintPrompt(remaining))
         .setColor('#d0b978')
         .setVisible(true);
       renderHintConfirm();
@@ -714,30 +735,37 @@ export class GameScene extends Phaser.Scene {
       }
       setToolbarVisible(false);
       const hintCopy = metadata.minHintsUsed === 0
-        ? 'БЕЗ ПОДСКАЗОК'
-        : `ПОДСКАЗОК: ${metadata.minHintsUsed}`;
-      const recordCopy = newBestTime ? '  ·  НОВЫЙ РЕКОРД' : '';
+        ? copy.game.withoutHints
+        : copy.game.hintsCount(metadata.minHintsUsed);
+      const recordCopy = newBestTime ? copy.game.newRecord : '';
       const unlockCopy = result.unlockedManuscript === null
         ? ''
-        : `
-ОТКРЫТА РУКОПИСЬ ${result.unlockedManuscript.roman} · ${result.unlockedManuscript.title.toUpperCase()}`;
+        : copy.game.manuscriptUnlocked(
+          result.unlockedManuscript.roman,
+          copy.manuscripts[result.unlockedManuscript.id],
+        );
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
-        .setText(`✓ РЕШЕНО  ·  ${formatActiveTime(metadata.bestTimeMs)}  ·  ${hintCopy}${recordCopy}${unlockCopy}`)
+        .setText(copy.game.solvedCampaign(
+          formatActiveTime(metadata.bestTimeMs),
+          hintCopy,
+          recordCopy,
+          unlockCopy,
+        ))
         .setColor('#d8d1c4')
         .setVisible(true);
 
       completionActions = [
         {
-          label: 'АРХИВ',
+          label: copy.game.archive,
           action: () => this.scene.start(ARCHIVE_SCENE_KEY),
         },
       ];
       if (result.recommendedNextLevel !== null) {
         const service = this.getCampaignService();
         completionActions.push({
-          label: 'ДАЛЬШЕ',
+          label: copy.game.next,
           action: () => {
             if (completionTransitionPending) return;
             completionTransitionPending = true;
@@ -777,9 +805,9 @@ export class GameScene extends Phaser.Scene {
       setToolbarVisible(false);
 
       const hintCopy = metadata.minHintsUsed === 0
-        ? 'БЕЗ ПОДСКАЗОК'
-        : `ПОДСКАЗОК: ${metadata.minHintsUsed}`;
-      const recordCopy = newBestTime ? '  ·  НОВЫЙ РЕКОРД' : '';
+        ? copy.game.withoutHints
+        : copy.game.hintsCount(metadata.minHintsUsed);
+      const recordCopy = newBestTime ? copy.game.newRecord : '';
       const recent = getRecentDailyHistory(
         result.dateKey,
         this.getDailyService().getHistory().solvedDates,
@@ -793,15 +821,15 @@ export class GameScene extends Phaser.Scene {
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
         .setText(
-          `✓ DAILY РЕШЁН  ·  ${formatActiveTime(metadata.bestTimeMs)}  ·  ${hintCopy}${recordCopy}`
-          + `\nСЕРИЯ: ${result.currentStreak}  ·  7 ДНЕЙ: ${recentCopy}`,
+          copy.game.solvedDaily(formatActiveTime(metadata.bestTimeMs), hintCopy, recordCopy)
+          + `\n${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         )
         .setColor('#d8d1c4')
         .setVisible(true);
 
       completionActions = [
         {
-          label: 'ГЛАВНАЯ',
+          label: copy.game.home,
           action: () => this.scene.start(HOME_SCENE_KEY),
         },
       ];
@@ -821,7 +849,7 @@ export class GameScene extends Phaser.Scene {
       onboardingBlocksTimer = false;
       board?.setInputCellTargets(null);
       if (!solved && !resetDialogOpen) {
-        board?.setInputEnabled(true);
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       statusText.setVisible(true);
       relayoutOnboarding();
@@ -872,7 +900,7 @@ export class GameScene extends Phaser.Scene {
         onboardingBlocksTimer = true;
         pauseActiveTimer();
         board?.setInputCellTargets(step.cells);
-        board?.setInputEnabled(true);
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       } else {
         const blocksInput = step.allowInput !== true;
         onboardingBlocksInteraction = blocksInput;
@@ -881,7 +909,7 @@ export class GameScene extends Phaser.Scene {
           pauseActiveTimer();
           board?.setInputEnabled(false);
         } else {
-          board?.setInputEnabled(true);
+          board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
           resumeActiveTimer();
         }
         onboardingAutoAdvance = this.time.delayedCall(step.autoAdvanceMs, () => {
@@ -907,7 +935,7 @@ export class GameScene extends Phaser.Scene {
       resetDialog = null;
       resetDialogOpen = false;
       if (!solved && !onboardingOpen) {
-        board?.setInputEnabled(true);
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       resumeActiveTimer();
       syncToolbar();
@@ -933,13 +961,13 @@ export class GameScene extends Phaser.Scene {
 
       const panel = this.add.rectangle(0, 0, width, height, 0x15191f, 0.98)
         .setStrokeStyle(2, 0x6b7077);
-      const title = this.add.text(0, -52, 'Reset puzzle?', {
+      const title = this.add.text(0, -52, copy.game.resetTitle, {
         fontFamily: 'monospace',
         fontSize: `${modalChrome.modalTitleFontSize}px`,
         color: '#f0e6d2',
         fontStyle: 'bold',
       }).setOrigin(0.5);
-      const copy = this.add.text(0, -14, 'All marks on this board will be cleared.', {
+      const dialogCopy = this.add.text(0, -14, copy.game.resetBody, {
         fontFamily: 'monospace',
         fontSize: `${modalChrome.modalCopyFontSize}px`,
         color: '#aeb4bc',
@@ -955,13 +983,13 @@ export class GameScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       const confirm = this.add.rectangle(resetX, buttonY, buttonWidth, 46, 0x63383b, 1)
         .setInteractive({ useHandCursor: true });
-      const cancelLabel = this.add.text(cancelX, buttonY, 'CANCEL', {
+      const cancelLabel = this.add.text(cancelX, buttonY, copy.common.cancel, {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#d8d1c4',
         fontStyle: 'bold',
       }).setOrigin(0.5);
-      const confirmLabel = this.add.text(resetX, buttonY, 'RESET', {
+      const confirmLabel = this.add.text(resetX, buttonY, copy.common.reset, {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f0d8d2',
@@ -976,7 +1004,7 @@ export class GameScene extends Phaser.Scene {
         closeResetDialog();
       });
 
-      container.add([panel, title, copy, cancel, confirm, cancelLabel, confirmLabel]);
+      container.add([panel, title, dialogCopy, cancel, confirm, cancelLabel, confirmLabel]);
     };
 
     const requestReset = (): void => {
@@ -1014,7 +1042,12 @@ export class GameScene extends Phaser.Scene {
       if (launchData.context.mode === 'dev') {
         completionMode = true;
         statusText
-          .setText(`✓ РЕШЕНО  ·  ${formatActiveTime(metadata.bestTimeMs)}`)
+          .setText(copy.game.solvedCampaign(
+            formatActiveTime(metadata.bestTimeMs),
+            copy.game.withoutHints,
+            '',
+            '',
+          ))
           .setColor('#d8d1c4')
           .setVisible(true);
         return;
@@ -1107,6 +1140,7 @@ export class GameScene extends Phaser.Scene {
       showTouchToolButtons,
       profileService?.getFreeHintsRemaining() ?? 0,
       rewardedHintAvailable,
+      language,
     );
     for (const buttonState of initialToolbarState.buttons) {
       const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
@@ -1162,6 +1196,7 @@ export class GameScene extends Phaser.Scene {
       board?.setInputEnabled(false);
       pauseActiveTimer();
       savePuzzleSession();
+      sceneOverlayPaused = true;
       this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'GameScene' });
       this.scene.pause();
     });
@@ -1224,7 +1259,7 @@ export class GameScene extends Phaser.Scene {
       helpText
         .setPosition(width - nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.actionFontSize)
-        .setText(width < 700 ? 'ⓘ' : 'ⓘ Правила');
+        .setText(width < 700 ? 'ⓘ' : copy.game.rules);
 
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);
@@ -1278,13 +1313,53 @@ export class GameScene extends Phaser.Scene {
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
+    const restoreBoardInputAfterPlatformResume = (): void => {
+      if (solved || resetDialogOpen || hintConfirmOpen || sceneOverlayPaused) {
+        board?.setInputEnabled(false);
+        return;
+      }
+      if (!onboardingOpen) {
+        board?.setInputEnabled(true);
+        return;
+      }
+
+      const step = currentOnboardingStep();
+      const allowsInput = step === null
+        || step.target === 'board-cells'
+        || (step.target === 'message' && step.allowInput === true);
+      board?.setInputEnabled(allowsInput);
+    };
+
+    const unsubscribePlatformLifecycle = platformServices?.lifecycle.subscribe({
+      onPause: () => {
+        platformGameplayActivity?.pauseFromPlatform();
+        board?.setInputEnabled(false);
+        pauseActiveTimer(false);
+        savePuzzleSession();
+        void flushProfileState().catch((error) => {
+          console.warn('[Dungeon Logic] Could not flush profile state on platform pause; keeping dirty in-memory state.', error);
+        });
+        syncToolbar();
+      },
+      onResume: () => {
+        const canResume = internalTimerMayRun();
+        platformGameplayActivity?.resumeFromPlatform(canResume);
+        if (platformGameplayActivity?.isPlatformPaused() !== true) {
+          restoreBoardInputAfterPlatformResume();
+        }
+        resumeActiveTimer(false);
+        syncToolbar();
+      },
+    }) ?? (() => {});
+
     const handleSceneResume = (): void => {
+      sceneOverlayPaused = false;
       if (onboardingOpen) {
         applyOnboardingStep();
         return;
       }
       if (!solved && !resetDialogOpen) {
-        board?.setInputEnabled(true);
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       resumeActiveTimer();
       syncToolbar();
@@ -1305,6 +1380,7 @@ export class GameScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
       keyboard?.off('keydown', handleKeyDown);
       this.events.off(Phaser.Scenes.Events.RESUME, handleSceneResume);
+      unsubscribePlatformLifecycle();
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
@@ -1314,10 +1390,12 @@ export class GameScene extends Phaser.Scene {
       applyOnboardingStep();
     } else {
       board.setInputCellTarget(null);
-      board.setInputEnabled(true);
+      board.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       resumeActiveTimer();
       syncToolbar();
     }
+
+    void platformServices?.readiness.ready();
   }
 
   private async finishCampaignLevel(

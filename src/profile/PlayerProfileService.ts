@@ -1,4 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import type { SupportedLanguage } from '../i18n/Language';
 import {
   createFreshPlayerProfile,
   migrateLegacyCampaignProgress,
@@ -11,12 +12,14 @@ export const PLAYER_PROFILE_SERVICE_REGISTRY_KEY = 'player-profile-service';
 
 export interface PlayerProfileServiceOptions {
   readonly saveDelayMs?: number;
+  readonly defaultLanguage?: SupportedLanguage;
 }
 
 export class PlayerProfileService {
   private readonly manifest: readonly CampaignLevelEntry[];
   private readonly storage: PlayerProfileStorage;
   private readonly saveDelayMs: number;
+  private readonly defaultLanguage: SupportedLanguage;
 
   private profile: PlayerProfileV1;
   private dirty = false;
@@ -28,11 +31,13 @@ export class PlayerProfileService {
     storage: PlayerProfileStorage,
     profile: PlayerProfileV1,
     saveDelayMs: number,
+    defaultLanguage: SupportedLanguage,
   ) {
     this.manifest = manifest;
     this.storage = storage;
     this.profile = profile;
     this.saveDelayMs = saveDelayMs;
+    this.defaultLanguage = defaultLanguage;
   }
 
   static async create(
@@ -41,6 +46,7 @@ export class PlayerProfileService {
     options: PlayerProfileServiceOptions = {},
   ): Promise<PlayerProfileService> {
     const saveDelayMs = Math.max(0, options.saveDelayMs ?? 5000);
+    const defaultLanguage = options.defaultLanguage ?? 'ru';
 
     let loaded: unknown | null = null;
     try {
@@ -53,8 +59,9 @@ export class PlayerProfileService {
       return new PlayerProfileService(
         manifest,
         storage,
-        normalizePlayerProfile(loaded, manifest),
+        normalizePlayerProfile(loaded, manifest, defaultLanguage),
         saveDelayMs,
+        defaultLanguage,
       );
     }
 
@@ -68,9 +75,9 @@ export class PlayerProfileService {
     }
 
     const profile = legacy === null
-      ? createFreshPlayerProfile(manifest)
-      : migrateLegacyCampaignProgress(legacy, manifest);
-    const service = new PlayerProfileService(manifest, storage, profile, saveDelayMs);
+      ? createFreshPlayerProfile(manifest, defaultLanguage)
+      : migrateLegacyCampaignProgress(legacy, manifest, defaultLanguage);
+    const service = new PlayerProfileService(manifest, storage, profile, saveDelayMs, defaultLanguage);
 
     if (legacy !== null) {
       try {
@@ -92,9 +99,9 @@ export class PlayerProfileService {
   update(
     mutator: (profile: PlayerProfileV1) => PlayerProfileV1,
   ): PlayerProfileV1 {
-    const safeCurrent = normalizePlayerProfile(this.profile, this.manifest);
+    const safeCurrent = normalizePlayerProfile(this.profile, this.manifest, this.defaultLanguage);
     const candidate = mutator(safeCurrent);
-    this.profile = normalizePlayerProfile(candidate, this.manifest);
+    this.profile = normalizePlayerProfile(candidate, this.manifest, this.defaultLanguage);
     this.dirty = true;
     this.scheduleSave();
     return this.profile;
@@ -174,7 +181,7 @@ export class PlayerProfileService {
   }
 
   replaceProfileForPlatformMerge(profile: PlayerProfileV1): PlayerProfileV1 {
-    this.profile = normalizePlayerProfile(profile, this.manifest);
+    this.profile = normalizePlayerProfile(profile, this.manifest, this.defaultLanguage);
     this.dirty = true;
     this.scheduleSave();
     return this.profile;

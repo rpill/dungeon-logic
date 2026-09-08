@@ -1,11 +1,14 @@
 import type {
   AdsPort,
+  GameLifecycleHandlers,
   GameLifecyclePort,
   InterstitialResult,
   PlatformServices,
   PlayerStorage,
   RewardedResult,
   TrustedClock,
+  PlatformReadinessPort,
+  GameplayMarkupPort,
 } from './services';
 
 export const YANDEX_PROFILE_DATA_KEY = 'dungeonLogicProfile';
@@ -25,9 +28,27 @@ interface RewardedCallbacksLike extends AdCallbacksLike {
   onRewarded?: () => void;
 }
 
+interface YandexFeatureMethodLike {
+  (): void | Promise<void>;
+}
+
 interface YandexSdkLike {
   getPlayer(): Promise<YandexPlayerLike>;
   serverTime?: () => number;
+  environment?: {
+    i18n?: {
+      lang?: string;
+    };
+  };
+  features?: {
+    LoadingAPI?: {
+      ready?: YandexFeatureMethodLike;
+    };
+    GameplayAPI?: {
+      start?: YandexFeatureMethodLike;
+      stop?: YandexFeatureMethodLike;
+    };
+  };
   adv?: {
     showFullscreenAdv?: (options?: { callbacks?: AdCallbacksLike }) => void;
     showRewardedVideo?: (options?: { callbacks?: RewardedCallbacksLike }) => void;
@@ -40,6 +61,61 @@ export interface YandexGlobalScopeLike {
   readonly YaGames?: {
     init(): Promise<YandexSdkLike>;
   };
+}
+
+function createYandexReadiness(
+  sdk: YandexSdkLike,
+): PlatformReadinessPort {
+  let attempted = false;
+
+  return {
+    async ready() {
+      if (attempted) return;
+      attempted = true;
+
+      const loadingApi = sdk.features?.LoadingAPI;
+      const ready = loadingApi?.ready;
+      if (typeof ready !== 'function') return;
+
+      try {
+        await ready.call(loadingApi);
+      } catch (error) {
+        console.warn('[Dungeon Logic] Yandex Game Ready signal failed; continuing gameplay.', error);
+      }
+    },
+  };
+}
+
+function createYandexGameplay(
+  sdk: YandexSdkLike,
+): GameplayMarkupPort {
+  let active = false;
+
+  const transition = async (nextActive: boolean): Promise<void> => {
+    if (active === nextActive) return;
+    active = nextActive;
+
+    const gameplayApi = sdk.features?.GameplayAPI;
+    const method = nextActive ? gameplayApi?.start : gameplayApi?.stop;
+    if (typeof method !== 'function') return;
+
+    try {
+      await method.call(gameplayApi);
+    } catch (error) {
+      if (active === nextActive) active = !nextActive;
+      console.warn(`[Dungeon Logic] Yandex GameplayAPI.${nextActive ? 'start' : 'stop'} failed; continuing gameplay.`, error);
+    }
+  };
+
+  return {
+    start: () => transition(true),
+    stop: () => transition(false),
+  };
+}
+
+function readYandexLanguage(sdk: YandexSdkLike): string | null {
+  const language = sdk.environment?.i18n?.lang;
+  return typeof language === 'string' && language.length > 0 ? language : null;
 }
 
 function createYandexStorage(
@@ -165,20 +241,31 @@ function createYandexAds(
 function createYandexLifecycle(
   sdk: YandexSdkLike,
 ): GameLifecyclePort {
+  let paused = false;
+  const subscribers = new Set<GameLifecycleHandlers>();
+
+  const pause = (): void => {
+    paused = true;
+    for (const handlers of subscribers) handlers.onPause();
+  };
+  const resume = (): void => {
+    paused = false;
+    for (const handlers of subscribers) handlers.onResume();
+  };
+
+  if (typeof sdk.on === 'function') {
+    sdk.on('game_api_pause', pause);
+    sdk.on('game_api_resume', resume);
+  }
+
   return {
+    isPaused() {
+      return paused;
+    },
     subscribe(handlers) {
-      if (typeof sdk.on !== 'function' || typeof sdk.off !== 'function') {
-        return () => {};
-      }
-
-      const pause = (): void => handlers.onPause();
-      const resume = (): void => handlers.onResume();
-      sdk.on('game_api_pause', pause);
-      sdk.on('game_api_resume', resume);
-
+      subscribers.add(handlers);
       return () => {
-        sdk.off?.('game_api_pause', pause);
-        sdk.off?.('game_api_resume', resume);
+        subscribers.delete(handlers);
       };
     },
   };
@@ -205,6 +292,9 @@ export async function createYandexPlatformServices(
     storage: createYandexStorage(sdkPromise),
     clock: createYandexClock(sdkPromise),
     ads: createYandexAds(sdkPromise),
+    readiness: createYandexReadiness(sdk),
+    environment: { language: readYandexLanguage(sdk) },
+    gameplay: createYandexGameplay(sdk),
     lifecycle: createYandexLifecycle(sdk),
   };
 }

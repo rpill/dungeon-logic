@@ -1,8 +1,9 @@
+import type { SupportedLanguage } from '../i18n/Language';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerSettings } from '../profile/types';
 
-export type SupportedLanguage = 'ru' | 'en';
+export type { SupportedLanguage } from '../i18n/Language';
 
 export interface VibrationNavigatorLike {
   readonly vibrate?: unknown;

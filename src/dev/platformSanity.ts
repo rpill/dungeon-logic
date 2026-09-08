@@ -39,6 +39,14 @@ async function runLocalChecks(): Promise<void> {
   assert(await services.clock.now() === null, 'Local platform clock does not fabricate trusted time.');
   assert(await services.ads.showInterstitial() === 'unavailable', 'Local interstitial is unavailable without throwing.');
   assert(await services.ads.showRewarded() === 'unavailable', 'Local rewarded ad is unavailable without throwing.');
+  assert(services.environment.language === null, 'Local platform does not fabricate an SDK language.');
+  await services.readiness.ready();
+  await services.readiness.ready();
+  await services.gameplay.start();
+  await services.gameplay.start();
+  await services.gameplay.stop();
+  await services.gameplay.stop();
+  assert(!services.lifecycle.isPaused(), 'Local lifecycle starts unpaused.');
   const unsubscribe = services.lifecycle.subscribe({ onPause() {}, onResume() {} });
   assert(typeof unsubscribe === 'function', 'Local lifecycle returns a no-op unsubscribe function.');
   unsubscribe();
@@ -63,6 +71,9 @@ async function runYandexChecks(): Promise<void> {
   let lastSetData: unknown = null;
   let lastSetDataFlush: boolean | undefined;
   let cloudProfile: unknown = { cloud: 'profile' };
+  let readyCalls = 0;
+  let gameplayStartCalls = 0;
+  let gameplayStopCalls = 0;
   const listeners = new Map<string, Set<() => void>>();
 
   const player = {
@@ -84,6 +95,26 @@ async function runYandexChecks(): Promise<void> {
     },
     serverTime() {
       return Date.UTC(2099, 0, 2, 3, 4, 5);
+    },
+    environment: {
+      i18n: {
+        lang: 'ru',
+      },
+    },
+    features: {
+      LoadingAPI: {
+        ready() {
+          readyCalls += 1;
+        },
+      },
+      GameplayAPI: {
+        start() {
+          gameplayStartCalls += 1;
+        },
+        stop() {
+          gameplayStopCalls += 1;
+        },
+      },
     },
     adv: {
       showFullscreenAdv(options?: { callbacks?: { onOpen?: () => void; onClose?: (wasShown: boolean) => void; onError?: (error: unknown) => void } }) {
@@ -118,6 +149,19 @@ async function runYandexChecks(): Promise<void> {
   const services = await createYandexPlatformServices(globals);
   assert(services !== null, 'Yandex adapter resolves when YaGames.init is available.');
   assert(services.kind === 'yandex', 'Yandex adapter identifies its platform kind.');
+  assert(services.environment.language === 'ru', 'Yandex adapter exposes environment.i18n.lang.');
+
+  await services.readiness.ready();
+  await services.readiness.ready();
+  assert(readyCalls === 1, 'Yandex Game Ready is idempotent across repeated scene signals.');
+
+  await services.gameplay.start();
+  await services.gameplay.start();
+  await services.gameplay.stop();
+  await services.gameplay.stop();
+  await services.gameplay.start();
+  assert(gameplayStartCalls === 2, 'Yandex gameplay markup deduplicates repeated starts but allows a later resume.');
+  assert(gameplayStopCalls === 1, 'Yandex gameplay markup deduplicates repeated stops.');
 
   assertDeepEqual(await services.storage.load(), { cloud: 'profile' }, 'Yandex storage loads the single cloud profile value.');
   await services.storage.save({ cloud: 'updated' });
@@ -130,18 +174,28 @@ async function runYandexChecks(): Promise<void> {
   assert(await services.ads.showInterstitial() === 'shown', 'Yandex fullscreen callback maps to shown.');
   assert(await services.ads.showRewarded() === 'rewarded', 'Yandex rewarded callback maps to rewarded.');
 
+  for (const callback of listeners.get('game_api_pause') ?? []) callback();
+  assert(services.lifecycle.isPaused(), 'Yandex lifecycle retains startup pause before scene subscribers exist.');
+
   let pauses = 0;
   let resumes = 0;
   const unsubscribe = services.lifecycle.subscribe({
     onPause: () => { pauses += 1; },
     onResume: () => { resumes += 1; },
   });
+  for (const callback of listeners.get('game_api_resume') ?? []) callback();
+  assert(!services.lifecycle.isPaused(), 'Yandex lifecycle clears retained pause state on resume.');
   for (const callback of listeners.get('game_api_pause') ?? []) callback();
   for (const callback of listeners.get('game_api_resume') ?? []) callback();
-  assert(pauses === 1 && resumes === 1, 'Yandex lifecycle forwards pause/resume events.');
+  assert(pauses === 1 && resumes === 2, 'Yandex lifecycle forwards subsequent pause/resume events to subscribers.');
   unsubscribe();
-  assert((listeners.get('game_api_pause')?.size ?? 0) === 0, 'Lifecycle unsubscribe removes pause listener.');
-  assert((listeners.get('game_api_resume')?.size ?? 0) === 0, 'Lifecycle unsubscribe removes resume listener.');
+  const pausesAfterUnsubscribe = pauses;
+  const resumesAfterUnsubscribe = resumes;
+  for (const callback of listeners.get('game_api_pause') ?? []) callback();
+  assert(services.lifecycle.isPaused(), 'Lifecycle keeps tracking platform pause after scene subscriber unsubscribes.');
+  for (const callback of listeners.get('game_api_resume') ?? []) callback();
+  assert(!services.lifecycle.isPaused(), 'Lifecycle keeps tracking platform resume after scene subscriber unsubscribes.');
+  assert(pauses === pausesAfterUnsubscribe && resumes === resumesAfterUnsubscribe, 'Lifecycle unsubscribe detaches only the scene subscriber.');
 
   assert(initCalls === 1, 'Yandex SDK initialization is cached for all operations.');
   assert(getPlayerCalls === 1, 'Yandex Player lookup is cached for all storage operations.');
@@ -187,7 +241,7 @@ async function main(): Promise<void> {
   await runYandexChecks();
   await runResolutionChecks();
   await runProfileMigrationChecks();
-  console.info('[Dungeon Logic] Platform sanity: local fallback + cached Yandex SDK + cloud profile migration passed');
+  console.info('[Dungeon Logic] Platform sanity: readiness + i18n + gameplay/lifecycle + cloud fallback passed');
 }
 
 void main().catch((error) => {

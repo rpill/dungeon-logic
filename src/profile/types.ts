@@ -1,3 +1,4 @@
+import type { SupportedLanguage } from '../i18n/Language';
 import type { CellState } from '../puzzle/types';
 
 export interface SerializedPuzzleState {
@@ -35,7 +36,7 @@ export interface PlayerSettings {
   readonly musicEnabled: boolean;
   readonly soundEnabled: boolean;
   readonly vibrationEnabled: boolean;
-  readonly language: string;
+  readonly language: SupportedLanguage;
 }
 
 export interface PlayerProfileV1 {

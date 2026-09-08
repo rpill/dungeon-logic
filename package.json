@@ -45,12 +45,14 @@
     "dev:yandex:host": "vite --host localhost --port 5173 --strictPort",
     "dev:yandex": "npx --yes @yandex-games/sdk-dev-proxy -h http://localhost:5173 --dev-mode=true",
     "sanity:platform": "tsx src/dev/platformSanity.ts",
+    "sanity:platform-gameplay": "tsx src/dev/platformGameplaySanity.ts",
     "sanity:monetization": "tsx src/dev/monetizationSanity.ts",
     "sanity:rewarded-hint": "tsx src/dev/rewardedHintSanity.ts",
     "sanity:campaign-release": "tsx src/dev/campaignReleaseSanity.ts",
     "sanity:level-select-scroll": "tsx src/dev/levelSelectScrollSanity.ts",
     "sanity:daily-corpus": "tsx src/dev/dailyCorpusSanity.ts",
-    "sanity:daily-calendar": "tsx src/dev/dailyCalendarSanity.ts"
+    "sanity:daily-calendar": "tsx src/dev/dailyCalendarSanity.ts",
+    "sanity:i18n": "tsx src/dev/localizationSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

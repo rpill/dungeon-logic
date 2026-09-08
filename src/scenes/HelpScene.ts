@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 
 import { HELP_SCENE_KEY, type HelpReturnSceneKey, type HelpSceneData } from '../help/HelpNavigation';
-import { HELP_RULES, type HelpRule } from '../help/HelpRules';
+import { getHelpRules, type HelpRule } from '../help/HelpRules';
+import { getUiCopy } from '../i18n/UiCopy';
+import {
+  PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
+  PlayerProfileService,
+} from '../profile/PlayerProfileService';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
   clampMetaScrollY,
@@ -39,6 +44,8 @@ export class HelpScene extends Phaser.Scene {
     this.pointerGate.reset();
     this.cameras.main.setScroll(0, 0);
 
+    const language = this.getProfileService().getProfile().settings.language;
+    const copy = getUiCopy(language);
     const narrow = this.scale.width < 700;
     const headerBottom = narrow ? 86 : 96;
     const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 48), narrow ? 620 : 820);
@@ -63,21 +70,21 @@ export class HelpScene extends Phaser.Scene {
       1,
     ).setScrollFactor(0).setDepth(1000);
 
-    const back = this.add.text(16, narrow ? 17 : 20, '← НАЗАД', {
+    const back = this.add.text(16, narrow ? 17 : 20, copy.common.back, {
       fontFamily: 'monospace',
       fontSize: narrow ? '14px' : '16px',
       color: '#89929d',
       fontStyle: 'bold',
     }).setOrigin(0, 0).setScrollFactor(0).setDepth(1002).setInteractive({ useHandCursor: true });
 
-    this.add.text(this.scale.width / 2, narrow ? 54 : 60, 'КАК ИГРАТЬ', {
+    this.add.text(this.scale.width / 2, narrow ? 54 : 60, copy.help.title, {
       fontFamily: 'monospace',
       fontSize: narrow ? '25px' : '31px',
       color: '#f0e6d2',
       fontStyle: 'bold',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
 
-    for (const rule of HELP_RULES) {
+    for (const rule of getHelpRules(language)) {
       cursorY = this.createRuleCard(rule, cursorY, contentWidth, narrow) + cardGap;
     }
     this.contentBottom = cursorY;
@@ -220,6 +227,14 @@ export class HelpScene extends Phaser.Scene {
       this.lastDraggedPointerId === pointer.id
       && Date.now() - this.lastDragEndedAtMs < 160
     );
+  }
+
+  private getProfileService(): PlayerProfileService {
+    const service = this.registry.get(PLAYER_PROFILE_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof PlayerProfileService)) {
+      throw new Error('HelpScene requires PlayerProfileService in Phaser registry.');
+    }
+    return service;
   }
 
   private closeHelp(): void {

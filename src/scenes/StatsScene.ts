@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { getUiCopy } from '../i18n/UiCopy';
+
 import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import {
@@ -27,23 +29,8 @@ import {
   type StatsViewModel,
 } from '../runtime/StatsSelectors';
 
-const MONTH_NAMES = [
-  'ЯНВАРЬ',
-  'ФЕВРАЛЬ',
-  'МАРТ',
-  'АПРЕЛЬ',
-  'МАЙ',
-  'ИЮНЬ',
-  'ИЮЛЬ',
-  'АВГУСТ',
-  'СЕНТЯБРЬ',
-  'ОКТЯБРЬ',
-  'НОЯБРЬ',
-  'ДЕКАБРЬ',
-] as const;
-const WEEKDAYS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] as const;
-
 export class StatsScene extends Phaser.Scene {
+  private copy = getUiCopy('ru');
   private createVersion = 0;
   private contentBottom = 0;
   private scrollMaxY = 0;
@@ -67,11 +54,12 @@ export class StatsScene extends Phaser.Scene {
     this.pointerGate.reset();
     this.cameras.main.setScroll(0, 0);
 
+    this.copy = getUiCopy(this.getProfileService().getProfile().settings.language);
     const layout = calculateStatsLayout(this.scale.width, this.scale.height);
     this.renderFixedHeader(layout);
     this.setupPointerOwnership();
 
-    const loading = this.add.text(this.scale.width / 2, layout.summaryCards[0].y, 'ЗАГРУЗКА…', {
+    const loading = this.add.text(this.scale.width / 2, layout.summaryCards[0].y, this.copy.common.loading, {
       fontFamily: 'monospace',
       fontSize: layout.viewportClass === 'narrow' ? '14px' : '16px',
       color: '#6f7780',
@@ -120,7 +108,7 @@ export class StatsScene extends Phaser.Scene {
       1,
     ).setScrollFactor(0).setDepth(1000);
 
-    const back = this.add.text(16, 18, '← ГЛАВНАЯ', {
+    const back = this.add.text(16, 18, this.copy.common.backHome, {
       fontFamily: 'monospace',
       fontSize: layout.viewportClass === 'narrow' ? '12px' : '14px',
       color: '#89929d',
@@ -131,7 +119,7 @@ export class StatsScene extends Phaser.Scene {
       this.scene.start(HOME_SCENE_KEY);
     });
 
-    this.add.text(this.scale.width / 2, layout.titleY, 'СТАТИСТИКА', {
+    this.add.text(this.scale.width / 2, layout.titleY, this.copy.stats.title, {
       fontFamily: 'monospace',
       fontSize: `${layout.titleFontSize}px`,
       color: '#f0e6d2',
@@ -143,27 +131,27 @@ export class StatsScene extends Phaser.Scene {
     const currentStreak = stats.daily.currentStreak === null ? '—' : String(stats.daily.currentStreak);
     const cards = [
       {
-        title: 'КАМПАНИЯ',
+        title: this.copy.stats.campaign,
         lines: [
-          `Решено ${stats.campaign.solved} / ${stats.campaign.total}`,
-          `Рукописи ${stats.campaign.completedManuscripts} / ${stats.campaign.totalManuscripts}`,
-          `Без подсказок ${stats.campaign.solvedWithoutHints}`,
+          this.copy.stats.solved(stats.campaign.solved, stats.campaign.total),
+          this.copy.stats.manuscripts(stats.campaign.completedManuscripts, stats.campaign.totalManuscripts),
+          this.copy.stats.withoutHints(stats.campaign.solvedWithoutHints),
         ],
       },
       {
-        title: 'DAILY',
+        title: this.copy.stats.daily,
         lines: [
-          `Всего решено ${stats.daily.totalSolved}`,
-          `Серия ${currentStreak} · Лучшая ${stats.daily.bestStreak}`,
-          `Без подсказок ${stats.daily.solvedWithoutHints}`,
+          this.copy.stats.totalSolved(stats.daily.totalSolved),
+          this.copy.stats.streakBest(currentStreak, stats.daily.bestStreak),
+          this.copy.stats.withoutHints(stats.daily.solvedWithoutHints),
         ],
       },
       {
-        title: 'ОБЩЕЕ',
+        title: this.copy.stats.overall,
         lines: [
-          `Активное время ${this.formatDuration(stats.overall.activePlayMs)}`,
-          `Решено задач ${stats.overall.totalPuzzlesSolved}`,
-          `Подсказок ${stats.overall.totalHintsUsed}`,
+          this.copy.stats.activeTime(this.formatDuration(stats.overall.activePlayMs)),
+          this.copy.stats.puzzlesSolved(stats.overall.totalPuzzlesSolved),
+          this.copy.stats.hints(stats.overall.totalHintsUsed),
         ],
       },
     ] as const;
@@ -205,7 +193,7 @@ export class StatsScene extends Phaser.Scene {
       this.add.text(
         this.scale.width / 2,
         layout.calendar.titleY,
-        'DAILY · КАЛЕНДАРЬ',
+        this.copy.stats.dailyCalendar,
         {
           fontFamily: 'monospace',
           fontSize: layout.viewportClass === 'narrow' ? '16px' : '19px',
@@ -216,7 +204,7 @@ export class StatsScene extends Phaser.Scene {
       this.add.text(
         this.scale.width / 2,
         layout.calendar.titleY + 38,
-        'Недоступно без доверенной даты',
+        this.copy.stats.noTrustedDate,
         {
           fontFamily: 'monospace',
           fontSize: layout.viewportClass === 'narrow' ? '11px' : '13px',
@@ -226,11 +214,11 @@ export class StatsScene extends Phaser.Scene {
       return;
     }
 
-    const monthName = MONTH_NAMES[calendar.month - 1] ?? String(calendar.month);
+    const monthName = this.copy.stats.months[calendar.month - 1] ?? String(calendar.month);
     this.add.text(
       layout.calendar.centerX,
       layout.calendar.titleY,
-      `DAILY · ${monthName} ${calendar.year}`,
+      this.copy.stats.dailyMonth(monthName, calendar.year),
       {
         fontFamily: 'monospace',
         fontSize: layout.viewportClass === 'narrow' ? '16px' : '19px',
@@ -241,7 +229,7 @@ export class StatsScene extends Phaser.Scene {
 
     const totalGridWidth = layout.calendar.cellSize * 7 + layout.calendar.gap * 6;
     const startX = layout.calendar.centerX - totalGridWidth / 2 + layout.calendar.cellSize / 2;
-    WEEKDAYS.forEach((label, column) => {
+    this.copy.stats.weekdays.forEach((label, column) => {
       this.add.text(
         startX + column * (layout.calendar.cellSize + layout.calendar.gap),
         layout.calendar.weekdayY,

@@ -1,3 +1,4 @@
+import type { SupportedLanguage } from '../i18n/Language';
 import {
   CellState,
   type CellState as CellStateValue,
@@ -221,8 +222,47 @@ const FLOWS: Readonly<Record<string, readonly OnboardingStep[]>> = {
   ],
 };
 
-export function createOnboardingFlow(levelId: string): readonly OnboardingStep[] {
-  return FLOWS[levelId] ?? [];
+const EN_MESSAGES: Readonly<Record<string, readonly string[]>> = {
+  'campaign-001': [
+    'The number 5 means this row contains five walls. The Monster already occupies the sixth cell, so the other five cells are walls. Place all five.',
+    'The number 0 means there are no walls in this row. The Monster on the left already counts as an open cell. Mark the other five cells as floor.',
+    'Now use the Monster rule. A Monster is always at a dead end: exactly one orthogonal neighbor must be floor. The cell to its right is already floor, so the cell above must be a wall.',
+    'Look at column 4. Two Monsters are floor and two walls are already known. To reach four walls, the two remaining cells must be walls.',
+    'This Monster already has walls above and below, and the board edge is on its left. To leave exactly one exit, the cell on the right must be floor.',
+    'Continue on your own: combine row and column numbers with the Monster rule. Conversely, every corridor dead end must contain a Monster. All open cells must remain connected by their sides.',
+  ],
+  'campaign-002': [
+    'A Chest always belongs inside a fully open room exactly 3×3. Here the board edge already determines the room position. Mark the other eight room cells as floor.',
+    'A treasure room has exactly one entrance. Every reachable border cell except that single passage must therefore be a wall. Close the highlighted cells.',
+    'Only the single room entrance remains. Mark it as floor.',
+    'Important exception: open 2×2 squares are allowed inside a 3×3 treasure room. Outside a room, an open 2×2 is forbidden — at least one cell must be a wall.',
+  ],
+  'campaign-003': [
+    'This is your first independent Monster puzzle. Remember: all floor must form one connected area, and an all-floor 2×2 square is forbidden outside treasure rooms.',
+  ],
+  'campaign-004': [
+    'Now the rules work together. Start with the obvious clue: a column marked 0 contains no walls. Mark the whole column as floor.',
+    'The Chest near the bottom defines a 3×3 room. You already opened the middle column of that room. Mark the remaining highlighted room cells as floor.',
+    'This room has one entrance: the open cell at the top center. The rest of the room border must be walls.',
+    'Here the rules interact: the room walls blocked the Monster on the left and below. To keep the Monster at a dead end with one exit, the cell above must be floor.',
+    'Continue independently: numbers, rooms and Monsters can force one another. Look for these chains — they are the basis of harder levels.',
+  ],
+  'campaign-005': [
+    'The final tutorial puzzle has no highlights. Solve it on your own. If you forget a rule, the reference is always available through ⓘ.',
+  ],
+};
+
+export function createOnboardingFlow(
+  levelId: string,
+  language: SupportedLanguage = 'ru',
+): readonly OnboardingStep[] {
+  const flow = FLOWS[levelId] ?? [];
+  if (language === 'ru') return flow;
+  const messages = EN_MESSAGES[levelId] ?? [];
+  return flow.map((step, index) => ({
+    ...step,
+    message: messages[index] ?? step.message,
+  }));
 }
 
 export function isOnboardingStepSatisfied(

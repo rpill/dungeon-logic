@@ -72,6 +72,16 @@ export function createLocalPlatformServices(
         return null;
       },
     },
+    readiness: {
+      async ready() {},
+    },
+    environment: {
+      language: null,
+    },
+    gameplay: {
+      async start() {},
+      async stop() {},
+    },
     ads: {
       async showInterstitial() {
         return 'unavailable';
@@ -81,6 +91,9 @@ export function createLocalPlatformServices(
       },
     },
     lifecycle: {
+      isPaused() {
+        return false;
+      },
       subscribe() {
         return () => {};
       },
