@@ -6,11 +6,18 @@ import { runLevelQualitySanityChecks } from '../dev/levelQualitySanity';
 import { runSolverSanityChecks } from '../dev/solverSanity';
 import { runValidatorSanityChecks } from '../dev/validatorSanity';
 import { LocalPlayerProfileStorage } from '../profile/LocalPlayerProfileStorage';
-import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
+import { PlatformPlayerProfileStorage } from '../profile/PlatformPlayerProfileStorage';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import { createLocalPlatformServices } from '../platform/local';
+import {
+  PLATFORM_SERVICES_REGISTRY_KEY,
+  resolvePlatformServices,
+} from '../platform/PlatformRegistry';
+import { createYandexPlatformServices } from '../platform/yandex';
+import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   loadGeneratedReportFromDevServer,
   resolveDevLaunch,
@@ -35,6 +42,22 @@ export class BootScene extends Phaser.Scene {
   }
 
   private async routeLaunch(): Promise<void> {
+    const platformServices = await resolvePlatformServices(
+      () => createYandexPlatformServices(),
+      () => createLocalPlatformServices(),
+    );
+    this.registry.set(PLATFORM_SERVICES_REGISTRY_KEY, platformServices);
+    console.info(`[Dungeon Logic] Platform services: ${platformServices.kind}`);
+
+    const profileStorage = new PlatformPlayerProfileStorage(
+      platformServices.storage,
+      new LocalPlayerProfileStorage(),
+    );
+    const profileService = await PlayerProfileService.create(campaignManifest, profileStorage);
+    const campaignService = CampaignService.create(campaignManifest, profileService);
+    this.registry.set(PLAYER_PROFILE_SERVICE_REGISTRY_KEY, profileService);
+    this.registry.set(CAMPAIGN_SERVICE_REGISTRY_KEY, campaignService);
+
     let devLaunch = null;
     try {
       devLaunch = await resolveDevLaunch(
@@ -53,11 +76,6 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    const profileStorage = new LocalPlayerProfileStorage();
-    const profileService = await PlayerProfileService.create(campaignManifest, profileStorage);
-    const campaignService = CampaignService.create(campaignManifest, profileService);
-    this.registry.set(PLAYER_PROFILE_SERVICE_REGISTRY_KEY, profileService);
-    this.registry.set(CAMPAIGN_SERVICE_REGISTRY_KEY, campaignService);
     this.scene.start(HOME_SCENE_KEY);
   }
 }
