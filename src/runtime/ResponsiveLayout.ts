@@ -20,6 +20,8 @@ export interface LevelSelectLayout {
   readonly continueWidth: number;
   readonly continueHeight: number;
   readonly continueFontSize: number;
+  readonly headerBottom: number;
+  readonly contentBottom: number;
   readonly columns: number;
   readonly cardTitleFontSize: number;
   readonly cardStateFontSize: number;
@@ -92,6 +94,8 @@ export function calculateLevelSelectLayout(
       continueWidth: viewport.width - margin * 2,
       continueHeight: 48,
       continueFontSize: 17,
+      headerBottom: compactHeight ? 140 : 158,
+      contentBottom: cards.length === 0 ? (compactHeight ? 140 : 158) : cards[cards.length - 1].y + cards[cards.length - 1].height / 2,
       columns,
       cardTitleFontSize: 18,
       cardStateFontSize: 13,
@@ -132,6 +136,8 @@ export function calculateLevelSelectLayout(
       continueWidth: Math.min(330, viewport.width - margin * 2),
       continueHeight: 52,
       continueFontSize: 19,
+      headerBottom: 166,
+      contentBottom: cards.length === 0 ? 166 : cards[cards.length - 1].y + cards[cards.length - 1].height / 2,
       columns,
       cardTitleFontSize: 21,
       cardStateFontSize: 15,
@@ -163,6 +169,8 @@ export function calculateLevelSelectLayout(
     continueWidth: 330,
     continueHeight: 54,
     continueFontSize: 20,
+    headerBottom: 190,
+    contentBottom: cards.length === 0 ? 190 : cards[cards.length - 1].y + cards[cards.length - 1].height / 2,
     columns,
     cardTitleFontSize: 24,
     cardStateFontSize: 16,

@@ -112,9 +112,9 @@ async function main(): Promise<void> {
   assert(devData.onboarding.length === 0, 'Dev scene data never includes campaign onboarding.');
 
   const levelSelectItems = createLevelSelectItems(campaignManifest, fresh);
-  assert(levelSelectItems.length === 5, 'Level Select model exposes only five promoted pilot entries.');
+  assert(levelSelectItems.length === 30, 'Level Select model exposes all 30 promoted release entries.');
   assert(levelSelectItems[0].state === 'current', 'Level Select marks slot 1 current in fresh progress.');
-  assert(levelSelectItems.slice(1).every((item) => item.state === 'locked'), 'Level Select locks slots 2-5 initially.');
+  assert(levelSelectItems.slice(1).every((item) => item.state === 'locked'), 'Level Select locks slots 2-30 initially.');
 
   const campaignRestart = createRestartGameSceneData(campaignData);
   assert(campaignRestart.level === campaignData.level, 'Campaign restart preserves concrete level snapshot.');

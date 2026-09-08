@@ -102,16 +102,18 @@ function puzzleFromCanonicalSolution(level: LevelDefinition): PuzzleState {
   return puzzle;
 }
 
-function runPilotContentChecks(): void {
-  assert(campaignManifest.length === 5, 'Pilot manifest contains exactly five promoted levels.');
+function runReleaseContentChecks(): void {
+  assert(campaignManifest.length === 30, 'Release manifest contains exactly 30 promoted levels.');
   assert(
-    campaignManifest.map((entry) => entry.id).join(',')
-      === 'campaign-001,campaign-002,campaign-003,campaign-004,campaign-005',
-    'Pilot ids are campaign-001 through campaign-005.',
+    campaignManifest.every((entry, index) => entry.id === `campaign-${String(index + 1).padStart(3, '0')}`),
+    'Release ids are contiguous campaign-001 through campaign-030.',
   );
   assert(
-    campaignManifest.every((entry) => entry.chapterId === 'graveyard'),
-    'Every pilot level belongs to the Graveyard technical chapter.',
+    campaignManifest.slice(0, 6).every((entry) => entry.chapterId === 'graveyard')
+      && campaignManifest.slice(6, 13).every((entry) => entry.chapterId === 'desert-ruins')
+      && campaignManifest.slice(13, 22).every((entry) => entry.chapterId === 'sewers')
+      && campaignManifest.slice(22, 30).every((entry) => entry.chapterId === 'crypt'),
+    'Release manifest follows the four technical visual chapter ranges.',
   );
   assert(
     campaignManifest[0].onboarding.join(',') === 'row-column-clues,monster-dead-end',
@@ -123,7 +125,7 @@ function runPilotContentChecks(): void {
   );
   assert(
     campaignManifest.slice(2).every((entry) => entry.onboarding.length === 0),
-    'Slots 3-5 introduce no additional legacy onboarding cards.',
+    'Slots 3-30 introduce no additional legacy onboarding cards.',
   );
 
   for (const source of promotedCampaignLevels) {
@@ -155,7 +157,7 @@ function runPilotContentChecks(): void {
   }
 }
 
-runPilotContentChecks();
+runReleaseContentChecks();
 
 class FakeProfileStorage implements PlayerProfileStorage {
   value: PlayerProfileV1 | null = null;
