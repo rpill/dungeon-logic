@@ -5,6 +5,7 @@ import {
   getHomeCampaignAction,
   getManuscriptViewModels,
   shouldShowDailyEntry,
+  shouldShowSettingsEntry,
   type MetaCampaignPort,
 } from '../runtime/MetaSelectors';
 
@@ -91,6 +92,7 @@ const availableDaily = {
   result: null,
 } as const;
 assert(getHomeDailyAction(fresh, availableDaily).kind === 'hidden', 'Daily Home action stays hidden before campaign-005.');
+assert(shouldShowSettingsEntry(fresh), 'Settings is visible on a fresh profile before campaign-005.');
 
 const mid = profile(['campaign-001', 'campaign-002'], 'campaign-003');
 const continued = getHomeCampaignAction(fakeCampaign(3), mid);

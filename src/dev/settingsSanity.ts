@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   const helpReturnKey: HelpReturnSceneKey = SETTINGS_SCENE_KEY;
   assert(helpReturnKey === SETTINGS_SCENE_KEY, 'How to Play can return to SettingsScene.');
   assert(SETTINGS_SCENE_KEY === 'SettingsScene', 'Settings scene has a stable navigation key.');
-  assert(!shouldShowSettingsEntry(profileService.getProfile()), 'Settings stays hidden before campaign-005 is complete.');
+  assert(shouldShowSettingsEntry(profileService.getProfile()), 'Settings is available from the first launch.');
 
   assert(settings.getSettings().language === 'ru', 'SettingsService exposes fresh profile settings.');
   assert(settings.isVibrationSupported(), 'Injected vibration capability is exposed.');

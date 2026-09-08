@@ -106,8 +106,8 @@ export function shouldShowDailyEntry(profile: PlayerProfileV1): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
 }
 
-export function shouldShowSettingsEntry(profile: PlayerProfileV1): boolean {
-  return profile.campaign.completedLevelIds.includes('campaign-005');
+export function shouldShowSettingsEntry(_profile: PlayerProfileV1): boolean {
+  return true;
 }
 
 export function getHomeDailyAction(
