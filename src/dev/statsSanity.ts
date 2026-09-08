@@ -1,3 +1,4 @@
+import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
 import type { PlayerProfileV1 } from '../profile/types';
 import { getStatsViewModel } from '../runtime/StatsSelectors';
 import { calculateStatsLayout } from '../runtime/StatsLayout';
@@ -56,7 +57,8 @@ const profile: PlayerProfileV1 = {
   },
 };
 
-const stats = getStatsViewModel(profile, '2026-09-08');
+const scheduledDates = ['2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10'];
+const stats = getStatsViewModel(profile, '2026-09-08', scheduledDates);
 assert(stats.campaign.solved === 15 && stats.campaign.total === 30, 'Campaign stats expose solved / 30.');
 assert(stats.campaign.completedManuscripts === 2 && stats.campaign.totalManuscripts === 4, 'Two fully solved manuscripts are counted from manuscript slots.');
 assert(stats.campaign.solvedWithoutHints === 2, 'Campaign no-hint solves count solvedWithoutHints level results.');
@@ -74,10 +76,42 @@ const day1 = stats.calendar.days[0];
 const day2 = stats.calendar.days[1];
 const day8 = stats.calendar.days[7];
 const day9 = stats.calendar.days[8];
-assert(day1.dateKey === '2026-09-01' && day1.state === 'solved', 'Solved past day is marked solved.');
-assert(day2.dateKey === '2026-09-02' && day2.state === 'missed', 'Unsolved past day is marked missed.');
+assert(day1.dateKey === '2026-09-01' && day1.state === 'unavailable', 'Dates outside the release schedule stay unavailable even if legacy history contains them.');
+assert(day1.solved === false, 'Unscheduled dates must not render legacy Daily history as a solved release-calendar day.');
+assert(day2.dateKey === '2026-09-02' && day2.state === 'unavailable', 'Unscheduled past dates are not falsely marked missed.');
+const day3 = stats.calendar.days[2];
+assert(day3.dateKey === '2026-09-03' && day3.state === 'solved', 'Solved scheduled past day is marked solved.');
 assert(day8.dateKey === '2026-09-08' && day8.state === 'today' && day8.solved, 'Today remains explicitly today while retaining solved state.');
 assert(day9.state === 'future', 'Future current-month dates stay neutral rather than missed.');
+
+const releaseStartWithLegacyStreak = getStatsViewModel({
+  ...profile,
+  daily: {
+    ...profile.daily,
+    currentStreak: 4,
+    lastSolvedDate: '2026-09-08',
+  },
+}, '2026-09-09', DAILY_RELEASE_DATE_KEYS);
+assert(releaseStartWithLegacyStreak.daily.currentStreak === 0, 'Release-start Statistics must not continue a streak from an unscheduled pre-release date.');
+
+const releaseScheduleStats = getStatsViewModel({
+  ...profile,
+  daily: {
+    ...profile.daily,
+    currentStreak: 1,
+    lastSolvedDate: '2026-09-09',
+    solvedDates: ['2026-09-09'],
+    results: {
+      '2026-09-09': { bestTimeMs: 140_000, minHintsUsed: 0, solvedWithoutHints: true },
+    },
+    totalSolved: 1,
+  },
+}, '2026-09-10', DAILY_RELEASE_DATE_KEYS);
+assert(releaseScheduleStats.daily.currentStreak === 1, 'Real release schedule keeps a Sep 9 solve active on scheduled Sep 10.');
+assert(releaseScheduleStats.calendar?.days[0].state === 'unavailable', 'Real release calendar keeps Sep 1 unavailable before the Sep 9 anchor.');
+assert(releaseScheduleStats.calendar?.days[7].state === 'unavailable', 'Real release calendar keeps Sep 8 unavailable before the anchor.');
+assert(releaseScheduleStats.calendar?.days[8].state === 'solved', 'Real release calendar marks Sep 9 as the first solved scheduled Daily.');
+assert(releaseScheduleStats.calendar?.days[9].state === 'today', 'Real release calendar marks scheduled Sep 10 as today.');
 
 const stale = getStatsViewModel({
   ...profile,
@@ -86,10 +120,21 @@ const stale = getStatsViewModel({
     currentStreak: 4,
     lastSolvedDate: '2026-09-08',
   },
-}, '2026-09-10');
+}, '2026-09-10', scheduledDates);
 assert(stale.daily.currentStreak === 0, 'Stored streak is projected as inactive after a full missed UTC day.');
 
-const untrusted = getStatsViewModel(profile, null);
+const afterSeason = getStatsViewModel({
+  ...profile,
+  daily: {
+    ...profile.daily,
+    currentStreak: 5,
+    lastSolvedDate: '2026-11-07',
+  },
+}, '2026-11-08', ['2026-11-07']);
+assert(afterSeason.daily.currentStreak === 0, 'Statistics must not present a streak as active after the Daily schedule ends.');
+assert(afterSeason.calendar?.days[7].state === 'unavailable', 'Today is unavailable after the Daily schedule ends.');
+
+const untrusted = getStatsViewModel(profile, null, scheduledDates);
 assert(untrusted.calendar === null, 'Without trusted date the calendar is unavailable instead of using local device time.');
 assert(untrusted.daily.currentStreak === null, 'Without trusted date the UI does not claim that a stored streak is currently active.');
 

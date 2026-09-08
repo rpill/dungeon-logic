@@ -1,44 +1,30 @@
 import {
-  level001,
-  level002,
-  level003,
-  level004,
-  level005,
-} from '../../data/levels';
+  DAILY_RELEASE_DATE_KEYS,
+  DAILY_RELEASE_END_DATE_KEY,
+  DAILY_RELEASE_START_DATE_KEY,
+} from './calendar';
+import { curatedDailySnapshots } from './snapshots';
 import type { DailyEntry } from './types';
 
+if (DAILY_RELEASE_DATE_KEYS.length !== curatedDailySnapshots.length) {
+  throw new Error(
+    `Daily release calendar has ${DAILY_RELEASE_DATE_KEYS.length} dates for ${curatedDailySnapshots.length} curated snapshots.`,
+  );
+}
+
+export { DAILY_RELEASE_DATE_KEYS, DAILY_RELEASE_END_DATE_KEY, DAILY_RELEASE_START_DATE_KEY };
+
 /**
- * Temporary development fixtures only.
+ * Immutable v1 Daily release calendar.
  *
- * Task 24 now provides the separately curated immutable catalog in
- * `./snapshots`. These dated fixtures stay in place until the catalog is bound
- * to the real release calendar. Runtime Daily selection must never invoke the
- * puzzle generator on the player's device.
+ * Every curated snapshot is bound to exactly one trusted UTC date. Runtime
+ * Daily selection only reads this static mapping; it never generates puzzles
+ * on the player's device.
  */
-export const DAILY_FIXTURE_ENTRIES: readonly DailyEntry[] = [
-  {
-    id: 'daily-fixture-2099-01-01',
-    dateKey: '2099-01-01',
-    level: level001,
-  },
-  {
-    id: 'daily-fixture-2099-01-02',
-    dateKey: '2099-01-02',
-    level: level002,
-  },
-  {
-    id: 'daily-fixture-2099-01-03',
-    dateKey: '2099-01-03',
-    level: level003,
-  },
-  {
-    id: 'daily-fixture-2099-01-04',
-    dateKey: '2099-01-04',
-    level: level004,
-  },
-  {
-    id: 'daily-fixture-2099-01-05',
-    dateKey: '2099-01-05',
-    level: level005,
-  },
-] as const;
+export const DAILY_RELEASE_ENTRIES: readonly DailyEntry[] = curatedDailySnapshots.map(
+  (snapshot, index): DailyEntry => ({
+    id: snapshot.id,
+    dateKey: DAILY_RELEASE_DATE_KEYS[index],
+    level: snapshot.level,
+  }),
+);

@@ -108,15 +108,20 @@ export class DailyService {
     if (trustedNow === null) return null;
 
     const dateKey = toUtcDateKey(trustedNow);
+    const entry = findDailyForDate(this.entries, trustedNow);
+    const previousDateKey = previousUtcDateKey(trustedNow);
+    const previousDateIsScheduled = this.entries.some((candidate) => candidate.dateKey === previousDateKey);
     const daily = this.getHistory();
-    const currentStreak = daily.lastSolvedDate === dateKey
-      || daily.lastSolvedDate === previousUtcDateKey(trustedNow)
+    const currentStreak = entry !== null && (
+      daily.lastSolvedDate === dateKey
+      || (previousDateIsScheduled && daily.lastSolvedDate === previousDateKey)
+    )
       ? daily.currentStreak
       : 0;
 
     return {
       dateKey,
-      entry: findDailyForDate(this.entries, trustedNow),
+      entry,
       currentStreak,
       bestStreak: daily.bestStreak,
       totalSolved: daily.totalSolved,

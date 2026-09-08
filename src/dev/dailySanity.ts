@@ -1,4 +1,4 @@
-import { DAILY_FIXTURE_ENTRIES } from '../content/daily/manifest';
+import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
 import type { DailyEntry } from '../content/daily/types';
 import { findDailyForDate, toUtcDateKey } from '../daily/DailySelector';
 import { DailyService, getRecentDailyHistory } from '../daily/DailyService';
@@ -16,46 +16,47 @@ function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-const beforeMidnight = new Date('2099-01-01T23:59:59.999Z');
-const atMidnight = new Date('2099-01-02T00:00:00.000Z');
+const beforeMidnight = new Date('2026-09-09T23:59:59.999Z');
+const atMidnight = new Date('2026-09-10T00:00:00.000Z');
 
-assert(toUtcDateKey(beforeMidnight) === '2099-01-01', 'UTC date key must stay on Jan 1 before midnight.');
-assert(toUtcDateKey(atMidnight) === '2099-01-02', 'UTC date key must advance exactly at UTC midnight.');
+assert(toUtcDateKey(beforeMidnight) === '2026-09-09', 'UTC date key must stay on Sep 9 before midnight.');
+assert(toUtcDateKey(atMidnight) === '2026-09-10', 'UTC date key must advance exactly at UTC midnight.');
 
-const jan1A = findDailyForDate(DAILY_FIXTURE_ENTRIES, new Date('2099-01-01T01:00:00.000Z'));
-const jan1B = findDailyForDate(DAILY_FIXTURE_ENTRIES, new Date('2099-01-01T22:15:00.000Z'));
-assert(jan1A !== null && jan1B !== null, 'Fixture Jan 1 Daily must exist.');
-assert(jan1A.id === jan1B.id, 'Same UTC date must always select the same Daily entry.');
-assert(jan1A.level.id === 'level-001', '2099-01-01 fixture must reuse level001.');
+const releaseStartA = findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-09T01:00:00.000Z'));
+const releaseStartB = findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-09T22:15:00.000Z'));
+assert(releaseStartA !== null && releaseStartB !== null, 'Release-start Daily must exist.');
+assert(releaseStartA.id === releaseStartB.id, 'Same UTC date must always select the same Daily entry.');
+assert(releaseStartA.id === 'daily-001' && releaseStartA.level.id === 'daily-001', 'Release start must use curated daily-001.');
 
-const expected = [
-  ['2099-01-01', 'daily-fixture-2099-01-01', 'level-001'],
-  ['2099-01-02', 'daily-fixture-2099-01-02', 'level-002'],
-  ['2099-01-03', 'daily-fixture-2099-01-03', 'level-003'],
-  ['2099-01-04', 'daily-fixture-2099-01-04', 'level-004'],
-  ['2099-01-05', 'daily-fixture-2099-01-05', 'level-005'],
+const expectedStart = [
+  ['2026-09-09', 'daily-001'],
+  ['2026-09-10', 'daily-002'],
+  ['2026-09-11', 'daily-003'],
+  ['2026-09-12', 'daily-004'],
+  ['2026-09-13', 'daily-005'],
 ] as const;
 
-assert(DAILY_FIXTURE_ENTRIES.length === expected.length, 'Daily fixture manifest must contain exactly five entries.');
-for (let index = 0; index < expected.length; index += 1) {
-  const [dateKey, id, levelId] = expected[index];
-  const entry = DAILY_FIXTURE_ENTRIES[index];
-  assert(entry.dateKey === dateKey, `Fixture ${index + 1} must use ${dateKey}.`);
-  assert(entry.id === id, `Fixture ${index + 1} must use ${id}.`);
-  assert(entry.level.id === levelId, `Fixture ${index + 1} must reuse ${levelId}.`);
+assert(DAILY_RELEASE_ENTRIES.length === 60, 'Daily release manifest must contain exactly sixty entries.');
+for (let index = 0; index < expectedStart.length; index += 1) {
+  const [dateKey, id] = expectedStart[index];
+  const entry = DAILY_RELEASE_ENTRIES[index];
+  assert(entry.dateKey === dateKey, `Release Daily ${index + 1} must use ${dateKey}.`);
+  assert(entry.id === id, `Release Daily ${index + 1} must use ${id}.`);
+  assert(entry.level.id === id, `Release Daily ${index + 1} must reuse curated ${id}.`);
 }
-
-assert(findDailyForDate(DAILY_FIXTURE_ENTRIES, new Date('2099-01-06T00:00:00.000Z')) === null, 'Dates outside fixture manifest must return null.');
+assert(DAILY_RELEASE_ENTRIES[59].dateKey === '2026-11-07' && DAILY_RELEASE_ENTRIES[59].id === 'daily-060', 'Release calendar must end with daily-060 on 2026-11-07.');
+assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-08T23:59:59.999Z')) === null, 'Dates before the release calendar must return null.');
+assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-11-08T00:00:00.000Z')) === null, 'Dates after the release calendar must return null.');
 
 assert(typeof DailyService.create === 'function', 'DailyService must expose a create factory.');
 
-const dailyLaunch = createDailyGameSceneData(DAILY_FIXTURE_ENTRIES[0]);
-assert(dailyLaunch.level === DAILY_FIXTURE_ENTRIES[0].level, 'Daily launch must reuse the immutable Daily snapshot.');
+const dailyLaunch = createDailyGameSceneData(DAILY_RELEASE_ENTRIES[0]);
+assert(dailyLaunch.level === DAILY_RELEASE_ENTRIES[0].level, 'Daily launch must reuse the immutable Daily snapshot.');
 assert(dailyLaunch.context.mode === 'daily', 'Daily launch must use daily mode.');
 assert(
   dailyLaunch.context.mode === 'daily'
-    && dailyLaunch.context.dailyId === DAILY_FIXTURE_ENTRIES[0].id
-    && dailyLaunch.context.dateKey === DAILY_FIXTURE_ENTRIES[0].dateKey,
+    && dailyLaunch.context.dailyId === DAILY_RELEASE_ENTRIES[0].id
+    && dailyLaunch.context.dateKey === DAILY_RELEASE_ENTRIES[0].dateKey,
   'Daily launch must carry the exact Daily id and UTC date key.',
 );
 assert(dailyLaunch.onboarding.length === 0, 'Daily launch must not replay campaign onboarding.');
@@ -96,30 +97,30 @@ async function runServiceChecks(): Promise<void> {
   const storage = new MemoryProfileStorage();
   const profileService = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
   const clock = new MutableTrustedClock();
-  const service = DailyService.create(DAILY_FIXTURE_ENTRIES, profileService, clock);
+  const service = DailyService.create(DAILY_RELEASE_ENTRIES, profileService, clock);
 
   const unavailable = await service.getToday();
   assert(unavailable === null, 'Daily must be unavailable when trusted time is unavailable.');
 
-  clock.value = new Date('2099-01-02T23:59:59.999Z');
+  clock.value = new Date('2026-09-10T23:59:59.999Z');
   const today = await service.getToday();
   assert(today !== null, 'Daily must resolve when trusted time is available.');
-  assert(today.dateKey === '2099-01-02', 'Daily must use the trusted UTC date key.');
-  assert(today.entry?.id === 'daily-fixture-2099-01-02', 'Daily must select the manifest entry for the trusted UTC date.');
+  assert(today.dateKey === '2026-09-10', 'Daily must use the trusted UTC date key.');
+  assert(today.entry?.id === 'daily-002', 'Daily must select the release entry for the trusted UTC date.');
   assert(today.currentStreak === 0, 'Fresh profile must expose zero active Daily streak.');
   assert(today.bestStreak === 0, 'Fresh profile must expose zero best Daily streak.');
   assert(today.totalSolved === 0, 'Fresh profile must expose zero solved Daily total.');
   assert(today.solved === false, 'Fresh profile must report today as unsolved.');
   assert(today.result === null, 'Fresh profile must not expose a result for today.');
 
-  clock.value = new Date('2099-01-01T12:00:00.000Z');
+  clock.value = new Date('2026-09-09T12:00:00.000Z');
   const first = await service.completeToday({
     bestTimeMs: 120_000,
     minHintsUsed: 2,
     solvedWithoutHints: false,
   });
   assert(first !== null, 'Daily completion must resolve when trusted time and a manifest entry exist.');
-  assert(first.dateKey === '2099-01-01', 'Completion must be recorded for the trusted UTC date.');
+  assert(first.dateKey === '2026-09-09', 'Completion must be recorded for the trusted UTC date.');
   assert(first.wasFirstSolve === true, 'First completion of a date must be marked as the first solve.');
   assert(first.currentStreak === 1 && first.bestStreak === 1, 'First Daily solve must start both streaks at one.');
   assert(first.totalSolved === 1, 'First Daily solve must increment total solved exactly once.');
@@ -127,11 +128,11 @@ async function runServiceChecks(): Promise<void> {
   assert(storage.value !== null, 'Daily completion flush must reach profile storage.');
 
   let history = service.getHistory();
-  assert(history.lastSolvedDate === '2099-01-01', 'Daily history must track the last solved UTC date.');
-  assert(history.solvedDates.length === 1 && history.solvedDates[0] === '2099-01-01', 'Daily history must add the solved UTC date.');
-  assert(history.results['2099-01-01']?.bestTimeMs === 120_000, 'Daily history must store the result summary by UTC date.');
+  assert(history.lastSolvedDate === '2026-09-09', 'Daily history must track the last solved UTC date.');
+  assert(history.solvedDates.length === 1 && history.solvedDates[0] === '2026-09-09', 'Daily history must add the solved UTC date.');
+  assert(history.results['2026-09-09']?.bestTimeMs === 120_000, 'Daily history must store the result summary by UTC date.');
 
-  clock.value = new Date('2099-01-02T08:00:00.000Z');
+  clock.value = new Date('2026-09-10T08:00:00.000Z');
   const second = await service.completeToday({
     bestTimeMs: 110_000,
     minHintsUsed: 1,
@@ -143,9 +144,9 @@ async function runServiceChecks(): Promise<void> {
   assert(second.totalSolved === 2, 'Solving a second unique Daily must increment total solved.');
 
   history = service.getHistory();
-  assert(history.lastSolvedDate === '2099-01-02', 'Daily history must advance last solved date on a consecutive solve.');
+  assert(history.lastSolvedDate === '2026-09-10', 'Daily history must advance last solved date on a consecutive solve.');
 
-  clock.value = new Date('2099-01-04T10:00:00.000Z');
+  clock.value = new Date('2026-09-12T10:00:00.000Z');
   const afterGap = await service.completeToday({
     bestTimeMs: 100_000,
     minHintsUsed: 2,
@@ -183,18 +184,18 @@ async function runServiceChecks(): Promise<void> {
 
   history = service.getHistory();
   assert(history.solvedDates.length === 3, 'Daily solved-date history must contain unique UTC dates only.');
-  assert(history.results['2099-01-04']?.bestTimeMs === 80_000, 'Merged repeat result must be stored in history.');
-  assert(history.results['2099-01-04']?.minHintsUsed === 1, 'Merged history result must preserve minimum hints.');
-  assert(history.results['2099-01-04']?.solvedWithoutHints === true, 'Merged history result must preserve no-hint completion.');
+  assert(history.results['2026-09-12']?.bestTimeMs === 80_000, 'Merged repeat result must be stored in history.');
+  assert(history.results['2026-09-12']?.minHintsUsed === 1, 'Merged history result must preserve minimum hints.');
+  assert(history.results['2026-09-12']?.solvedWithoutHints === true, 'Merged history result must preserve no-hint completion.');
 
-  clock.value = new Date('2099-01-05T09:00:00.000Z');
+  clock.value = new Date('2026-09-13T09:00:00.000Z');
   const nextDay = await service.getToday();
   assert(nextDay !== null && nextDay.currentStreak === 1, 'Current streak must remain active through the day after the last solve.');
 
-  clock.value = new Date('2099-01-06T09:00:00.000Z');
+  clock.value = new Date('2026-11-08T09:00:00.000Z');
   const expired = await service.getToday();
-  assert(expired !== null, 'Trusted date without a fixture must still expose Daily status.');
-  assert(expired.entry === null, 'A trusted date outside the manifest must expose no Daily entry.');
+  assert(expired !== null, 'Trusted date outside the release calendar must still expose Daily status.');
+  assert(expired.entry === null, 'A trusted date outside the release calendar must expose no Daily entry.');
   assert(expired.currentStreak === 0, 'Displayed current streak must expire after a full missed UTC day.');
   assert(service.getHistory().currentStreak === 1, 'Stored streak history must remain intact after display streak expires.');
 
@@ -205,10 +206,10 @@ async function runServiceChecks(): Promise<void> {
 }
 
 async function runLaunchCompletionChecks(): Promise<void> {
-  const dailyData = createDailyGameSceneData(DAILY_FIXTURE_ENTRIES[0]);
+  const dailyData = createDailyGameSceneData(DAILY_RELEASE_ENTRIES[0]);
   assert(dailyData.context.mode === 'daily', 'Daily launch context must remain narrowed for completion checks.');
   const completion = {
-    dateKey: '2099-01-01',
+    dateKey: '2026-09-09',
     wasFirstSolve: true,
     currentStreak: 4,
     bestStreak: 7,
@@ -252,7 +253,7 @@ async function runLaunchCompletionChecks(): Promise<void> {
   );
 
   const devResolved = await completeDailyGameLaunch(
-    createDevGameSceneData(DAILY_FIXTURE_ENTRIES[0].level),
+    createDevGameSceneData(DAILY_RELEASE_ENTRIES[0].level),
     port,
     result,
   );
@@ -264,34 +265,77 @@ async function runLaunchedDateCompletionChecks(): Promise<void> {
   const storage = new MemoryProfileStorage();
   const profileService = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
   const clock = new MutableTrustedClock();
-  const service = DailyService.create(DAILY_FIXTURE_ENTRIES, profileService, clock);
+  const service = DailyService.create(DAILY_RELEASE_ENTRIES, profileService, clock);
 
-  clock.value = new Date('2099-01-02T00:05:00.000Z');
+  clock.value = new Date('2026-09-10T00:05:00.000Z');
   const completed = await service.completeDaily(
-    '2099-01-01',
-    'daily-fixture-2099-01-01',
+    '2026-09-09',
+    'daily-001',
     { bestTimeMs: 70_000, minHintsUsed: 0, solvedWithoutHints: true },
   );
-  assert(completed?.dateKey === '2099-01-01', 'A Daily opened before UTC midnight must credit its launched date after midnight.');
-  assert(service.getHistory().solvedDates.includes('2099-01-01'), 'Cross-midnight completion must store the launched date in history.');
-  assert(!service.getHistory().solvedDates.includes('2099-01-02'), 'Cross-midnight completion must not credit the new UTC day with the old board.');
+  assert(completed?.dateKey === '2026-09-09', 'A Daily opened before UTC midnight must credit its launched date after midnight.');
+  assert(service.getHistory().solvedDates.includes('2026-09-09'), 'Cross-midnight completion must store the launched date in history.');
+  assert(!service.getHistory().solvedDates.includes('2026-09-10'), 'Cross-midnight completion must not credit the new UTC day with the old board.');
 
   const beforeInvalid = service.getHistory().totalSolved;
   const invalid = await service.completeDaily(
-    '2099-01-01',
-    'daily-fixture-2099-01-02',
+    '2026-09-09',
+    'daily-002',
     { bestTimeMs: 60_000, minHintsUsed: 0, solvedWithoutHints: true },
   );
   assert(invalid === null, 'Daily completion must reject a mismatched launched id/date pair.');
   assert(service.getHistory().totalSolved === beforeInvalid, 'Rejected Daily completion must not mutate history.');
 }
 
+
+async function runReleaseStartStreakChecks(): Promise<void> {
+  const storage = new MemoryProfileStorage();
+  const profileService = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
+  profileService.update((profile) => ({
+    ...profile,
+    daily: {
+      ...profile.daily,
+      currentStreak: 4,
+      bestStreak: 4,
+      lastSolvedDate: '2026-09-08',
+      totalSolved: 1,
+      solvedDates: ['2026-09-08'],
+      results: {
+        '2026-09-08': { bestTimeMs: 90_000, minHintsUsed: 0, solvedWithoutHints: true },
+      },
+    },
+  }));
+  await profileService.flush();
+  const clock = new MutableTrustedClock();
+  clock.value = new Date('2026-09-09T08:00:00.000Z');
+  const service = DailyService.create(DAILY_RELEASE_ENTRIES, profileService, clock);
+  const firstReleaseDay = await service.getToday();
+  assert(firstReleaseDay?.entry?.id === 'daily-001', 'First release day must resolve daily-001.');
+  assert(firstReleaseDay.currentStreak === 0, 'Release-day streak must not continue from an unscheduled pre-release date.');
+}
+
+async function runReleaseEndStreakChecks(): Promise<void> {
+  const storage = new MemoryProfileStorage();
+  const profileService = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
+  const clock = new MutableTrustedClock();
+  const service = DailyService.create(DAILY_RELEASE_ENTRIES, profileService, clock);
+
+  clock.value = new Date('2026-11-07T20:00:00.000Z');
+  const finalSolve = await service.completeToday({ bestTimeMs: 65_000, minHintsUsed: 0, solvedWithoutHints: true });
+  assert(finalSolve?.dateKey === '2026-11-07' && finalSolve.currentStreak === 1, 'Final scheduled Daily can start a streak.');
+
+  clock.value = new Date('2026-11-08T08:00:00.000Z');
+  const afterCalendar = await service.getToday();
+  assert(afterCalendar !== null && afterCalendar.entry === null, 'Day after the release calendar has no Daily entry.');
+  assert(afterCalendar.currentStreak === 0, 'A streak must not be displayed as active when today has no scheduled Daily.');
+}
+
 async function runCalendarBoundaryChecks(): Promise<void> {
   const boundaryEntries: readonly DailyEntry[] = [
-    { id: 'boundary-2099-01-31', dateKey: '2099-01-31', level: DAILY_FIXTURE_ENTRIES[0].level },
-    { id: 'boundary-2099-02-01', dateKey: '2099-02-01', level: DAILY_FIXTURE_ENTRIES[1].level },
-    { id: 'boundary-2099-12-31', dateKey: '2099-12-31', level: DAILY_FIXTURE_ENTRIES[2].level },
-    { id: 'boundary-2100-01-01', dateKey: '2100-01-01', level: DAILY_FIXTURE_ENTRIES[3].level },
+    { id: 'boundary-2099-01-31', dateKey: '2099-01-31', level: DAILY_RELEASE_ENTRIES[0].level },
+    { id: 'boundary-2099-02-01', dateKey: '2099-02-01', level: DAILY_RELEASE_ENTRIES[1].level },
+    { id: 'boundary-2099-12-31', dateKey: '2099-12-31', level: DAILY_RELEASE_ENTRIES[2].level },
+    { id: 'boundary-2100-01-01', dateKey: '2100-01-01', level: DAILY_RELEASE_ENTRIES[3].level },
   ];
   const monthStorage = new MemoryProfileStorage();
   const monthProfile = await PlayerProfileService.create([], monthStorage, { saveDelayMs: 60_000 });
@@ -317,6 +361,8 @@ async function runCalendarBoundaryChecks(): Promise<void> {
 void Promise.all([
   runServiceChecks(),
   runCalendarBoundaryChecks(),
+  runReleaseStartStreakChecks(),
+  runReleaseEndStreakChecks(),
   runLaunchCompletionChecks(),
   runLaunchedDateCompletionChecks(),
 ])

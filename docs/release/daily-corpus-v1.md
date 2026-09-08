@@ -11,7 +11,7 @@ Generated on 2026-09-09 for the v1 release-content pass.
   - `mixed-one-room`: 5,000 attempts
   - `chest-one-room`: 3,000 attempts
 - Runtime generation: **none**. These are immutable offline snapshots.
-- Calendar dates are intentionally **not assigned in Task 24**; the catalog is bound to dates in the next release step.
+- Calendar binding is defined separately in `src/content/daily/calendar.ts`; Task 25 maps these immutable snapshots to the current v1 release-candidate UTC schedule.
 
 ## Reservoir and gates
 

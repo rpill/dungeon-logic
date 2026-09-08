@@ -49,7 +49,8 @@
     "sanity:rewarded-hint": "tsx src/dev/rewardedHintSanity.ts",
     "sanity:campaign-release": "tsx src/dev/campaignReleaseSanity.ts",
     "sanity:level-select-scroll": "tsx src/dev/levelSelectScrollSanity.ts",
-    "sanity:daily-corpus": "tsx src/dev/dailyCorpusSanity.ts"
+    "sanity:daily-corpus": "tsx src/dev/dailyCorpusSanity.ts",
+    "sanity:daily-calendar": "tsx src/dev/dailyCalendarSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

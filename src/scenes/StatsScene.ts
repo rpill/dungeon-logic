@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -99,7 +100,7 @@ export class StatsScene extends Phaser.Scene {
     if (!this.scene.isActive() || createVersion !== this.createVersion) return;
 
     const profile = this.getProfileService().getProfile();
-    const stats = getStatsViewModel(profile, todayDateKey);
+    const stats = getStatsViewModel(profile, todayDateKey, DAILY_RELEASE_DATE_KEYS);
     this.renderSummaryCards(layout, stats);
     this.renderCalendar(layout, stats.calendar);
     this.contentBottom = stats.calendar === null
@@ -295,7 +296,7 @@ export class StatsScene extends Phaser.Scene {
     });
   }
 
-  private getCalendarAppearance(state: 'solved' | 'missed' | 'today' | 'future'): {
+  private getCalendarAppearance(state: 'solved' | 'missed' | 'today' | 'future' | 'unavailable'): {
     readonly fill: number;
     readonly stroke: number;
     readonly text: string;
@@ -309,6 +310,8 @@ export class StatsScene extends Phaser.Scene {
         return { fill: 0x2c2920, stroke: 0xd0b978, text: '#f0d28a' };
       case 'future':
         return { fill: 0x15181d, stroke: 0x272c33, text: '#4f565e' };
+      case 'unavailable':
+        return { fill: 0x111318, stroke: 0x20242a, text: '#343a42' };
     }
   }
 
