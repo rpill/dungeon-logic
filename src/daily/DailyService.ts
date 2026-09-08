@@ -8,6 +8,33 @@ export const DAILY_SERVICE_REGISTRY_KEY = 'daily-service';
 
 const UTC_DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface RecentDailyHistoryDay {
+  readonly dateKey: string;
+  readonly solved: boolean;
+  readonly isToday: boolean;
+}
+
+export function getRecentDailyHistory(
+  todayDateKey: string,
+  solvedDates: readonly string[],
+  dayCount = 7,
+): readonly RecentDailyHistoryDay[] {
+  const [year, month, day] = todayDateKey.split('-').map(Number);
+  const todayMs = Date.UTC(year, month - 1, day);
+  const count = Math.max(1, Math.floor(dayCount));
+  const solved = new Set(solvedDates);
+
+  return Array.from({ length: count }, (_, index) => {
+    const daysAgo = count - index - 1;
+    const dateKey = toUtcDateKey(new Date(todayMs - daysAgo * UTC_DAY_MS));
+    return {
+      dateKey,
+      solved: solved.has(dateKey),
+      isToday: dateKey === todayDateKey,
+    };
+  });
+}
+
 function previousUtcDateKey(date: Date): string {
   const utcMidnightMs = Date.UTC(
     date.getUTCFullYear(),
@@ -103,10 +130,23 @@ export class DailyService {
   ): Promise<DailyCompletionResult | null> {
     const trustedNow = await this.clock.now();
     if (trustedNow === null) return null;
-    if (findDailyForDate(this.entries, trustedNow) === null) return null;
+    const entry = findDailyForDate(this.entries, trustedNow);
+    if (entry === null) return null;
+    return this.completeDaily(entry.dateKey, entry.id, result);
+  }
 
-    const dateKey = toUtcDateKey(trustedNow);
-    const previousDateKey = previousUtcDateKey(trustedNow);
+  async completeDaily(
+    dateKey: string,
+    dailyId: string,
+    result: DailyResultSummary,
+  ): Promise<DailyCompletionResult | null> {
+    const entry = this.entries.find(
+      (candidate) => candidate.dateKey === dateKey && candidate.id === dailyId,
+    );
+    if (entry === undefined) return null;
+
+    const launchedDate = new Date(`${dateKey}T00:00:00.000Z`);
+    const previousDateKey = previousUtcDateKey(launchedDate);
     const wasFirstSolve = !this.getHistory().solvedDates.includes(dateKey);
     this.profileService.update((profile) => {
       const currentStreak = wasFirstSolve

@@ -1,6 +1,7 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { PlayerProfileV1 } from '../profile/types';
 import {
+  getHomeDailyAction,
   getHomeCampaignAction,
   getManuscriptViewModels,
   shouldShowDailyEntry,
@@ -76,12 +77,43 @@ const start = getHomeCampaignAction(fakeCampaign(1), fresh);
 assert(start.kind === 'start' && start.levelId === 'campaign-001', 'Fresh profile starts campaign-001.');
 assert(!shouldShowDailyEntry(fresh), 'Daily stays hidden before onboarding level 005 is complete.');
 
+const availableDaily = {
+  dateKey: '2099-01-01',
+  entry: {
+    id: 'daily-fixture-2099-01-01',
+    dateKey: '2099-01-01',
+    level: manifest[0].level,
+  },
+  currentStreak: 2,
+  bestStreak: 4,
+  totalSolved: 9,
+  solved: false,
+  result: null,
+} as const;
+assert(getHomeDailyAction(fresh, availableDaily).kind === 'hidden', 'Daily Home action stays hidden before campaign-005.');
+
 const mid = profile(['campaign-001', 'campaign-002'], 'campaign-003');
 const continued = getHomeCampaignAction(fakeCampaign(3), mid);
 assert(continued.kind === 'continue' && continued.levelId === 'campaign-003', 'Started campaign exposes Continue to current playable level.');
 
 const afterFive = profile(['campaign-001', 'campaign-002', 'campaign-003', 'campaign-004', 'campaign-005']);
 assert(shouldShowDailyEntry(afterFive), 'Completing campaign-005 unlocks Daily visibility.');
+assert(getHomeDailyAction(afterFive, null).kind === 'unavailable', 'Unlocked Daily exposes unavailable state without trusted date.');
+const newDaily = getHomeDailyAction(afterFive, availableDaily);
+assert(newDaily.kind === 'new' && newDaily.entry.id === availableDaily.entry.id, 'Unsolved Daily exposes a playable New action.');
+const solvedDaily = getHomeDailyAction(afterFive, {
+  ...availableDaily,
+  solved: true,
+  result: {
+    bestTimeMs: 65_000,
+    minHintsUsed: 0,
+    solvedWithoutHints: true,
+  },
+});
+assert(
+  solvedDaily.kind === 'solved' && solvedDaily.result.bestTimeMs === 65_000,
+  'Solved Daily remains playable for replay and carries its best result.',
+);
 
 const complete = profile(manifest.map((candidate) => candidate.id));
 const choose = getHomeCampaignAction(fakeCampaign(30), complete);

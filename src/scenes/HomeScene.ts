@@ -3,20 +3,28 @@ import Phaser from 'phaser';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import type { DailyEntry } from '../content/daily/types';
+import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
-import { createCampaignGameSceneData } from '../runtime/GameLaunch';
+import {
+  createCampaignGameSceneData,
+  createDailyGameSceneData,
+} from '../runtime/GameLaunch';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
   ARCHIVE_SCENE_KEY,
   getHomeCampaignAction,
+  getHomeDailyAction,
+  shouldShowDailyEntry,
 } from '../runtime/MetaSelectors';
 import { classifyViewport } from './GameBoardLayout';
 
 export class HomeScene extends Phaser.Scene {
+  private createVersion = 0;
   private launchPending = false;
   private readonly pointerGate = new MetaPointerGate();
 
@@ -25,6 +33,8 @@ export class HomeScene extends Phaser.Scene {
   }
 
   create(): void {
+    const createVersion = this.createVersion + 1;
+    this.createVersion = createVersion;
     this.launchPending = false;
     this.pointerGate.reset();
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
@@ -65,6 +75,8 @@ export class HomeScene extends Phaser.Scene {
     const buttonWidth = Math.min(narrow ? this.scale.width - 32 : 360, 420);
     const mainY = narrow ? 215 : 250;
     const mainHeight = narrow ? 58 : 62;
+    const secondaryStep = narrow ? 105 : 118;
+    const dailyVisible = shouldShowDailyEntry(profile);
 
     if (action.kind === 'choose-level') {
       this.createButton(
@@ -106,13 +118,24 @@ export class HomeScene extends Phaser.Scene {
 
     this.createButton(
       this.scale.width / 2,
-      mainY + (narrow ? 105 : 118),
+      mainY + secondaryStep * (dailyVisible ? 2 : 1),
       buttonWidth,
       narrow ? 52 : 56,
       'АРХИВ',
       '#d8d1c4',
       () => this.scene.start(ARCHIVE_SCENE_KEY),
     );
+
+    if (dailyVisible) {
+      void this.renderDailyEntry(
+        profileService,
+        mainY + secondaryStep,
+        buttonWidth,
+        narrow ? 52 : 56,
+        narrow,
+        createVersion,
+      );
+    }
 
     const helpLink = this.add.text(this.scale.width - 16, 18, 'ⓘ КАК ИГРАТЬ', {
       fontFamily: 'monospace',
@@ -143,20 +166,23 @@ export class HomeScene extends Phaser.Scene {
     label: string,
     color: string,
     onActivate: () => void,
+    enabled = true,
   ): void {
     const rectangle = this.add.rectangle(x, y, width, height, 0x2a3038, 1)
-      .setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(color).color)
-      .setInteractive({ useHandCursor: true });
+      .setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(color).color);
+    if (enabled) rectangle.setInteractive({ useHandCursor: true });
     this.add.text(x, y, label, {
       fontFamily: 'monospace',
       fontSize: this.scale.width < 700 ? '17px' : '19px',
       color,
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    rectangle.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.pointerGate.canActivate(pointer.id)) return;
-      onActivate();
-    });
+    if (enabled) {
+      rectangle.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if (!this.pointerGate.canActivate(pointer.id)) return;
+        onActivate();
+      });
+    }
   }
 
   private getCampaignService(): CampaignService {
@@ -173,6 +199,87 @@ export class HomeScene extends Phaser.Scene {
       throw new Error('HomeScene requires PlayerProfileService in Phaser registry.');
     }
     return service;
+  }
+
+  private getDailyService(): DailyService {
+    const service = this.registry.get(DAILY_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof DailyService)) {
+      throw new Error('HomeScene requires DailyService in Phaser registry.');
+    }
+    return service;
+  }
+
+  private async renderDailyEntry(
+    profileService: PlayerProfileService,
+    y: number,
+    width: number,
+    height: number,
+    narrow: boolean,
+    createVersion: number,
+  ): Promise<void> {
+    let today = null;
+    try {
+      today = await this.getDailyService().getToday();
+    } catch (error) {
+      console.warn('[Dungeon Logic] Could not resolve today\'s Daily for Home.', error);
+    }
+    if (!this.scene.isActive() || createVersion !== this.createVersion) return;
+
+    const action = getHomeDailyAction(profileService.getProfile(), today);
+    if (action.kind === 'hidden') return;
+
+    if (action.kind === 'unavailable') {
+      this.createButton(
+        this.scale.width / 2,
+        y,
+        width,
+        height,
+        'DAILY · НЕДОСТУПНО',
+        '#5f666f',
+        () => {},
+        false,
+      );
+      this.add.text(this.scale.width / 2, y + height / 2 + 20, 'Нет задания на доверенную дату', {
+        fontFamily: 'monospace',
+        fontSize: narrow ? '11px' : '13px',
+        color: '#6f7780',
+      }).setOrigin(0.5);
+      return;
+    }
+
+    const solved = action.kind === 'solved';
+    this.createButton(
+      this.scale.width / 2,
+      y,
+      width,
+      height,
+      solved ? 'DAILY · РЕШЕНО' : 'DAILY · НОВАЯ',
+      solved ? '#aeb4bc' : '#d0b978',
+      () => this.launchDaily(action.entry),
+    );
+
+    const streakCopy = action.currentStreak > 0 ? ` · Серия ${action.currentStreak}` : '';
+    const detail = solved
+      ? `Лучшее ${this.formatTime(action.result.bestTimeMs)}${streakCopy}`
+      : `Сегодня${streakCopy}`;
+    this.add.text(this.scale.width / 2, y + height / 2 + 20, detail, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '11px' : '13px',
+      color: '#89929d',
+    }).setOrigin(0.5);
+  }
+
+  private launchDaily(entry: DailyEntry): void {
+    if (this.launchPending) return;
+    this.launchPending = true;
+    this.scene.start('GameScene', createDailyGameSceneData(entry));
+  }
+
+  private formatTime(ms: number): string {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
   private async launchLevel(

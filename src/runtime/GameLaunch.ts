@@ -9,7 +9,10 @@ import type {
   CampaignLevelEntry,
   CampaignOnboardingId,
 } from '../content/campaign/types';
+import type { DailyEntry } from '../content/daily/types';
+import type { DailyCompletionResult } from '../daily/DailyService';
 import type { LevelDefinition } from '../puzzle/types';
+import type { DailyResultSummary } from '../profile/types';
 import { shouldShowContextualOnboarding } from '../onboarding/OnboardingFlow';
 
 export const ONBOARDING_COPY: Readonly<Record<CampaignOnboardingId, string>> = {
@@ -36,6 +39,14 @@ export interface CampaignStartPort {
   getProgress(): CampaignProgressSnapshot;
 }
 
+export interface DailyCompletionPort {
+  completeDaily(
+    dateKey: string,
+    dailyId: string,
+    result: DailyResultSummary,
+  ): Promise<DailyCompletionResult | null>;
+}
+
 export function createDevGameSceneData(level: LevelDefinition): GameSceneData {
   return {
     level,
@@ -45,6 +56,28 @@ export function createDevGameSceneData(level: LevelDefinition): GameSceneData {
     onboarding: [],
     contextualOnboarding: false,
   };
+}
+
+export function createDailyGameSceneData(entry: DailyEntry): GameSceneData {
+  return {
+    level: entry.level,
+    context: {
+      mode: 'daily',
+      dailyId: entry.id,
+      dateKey: entry.dateKey,
+    },
+    onboarding: [],
+    contextualOnboarding: false,
+  };
+}
+
+export async function completeDailyGameLaunch(
+  data: GameSceneData,
+  daily: DailyCompletionPort,
+  result: DailyResultSummary,
+): Promise<DailyCompletionResult | null> {
+  if (data.context.mode !== 'daily') return null;
+  return daily.completeDaily(data.context.dateKey, data.context.dailyId, result);
 }
 
 export function createCampaignGameSceneData(

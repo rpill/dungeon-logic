@@ -7,6 +7,12 @@ import type {
   CampaignCompletionResult,
   GameSceneData,
 } from '../campaign/types';
+import {
+  DAILY_SERVICE_REGISTRY_KEY,
+  DailyService,
+  getRecentDailyHistory,
+  type DailyCompletionResult,
+} from '../daily/DailyService';
 import { chooseHint, type PuzzleHint } from '../gameplay/HintService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
@@ -24,10 +30,11 @@ import {
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
 import {
+  completeDailyGameLaunch,
   completeGameLaunch,
   createNextCampaignGameSceneData,
 } from '../runtime/GameLaunch';
-import { ARCHIVE_SCENE_KEY } from '../runtime/MetaSelectors';
+import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import { calculateGameBoardLayout } from './GameBoardLayout';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import {
@@ -54,7 +61,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const launchData = this.launchData;
     if (launchData === null) {
-      throw new Error('GameScene requires resolved GameSceneData from campaign or dev routing.');
+      throw new Error('GameScene requires resolved GameSceneData from campaign, Daily, or dev routing.');
     }
 
     const createVersion = this.createVersion + 1;
@@ -102,12 +109,17 @@ export class GameScene extends Phaser.Scene {
     const safeTop = readSafeArea('--safe-area-inset-top');
     const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
 
-    const titleText = this.add.text(this.scale.width / 2, chrome.titleY + safeTop, 'Dungeon Logic', {
-      fontFamily: 'monospace',
-      fontSize: `${chrome.titleFontSize}px`,
-      color: '#f0e6d2',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    const titleText = this.add.text(
+      this.scale.width / 2,
+      chrome.titleY + safeTop,
+      launchData.context.mode === 'daily' ? 'Dungeon Logic · Daily' : 'Dungeon Logic',
+      {
+        fontFamily: 'monospace',
+        fontSize: `${chrome.titleFontSize}px`,
+        color: '#f0e6d2',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5);
 
     const timerText = this.add.text(
       this.scale.width / 2,
@@ -142,10 +154,10 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    const profileService = launchData.context.mode === 'campaign'
-      ? this.getPlayerProfileService()
-      : null;
-    const puzzleSession = profileService === null
+    const profileService = launchData.context.mode === 'dev'
+      ? null
+      : this.getPlayerProfileService();
+    const puzzleSession = launchData.context.mode !== 'campaign' || profileService === null
       ? null
       : PuzzleSessionService.createCampaign(
         launchData.level,
@@ -174,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     }> = [];
     const activeTimer = new ActiveTimer(puzzleSession?.getActivePlayMs() ?? 0);
     let syncedActivePlayMs = puzzleSession?.getActivePlayMs() ?? 0;
+    let transientHintsUsed = 0;
 
     const updateTimerText = (nowMs = readActiveClockMs()): void => {
       timerText.setText(formatActiveTime(activeTimer.getElapsedMs(nowMs)));
@@ -209,6 +222,16 @@ export class GameScene extends Phaser.Scene {
     const savePuzzleSession = (): void => {
       syncTimerIntoSession();
       puzzleSession?.saveNow();
+    };
+
+    const flushProfileState = async (): Promise<void> => {
+      if (puzzleSession !== null) {
+        await puzzleSession.flush();
+        return;
+      }
+      if (launchData.context.mode === 'daily' && profileService !== null) {
+        await profileService.flush();
+      }
     };
 
     const showTouchToolButtons = shouldShowTouchToolButtons(
@@ -494,7 +517,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const deliverFreeHint = (): void => {
-      if (profileService === null || puzzleSession === null) {
+      if (profileService === null) {
         closeHintConfirm();
         return;
       }
@@ -505,7 +528,11 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      puzzleSession.recordHint();
+      if (puzzleSession !== null) {
+        puzzleSession.recordHint();
+      } else if (launchData.context.mode === 'daily') {
+        transientHintsUsed += 1;
+      }
       currentHint = hint;
       board?.setHintCellTarget(hint);
       if (showTouchToolButtons) {
@@ -653,6 +680,52 @@ export class GameScene extends Phaser.Scene {
           },
         });
       }
+      renderCompletionButtons();
+    };
+
+    const showDailyCompletionState = (
+      result: DailyCompletionResult,
+      metadata: CampaignCompletionMetadata,
+      newBestTime: boolean,
+    ): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      if (this.scale.height < 520) {
+        boardLayout = calculateSafeBoardLayout(40);
+        board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
+      }
+      setToolbarVisible(false);
+
+      const hintCopy = metadata.minHintsUsed === 0
+        ? 'БЕЗ ПОДСКАЗОК'
+        : `ПОДСКАЗОК: ${metadata.minHintsUsed}`;
+      const recordCopy = newBestTime ? '  ·  НОВЫЙ РЕКОРД' : '';
+      const recent = getRecentDailyHistory(
+        result.dateKey,
+        this.getDailyService().getHistory().solvedDates,
+        7,
+      );
+      const recentCopy = recent
+        .map((day) => day.solved ? (day.isToday ? '◆' : '●') : '·')
+        .join(' ');
+
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(
+          `✓ DAILY РЕШЁН  ·  ${formatActiveTime(metadata.bestTimeMs)}  ·  ${hintCopy}${recordCopy}`
+          + `\nСЕРИЯ: ${result.currentStreak}  ·  7 ДНЕЙ: ${recentCopy}`,
+        )
+        .setColor('#d8d1c4')
+        .setVisible(true);
+
+      completionActions = [
+        {
+          label: 'ГЛАВНАЯ',
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+      ];
       renderCompletionButtons();
     };
 
@@ -851,11 +924,12 @@ export class GameScene extends Phaser.Scene {
       currentHint = null;
       board?.setHintCellTarget(null);
 
+      const hintsUsed = puzzleSession?.getHintsUsed() ?? transientHintsUsed;
       const metadata: CampaignCompletionMetadata = {
         bestTimeMs: puzzleSession?.getActivePlayMs() ?? activeTimer.getElapsedMs(readActiveClockMs()),
-        minHintsUsed: puzzleSession?.getHintsUsed() ?? 0,
+        minHintsUsed: hintsUsed,
         solveCount: 1,
-        solvedWithoutHints: (puzzleSession?.getHintsUsed() ?? 0) === 0,
+        solvedWithoutHints: hintsUsed === 0,
       };
 
       if (launchData.context.mode === 'dev') {
@@ -864,6 +938,26 @@ export class GameScene extends Phaser.Scene {
           .setText(`✓ РЕШЕНО  ·  ${formatActiveTime(metadata.bestTimeMs)}`)
           .setColor('#d8d1c4')
           .setVisible(true);
+        return;
+      }
+
+      if (launchData.context.mode === 'daily') {
+        const previousResult = profileService?.getProfile().daily.results[launchData.context.dateKey];
+        const newBestTime = previousResult === undefined
+          || metadata.bestTimeMs < previousResult.bestTimeMs;
+        statusText.setText('').setVisible(false);
+
+        void this.finishDailyLevel(
+          launchData,
+          createVersion,
+          metadata,
+        ).then((result) => {
+          if (result === null || createVersion !== this.createVersion) return;
+          this.time.delayedCall(500, () => {
+            if (createVersion !== this.createVersion) return;
+            showDailyCompletionState(result, metadata, newBestTime);
+          });
+        });
         return;
       }
 
@@ -970,12 +1064,14 @@ export class GameScene extends Phaser.Scene {
 
       const leave = async (): Promise<void> => {
         try {
-          await puzzleSession?.flush();
+          await flushProfileState();
         } catch (error) {
-          console.warn('[Dungeon Logic] Could not flush active puzzle before leaving; keeping dirty in-memory state.', error);
+          console.warn('[Dungeon Logic] Could not flush profile state before leaving; keeping dirty in-memory state.', error);
         }
         if (this.scene.isActive()) {
-          this.scene.start(ARCHIVE_SCENE_KEY);
+          this.scene.start(
+            launchData.context.mode === 'daily' ? HOME_SCENE_KEY : ARCHIVE_SCENE_KEY,
+          );
         }
       };
       void leave();
@@ -1090,11 +1186,9 @@ export class GameScene extends Phaser.Scene {
       if (document.hidden) {
         pauseActiveTimer();
         savePuzzleSession();
-        if (puzzleSession !== null) {
-          void puzzleSession.flush().catch((error) => {
-            console.warn('[Dungeon Logic] Could not flush active puzzle on visibility loss; keeping dirty in-memory state.', error);
-          });
-        }
+        void flushProfileState().catch((error) => {
+          console.warn('[Dungeon Logic] Could not flush profile state on visibility loss; keeping dirty in-memory state.', error);
+        });
         return;
       }
 
@@ -1170,6 +1264,17 @@ export class GameScene extends Phaser.Scene {
     return result;
   }
 
+  private async finishDailyLevel(
+    launchData: GameSceneData,
+    createVersion: number,
+    resultMetadata: CampaignCompletionMetadata,
+  ): Promise<DailyCompletionResult | null> {
+    const service = this.getDailyService();
+    const result = await completeDailyGameLaunch(launchData, service, resultMetadata);
+    if (createVersion !== this.createVersion) return null;
+    return result;
+  }
+
   private async startNextLevel(
     nextLevel: NonNullable<CampaignCompletionResult['recommendedNextLevel']>,
     service: CampaignService,
@@ -1183,7 +1288,15 @@ export class GameScene extends Phaser.Scene {
   private getPlayerProfileService(): PlayerProfileService {
     const service = this.registry.get(PLAYER_PROFILE_SERVICE_REGISTRY_KEY) as unknown;
     if (!(service instanceof PlayerProfileService)) {
-      throw new Error('Campaign GameScene requires PlayerProfileService in Phaser registry.');
+      throw new Error('Profile-backed GameScene requires PlayerProfileService in Phaser registry.');
+    }
+    return service;
+  }
+
+  private getDailyService(): DailyService {
+    const service = this.registry.get(DAILY_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof DailyService)) {
+      throw new Error('Daily GameScene requires DailyService in Phaser registry.');
     }
     return service;
   }

@@ -8,6 +8,9 @@ import type {
 } from '../content/campaign/types';
 import type { PlayerProfileV1 } from '../profile/types';
 import { isManuscriptUnlocked } from '../campaign/CampaignUnlocks';
+import type { DailyEntry } from '../content/daily/types';
+import type { DailyTodaySnapshot } from '../daily/DailyService';
+import type { DailyResultSummary } from '../profile/types';
 
 export const HOME_SCENE_KEY = 'HomeScene';
 export const ARCHIVE_SCENE_KEY = 'ArchiveScene';
@@ -21,6 +24,23 @@ export type HomeCampaignAction =
   | { readonly kind: 'start'; readonly levelId: string }
   | { readonly kind: 'continue'; readonly levelId: string }
   | { readonly kind: 'choose-level' };
+
+export type HomeDailyAction =
+  | { readonly kind: 'hidden' }
+  | { readonly kind: 'unavailable' }
+  | {
+      readonly kind: 'new';
+      readonly entry: DailyEntry;
+      readonly dateKey: string;
+      readonly currentStreak: number;
+    }
+  | {
+      readonly kind: 'solved';
+      readonly entry: DailyEntry;
+      readonly dateKey: string;
+      readonly currentStreak: number;
+      readonly result: DailyResultSummary;
+    };
 
 export interface ManuscriptProgressView {
   readonly solved: number;
@@ -80,6 +100,31 @@ export function getHomeCampaignAction(
 
 export function shouldShowDailyEntry(profile: PlayerProfileV1): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
+}
+
+export function getHomeDailyAction(
+  profile: PlayerProfileV1,
+  today: DailyTodaySnapshot | null,
+): HomeDailyAction {
+  if (!shouldShowDailyEntry(profile)) return { kind: 'hidden' };
+  if (today === null || today.entry === null) return { kind: 'unavailable' };
+
+  if (today.solved && today.result !== null) {
+    return {
+      kind: 'solved',
+      entry: today.entry,
+      dateKey: today.dateKey,
+      currentStreak: today.currentStreak,
+      result: today.result,
+    };
+  }
+
+  return {
+    kind: 'new',
+    entry: today.entry,
+    dateKey: today.dateKey,
+    currentStreak: today.currentStreak,
+  };
 }
 
 function promotedEntriesForManuscript(

@@ -33,6 +33,7 @@ export type CampaignCompletionMetadata = CampaignLevelResult;
 
 export type GameLaunchContext =
   | { readonly mode: 'campaign'; readonly campaignLevelId: string }
+  | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string }
   | { readonly mode: 'dev' };
 
 export interface GameSceneData {

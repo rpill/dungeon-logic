@@ -1,7 +1,12 @@
 import { DAILY_FIXTURE_ENTRIES } from '../content/daily/manifest';
 import type { DailyEntry } from '../content/daily/types';
 import { findDailyForDate, toUtcDateKey } from '../daily/DailySelector';
-import { DailyService } from '../daily/DailyService';
+import { DailyService, getRecentDailyHistory } from '../daily/DailyService';
+import {
+  completeDailyGameLaunch,
+  createDailyGameSceneData,
+  createDevGameSceneData,
+} from '../runtime/GameLaunch';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import type { PlayerProfileV1 } from '../profile/types';
@@ -43,6 +48,29 @@ for (let index = 0; index < expected.length; index += 1) {
 assert(findDailyForDate(DAILY_FIXTURE_ENTRIES, new Date('2099-01-06T00:00:00.000Z')) === null, 'Dates outside fixture manifest must return null.');
 
 assert(typeof DailyService.create === 'function', 'DailyService must expose a create factory.');
+
+const dailyLaunch = createDailyGameSceneData(DAILY_FIXTURE_ENTRIES[0]);
+assert(dailyLaunch.level === DAILY_FIXTURE_ENTRIES[0].level, 'Daily launch must reuse the immutable Daily snapshot.');
+assert(dailyLaunch.context.mode === 'daily', 'Daily launch must use daily mode.');
+assert(
+  dailyLaunch.context.mode === 'daily'
+    && dailyLaunch.context.dailyId === DAILY_FIXTURE_ENTRIES[0].id
+    && dailyLaunch.context.dateKey === DAILY_FIXTURE_ENTRIES[0].dateKey,
+  'Daily launch must carry the exact Daily id and UTC date key.',
+);
+assert(dailyLaunch.onboarding.length === 0, 'Daily launch must not replay campaign onboarding.');
+
+const recentHistory = getRecentDailyHistory(
+  '2100-01-02',
+  ['2099-12-28', '2099-12-31', '2100-01-02'],
+  7,
+);
+assert(recentHistory.length === 7, 'Daily win history must expose a compact seven-day window.');
+assert(recentHistory[0].dateKey === '2099-12-27', 'Recent Daily history must cross UTC year boundaries correctly.');
+assert(recentHistory[6].dateKey === '2100-01-02' && recentHistory[6].isToday, 'Recent Daily history must end on today.');
+assert(recentHistory[1].solved, 'Recent Daily history must mark solved dates.');
+assert(!recentHistory[2].solved, 'Recent Daily history must preserve missed dates.');
+assert(recentHistory[4].solved, 'Recent Daily history must mark Dec 31 across the year boundary.');
 
 class MemoryProfileStorage implements PlayerProfileStorage {
   value: PlayerProfileV1 | null = null;
@@ -176,6 +204,88 @@ async function runServiceChecks(): Promise<void> {
   assert(service.getHistory().totalSolved === unavailableBefore, 'Unavailable trusted time must not mutate Daily history.');
 }
 
+async function runLaunchCompletionChecks(): Promise<void> {
+  const dailyData = createDailyGameSceneData(DAILY_FIXTURE_ENTRIES[0]);
+  assert(dailyData.context.mode === 'daily', 'Daily launch context must remain narrowed for completion checks.');
+  const completion = {
+    dateKey: '2099-01-01',
+    wasFirstSolve: true,
+    currentStreak: 4,
+    bestStreak: 7,
+    totalSolved: 12,
+    result: {
+      bestTimeMs: 75_000,
+      minHintsUsed: 1,
+      solvedWithoutHints: false,
+    },
+    persisted: true,
+  } as const;
+  let calls = 0;
+  let forwardedDateKey: string | null = null;
+  let forwardedDailyId: string | null = null;
+  let forwarded: import('../profile/types').DailyResultSummary | null = null;
+  const port = {
+    completeDaily: async (
+      dateKey: string,
+      dailyId: string,
+      result: import('../profile/types').DailyResultSummary,
+    ) => {
+      calls += 1;
+      forwardedDateKey = dateKey;
+      forwardedDailyId = dailyId;
+      forwarded = result;
+      return completion;
+    },
+  };
+  const result = {
+    bestTimeMs: 75_000,
+    minHintsUsed: 1,
+    solvedWithoutHints: false,
+  } as const;
+
+  const resolved = await completeDailyGameLaunch(dailyData, port, result);
+  assert(resolved === completion, 'Daily GameScene completion must return the DailyService result unchanged.');
+  assert(calls === 1 && forwarded === result, 'Daily GameScene completion must forward the exact result once.');
+  assert(
+    forwardedDateKey === dailyData.context.dateKey && forwardedDailyId === dailyData.context.dailyId,
+    'Daily GameScene completion must credit the exact launched Daily id/date even across UTC midnight.',
+  );
+
+  const devResolved = await completeDailyGameLaunch(
+    createDevGameSceneData(DAILY_FIXTURE_ENTRIES[0].level),
+    port,
+    result,
+  );
+  assert(devResolved === null, 'Dev completion must not use DailyService.');
+  assert(calls === 1, 'Dev completion must not call the Daily completion port.');
+}
+
+async function runLaunchedDateCompletionChecks(): Promise<void> {
+  const storage = new MemoryProfileStorage();
+  const profileService = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
+  const clock = new MutableTrustedClock();
+  const service = DailyService.create(DAILY_FIXTURE_ENTRIES, profileService, clock);
+
+  clock.value = new Date('2099-01-02T00:05:00.000Z');
+  const completed = await service.completeDaily(
+    '2099-01-01',
+    'daily-fixture-2099-01-01',
+    { bestTimeMs: 70_000, minHintsUsed: 0, solvedWithoutHints: true },
+  );
+  assert(completed?.dateKey === '2099-01-01', 'A Daily opened before UTC midnight must credit its launched date after midnight.');
+  assert(service.getHistory().solvedDates.includes('2099-01-01'), 'Cross-midnight completion must store the launched date in history.');
+  assert(!service.getHistory().solvedDates.includes('2099-01-02'), 'Cross-midnight completion must not credit the new UTC day with the old board.');
+
+  const beforeInvalid = service.getHistory().totalSolved;
+  const invalid = await service.completeDaily(
+    '2099-01-01',
+    'daily-fixture-2099-01-02',
+    { bestTimeMs: 60_000, minHintsUsed: 0, solvedWithoutHints: true },
+  );
+  assert(invalid === null, 'Daily completion must reject a mismatched launched id/date pair.');
+  assert(service.getHistory().totalSolved === beforeInvalid, 'Rejected Daily completion must not mutate history.');
+}
+
 async function runCalendarBoundaryChecks(): Promise<void> {
   const boundaryEntries: readonly DailyEntry[] = [
     { id: 'boundary-2099-01-31', dateKey: '2099-01-31', level: DAILY_FIXTURE_ENTRIES[0].level },
@@ -204,7 +314,12 @@ async function runCalendarBoundaryChecks(): Promise<void> {
   assert(yearNext?.currentStreak === 2, 'Daily streak must continue across a UTC year boundary.');
 }
 
-void Promise.all([runServiceChecks(), runCalendarBoundaryChecks()])
+void Promise.all([
+  runServiceChecks(),
+  runCalendarBoundaryChecks(),
+  runLaunchCompletionChecks(),
+  runLaunchedDateCompletionChecks(),
+])
   .then(() => {
     console.info('[Dungeon Logic] Daily sanity: trusted UTC selection + streak/history invariants passed');
   })
