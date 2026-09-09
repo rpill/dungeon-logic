@@ -10,8 +10,10 @@ export interface UiCopy {
     readonly back: string;
     readonly archive: string;
     readonly statistics: string;
+    readonly leaderboard: string;
     readonly settings: string;
     readonly howToPlay: string;
+    readonly tutorial: string;
     readonly cancel: string;
     readonly reset: string;
     readonly solved: string;
@@ -29,6 +31,9 @@ export interface UiCopy {
     readonly chooseLevel: string;
     readonly start: string;
     readonly continue: string;
+    readonly tutorialStart: string;
+    readonly tutorialContinue: string;
+    readonly tutorialReplay: string;
     readonly levelContext: (slot: number) => string;
     readonly manuscriptLevelContext: (roman: string, slot: number) => string;
     readonly dailyUnavailable: string;
@@ -92,10 +97,45 @@ export interface UiCopy {
     readonly noTrustedDate: string;
     readonly dailyMonth: (month: string, year: number) => string;
   };
+  readonly dailyHub: {
+    readonly title: string;
+    readonly todayTitle: string;
+    readonly archiveTitle: string;
+    readonly playToday: string;
+    readonly leaderboard: string;
+    readonly todaySolved: (time: string) => string;
+    readonly todaySolvedOutsideRating: (time: string) => string;
+    readonly todayUnsolved: string;
+    readonly todayUnavailable: string;
+    readonly archiveProgress: (solved: number, total: number) => string;
+    readonly archiveNotSolved: string;
+    readonly archiveFirstResult: (time: string) => string;
+    readonly archivePlay: string;
+    readonly archiveReplay: string;
+    readonly archiveOutsideRating: string;
+    readonly archiveEmpty: string;
+  };
+  readonly leaderboard: {
+    readonly title: string;
+    readonly back: string;
+    readonly firstResultOnly: string;
+    readonly yourResult: (time: string) => string;
+    readonly yourPlace: (place: number) => string;
+    readonly signInTitle: string;
+    readonly signInBody: string;
+    readonly signIn: string;
+    readonly unavailable: string;
+    readonly noEntries: string;
+    readonly playerFallback: string;
+    readonly currentPlayerSuffix: string;
+  };
   readonly game: {
     readonly back: string;
     readonly levelTitle: (slot: number, total: number) => string;
     readonly dailyTitle: string;
+    readonly tutorialTitle: (slot: number, total: number) => string;
+    readonly tutorialComplete: string;
+    readonly startChapterOne: string;
     readonly rules: string;
     readonly mouseControls: string;
     readonly wall: string;
@@ -105,10 +145,14 @@ export interface UiCopy {
     readonly hint: string;
     readonly hintFree: (remaining: number) => string;
     readonly hintRewarded: string;
+    readonly hintLocked: (time: string) => string;
+    readonly hintRechargeStatus: (time: string) => string;
+    readonly dailyHintOutsideRating: string;
     readonly onboardingTouchWall: string;
     readonly onboardingTouchFloor: string;
     readonly onboardingMouseWall: string;
     readonly onboardingMouseFloor: string;
+    readonly onboardingDismiss: string;
     readonly hintWall: string;
     readonly hintFloor: string;
     readonly loadingAd: string;
@@ -120,10 +164,17 @@ export interface UiCopy {
     readonly hintsCount: (count: number) => string;
     readonly newRecord: string;
     readonly manuscriptUnlocked: (roman: string, title: string) => string;
+    readonly featuresUnlocked: string;
     readonly solvedCampaign: (time: string, hintCopy: string, recordCopy: string, unlockCopy: string) => string;
     readonly archive: string;
     readonly next: string;
     readonly solvedDaily: (time: string, hintCopy: string, recordCopy: string) => string;
+    readonly dailyPractice: string;
+    readonly dailyResultFixed: string;
+    readonly dailyPlace: (place: number) => string;
+    readonly dailyArchiveComplete: string;
+    readonly dailyArchiveOutsideRating: string;
+    readonly dailyArchiveFirstResult: (time: string) => string;
     readonly streakRecent: (streak: number, recent: string) => string;
     readonly home: string;
     readonly resetTitle: string;
@@ -139,8 +190,10 @@ const RU: UiCopy = {
     back: '← НАЗАД',
     archive: 'АРХИВ',
     statistics: 'СТАТИСТИКА',
+    leaderboard: 'ТАБЛИЦА ЛИДЕРОВ',
     settings: 'НАСТРОЙКИ',
     howToPlay: 'ⓘ КАК ИГРАТЬ',
+    tutorial: 'ОБУЧЕНИЕ',
     cancel: 'ОТМЕНА',
     reset: 'СБРОСИТЬ',
     solved: 'РЕШЕНО',
@@ -163,6 +216,9 @@ const RU: UiCopy = {
     chooseLevel: 'ВЫБРАТЬ УРОВЕНЬ',
     start: 'НАЧАТЬ',
     continue: 'ПРОДОЛЖИТЬ',
+    tutorialStart: 'НАЧАТЬ ОБУЧЕНИЕ',
+    tutorialContinue: 'ПРОДОЛЖИТЬ ОБУЧЕНИЕ',
+    tutorialReplay: 'ПРОЙТИ ОБУЧЕНИЕ СНОВА',
     levelContext: (slot) => `Уровень ${String(slot).padStart(2, '0')}`,
     manuscriptLevelContext: (roman, slot) => `Рукопись ${roman} · Уровень ${String(slot).padStart(2, '0')}`,
     dailyUnavailable: 'DAILY · НЕДОСТУПНО',
@@ -170,7 +226,7 @@ const RU: UiCopy = {
     dailySolved: 'DAILY · РЕШЕНО',
     dailyNew: 'DAILY · НОВАЯ',
     streakSuffix: (streak) => streak > 0 ? ` · Серия ${streak}` : '',
-    best: (time, streakSuffix) => `Лучшее ${time}${streakSuffix}`,
+    best: (time, streakSuffix) => `Результат ${time}${streakSuffix}`,
     today: (streakSuffix) => `Сегодня${streakSuffix}`,
   },
   archive: {
@@ -226,10 +282,45 @@ const RU: UiCopy = {
     noTrustedDate: 'Недоступно без доверенной даты',
     dailyMonth: (month, year) => `DAILY · ${month} ${year}`,
   },
+  dailyHub: {
+    title: 'DAILY',
+    todayTitle: 'СЕГОДНЯ',
+    archiveTitle: 'АРХИВ DAILY',
+    playToday: 'ИГРАТЬ СЕГОДНЯ',
+    leaderboard: 'ТАБЛИЦА ЛИДЕРОВ',
+    todaySolved: (time) => `Результат зафиксирован · ${time}`,
+    todaySolvedOutsideRating: (time) => `Пройдено вне рейтинга · ${time}`,
+    todayUnsolved: 'Первое успешное прохождение идёт в рейтинг.',
+    todayUnavailable: 'На доверенную сегодняшнюю дату задания нет.',
+    archiveProgress: (solved, total) => `Пройдено ${solved} / ${total}`,
+    archiveNotSolved: 'НЕ ПРОЙДЕНО',
+    archiveFirstResult: (time) => `Первое время · ${time}`,
+    archivePlay: 'ИГРАТЬ',
+    archiveReplay: 'ПЕРЕИГРАТЬ',
+    archiveOutsideRating: 'Архивные Daily проходят вне рейтинга.',
+    archiveEmpty: 'Старых Daily пока нет.',
+  },
+  leaderboard: {
+    title: 'DAILY · ТАБЛИЦА ЛИДЕРОВ',
+    back: '← ГЛАВНАЯ',
+    firstResultOnly: 'В зачёт идёт только первое успешное прохождение.',
+    yourResult: (time) => `Твой результат · ${time}`,
+    yourPlace: (place) => `Твоё место · #${place}`,
+    signInTitle: 'ВОЙДИ В ЯНДЕКС',
+    signInBody: 'Чтобы твой зафиксированный результат попал в общий рейтинг.',
+    signIn: 'ВОЙТИ',
+    unavailable: 'Таблица лидеров сейчас недоступна.',
+    noEntries: 'Пока нет результатов.',
+    playerFallback: 'Игрок',
+    currentPlayerSuffix: ' · ВЫ',
+  },
   game: {
     back: '← НАЗАД',
     levelTitle: (slot, total) => `УРОВЕНЬ ${slot} / ${total}`,
     dailyTitle: 'DAILY',
+    tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
+    tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО',
+    startChapterOne: 'НАЧАТЬ ГЛАВУ I',
     rules: 'ⓘ Правила',
     mouseControls: 'ЛКМ: Стена   •   ПКМ: Пол',
     wall: 'СТЕНА',
@@ -239,10 +330,14 @@ const RU: UiCopy = {
     hint: 'ПОДСКАЗКА',
     hintFree: (remaining) => `ПОДСКАЗКА ×${remaining}`,
     hintRewarded: 'ПОДСКАЗКА ▶',
+    hintLocked: (time) => `🔒 ${time}`,
+    hintRechargeStatus: (time) => `Бесплатная подсказка через ${time}.`,
+    dailyHintOutsideRating: 'Подсказка поможет пройти Daily, но результат не попадёт в рейтинг.',
     onboardingTouchWall: 'ПОСТАВЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК СТЕНЫ',
     onboardingTouchFloor: 'ВЫБЕРИ ПОЛ И ОТМЕТЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ',
     onboardingMouseWall: 'ЛКМ: ПОСТАВЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК СТЕНЫ',
     onboardingMouseFloor: 'ПКМ: ОТМЕТЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК ПОЛ',
+    onboardingDismiss: 'НАЖМИ НА СООБЩЕНИЕ, ЧТОБЫ ЗАКРЫТЬ',
     hintWall: 'ПОДСКАЗКА: золотая клетка должна быть СТЕНОЙ',
     hintFloor: 'ПОДСКАЗКА: золотая клетка должна быть ПОЛОМ',
     loadingAd: 'ЗАГРУЗКА РЕКЛАМЫ…',
@@ -254,10 +349,17 @@ const RU: UiCopy = {
     hintsCount: (count) => `ПОДСКАЗОК: ${count}`,
     newRecord: '  ·  НОВЫЙ РЕКОРД',
     manuscriptUnlocked: (roman, title) => `\nОТКРЫТА РУКОПИСЬ ${roman} · ${title.toUpperCase()}`,
+    featuresUnlocked: 'ОТКРЫТО: DAILY И СТАТИСТИКА\nМожно открыть сейчас или продолжить кампанию.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ РЕШЕНО  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     archive: 'АРХИВ',
     next: 'ДАЛЬШЕ',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY РЕШЁН  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
+    dailyPractice: 'ВНЕ ЗАЧЁТА',
+    dailyResultFixed: 'РЕЗУЛЬТАТ ЗАФИКСИРОВАН',
+    dailyPlace: (place) => `МЕСТО #${place}` ,
+    dailyArchiveComplete: 'АРХИВНЫЙ DAILY ПРОЙДЕН',
+    dailyArchiveOutsideRating: 'ЭТОТ РЕЗУЛЬТАТ НЕ УЧАСТВУЕТ В РЕЙТИНГЕ',
+    dailyArchiveFirstResult: (time) => `ПЕРВОЕ ВРЕМЯ · ${time}`,
     streakRecent: (streak, recent) => `СЕРИЯ: ${streak}  ·  7 ДНЕЙ: ${recent}`,
     home: 'ГЛАВНАЯ',
     resetTitle: 'Сбросить задачу?',
@@ -278,8 +380,10 @@ const EN: UiCopy = {
     back: '← BACK',
     archive: 'ARCHIVE',
     statistics: 'STATISTICS',
+    leaderboard: 'LEADERBOARD',
     settings: 'SETTINGS',
     howToPlay: 'ⓘ HOW TO PLAY',
+    tutorial: 'TUTORIAL',
     cancel: 'CANCEL',
     reset: 'RESET',
     solved: 'SOLVED',
@@ -302,6 +406,9 @@ const EN: UiCopy = {
     chooseLevel: 'CHOOSE LEVEL',
     start: 'START',
     continue: 'CONTINUE',
+    tutorialStart: 'START TUTORIAL',
+    tutorialContinue: 'CONTINUE TUTORIAL',
+    tutorialReplay: 'REPLAY TUTORIAL',
     levelContext: (slot) => `Level ${String(slot).padStart(2, '0')}`,
     manuscriptLevelContext: (roman, slot) => `Manuscript ${roman} · Level ${String(slot).padStart(2, '0')}`,
     dailyUnavailable: 'DAILY · UNAVAILABLE',
@@ -309,7 +416,7 @@ const EN: UiCopy = {
     dailySolved: 'DAILY · SOLVED',
     dailyNew: 'DAILY · NEW',
     streakSuffix: (streak) => streak > 0 ? ` · Streak ${streak}` : '',
-    best: (time, streakSuffix) => `Best ${time}${streakSuffix}`,
+    best: (time, streakSuffix) => `Result ${time}${streakSuffix}`,
     today: (streakSuffix) => `Today${streakSuffix}`,
   },
   archive: {
@@ -365,10 +472,45 @@ const EN: UiCopy = {
     noTrustedDate: 'Unavailable without a trusted date',
     dailyMonth: (month, year) => `DAILY · ${month} ${year}`,
   },
+  dailyHub: {
+    title: 'DAILY',
+    todayTitle: 'TODAY',
+    archiveTitle: 'DAILY ARCHIVE',
+    playToday: 'PLAY TODAY',
+    leaderboard: 'LEADERBOARD',
+    todaySolved: (time) => `Result locked · ${time}`,
+    todaySolvedOutsideRating: (time) => `Completed outside ranking · ${time}`,
+    todayUnsolved: 'Only the first successful solve enters the ranking.',
+    todayUnavailable: 'There is no puzzle for the trusted date today.',
+    archiveProgress: (solved, total) => `Solved ${solved} / ${total}`,
+    archiveNotSolved: 'NOT SOLVED',
+    archiveFirstResult: (time) => `First time · ${time}`,
+    archivePlay: 'PLAY',
+    archiveReplay: 'REPLAY',
+    archiveOutsideRating: 'Archived Dailies are always outside the ranking.',
+    archiveEmpty: 'No older Dailies yet.',
+  },
+  leaderboard: {
+    title: 'DAILY · LEADERBOARD',
+    back: '← HOME',
+    firstResultOnly: 'Only the first successful solve counts.',
+    yourResult: (time) => `Your result · ${time}`,
+    yourPlace: (place) => `Your place · #${place}`,
+    signInTitle: 'SIGN IN TO YANDEX',
+    signInBody: 'Sign in to add your fixed result to the shared ranking.',
+    signIn: 'SIGN IN',
+    unavailable: 'Leaderboard is currently unavailable.',
+    noEntries: 'No results yet.',
+    playerFallback: 'Player',
+    currentPlayerSuffix: ' · YOU',
+  },
   game: {
     back: '← BACK',
     levelTitle: (slot, total) => `LEVEL ${slot} / ${total}`,
     dailyTitle: 'DAILY',
+    tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
+    tutorialComplete: 'TUTORIAL COMPLETE',
+    startChapterOne: 'START CHAPTER I',
     rules: 'ⓘ Rules',
     mouseControls: 'LMB: Wall   •   RMB: Floor',
     wall: 'WALL',
@@ -378,10 +520,14 @@ const EN: UiCopy = {
     hint: 'HINT',
     hintFree: (remaining) => `HINT ×${remaining}`,
     hintRewarded: 'HINT ▶',
+    hintLocked: (time) => `🔒 ${time}`,
+    hintRechargeStatus: (time) => `Free hint in ${time}.`,
+    dailyHintOutsideRating: 'A hint can finish the Daily, but this run will not enter the leaderboard.',
     onboardingTouchWall: 'MARK ALL GOLD CELLS AS WALLS',
     onboardingTouchFloor: 'SELECT FLOOR AND MARK ALL GOLD CELLS',
     onboardingMouseWall: 'LMB: MARK ALL GOLD CELLS AS WALLS',
     onboardingMouseFloor: 'RMB: MARK ALL GOLD CELLS AS FLOOR',
+    onboardingDismiss: 'CLICK THE MESSAGE TO CLOSE',
     hintWall: 'HINT: the gold cell must be a WALL',
     hintFloor: 'HINT: the gold cell must be FLOOR',
     loadingAd: 'LOADING AD…',
@@ -393,10 +539,17 @@ const EN: UiCopy = {
     hintsCount: (count) => `HINTS: ${count}`,
     newRecord: '  ·  NEW RECORD',
     manuscriptUnlocked: (roman, title) => `\nMANUSCRIPT ${roman} UNLOCKED · ${title.toUpperCase()}`,
+    featuresUnlocked: 'UNLOCKED: DAILY AND STATISTICS\nOpen them now or continue the Campaign.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     archive: 'ARCHIVE',
     next: 'NEXT',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
+    dailyPractice: 'PRACTICE · UNRANKED',
+    dailyResultFixed: 'RESULT LOCKED',
+    dailyPlace: (place) => `PLACE #${place}`,
+    dailyArchiveComplete: 'ARCHIVED DAILY COMPLETE',
+    dailyArchiveOutsideRating: 'THIS RESULT DOES NOT ENTER THE RANKING',
+    dailyArchiveFirstResult: (time) => `FIRST TIME · ${time}`,
     streakRecent: (streak, recent) => `STREAK: ${streak}  ·  7 DAYS: ${recent}`,
     home: 'HOME',
     resetTitle: 'Reset puzzle?',

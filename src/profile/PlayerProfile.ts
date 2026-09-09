@@ -6,9 +6,10 @@ import type {
   CampaignLevelResult,
   DailyProfileState,
   DailyResultSummary,
-  PlayerProfileV1,
+  PlayerProfileV2,
   PlayerSettings,
   SerializedPuzzleState,
+  TutorialProfileState,
 } from './types';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,6 +18,15 @@ const VALID_CELL_STATES = new Set<string>([
   CellState.Wall,
   CellState.Floor,
 ]);
+const TUTORIAL_IDS = [
+  'tutorial-001',
+  'tutorial-002',
+  'tutorial-003',
+  'tutorial-004',
+] as const;
+const KNOWN_TUTORIAL_IDS = new Set<string>(TUTORIAL_IDS);
+
+type PersistedPuzzleMode = SerializedPuzzleState['mode'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -74,12 +84,13 @@ function normalizeDailyResult(value: unknown): DailyResultSummary | null {
 
 function normalizeSerializedPuzzleState(
   value: unknown,
-  knownCampaignIds: ReadonlySet<string>,
+  expectedMode: PersistedPuzzleMode,
+  knownIds?: ReadonlySet<string>,
 ): SerializedPuzzleState | null {
   if (!isRecord(value)) return null;
-  if (value.mode !== 'campaign' && value.mode !== 'daily') return null;
+  if (value.mode !== expectedMode) return null;
   if (typeof value.puzzleId !== 'string' || value.puzzleId.length === 0) return null;
-  if (value.mode === 'campaign' && !knownCampaignIds.has(value.puzzleId)) return null;
+  if (knownIds !== undefined && !knownIds.has(value.puzzleId)) return null;
   if (!Array.isArray(value.cells) || value.cells.length === 0) return null;
 
   const cells: string[][] = [];
@@ -99,7 +110,7 @@ function normalizeSerializedPuzzleState(
   if (activePlayMs < 0 || hintsUsed < 0 || startedAtMs < 0) return null;
 
   return {
-    mode: value.mode,
+    mode: expectedMode,
     puzzleId: value.puzzleId,
     cells: cells as SerializedPuzzleState['cells'],
     activePlayMs,
@@ -143,6 +154,7 @@ function normalizeDaily(value: unknown): DailyProfileState {
     : null;
 
   return {
+    activePuzzle: normalizeSerializedPuzzleState(raw.activePuzzle, 'daily'),
     currentStreak: nonNegativeInteger(raw.currentStreak),
     bestStreak: nonNegativeInteger(raw.bestStreak),
     lastSolvedDate,
@@ -152,12 +164,39 @@ function normalizeDaily(value: unknown): DailyProfileState {
   };
 }
 
+function normalizeTutorial(value: unknown): TutorialProfileState {
+  const raw = isRecord(value) ? value : {};
+  const completedSet = new Set(
+    Array.isArray(raw.completedLevelIds)
+      ? raw.completedLevelIds.filter(
+        (id): id is string => typeof id === 'string' && KNOWN_TUTORIAL_IDS.has(id),
+      )
+      : [],
+  );
+  const completedLevelIds = TUTORIAL_IDS.filter((id) => completedSet.has(id));
+
+  return {
+    completedLevelIds,
+    completed: raw.completed === true || completedLevelIds.length === TUTORIAL_IDS.length,
+    activePuzzle: normalizeSerializedPuzzleState(
+      raw.activePuzzle,
+      'tutorial',
+      KNOWN_TUTORIAL_IDS,
+    ),
+  };
+}
+
 export function createFreshPlayerProfile(
   _manifest: readonly CampaignLevelEntry[] = [],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV1 {
+): PlayerProfileV2 {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    tutorial: {
+      completedLevelIds: [],
+      completed: false,
+      activePuzzle: null,
+    },
     campaign: {
       completedLevelIds: [],
       lastPlayedLevelId: null,
@@ -165,6 +204,7 @@ export function createFreshPlayerProfile(
       activePuzzle: null,
     },
     daily: {
+      activePuzzle: null,
       currentStreak: 0,
       bestStreak: 0,
       lastSolvedDate: null,
@@ -181,6 +221,7 @@ export function createFreshPlayerProfile(
     hints: {
       freeRemaining: 3,
       totalUsed: 0,
+      rechargeAnchorMs: null,
     },
     ads: {
       campaignCompletionsSinceOpportunity: 0,
@@ -196,8 +237,8 @@ export function normalizePlayerProfile(
   raw: unknown,
   manifest: readonly CampaignLevelEntry[],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV1 {
-  if (!isRecord(raw) || raw.schemaVersion !== 1) {
+): PlayerProfileV2 {
+  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2)) {
     return createFreshPlayerProfile(manifest, defaultLanguage);
   }
 
@@ -228,23 +269,40 @@ export function normalizePlayerProfile(
     }
   }
 
+  const campaignActivePuzzle = normalizeSerializedPuzzleState(
+    rawCampaign.activePuzzle,
+    'campaign',
+    knownIds,
+  );
+  const tutorial = raw.schemaVersion === 2
+    ? normalizeTutorial(raw.tutorial)
+    : {
+      completedLevelIds: [],
+      completed: completedLevelIds.length > 0
+        || lastPlayedLevelId !== null
+        || campaignActivePuzzle !== null,
+      activePuzzle: null,
+    };
+
   const rawHints = isRecord(raw.hints) ? raw.hints : {};
   const rawAds = isRecord(raw.ads) ? raw.ads : {};
   const rawTotals = isRecord(raw.totals) ? raw.totals : {};
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    tutorial,
     campaign: {
       completedLevelIds,
       lastPlayedLevelId,
       levelResults,
-      activePuzzle: normalizeSerializedPuzzleState(rawCampaign.activePuzzle, knownIds),
+      activePuzzle: campaignActivePuzzle,
     },
     daily: normalizeDaily(raw.daily),
     settings: normalizeSettings(raw.settings, defaultLanguage),
     hints: {
-      freeRemaining: nonNegativeInteger(rawHints.freeRemaining, fresh.hints.freeRemaining),
+      freeRemaining: Math.min(3, nonNegativeInteger(rawHints.freeRemaining, fresh.hints.freeRemaining)),
       totalUsed: nonNegativeInteger(rawHints.totalUsed),
+      rechargeAnchorMs: nullableTimestamp(rawHints.rechargeAnchorMs),
     },
     ads: {
       campaignCompletionsSinceOpportunity: nonNegativeInteger(rawAds.campaignCompletionsSinceOpportunity),
@@ -269,16 +327,21 @@ export function migrateLegacyCampaignProgress(
   legacy: unknown,
   manifest: readonly CampaignLevelEntry[],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV1 {
+): PlayerProfileV2 {
   const fresh = createFreshPlayerProfile(manifest, defaultLanguage);
   if (!looksLikeLegacyCampaignProgress(legacy)) return fresh;
 
   return normalizePlayerProfile({
-    ...fresh,
+    schemaVersion: 1,
     campaign: {
       ...fresh.campaign,
       completedLevelIds: legacy.completedLevelIds,
       lastPlayedLevelId: legacy.lastPlayedLevelId,
     },
+    daily: fresh.daily,
+    settings: fresh.settings,
+    hints: fresh.hints,
+    ads: fresh.ads,
+    totals: fresh.totals,
   }, manifest, defaultLanguage);
 }

@@ -12,7 +12,7 @@ import { promotedCampaignLevels } from '../content/campaign/levels';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import { CellState, type LevelDefinition } from '../puzzle/types';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { validatePuzzle } from '../puzzle/LevelValidator';
@@ -160,7 +160,7 @@ function runReleaseContentChecks(): void {
 runReleaseContentChecks();
 
 class FakeProfileStorage implements PlayerProfileStorage {
-  value: PlayerProfileV1 | null = null;
+  value: PlayerProfileV2 | null = null;
   failSave = false;
   saveCalls = 0;
 
@@ -168,7 +168,7 @@ class FakeProfileStorage implements PlayerProfileStorage {
     return this.value;
   }
 
-  async save(profile: PlayerProfileV1): Promise<void> {
+  async save(profile: PlayerProfileV2): Promise<void> {
     this.saveCalls += 1;
     if (this.failSave) throw new Error('save failed');
     this.value = profile;
@@ -190,6 +190,14 @@ async function createService(
   storage = new FakeProfileStorage(),
 ): Promise<{ service: CampaignService; profile: PlayerProfileService; storage: FakeProfileStorage }> {
   const profile = await PlayerProfileService.create(manifest, storage, { saveDelayMs: 60_000 });
+  profile.update((current) => ({
+    ...current,
+    tutorial: {
+      ...current.tutorial,
+      completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004'],
+      completed: true,
+    },
+  }));
   return {
     service: CampaignService.create(manifest, profile),
     profile,

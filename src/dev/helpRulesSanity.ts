@@ -1,8 +1,18 @@
-import { HELP_RULES } from '../help/HelpRules';
+import { HELP_RULES, getHelpRules } from '../help/HelpRules';
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+
+const ruGoal = getHelpRules('ru').find((rule) => rule.id === 'goal');
+const enGoal = getHelpRules('en').find((rule) => rule.id === 'goal');
+assert(ruGoal?.body.includes('стен') === true && ruGoal.body.includes('не требуется'), 'RU goal says walls solve the puzzle and floor marks are optional.');
+assert(enGoal?.body.toLowerCase().includes('walls') === true && enGoal.body.toLowerCase().includes('not required'), 'EN goal says walls solve the puzzle and floor marks are optional.');
+const ruControls = getHelpRules('ru').find((rule) => rule.id === 'controls');
+const enControls = getHelpRules('en').find((rule) => rule.id === 'controls');
+assert(ruControls?.body.includes('для удобства') === true, 'RU controls describe FLOOR as optional solving notation.');
+assert(enControls?.body.toLowerCase().includes('optional') === true, 'EN controls describe FLOOR as optional solving notation.');
 
 const ids = HELP_RULES.map((rule) => rule.id);
 assert(ids.includes('goal'), 'Help must explain the goal.');

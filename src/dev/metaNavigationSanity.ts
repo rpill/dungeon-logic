@@ -1,5 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import {
   getHomeDailyAction,
   getHomeCampaignAction,
@@ -35,9 +35,20 @@ function entry(slot: number): CampaignLevelEntry {
   };
 }
 
-function profile(completed: readonly string[], lastPlayedLevelId: string | null = null): PlayerProfileV1 {
+function profile(
+  completed: readonly string[],
+  lastPlayedLevelId: string | null = null,
+  tutorialCompleted = true,
+): PlayerProfileV2 {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    tutorial: {
+      completedLevelIds: tutorialCompleted
+        ? ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004']
+        : [],
+      completed: tutorialCompleted,
+      activePuzzle: null,
+    },
     campaign: {
       completedLevelIds: [...completed],
       lastPlayedLevelId,
@@ -45,6 +56,7 @@ function profile(completed: readonly string[], lastPlayedLevelId: string | null 
       activePuzzle: null,
     },
     daily: {
+      activePuzzle: null,
       currentStreak: 0,
       bestStreak: 0,
       lastSolvedDate: null,
@@ -73,9 +85,13 @@ function fakeCampaign(continueSlot: number | null): MetaCampaignPort {
   };
 }
 
-const fresh = profile([]);
-const start = getHomeCampaignAction(fakeCampaign(1), fresh);
-assert(start.kind === 'start' && start.levelId === 'campaign-001', 'Fresh profile starts campaign-001.');
+const fresh = profile([], null, false);
+const tutorial = getHomeCampaignAction(fakeCampaign(null), fresh);
+assert(tutorial.kind === 'tutorial', 'Fresh profile must enter Tutorial before Campaign.');
+
+const tutorialCompleteFresh = profile([]);
+const start = getHomeCampaignAction(fakeCampaign(1), tutorialCompleteFresh);
+assert(start.kind === 'start' && start.levelId === 'campaign-001', 'Tutorial-complete fresh campaign starts campaign-001.');
 assert(!shouldShowDailyEntry(fresh), 'Daily stays hidden before onboarding level 005 is complete.');
 
 const availableDaily = {

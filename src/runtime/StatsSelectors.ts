@@ -1,5 +1,5 @@
 import { CAMPAIGN_MANUSCRIPTS } from '../content/campaign/manuscripts';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import { toUtcDateKey } from '../daily/DailySelector';
 
 const CAMPAIGN_TOTAL = 30;
@@ -71,7 +71,7 @@ function previousUtcDateKey(dateKey: string): string | null {
 }
 
 function getActiveDailyStreak(
-  profile: PlayerProfileV1,
+  profile: PlayerProfileV2,
   todayDateKey: string | null,
   availableDailyDateKeys: readonly string[],
 ): number | null {
@@ -99,7 +99,7 @@ function getCompletedManuscriptCount(completedLevelIds: ReadonlySet<string>): nu
 }
 
 function createDailyMonthCalendar(
-  profile: PlayerProfileV1,
+  profile: PlayerProfileV2,
   todayDateKey: string,
   availableDailyDateKeys: readonly string[],
 ): DailyMonthCalendarView {
@@ -149,7 +149,7 @@ function createDailyMonthCalendar(
 }
 
 export function getStatsViewModel(
-  profile: PlayerProfileV1,
+  profile: PlayerProfileV2,
   todayDateKey: string | null,
   availableDailyDateKeys: readonly string[],
 ): StatsViewModel {

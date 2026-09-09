@@ -101,10 +101,8 @@ async function main(): Promise<void> {
     'Campaign scene data carries exact campaign id.',
   );
   assert(!('theme' in campaignData.context), 'Campaign scene data carries no runtime board theme.');
-  assert(
-    campaignData.onboarding.join(',') === 'row-column-clues,monster-dead-end',
-    'Campaign scene data includes current entry onboarding before completion.',
-  );
+  assert(campaignData.onboarding.length === 0, 'Campaign scene data never carries tutorial onboarding.');
+  assert(campaignData.contextualOnboarding === false, 'Campaign scene data never enables contextual onboarding.');
 
   const devData = createDevGameSceneData(level001);
   assert(devData.context.mode === 'dev', 'Dev scene data has no campaign mode/id.');
@@ -140,6 +138,7 @@ async function main(): Promise<void> {
     },
     recommendedNextLevel: campaignManifest[1],
     unlockedManuscript: null,
+    unlockedFeatures: [],
     persisted: true,
   } as const;
   const completionPort = {

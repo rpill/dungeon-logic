@@ -2,13 +2,15 @@ import type {
   AdsPort,
   GameLifecycleHandlers,
   GameLifecyclePort,
+  GameplayMarkupPort,
   InterstitialResult,
+  LeaderboardPlayerView,
+  LeaderboardsPort,
+  PlatformReadinessPort,
   PlatformServices,
   PlayerStorage,
   RewardedResult,
   TrustedClock,
-  PlatformReadinessPort,
-  GameplayMarkupPort,
 } from './services';
 
 export const YANDEX_PROFILE_DATA_KEY = 'dungeonLogicProfile';
@@ -16,6 +18,7 @@ export const YANDEX_PROFILE_DATA_KEY = 'dungeonLogicProfile';
 interface YandexPlayerLike {
   getData(keys?: readonly string[]): Promise<Record<string, unknown>>;
   setData(data: Record<string, unknown>, flush?: boolean): Promise<void>;
+  isAuthorized?(): boolean;
 }
 
 interface AdCallbacksLike {
@@ -32,9 +35,41 @@ interface YandexFeatureMethodLike {
   (): void | Promise<void>;
 }
 
+interface YandexLeaderboardEntryLike {
+  readonly extraData?: string;
+  readonly rank: number;
+  readonly score: number;
+  readonly player?: {
+    readonly publicName?: string;
+    readonly uniqueID?: string;
+    getAvatarSrc?(size?: 'small' | 'medium' | 'large'): string;
+  };
+}
+
+interface YandexLeaderboardEntriesLike {
+  readonly entries?: readonly YandexLeaderboardEntryLike[];
+  readonly userRank?: number;
+}
+
 interface YandexSdkLike {
   getPlayer(): Promise<YandexPlayerLike>;
   serverTime?: () => number;
+  isAvailableMethod?: (method: string) => Promise<boolean>;
+  auth?: {
+    openAuthDialog?: () => Promise<void>;
+  };
+  leaderboards?: {
+    setScore?: (leaderboardName: string, score: number, extraData?: string) => Promise<void>;
+    getPlayerEntry?: (leaderboardName: string) => Promise<YandexLeaderboardEntryLike>;
+    getEntries?: (
+      leaderboardName: string,
+      options?: {
+        includeUser?: boolean;
+        quantityAround?: number;
+        quantityTop?: number;
+      },
+    ) => Promise<YandexLeaderboardEntriesLike>;
+  };
   environment?: {
     i18n?: {
       lang?: string;
@@ -60,6 +95,30 @@ interface YandexSdkLike {
 export interface YandexGlobalScopeLike {
   readonly YaGames?: {
     init(): Promise<YandexSdkLike>;
+  };
+}
+
+interface YandexPlayerProvider {
+  get(): Promise<YandexPlayerLike>;
+  refresh(): Promise<YandexPlayerLike>;
+}
+
+function createYandexPlayerProvider(
+  sdkPromise: Promise<YandexSdkLike>,
+): YandexPlayerProvider {
+  let playerPromise: Promise<YandexPlayerLike> | null = null;
+
+  return {
+    get() {
+      if (playerPromise === null) {
+        playerPromise = sdkPromise.then((sdk) => sdk.getPlayer());
+      }
+      return playerPromise;
+    },
+    refresh() {
+      playerPromise = sdkPromise.then((sdk) => sdk.getPlayer());
+      return playerPromise;
+    },
   };
 }
 
@@ -119,25 +178,16 @@ function readYandexLanguage(sdk: YandexSdkLike): string | null {
 }
 
 function createYandexStorage(
-  sdkPromise: Promise<YandexSdkLike>,
+  playerProvider: YandexPlayerProvider,
 ): PlayerStorage {
-  let playerPromise: Promise<YandexPlayerLike> | null = null;
-
-  const getPlayer = (): Promise<YandexPlayerLike> => {
-    if (playerPromise === null) {
-      playerPromise = sdkPromise.then((sdk) => sdk.getPlayer());
-    }
-    return playerPromise;
-  };
-
   return {
     async load() {
-      const player = await getPlayer();
+      const player = await playerProvider.get();
       const data = await player.getData([YANDEX_PROFILE_DATA_KEY]);
       return data[YANDEX_PROFILE_DATA_KEY] ?? null;
     },
     async save(value: unknown) {
-      const player = await getPlayer();
+      const player = await playerProvider.get();
       await player.setData({ [YANDEX_PROFILE_DATA_KEY]: value }, true);
     },
   };
@@ -238,6 +288,126 @@ function createYandexAds(
   };
 }
 
+function normalizeLeaderboardEntry(
+  entry: YandexLeaderboardEntryLike,
+  currentUniqueId: string | null,
+): LeaderboardPlayerView {
+  const publicName = entry.player?.publicName?.trim();
+  const avatar = entry.player?.getAvatarSrc?.('small');
+  return {
+    place: Math.max(1, Math.floor(entry.rank) + 1),
+    score: Math.max(0, Number.isFinite(entry.score) ? entry.score : 0),
+    publicName: publicName && publicName.length > 0 ? publicName : 'Player',
+    avatarUrl: typeof avatar === 'string' && avatar.length > 0 ? avatar : null,
+    isCurrentPlayer: currentUniqueId !== null && entry.player?.uniqueID === currentUniqueId,
+  };
+}
+
+function createYandexLeaderboards(
+  sdkPromise: Promise<YandexSdkLike>,
+  playerProvider: YandexPlayerProvider,
+): LeaderboardsPort {
+  const authorized = async (): Promise<boolean> => {
+    try {
+      const player = await playerProvider.get();
+      return typeof player.isAuthorized === 'function' && player.isAuthorized();
+    } catch {
+      return false;
+    }
+  };
+
+  const methodAvailable = async (method: string): Promise<boolean> => {
+    try {
+      const sdk = await sdkPromise;
+      if (typeof sdk.isAvailableMethod !== 'function') return true;
+      return await sdk.isAvailableMethod(method);
+    } catch {
+      return false;
+    }
+  };
+
+  const currentUniqueIdFrom = (raw: YandexLeaderboardEntryLike | null): string | null => (
+    typeof raw?.player?.uniqueID === 'string' && raw.player.uniqueID.length > 0
+      ? raw.player.uniqueID
+      : null
+  );
+
+  return {
+    isAuthorized: authorized,
+
+    async requestAuthorization() {
+      try {
+        if (await authorized()) return true;
+        const sdk = await sdkPromise;
+        const openAuthDialog = sdk.auth?.openAuthDialog;
+        if (typeof openAuthDialog !== 'function') return false;
+        await openAuthDialog.call(sdk.auth);
+        const player = await playerProvider.refresh();
+        return typeof player.isAuthorized === 'function' && player.isAuthorized();
+      } catch {
+        return false;
+      }
+    },
+
+    async submitScore(name, score, extraData) {
+      if (!Number.isFinite(score) || score < 0) return 'unavailable';
+      if (!await authorized()) return 'unauthorized';
+      if (!await methodAvailable('leaderboards.setScore')) return 'unavailable';
+      try {
+        const sdk = await sdkPromise;
+        const setScore = sdk.leaderboards?.setScore;
+        if (typeof setScore !== 'function') return 'unavailable';
+        await setScore.call(sdk.leaderboards, name, score, extraData);
+        return 'submitted';
+      } catch (error) {
+        console.warn('[Dungeon Logic] Could not submit leaderboard score.', error);
+        return 'unavailable';
+      }
+    },
+
+    async getPlayerEntry(name) {
+      if (!await authorized()) return null;
+      if (!await methodAvailable('leaderboards.getPlayerEntry')) return null;
+      try {
+        const sdk = await sdkPromise;
+        const getPlayerEntry = sdk.leaderboards?.getPlayerEntry;
+        if (typeof getPlayerEntry !== 'function') return null;
+        const raw = await getPlayerEntry.call(sdk.leaderboards, name);
+        return normalizeLeaderboardEntry(raw, currentUniqueIdFrom(raw));
+      } catch {
+        return null;
+      }
+    },
+
+    async getEntries(name, options) {
+      if (!await methodAvailable('leaderboards.getEntries')) return null;
+      try {
+        const sdk = await sdkPromise;
+        const getEntries = sdk.leaderboards?.getEntries;
+        if (typeof getEntries !== 'function') return null;
+        const includeUser = options?.includeUser === true && await authorized();
+        const raw = await getEntries.call(sdk.leaderboards, name, {
+          includeUser,
+          quantityAround: options?.quantityAround,
+          quantityTop: options?.quantityTop,
+        });
+        const currentRaw = includeUser && typeof sdk.leaderboards?.getPlayerEntry === 'function'
+          ? await sdk.leaderboards.getPlayerEntry(name).catch(() => null)
+          : null;
+        const currentUniqueId = currentUniqueIdFrom(currentRaw);
+        const entries = (raw.entries ?? []).map((entry) => normalizeLeaderboardEntry(entry, currentUniqueId));
+        const currentPlayer = currentRaw === null
+          ? entries.find((entry) => entry.isCurrentPlayer) ?? null
+          : normalizeLeaderboardEntry(currentRaw, currentUniqueId);
+        return { entries, currentPlayer };
+      } catch (error) {
+        console.warn('[Dungeon Logic] Could not load leaderboard entries.', error);
+        return null;
+      }
+    },
+  };
+}
+
 function createYandexLifecycle(
   sdk: YandexSdkLike,
 ): GameLifecyclePort {
@@ -287,14 +457,17 @@ export async function createYandexPlatformServices(
     return null;
   }
 
+  const playerProvider = createYandexPlayerProvider(sdkPromise);
+
   return {
     kind: 'yandex',
-    storage: createYandexStorage(sdkPromise),
+    storage: createYandexStorage(playerProvider),
     clock: createYandexClock(sdkPromise),
     ads: createYandexAds(sdkPromise),
     readiness: createYandexReadiness(sdk),
     environment: { language: readYandexLanguage(sdk) },
     gameplay: createYandexGameplay(sdk),
     lifecycle: createYandexLifecycle(sdk),
+    leaderboards: createYandexLeaderboards(sdkPromise, playerProvider),
   };
 }

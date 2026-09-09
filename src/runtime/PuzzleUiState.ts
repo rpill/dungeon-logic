@@ -17,6 +17,11 @@ export interface PuzzleToolbarState {
   readonly buttons: readonly PuzzleToolbarButtonState[];
 }
 
+export interface PuzzleToolbarHintPresentation {
+  readonly label: string;
+  readonly disabled: boolean;
+}
+
 export interface PuzzleToolbarButtonLayout {
   readonly id: PuzzleToolbarButtonId;
   readonly x: number;
@@ -39,6 +44,7 @@ export function createPuzzleToolbarState(
   freeHintsRemaining = 0,
   rewardedHintAvailable = false,
   language: SupportedLanguage = 'en',
+  hintPresentation?: PuzzleToolbarHintPresentation,
 ): PuzzleToolbarState {
   const copy = getUiCopy(language).game;
   const buttons: PuzzleToolbarButtonState[] = [];
@@ -55,13 +61,13 @@ export function createPuzzleToolbarState(
     { id: 'reset', label: copy.reset, active: false, disabled: false },
     {
       id: 'hint',
-      label: freeHintsRemaining > 0
+      label: hintPresentation?.label ?? (freeHintsRemaining > 0
         ? copy.hintFree(freeHintsRemaining)
         : rewardedHintAvailable
           ? copy.hintRewarded
-          : copy.hint,
+          : copy.hint),
       active: false,
-      disabled: freeHintsRemaining <= 0 && !rewardedHintAvailable,
+      disabled: hintPresentation?.disabled ?? (freeHintsRemaining <= 0 && !rewardedHintAvailable),
     },
   );
 

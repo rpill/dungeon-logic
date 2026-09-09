@@ -62,6 +62,27 @@ async function main(): Promise<void> {
   profile.consumeFreeHint();
   profile.consumeFreeHint();
   assert(profile.getFreeHintsRemaining() === 0, 'Fixture exhausts the three free hints.');
+  const hintEconomy = profile as unknown as {
+    getHintRechargeStatus?: (nowMs: number) => { freeRemaining: number; nextRefillInMs: number | null };
+  };
+  assert(typeof hintEconomy.getHintRechargeStatus === 'function', 'Profile exposes timed free-hint recharge status.');
+  const exhaustedAt = 1_000_000;
+  const timedProfile = await PlayerProfileService.create(
+    TEST_MANIFEST,
+    new MemoryStorage(),
+    { saveDelayMs: 60_000 },
+  );
+  timedProfile.consumeFreeHint(exhaustedAt);
+  timedProfile.consumeFreeHint(exhaustedAt);
+  timedProfile.consumeFreeHint(exhaustedAt);
+  const timedEconomy = timedProfile as unknown as {
+    getHintRechargeStatus: (nowMs: number) => { freeRemaining: number; nextRefillInMs: number | null };
+  };
+  assert(timedEconomy.getHintRechargeStatus(exhaustedAt).freeRemaining === 0, 'All three timed hints can be exhausted.');
+  assert(timedEconomy.getHintRechargeStatus(exhaustedAt + 29 * 60_000).freeRemaining === 0, 'No free hint returns before 30 minutes.');
+  assert(timedEconomy.getHintRechargeStatus(exhaustedAt + 30 * 60_000).freeRemaining === 1, 'One free hint returns after 30 minutes.');
+  assert(timedEconomy.getHintRechargeStatus(exhaustedAt + 90 * 60_000).freeRemaining === 3, 'Timed recharge caps at three free hints.');
+  await timedProfile.flush();
 
   let freeAdCalls = 0;
   let freeDeliveries = 0;

@@ -8,7 +8,7 @@ import type {
 } from '../content/campaign/types';
 import { getUiCopy } from '../i18n/UiCopy';
 import type { SupportedLanguage } from '../i18n/Language';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import { isManuscriptUnlocked } from '../campaign/CampaignUnlocks';
 import type { DailyEntry } from '../content/daily/types';
 import type { DailyTodaySnapshot } from '../daily/DailyService';
@@ -25,6 +25,7 @@ export interface MetaCampaignPort {
 }
 
 export type HomeCampaignAction =
+  | { readonly kind: 'tutorial' }
   | { readonly kind: 'start'; readonly levelId: string }
   | { readonly kind: 'continue'; readonly levelId: string }
   | { readonly kind: 'choose-level' };
@@ -82,8 +83,10 @@ export type ManuscriptViewModel =
 
 export function getHomeCampaignAction(
   campaign: MetaCampaignPort,
-  profile: PlayerProfileV1,
+  profile: PlayerProfileV2,
 ): HomeCampaignAction {
+  if (!profile.tutorial.completed) return { kind: 'tutorial' };
+
   const levels = campaign.getLevels();
   if (levels.length === 0) return { kind: 'choose-level' };
 
@@ -102,16 +105,16 @@ export function getHomeCampaignAction(
   return { kind: 'continue', levelId: continueLevel.id };
 }
 
-export function shouldShowDailyEntry(profile: PlayerProfileV1): boolean {
+export function shouldShowDailyEntry(profile: PlayerProfileV2): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
 }
 
-export function shouldShowSettingsEntry(_profile: PlayerProfileV1): boolean {
+export function shouldShowSettingsEntry(_profile: PlayerProfileV2): boolean {
   return true;
 }
 
 export function getHomeDailyAction(
-  profile: PlayerProfileV1,
+  profile: PlayerProfileV2,
   today: DailyTodaySnapshot | null,
 ): HomeDailyAction {
   if (!shouldShowDailyEntry(profile)) return { kind: 'hidden' };
@@ -161,7 +164,7 @@ function requirementForLockedManuscript(
 
 export function getManuscriptViewModels(
   manifest: readonly CampaignLevelEntry[],
-  profile: PlayerProfileV1,
+  profile: PlayerProfileV2,
   language: SupportedLanguage = 'ru',
 ): readonly ManuscriptViewModel[] {
   const completed = new Set(profile.campaign.completedLevelIds);

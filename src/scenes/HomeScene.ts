@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { DailyEntry } from '../content/daily/types';
+import type { TutorialLevelEntry } from '../content/tutorial/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -11,10 +11,11 @@ import {
 } from '../profile/PlayerProfileService';
 import {
   createCampaignGameSceneData,
-  createDailyGameSceneData,
+  createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { getUiCopy } from '../i18n/UiCopy';
+import { DAILY_SCENE_KEY } from './DailyScene';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { PlatformServices } from '../platform/services';
@@ -28,6 +29,7 @@ import {
   shouldShowSettingsEntry,
 } from '../runtime/MetaSelectors';
 import { classifyViewport } from './GameBoardLayout';
+import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 
 export class HomeScene extends Phaser.Scene {
   private createVersion = 0;
@@ -51,6 +53,7 @@ export class HomeScene extends Phaser.Scene {
       this.input.off('pointerdown', handlePointerDown);
     });
     const campaign = this.getCampaignService();
+    const tutorial = this.getTutorialService();
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
     const copy = getUiCopy(profile.settings.language);
@@ -88,7 +91,34 @@ export class HomeScene extends Phaser.Scene {
       ? (narrow ? 88 : 96)
       : (narrow ? 105 : 118);
 
-    if (action.kind === 'choose-level') {
+    if (action.kind === 'tutorial') {
+      const entry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
+      const started = profile.tutorial.completedLevelIds.length > 0
+        || profile.tutorial.activePuzzle !== null;
+      this.createButton(
+        this.scale.width / 2,
+        mainY,
+        buttonWidth,
+        mainHeight,
+        started ? copy.home.tutorialContinue : copy.home.tutorialStart,
+        '#f0d28a',
+        () => {
+          if (entry !== undefined) void this.launchTutorial(tutorial, entry);
+        },
+      );
+      if (entry !== undefined) {
+        this.add.text(
+          this.scale.width / 2,
+          mainY + mainHeight / 2 + 23,
+          copy.game.tutorialTitle(entry.slot, tutorial.getLevels().length),
+          {
+            fontFamily: 'monospace',
+            fontSize: narrow ? '13px' : '15px',
+            color: '#89929d',
+          },
+        ).setOrigin(0.5);
+      }
+    } else if (action.kind === 'choose-level') {
       this.createButton(
         this.scale.width / 2,
         mainY,
@@ -168,6 +198,18 @@ export class HomeScene extends Phaser.Scene {
       );
     }
 
+    const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
+    const tutorialLink = this.add.text(16, 18, copy.common.tutorial, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '12px' : '14px',
+      color: '#89929d',
+      fontStyle: 'bold',
+    }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    tutorialLink.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!this.pointerGate.canActivate(pointer.id) || tutorialEntry === undefined) return;
+      void this.launchTutorial(tutorial, tutorialEntry);
+    });
+
     const helpLink = this.add.text(this.scale.width - 16, 18, copy.common.howToPlay, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '14px',
@@ -235,6 +277,14 @@ export class HomeScene extends Phaser.Scene {
     return service;
   }
 
+  private getTutorialService(): TutorialService {
+    const service = this.registry.get(TUTORIAL_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof TutorialService)) {
+      throw new Error('HomeScene requires TutorialService in Phaser registry.');
+    }
+    return service;
+  }
+
   private getDailyService(): DailyService {
     const service = this.registry.get(DAILY_SERVICE_REGISTRY_KEY) as unknown;
     if (!(service instanceof DailyService)) {
@@ -291,7 +341,7 @@ export class HomeScene extends Phaser.Scene {
       height,
       solved ? copy.home.dailySolved : copy.home.dailyNew,
       solved ? '#aeb4bc' : '#d0b978',
-      () => this.launchDaily(action.entry),
+      () => this.scene.start(DAILY_SCENE_KEY),
     );
 
     const streakCopy = copy.home.streakSuffix(action.currentStreak);
@@ -305,17 +355,27 @@ export class HomeScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  private launchDaily(entry: DailyEntry): void {
-    if (this.launchPending) return;
-    this.launchPending = true;
-    this.scene.start('GameScene', createDailyGameSceneData(entry));
-  }
-
   private formatTime(ms: number): string {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  private async launchTutorial(
+    service: TutorialService,
+    entry: TutorialLevelEntry,
+  ): Promise<void> {
+    if (this.launchPending || !service.canPlayLevel(entry.id)) return;
+    this.launchPending = true;
+
+    try {
+      const started = await service.startLevel(entry.id);
+      this.scene.start('GameScene', createTutorialGameSceneData(started));
+    } catch (error) {
+      this.launchPending = false;
+      console.error(`[Dungeon Logic] Could not start ${entry.id} from Home.`, error);
+    }
   }
 
   private async launchLevel(

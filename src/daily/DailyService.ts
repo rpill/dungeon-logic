@@ -1,4 +1,5 @@
 import type { DailyEntry } from '../content/daily/types';
+import { PuzzleSessionState, isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import type { TrustedClock } from '../platform/services';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { DailyProfileState, DailyResultSummary } from '../profile/types';
@@ -44,18 +45,6 @@ function previousUtcDateKey(date: Date): string {
   return toUtcDateKey(new Date(utcMidnightMs - UTC_DAY_MS));
 }
 
-function mergeDailyResult(
-  previous: DailyResultSummary | undefined,
-  next: DailyResultSummary,
-): DailyResultSummary {
-  if (previous === undefined) return next;
-  return {
-    bestTimeMs: Math.min(previous.bestTimeMs, next.bestTimeMs),
-    minHintsUsed: Math.min(previous.minHintsUsed, next.minHintsUsed),
-    solvedWithoutHints: previous.solvedWithoutHints || next.solvedWithoutHints,
-  };
-}
-
 export interface DailyTodaySnapshot {
   readonly dateKey: string;
   readonly entry: DailyEntry | null;
@@ -66,9 +55,29 @@ export interface DailyTodaySnapshot {
   readonly result: DailyResultSummary | null;
 }
 
+export interface DailyArchiveEntry {
+  readonly dateKey: string;
+  readonly entry: DailyEntry;
+  readonly ranked: false;
+  readonly archive: true;
+  readonly solved: boolean;
+  readonly result: DailyResultSummary | null;
+}
+
+export interface DailyAttemptLaunch {
+  readonly dateKey: string;
+  readonly entry: DailyEntry;
+  readonly ranked: boolean;
+  readonly archive: boolean;
+  readonly elapsedMsAtLaunch: number;
+}
+
 export interface DailyCompletionResult {
+  readonly dailyId: string;
   readonly dateKey: string;
   readonly wasFirstSolve: boolean;
+  readonly ranked: boolean;
+  readonly archive: boolean;
   readonly currentStreak: number;
   readonly bestStreak: number;
   readonly totalSolved: number;
@@ -130,52 +139,206 @@ export class DailyService {
     };
   }
 
-  async completeToday(
-    result: DailyResultSummary,
-  ): Promise<DailyCompletionResult | null> {
+  async getArchive(): Promise<readonly DailyArchiveEntry[]> {
+    const trustedNow = await this.clock.now();
+    if (trustedNow === null) return [];
+    const todayDateKey = toUtcDateKey(trustedNow);
+    const history = this.getHistory();
+
+    return this.entries
+      .filter((entry) => entry.dateKey < todayDateKey)
+      .slice()
+      .sort((left, right) => right.dateKey.localeCompare(left.dateKey))
+      .map((entry): DailyArchiveEntry => {
+        const result = history.results[entry.dateKey] ?? null;
+        return {
+          dateKey: entry.dateKey,
+          entry,
+          ranked: false,
+          archive: true,
+          solved: result !== null,
+          result,
+        };
+      });
+  }
+
+  /**
+   * Begins or resumes today's one ranked attempt, or opens a released past
+   * Daily as archive/practice. Future entries are never launchable.
+   */
+  async beginDaily(
+    dateKey: string,
+    dailyId: string,
+  ): Promise<DailyAttemptLaunch | null> {
+    const entry = this.findEntry(dateKey, dailyId);
+    if (entry === null) return null;
+
+    const trustedNow = await this.clock.now();
+    if (trustedNow === null) return null;
+    const nowMs = trustedNow.getTime();
+    if (!Number.isFinite(nowMs)) return null;
+    const todayDateKey = toUtcDateKey(trustedNow);
+    if (dateKey > todayDateKey) return null;
+
+    const archive = dateKey < todayDateKey;
+    const history = this.getHistory();
+    const existing = history.results[dateKey];
+
+    if (archive || existing !== undefined) {
+      return {
+        dateKey,
+        entry,
+        ranked: false,
+        archive,
+        elapsedMsAtLaunch: 0,
+      };
+    }
+
+    const saved = history.activePuzzle;
+    const compatible = isCompatiblePuzzleSnapshot(
+      entry.level,
+      'daily',
+      entry.id,
+      saved ?? undefined,
+    );
+    const snapshot = compatible && saved !== null
+      ? saved
+      : PuzzleSessionState.create(entry.level, 'daily', entry.id, undefined, nowMs).snapshot();
+
+    if (!compatible) {
+      this.profileService.update((profile) => ({
+        ...profile,
+        daily: {
+          ...profile.daily,
+          activePuzzle: snapshot,
+        },
+      }));
+      await this.tryFlush();
+    }
+
+    return {
+      dateKey,
+      entry,
+      ranked: true,
+      archive: false,
+      elapsedMsAtLaunch: Math.max(0, nowMs - snapshot.startedAtMs),
+    };
+  }
+
+  async completeToday(elapsedMs?: number, hintsUsed = 0): Promise<DailyCompletionResult | null> {
     const trustedNow = await this.clock.now();
     if (trustedNow === null) return null;
     const entry = findDailyForDate(this.entries, trustedNow);
     if (entry === null) return null;
-    return this.completeDaily(entry.dateKey, entry.id, result);
+    return this.completeDailyAt(entry.dateKey, entry.id, trustedNow, elapsedMs, hintsUsed);
   }
 
   async completeDaily(
     dateKey: string,
     dailyId: string,
-    result: DailyResultSummary,
+    elapsedMs?: number,
+    hintsUsed = 0,
   ): Promise<DailyCompletionResult | null> {
-    const entry = this.entries.find(
-      (candidate) => candidate.dateKey === dateKey && candidate.id === dailyId,
-    );
-    if (entry === undefined) return null;
+    const trustedNow = await this.clock.now();
+    if (trustedNow === null) return null;
+    return this.completeDailyAt(dateKey, dailyId, trustedNow, elapsedMs, hintsUsed);
+  }
 
+  private async completeDailyAt(
+    dateKey: string,
+    dailyId: string,
+    trustedNow: Date,
+    elapsedMs?: number,
+    hintsUsed = 0,
+  ): Promise<DailyCompletionResult | null> {
+    const entry = this.findEntry(dateKey, dailyId);
+    if (entry === null) return null;
+
+    const trustedDateKey = toUtcDateKey(trustedNow);
+    if (dateKey > trustedDateKey) return null;
+    const onTime = dateKey === trustedDateKey;
+    const archive = !onTime;
+
+    const historyBefore = this.getHistory();
+    const existing = historyBefore.results[dateKey];
+    if (existing !== undefined) {
+      return {
+        dailyId,
+        dateKey,
+        wasFirstSolve: false,
+        ranked: false,
+        archive,
+        currentStreak: historyBefore.currentStreak,
+        bestStreak: historyBefore.bestStreak,
+        totalSolved: historyBefore.totalSolved,
+        result: existing,
+        persisted: true,
+      };
+    }
+
+    const finishedAtMs = trustedNow.getTime();
+    if (!Number.isFinite(finishedAtMs)) return null;
+
+    const active = historyBefore.activePuzzle;
+    const compatibleRankedSnapshot = isCompatiblePuzzleSnapshot(
+      entry.level,
+      'daily',
+      entry.id,
+      active ?? undefined,
+    );
+
+    let completionTimeMs: number;
+    if (compatibleRankedSnapshot && active !== null) {
+      completionTimeMs = Math.max(0, finishedAtMs - active.startedAtMs);
+    } else if (archive && Number.isFinite(elapsedMs) && (elapsedMs ?? -1) >= 0) {
+      completionTimeMs = Math.max(0, Math.floor(elapsedMs ?? 0));
+    } else {
+      return null;
+    }
+
+    const onTimeAttempt = onTime && compatibleRankedSnapshot;
+    const safeHintsUsed = Math.max(0, Number.isInteger(hintsUsed) ? hintsUsed : 0);
+    const ranked = onTimeAttempt && safeHintsUsed === 0;
+    const result: DailyResultSummary = {
+      bestTimeMs: completionTimeMs,
+      minHintsUsed: safeHintsUsed,
+      solvedWithoutHints: safeHintsUsed === 0,
+    };
     const launchedDate = new Date(`${dateKey}T00:00:00.000Z`);
     const previousDateKey = previousUtcDateKey(launchedDate);
-    const wasFirstSolve = !this.getHistory().solvedDates.includes(dateKey);
+
     this.profileService.update((profile) => {
-      const currentStreak = wasFirstSolve
-        ? (profile.daily.lastSolvedDate === previousDateKey
-          ? profile.daily.currentStreak + 1
-          : 1)
-        : profile.daily.currentStreak;
-      const mergedResult = mergeDailyResult(profile.daily.results[dateKey], result);
+      if (profile.daily.results[dateKey] !== undefined) return profile;
+
+      const nextDaily = {
+        ...profile.daily,
+        activePuzzle: compatibleRankedSnapshot ? null : profile.daily.activePuzzle,
+        totalSolved: profile.daily.totalSolved + 1,
+        solvedDates: [...profile.daily.solvedDates, dateKey],
+        results: {
+          ...profile.daily.results,
+          [dateKey]: result,
+        },
+      };
+
+      if (!onTimeAttempt) {
+        return {
+          ...profile,
+          daily: nextDaily,
+        };
+      }
+
+      const currentStreak = profile.daily.lastSolvedDate === previousDateKey
+        ? profile.daily.currentStreak + 1
+        : 1;
 
       return {
         ...profile,
         daily: {
-          ...profile.daily,
+          ...nextDaily,
           currentStreak,
           bestStreak: Math.max(profile.daily.bestStreak, currentStreak),
-          lastSolvedDate: wasFirstSolve ? dateKey : profile.daily.lastSolvedDate,
-          totalSolved: profile.daily.totalSolved + (wasFirstSolve ? 1 : 0),
-          solvedDates: wasFirstSolve
-            ? [...profile.daily.solvedDates, dateKey]
-            : profile.daily.solvedDates,
-          results: {
-            ...profile.daily.results,
-            [dateKey]: mergedResult,
-          },
+          lastSolvedDate: dateKey,
         },
       };
     });
@@ -183,8 +346,11 @@ export class DailyService {
     const persisted = await this.tryFlush();
     const daily = this.getHistory();
     return {
+      dailyId,
       dateKey,
-      wasFirstSolve,
+      wasFirstSolve: true,
+      ranked,
+      archive,
       currentStreak: daily.currentStreak,
       bestStreak: daily.bestStreak,
       totalSolved: daily.totalSolved,
@@ -193,12 +359,18 @@ export class DailyService {
     };
   }
 
+  private findEntry(dateKey: string, dailyId: string): DailyEntry | null {
+    return this.entries.find(
+      (candidate) => candidate.dateKey === dateKey && candidate.id === dailyId,
+    ) ?? null;
+  }
+
   private async tryFlush(): Promise<boolean> {
     try {
       await this.profileService.flush();
       return true;
     } catch (error) {
-      console.warn('[Dungeon Logic] Could not persist player profile after Daily completion; keeping dirty in-memory state.', error);
+      console.warn('[Dungeon Logic] Could not persist player profile after Daily update; keeping dirty in-memory state.', error);
       return false;
     }
   }

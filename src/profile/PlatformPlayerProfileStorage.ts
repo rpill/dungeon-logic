@@ -1,6 +1,6 @@
 import type { PlayerStorage } from '../platform/services';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV1 } from './types';
+import type { PlayerProfileV2 } from './types';
 
 export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
   private readonly platformStorage: PlayerStorage;
@@ -35,7 +35,7 @@ export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
     return localValue;
   }
 
-  async save(profile: PlayerProfileV1): Promise<void> {
+  async save(profile: PlayerProfileV2): Promise<void> {
     await this.platformStorage.save(profile);
   }
 

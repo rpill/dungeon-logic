@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { getUiCopy } from '../i18n/UiCopy';
 
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
-import { createCampaignGameSceneData, createLevelSelectItems } from '../runtime/GameLaunch';
+import { createCampaignGameSceneData, createLevelSelectItems, createTutorialGameSceneData } from '../runtime/GameLaunch';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
   clampMetaScrollY,
@@ -12,10 +12,12 @@ import {
 } from '../runtime/MetaScroll';
 import { calculateLevelSelectLayout } from '../runtime/ResponsiveLayout';
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import type { TutorialLevelEntry } from '../content/tutorial/types';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 
 
 const STATE_COLOR = {
@@ -55,9 +57,11 @@ export class LevelSelectScene extends Phaser.Scene {
     this.cameras.main.setScroll(0, 0);
 
     const service = this.getCampaignService();
-    const copy = getUiCopy(this.getProfileService().getProfile().settings.language);
+    const tutorial = this.getTutorialService();
+    const profile = this.getProfileService().getProfile();
+    const copy = getUiCopy(profile.settings.language);
     const progress = service.getProgress();
-    const items = createLevelSelectItems(service.getLevels(), progress);
+    const items = createLevelSelectItems(service.getLevels(), progress, profile.tutorial.completed);
     const layout = calculateLevelSelectLayout(
       this.scale.width,
       this.scale.height,
@@ -82,18 +86,36 @@ export class LevelSelectScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
 
-    const continueLevel = service.getContinueLevel();
-    if (continueLevel !== null) {
-      this.createActionButton(
-        this.scale.width / 2,
-        layout.continueY,
-        layout.continueWidth,
-        layout.continueHeight,
-        layout.continueFontSize,
-        copy.levelSelect.continueLevel(continueLevel.slot),
-        '#f0d28a',
-        () => { void this.launchLevel(service, continueLevel); },
-      );
+    if (!profile.tutorial.completed) {
+      const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
+      if (tutorialEntry !== undefined) {
+        this.createActionButton(
+          this.scale.width / 2,
+          layout.continueY,
+          layout.continueWidth,
+          layout.continueHeight,
+          layout.continueFontSize,
+          profile.tutorial.completedLevelIds.length > 0
+            ? copy.home.tutorialContinue
+            : copy.home.tutorialStart,
+          '#f0d28a',
+          () => { void this.launchTutorial(tutorial, tutorialEntry); },
+        );
+      }
+    } else {
+      const continueLevel = service.getContinueLevel();
+      if (continueLevel !== null) {
+        this.createActionButton(
+          this.scale.width / 2,
+          layout.continueY,
+          layout.continueWidth,
+          layout.continueHeight,
+          layout.continueFontSize,
+          copy.levelSelect.continueLevel(continueLevel.slot),
+          '#f0d28a',
+          () => { void this.launchLevel(service, continueLevel); },
+        );
+      }
     }
 
     items.forEach((item, index) => {
@@ -276,12 +298,33 @@ export class LevelSelectScene extends Phaser.Scene {
     return service;
   }
 
+  private getTutorialService(): TutorialService {
+    const service = this.registry.get(TUTORIAL_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof TutorialService)) {
+      throw new Error('LevelSelectScene requires TutorialService in Phaser registry.');
+    }
+    return service;
+  }
+
   private getCampaignService(): CampaignService {
     const service = this.registry.get(CAMPAIGN_SERVICE_REGISTRY_KEY) as unknown;
     if (!(service instanceof CampaignService)) {
       throw new Error('LevelSelectScene requires CampaignService in Phaser registry.');
     }
     return service;
+  }
+
+  private async launchTutorial(service: TutorialService, entry: TutorialLevelEntry): Promise<void> {
+    if (this.launchPending || !service.canPlayLevel(entry.id)) return;
+    this.launchPending = true;
+
+    try {
+      const startedEntry = await service.startLevel(entry.id);
+      this.scene.start('GameScene', createTutorialGameSceneData(startedEntry));
+    } catch (error) {
+      this.launchPending = false;
+      console.error(`[Dungeon Logic] Could not start ${entry.id}.`, error);
+    }
   }
 
   private async launchLevel(service: CampaignService, entry: CampaignLevelEntry): Promise<void> {

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { CampaignService } from '../campaign/CampaignService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import { TUTORIAL_MANIFEST } from '../content/tutorial/manifest';
 import {
   INTERSTITIAL_COMPLETION_INTERVAL,
   INTERSTITIAL_COOLDOWN_MS,
@@ -115,7 +116,17 @@ const TEST_MANIFEST = Array.from({ length: 8 }, (_, index) => entry(index + 1));
 async function createProfileService(
   storage: PlayerProfileStorage = new FakeProfileStorage(),
 ): Promise<PlayerProfileService> {
-  return PlayerProfileService.create(TEST_MANIFEST, storage, { saveDelayMs: 60_000 });
+  const service = await PlayerProfileService.create(TEST_MANIFEST, storage, { saveDelayMs: 60_000 });
+  service.update((profile) => ({
+    ...profile,
+    tutorial: {
+      ...profile.tutorial,
+      completedLevelIds: TUTORIAL_MANIFEST.map((entry) => entry.id),
+      completed: true,
+      activePuzzle: null,
+    },
+  }));
+  return service;
 }
 
 class HangingProfileStorage implements PlayerProfileStorage {
@@ -320,16 +331,18 @@ async function main(): Promise<void> {
     adCallOccurrences.length === 1,
     'GameScene has exactly one forced interstitial call path.',
   );
-  const nextLabelIndex = gameSceneSource.indexOf('label: copy.game.next');
-  const adCallIndex = gameSceneSource.indexOf('maybeShowCampaignInterstitial', nextLabelIndex);
-  const pauseBeforeAdIndex = gameSceneSource.lastIndexOf('pauseActiveTimer()', adCallIndex);
+  const continueCampaignIndex = gameSceneSource.indexOf('const continueCampaign = (): void =>');
+  const pauseBeforeAdIndex = gameSceneSource.indexOf('pauseActiveTimer()', continueCampaignIndex);
+  const adCallIndex = gameSceneSource.indexOf('maybeShowCampaignInterstitial', pauseBeforeAdIndex);
   const startNextIndex = gameSceneSource.indexOf('await this.startNextLevel', adCallIndex);
+  const nextActionIndex = gameSceneSource.indexOf('action: continueCampaign', startNextIndex);
   assert(
-    nextLabelIndex >= 0
-      && pauseBeforeAdIndex > nextLabelIndex
+    continueCampaignIndex >= 0
+      && pauseBeforeAdIndex > continueCampaignIndex
       && adCallIndex > pauseBeforeAdIndex
-      && startNextIndex > adCallIndex,
-    'Campaign Next pauses active time, awaits the interstitial opportunity, then starts the next level.',
+      && startNextIndex > adCallIndex
+      && nextActionIndex > startNextIndex,
+    'Campaign Next uses the shared transition that pauses active time, awaits the interstitial opportunity, then starts the next level.',
   );
 
   const rewardedCallOccurrences = gameSceneSource.match(/requestRewardedHint/g) ?? [];

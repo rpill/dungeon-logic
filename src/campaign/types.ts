@@ -5,6 +5,7 @@ import type {
 } from '../content/campaign/types';
 import type { CampaignLevelResult } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
+import type { TutorialLevelId } from '../content/tutorial/types';
 
 /** Legacy v1 save shape. Kept only so PlayerProfile migration can recognize it. */
 export interface CampaignProgressV1 {
@@ -22,10 +23,13 @@ export interface CampaignProgressSnapshot {
 
 export type CampaignLevelState = 'completed' | 'current' | 'unlocked' | 'locked';
 
+export type FeatureUnlockId = 'daily' | 'statistics';
+
 export interface CampaignCompletionResult {
   readonly progress: CampaignProgressSnapshot;
   readonly recommendedNextLevel: CampaignLevelEntry | null;
   readonly unlockedManuscript: ManuscriptDefinition | null;
+  readonly unlockedFeatures: readonly FeatureUnlockId[];
   readonly persisted: boolean;
 }
 
@@ -33,7 +37,8 @@ export type CampaignCompletionMetadata = CampaignLevelResult;
 
 export type GameLaunchContext =
   | { readonly mode: 'campaign'; readonly campaignLevelId: string }
-  | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string }
+  | { readonly mode: 'tutorial'; readonly tutorialLevelId: TutorialLevelId }
+  | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string; readonly ranked: boolean; readonly archive: boolean; readonly elapsedMsAtLaunch: number }
   | { readonly mode: 'dev' };
 
 export interface GameSceneData {

@@ -1,12 +1,13 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { SupportedLanguage } from '../i18n/Language';
+import { calculateHintRecharge, MAX_FREE_HINTS, type HintRechargeStatus } from '../gameplay/HintEconomy';
 import {
   createFreshPlayerProfile,
   migrateLegacyCampaignProgress,
   normalizePlayerProfile,
 } from './PlayerProfile';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV1 } from './types';
+import type { PlayerProfileV2 } from './types';
 
 export const PLAYER_PROFILE_SERVICE_REGISTRY_KEY = 'player-profile-service';
 
@@ -21,7 +22,7 @@ export class PlayerProfileService {
   private readonly saveDelayMs: number;
   private readonly defaultLanguage: SupportedLanguage;
 
-  private profile: PlayerProfileV1;
+  private profile: PlayerProfileV2;
   private dirty = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private flushPromise: Promise<void> | null = null;
@@ -29,7 +30,7 @@ export class PlayerProfileService {
   private constructor(
     manifest: readonly CampaignLevelEntry[],
     storage: PlayerProfileStorage,
-    profile: PlayerProfileV1,
+    profile: PlayerProfileV2,
     saveDelayMs: number,
     defaultLanguage: SupportedLanguage,
   ) {
@@ -92,13 +93,13 @@ export class PlayerProfileService {
     return service;
   }
 
-  getProfile(): PlayerProfileV1 {
+  getProfile(): PlayerProfileV2 {
     return this.profile;
   }
 
   update(
-    mutator: (profile: PlayerProfileV1) => PlayerProfileV1,
-  ): PlayerProfileV1 {
+    mutator: (profile: PlayerProfileV2) => PlayerProfileV2,
+  ): PlayerProfileV2 {
     const safeCurrent = normalizePlayerProfile(this.profile, this.manifest, this.defaultLanguage);
     const candidate = mutator(safeCurrent);
     this.profile = normalizePlayerProfile(candidate, this.manifest, this.defaultLanguage);
@@ -107,17 +108,45 @@ export class PlayerProfileService {
     return this.profile;
   }
 
-  getFreeHintsRemaining(): number {
-    return this.profile.hints.freeRemaining;
+  getHintRechargeStatus(nowMs = Date.now()): HintRechargeStatus {
+    const current = calculateHintRecharge({
+      freeRemaining: this.profile.hints.freeRemaining,
+      rechargeAnchorMs: this.profile.hints.rechargeAnchorMs ?? null,
+    }, nowMs);
+    if (
+      current.freeRemaining !== this.profile.hints.freeRemaining
+      || current.rechargeAnchorMs !== (this.profile.hints.rechargeAnchorMs ?? null)
+    ) {
+      this.update((profile) => ({
+        ...profile,
+        hints: {
+          ...profile.hints,
+          freeRemaining: current.freeRemaining,
+          rechargeAnchorMs: current.rechargeAnchorMs,
+        },
+      }));
+    }
+    return current;
   }
 
-  consumeFreeHint(): boolean {
-    if (this.profile.hints.freeRemaining <= 0) return false;
+  getFreeHintsRemaining(nowMs = Date.now()): number {
+    return this.getHintRechargeStatus(nowMs).freeRemaining;
+  }
+
+  consumeFreeHint(nowMs = Date.now()): boolean {
+    const status = this.getHintRechargeStatus(nowMs);
+    if (status.freeRemaining <= 0) return false;
+    const nextRemaining = status.freeRemaining - 1;
+    const nextAnchor = nextRemaining < MAX_FREE_HINTS
+      ? (status.rechargeAnchorMs ?? Math.max(0, Math.floor(nowMs)))
+      : null;
 
     this.update((profile) => ({
       ...profile,
       hints: {
-        freeRemaining: Math.max(0, profile.hints.freeRemaining - 1),
+        ...profile.hints,
+        freeRemaining: nextRemaining,
+        rechargeAnchorMs: nextAnchor,
         totalUsed: profile.hints.totalUsed + 1,
       },
     }));
@@ -180,7 +209,7 @@ export class PlayerProfileService {
     }));
   }
 
-  replaceProfileForPlatformMerge(profile: PlayerProfileV1): PlayerProfileV1 {
+  replaceProfileForPlatformMerge(profile: PlayerProfileV2): PlayerProfileV2 {
     this.profile = normalizePlayerProfile(profile, this.manifest, this.defaultLanguage);
     this.dirty = true;
     this.scheduleSave();

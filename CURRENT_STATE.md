@@ -32,6 +32,75 @@
 
 ---
 
+## Ranked Daily leaderboard + archive — Task 35
+
+Daily теперь имеет один зачётный результат на дату:
+
+- первое успешное прохождение Daily фиксирует результат навсегда;
+- выход из уровня и повторный вход продолжают тот же ranked-attempt с исходным trusted start timestamp;
+- Reset очищает отметки на поле, но не перезапускает ranked timer;
+- в сегодняшнем ranked Daily Hint заблокирован первые 5 минут; после этого бесплатная или rewarded-подсказка разрешена, но переводит прохождение вне рейтинга; Undo остаётся доступным;
+- после фиксации результата основной Daily-entry ведёт в таблицу лидеров, а не предлагает улучшать время перепрохождением;
+- результат для рейтинга считается по trusted Yandex `serverTime`, поэтому пауза/Settings/выход из сцены не останавливают зачётное время;
+- используется один постоянный Yandex leaderboard `daily`; score кодирует UTC-день + первое время, sort — numeric DESC; новые Daily не требуют новых таблиц;
+- авторизация не вызывается автоматически: guest может играть, а вход для публикации результата предлагается отдельной кнопкой в leaderboard scene;
+- старые уже вышедшие Daily доступны из отдельного Daily archive и проходятся вне рейтинга; первое архивное время сохраняется, но streak не меняется;
+- будущие Daily до своей trusted UTC даты из архива не запускаются;
+- после первого прохождения `campaign-005` игроку явно сообщается, что открылись Daily и Statistics, и сразу показываются кнопки перехода в оба раздела или продолжения Campaign;
+- повторное прохождение `campaign-005` не показывает unlock повторно.
+
+Release setup описан в `docs/release/daily-leaderboards-v1.md`.
+
+Regression gates: `sanity:daily`, `sanity:daily-leaderboard`, `sanity:daily-archive-scene`, `sanity:daily-leaderboard-scene`, `sanity:feature-unlock`, `sanity:platform`, `sanity:game-regressions`.
+
+---
+
+## Dedicated Tutorial chapter — Task 31
+
+Обучение больше не встроено в первые уровни Campaign.
+
+- отдельный Tutorial содержит `tutorial-001`–`tutorial-004`;
+- Campaign остаётся отдельной последовательностью `campaign-001`–`campaign-030` без tutorial-overlay;
+- свежий профиль сначала проходит Tutorial, после чего открывается Campaign;
+- существующий профиль с реальной Campaign-активностью мигрирует как уже прошедший Tutorial и не отбрасывается назад;
+- Tutorial после прохождения остаётся доступен для перепрохождения;
+- четыре tutorial-пазла специально уменьшены и последовательно обучают clues, монстрам/тупикам, связности + правилу открытого `2×2`, затем Treasure Room;
+- Tutorial учит реальному порядку дедукции: `tutorial-001` начинается с clue `0` и просит отметить гарантированный `FLOOR`, затем переходит к стенам; в monster tutorial единственный оставшийся выход монстра также явно отмечается как `FLOOR`; `FLOOR` остаётся необязательной пометкой для победы;
+- уровень завершается сразу, когда обычный `LevelValidator` сообщает solved — Tutorial не требует размечать весь оставшийся пол;
+- `focusCells` не рисуют поверх поля дополнительный цвет/контур; красный зарезервирован для реального conflict/error feedback;
+- tutorial-текст больше не существует отдельными message-step: каждая плашка привязана к конкретному действию на поле;
+- выполнил требуемые FLOOR/WALL клетки — обучение сразу автоматически переключает текст на следующий шаг; отдельного клика по плашке для продвижения нет;
+- после `tutorial-004` показывается функциональное состояние `ОБУЧЕНИЕ ПРОЙДЕНО` / `TUTORIAL COMPLETE` с переходом к Campaign Chapter I.
+
+Профиль имеет schema v2 и отдельное tutorial-состояние (`completedLevelIds`, `completed`, `activePuzzle`). Активная tutorial-партия сохраняется отдельно от Campaign/Daily через mode `tutorial`.
+
+Regression gates: `sanity:tutorial`, `sanity:onboarding`, `sanity:game-regressions`, `sanity:profile`, `sanity:puzzle-session`, `sanity:campaign-runtime`.
+
+## Tutorial action-driven copy — Task 39
+
+- standalone tutorial `message` steps удалены из runtime-модели;
+- первый экран Tutorial 1 сразу является действием `0 → FLOOR`, а не отдельной плашкой, которую надо закрывать;
+- после выполнения всех клеток текущего guided action `handleEditCommitted()` вызывает `advanceOnboarding()`, поэтому текст меняется автоматически;
+- Tutorial 2–4 также начинают сразу с практического действия; вводные правила встроены в microcopy этого действия;
+- ручной `pointerup` по onboarding panel больше не участвует в progression;
+- regression gate требует, чтобы все tutorial-flow steps были `board-cells` и не могли вернуть click-to-continue шаг.
+
+---
+
+## Tutorial / Daily UX + Hint economy — Task 37
+
+- `tutorial-001` уменьшен до 3×3 и сначала учит дедукции из `0`: игрок отмечает гарантированный пол и только потом ставит первую стену;
+- tutorial microcopy сокращён: один шаг = одна короткая мысль, без длинных обучающих абзацев;
+- monster tutorial после постановки вынужденных стен явно показывает единственный допустимый выход монстра как `FLOOR`;
+- Daily hub разводит заголовок `СЕГОДНЯ` и карточку сегодняшнего задания по отдельным вертикальным зонам, без наложения;
+- completion/unlock после `campaign-005` якорит текст выше ряда кнопок Daily / Statistics / Next, поэтому длинная локализация не заезжает под actions;
+- бесплатные Hint имеют ёмкость `3`, восстанавливаются по `+1` каждые `30 минут` реального времени до cap `3`; rewarded Hint остаётся способом получить помощь сразу;
+- сегодняшняя рейтинговая Daily блокирует Hint первые `5 минут`; после разблокировки использование любой Hint сохраняет completion/streak, но результат не отправляется в leaderboard;
+- архивные Daily используют обычную Hint-экономику сразу и всё равно остаются вне рейтинга;
+- `LeaderboardScene` дополнительно проверяет `minHintsUsed === 0`, поэтому assisted-result нельзя отправить в Yandex leaderboard даже после поздней авторизации.
+
+---
+
 ## Puzzle model
 
 Реализован `PuzzleState`.

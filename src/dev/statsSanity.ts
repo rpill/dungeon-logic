@@ -1,5 +1,5 @@
 import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import { getStatsViewModel } from '../runtime/StatsSelectors';
 import { calculateStatsLayout } from '../runtime/StatsLayout';
 
@@ -12,8 +12,13 @@ function campaignId(slot: number): string {
 }
 
 const completedLevelIds = Array.from({ length: 15 }, (_, index) => campaignId(index + 1));
-const profile: PlayerProfileV1 = {
-  schemaVersion: 1,
+const profile: PlayerProfileV2 = {
+  schemaVersion: 2,
+  tutorial: {
+    completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004'],
+    completed: true,
+    activePuzzle: null,
+  },
   campaign: {
     completedLevelIds,
     lastPlayedLevelId: 'campaign-016',
@@ -25,6 +30,7 @@ const profile: PlayerProfileV1 = {
     activePuzzle: null,
   },
   daily: {
+    activePuzzle: null,
     currentStreak: 4,
     bestStreak: 7,
     lastSolvedDate: '2026-09-08',

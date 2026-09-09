@@ -1,10 +1,30 @@
 dungeon-logic/
+├── .generated/
+│   ├── candidates-123456.json
+│   ├── difficulty-corpus-targeted.json
+│   ├── difficulty-corpus-targeted.md
+│   ├── difficulty-corpus.json
+│   ├── difficulty-corpus.md
+│   ├── difficulty-treasure-room-consensus-diagnostic.json
+│   ├── difficulty-treasure-room-consensus-diagnostic.md
+│   ├── difficulty-treasure-room-consensus-what-if.json
+│   ├── difficulty-treasure-room-consensus-what-if.md
+│   ├── difficulty-treasure-room-hypothesis-consequence-what-if.json
+│   ├── difficulty-treasure-room-hypothesis-consequence-what-if.md
+│   ├── difficulty-unrated-diagnostic.json
+│   ├── difficulty-unrated-diagnostic.md
+│   ├── human-analysis-123456.json
+│   ├── human-analysis-123456.md
+│   ├── human-analysis-authored.json
+│   ├── human-analysis-authored.md
+│   └── shortlist-123456.md
 ├── docs/
 │   ├── content/
 │   │   └── campaign-v1-curation-report.md
 │   ├── release/
 │   │   ├── daily-calendar-v1.md
 │   │   ├── daily-corpus-v1.md
+│   │   ├── daily-leaderboards-v1.md
 │   │   └── yandex-release-acceptance-v1.md
 │   └── superpowers/
 │       ├── plans/
@@ -25,8 +45,12 @@ dungeon-logic/
 │       │   ├── 2026-09-08-dungeon-logic-v1-roadmap.md
 │       │   ├── 2026-09-08-dungeon-logic-wireframe-puzzle-input.md
 │       │   ├── 2026-09-08-release-content-curation-foundation.md
+│       │   ├── 2026-09-09-daily-leaderboard-unlocks.md
 │       │   ├── 2026-09-09-release-acceptance.md
 │       │   ├── 2026-09-09-ru-en-localization.md
+│       │   ├── 2026-09-09-single-daily-leaderboard-archive.md
+│       │   ├── 2026-09-09-task30-onboarding-polish.md
+│       │   ├── 2026-09-09-tutorial-chapter.md
 │       │   └── 2026-09-09-yandex-moderation-lifecycle-foundation.md
 │       ├── reports/
 │       │   ├── 2026-09-03-human-solvability-baseline.md
@@ -45,8 +69,11 @@ dungeon-logic/
 │           ├── 2026-09-07-campaign-v1-design.md
 │           ├── 2026-09-08-dungeon-logic-v1-product-ui-design.md
 │           ├── 2026-09-08-release-content-curation-foundation-design.md
+│           ├── 2026-09-09-onboarding-polish-design.md
 │           ├── 2026-09-09-release-acceptance-design.md
 │           ├── 2026-09-09-ru-en-localization-design.md
+│           ├── 2026-09-09-single-daily-leaderboard-archive-design.md
+│           ├── 2026-09-09-tutorial-chapter-design.md
 │           └── 2026-09-09-yandex-moderation-lifecycle-foundation-design.md
 ├── public/
 │   ├── assets/
@@ -68,6 +95,8 @@ dungeon-logic/
 │   └── icons.svg
 ├── scripts/
 │   ├── chatgpt-context.mjs
+│   ├── daily-archive-scene-sanity.mjs
+│   ├── daily-leaderboard-scene-sanity.mjs
 │   ├── release-acceptance-sanity.mjs
 │   ├── release-acceptance.mjs
 │   ├── release-audit-lib.mjs
@@ -190,14 +219,23 @@ dungeon-logic/
 │   │   │   ├── calendar.ts
 │   │   │   ├── manifest.ts
 │   │   │   └── types.ts
-│   │   └── release/
-│   │       ├── CampaignReleaseReservoir.ts
-│   │       ├── CampaignReleaseSelection.ts
-│   │       ├── DailyReleaseCorpus.ts
-│   │       ├── DailyReleasePolicy.ts
-│   │       ├── DailyReleaseReservoir.ts
-│   │       └── ReleaseCuration.ts
+│   │   ├── release/
+│   │   │   ├── CampaignReleaseReservoir.ts
+│   │   │   ├── CampaignReleaseSelection.ts
+│   │   │   ├── DailyReleaseCorpus.ts
+│   │   │   ├── DailyReleasePolicy.ts
+│   │   │   ├── DailyReleaseReservoir.ts
+│   │   │   └── ReleaseCuration.ts
+│   │   └── tutorial/
+│   │       ├── levels/
+│   │       │   ├── tutorial001.ts
+│   │       │   ├── tutorial002.ts
+│   │       │   ├── tutorial003.ts
+│   │       │   └── tutorial004.ts
+│   │       ├── manifest.ts
+│   │       └── types.ts
 │   ├── daily/
+│   │   ├── DailyLeaderboard.ts
 │   │   ├── DailySelector.ts
 │   │   └── DailyService.ts
 │   ├── data/
@@ -231,11 +269,13 @@ dungeon-logic/
 │   │   ├── campaignUnlockSanity.ts
 │   │   ├── dailyCalendarSanity.ts
 │   │   ├── dailyCorpusSanity.ts
+│   │   ├── dailyLeaderboardSanity.ts
 │   │   ├── dailySanity.ts
 │   │   ├── DifficultyCorpusAnalyzer.ts
 │   │   ├── DifficultyCorpusOutput.ts
 │   │   ├── difficultyCorpusSanity.ts
 │   │   ├── difficultySanity.ts
+│   │   ├── featureUnlockSanity.ts
 │   │   ├── gameBoardLayoutSanity.ts
 │   │   ├── gameRegressionSanity.ts
 │   │   ├── generateCandidates.ts
@@ -272,6 +312,7 @@ dungeon-logic/
 │   │   ├── statsSanity.ts
 │   │   ├── TargetedDifficultyCorpusAnalyzer.ts
 │   │   ├── treasureRoomPruningSanity.ts
+│   │   ├── tutorialSanity.ts
 │   │   ├── validatorSanity.ts
 │   │   └── wireframeUiSanity.ts
 │   ├── gameplay/
@@ -345,16 +386,20 @@ dungeon-logic/
 │   ├── scenes/
 │   │   ├── ArchiveScene.ts
 │   │   ├── BootScene.ts
+│   │   ├── DailyScene.ts
 │   │   ├── GameBoardLayout.ts
 │   │   ├── GameScene.ts
 │   │   ├── HelpScene.ts
 │   │   ├── HomeScene.ts
+│   │   ├── LeaderboardScene.ts
 │   │   ├── LevelSelectScene.ts
 │   │   ├── SettingsScene.ts
 │   │   └── StatsScene.ts
 │   ├── settings/
 │   │   ├── SettingsService.ts
 │   │   └── SettingsViewModel.ts
+│   ├── tutorial/
+│   │   └── TutorialService.ts
 │   ├── view/
 │   │   ├── BoardThemeAssets.ts
 │   │   ├── BoardTileResolver.ts
@@ -363,7 +408,6 @@ dungeon-logic/
 │   └── style.css
 ├── .gitignore
 ├── CURRENT_STATE.md
-├── dungeon-logic.zip
 ├── index.html
 ├── package-lock.json
 ├── package.json

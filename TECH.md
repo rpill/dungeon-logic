@@ -1,5 +1,36 @@
 # Dungeon Logic — Technical Specification
 
+
+## Ranked Daily / leaderboard boundary
+
+- `DailyService` owns the ranked-attempt lifecycle and immutable first successful result.
+- `daily.activePuzzle` persists the ranked puzzle snapshot and original trusted `startedAtMs`; Reset never replaces that attempt.
+- Ranked elapsed time is finalized from the platform `TrustedClock` (`ysdk.serverTime`) rather than the ordinary active-play timer.
+- `LeaderboardsPort` is part of `PlatformServices`; local implementation is unavailable/no-op, Yandex implementation wraps `ysdk.leaderboards`.
+- `DailyService.getArchive()` exposes released past manifest entries newest-first; archive completions persist first result/totalSolved but never touch streak fields or Yandex ranking.
+- Daily uses one permanent technical leaderboard `daily`; `DailyLeaderboard.ts` packs UTC day + inverted first-completion time into a safe integer and decodes/filter rows back to the requested date.
+- The Yandex leaderboard uses a numeric score sorted DESC; `DailyLeaderboard.ts` encodes the UTC day in the high-order part and inverted completion milliseconds in the low-order part.
+- `requestAuthorization()` is only invoked from an explicit player action; score submission itself never opens auth.
+- `LeaderboardScene` only submits the stored fixed Daily result when `minHintsUsed === 0`; replay/practice/assisted results are never eligible.
+
+## Tutorial runtime / profile v2
+
+- Tutorial — first-class runtime mode (`tutorial`), не fake Campaign level.
+- Stable IDs: `tutorial-001`–`tutorial-004`; Campaign IDs/slots остаются `campaign-001`–`campaign-030`.
+- `PlayerProfileV2` хранит отдельный `tutorial` state и migration из schema v1.
+- `SerializedPuzzleState.mode` поддерживает `campaign | daily | tutorial`.
+- Tutorial завершает пазл только через общий `LevelValidator`; onboarding может направлять `FLOOR`-дедукции как обучающие пометки, но solved-state по-прежнему не требует размечать весь пол.
+- Tutorial onboarding не имеет standalone `MessageOnboardingStep`: каждый текст привязан к конкретному `board-cells` действию. После выполнения нужных WALL/FLOOR клеток `GameScene` сразу продвигает flow и меняет текст; отдельный клик по плашке для продолжения отсутствует.
+
+## Hint economy / ranked Daily assistance
+
+- `HintEconomy.ts` централизует `MAX_FREE_HINTS = 3`, `FREE_HINT_RECHARGE_MS = 30 min` и `RANKED_DAILY_HINT_UNLOCK_MS = 5 min`.
+- `PlayerProfile.hints.rechargeAnchorMs` хранит anchor восстановления; `PlayerProfileService.getHintRechargeStatus()` лениво начисляет пропущенные интервалы и cap-ит запас на 3.
+- Rewarded Hint не увеличивает free pool: реклама оплачивает конкретную немедленную подсказку и увеличивает только `totalUsed`.
+- Ranked Daily до 5 минут не позволяет запросить Hint. После 5 минут Hint разрешён, но `DailyService.completeDaily()` помечает результат `ranked=false`, если `hintsUsed > 0`.
+- Assisted on-time Daily всё ещё обновляет completion/totalSolved/streak; archive Daily не обновляет streak независимо от Hint.
+- Yandex leaderboard boundary дублирует защиту: UI/adapter не публикуют локальный Daily result с `minHintsUsed > 0`.
+
 ## Stack
 
 Runtime:

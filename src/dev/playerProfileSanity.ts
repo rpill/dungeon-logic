@@ -7,7 +7,7 @@ import {
 import { LocalPlayerProfileStorage, PLAYER_PROFILE_STORAGE_KEY } from '../profile/LocalPlayerProfileStorage';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -39,9 +39,13 @@ async function main(): Promise<void> {
   const manifest = [entry(1), entry(2), entry(3), entry(4), entry(5), entry(6), entry(7)];
 
   const fresh = normalizePlayerProfile({ nonsense: true }, manifest);
-  assert(fresh.schemaVersion === 1, 'Invalid profile input falls back to schema v1.');
+  assert(fresh.schemaVersion === 2, 'Invalid profile input falls back to schema v2.');
+  assert(!fresh.tutorial.completed, 'Fresh profile requires Tutorial before Campaign.');
+  assert(fresh.tutorial.completedLevelIds.length === 0, 'Fresh Tutorial progress starts empty.');
+  assert(fresh.tutorial.activePuzzle === null, 'Fresh Tutorial has no active puzzle.');
   assert(fresh.hints.freeRemaining === 3, 'Fresh profile grants exactly 3 free hints.');
   assert(fresh.hints.totalUsed === 0, 'Fresh profile starts with zero used hints.');
+  assert(fresh.daily.activePuzzle === null, 'Fresh profile has no active Daily ranked attempt.');
   assert(fresh.daily.currentStreak === 0 && fresh.daily.bestStreak === 0, 'Fresh profile starts with empty Daily streaks.');
   assert(fresh.ads.campaignCompletionsSinceOpportunity === 0, 'Fresh profile starts with zero ad opportunity completions.');
   assert(fresh.totals.activePlayMs === 0, 'Fresh profile starts with zero active play time.');
@@ -78,7 +82,45 @@ async function main(): Promise<void> {
     'Legacy completed IDs migrate into the unified profile.',
   );
   assert(migrated.campaign.lastPlayedLevelId === 'campaign-003', 'Legacy last-played level migrates when it is known.');
-  assert(migrated.hints.freeRemaining === 3, 'Legacy migration still receives fresh v1 meta defaults.');
+  assert(migrated.hints.freeRemaining === 3, 'Legacy migration still receives fresh meta defaults.');
+  assert(migrated.tutorial.completed, 'Legacy campaign progress migrates as Tutorial-complete.');
+
+  const untouchedV1 = normalizePlayerProfile({
+    schemaVersion: 1,
+    campaign: { completedLevelIds: [], lastPlayedLevelId: null, levelResults: {}, activePuzzle: null },
+    daily: createFreshPlayerProfile(manifest).daily,
+    settings: createFreshPlayerProfile(manifest).settings,
+    hints: createFreshPlayerProfile(manifest).hints,
+    ads: createFreshPlayerProfile(manifest).ads,
+    totals: createFreshPlayerProfile(manifest).totals,
+  }, manifest);
+  assert(!untouchedV1.tutorial.completed, 'Untouched v1 profile remains subject to Tutorial gate.');
+
+  const lastPlayedV1 = normalizePlayerProfile({
+    ...untouchedV1,
+    schemaVersion: 1,
+    tutorial: undefined,
+    campaign: { ...untouchedV1.campaign, lastPlayedLevelId: 'campaign-001' },
+  }, manifest);
+  assert(lastPlayedV1.tutorial.completed, 'Legacy non-null campaign lastPlayedLevelId marks Tutorial complete.');
+
+  const activeCampaignV1 = normalizePlayerProfile({
+    ...untouchedV1,
+    schemaVersion: 1,
+    tutorial: undefined,
+    campaign: {
+      ...untouchedV1.campaign,
+      activePuzzle: {
+        mode: 'campaign',
+        puzzleId: 'campaign-001',
+        cells: [['unknown']],
+        activePlayMs: 0,
+        hintsUsed: 0,
+        startedAtMs: 0,
+      },
+    },
+  }, manifest);
+  assert(activeCampaignV1.tutorial.completed, 'Legacy active Campaign puzzle marks Tutorial complete.');
 
   class MemoryKeyValueStorage {
     readonly values = new Map<string, string>();
@@ -101,11 +143,11 @@ async function main(): Promise<void> {
   class CountingStorage implements PlayerProfileStorage {
     raw: unknown = null;
     legacy: unknown = null;
-    saves: PlayerProfileV1[] = [];
+    saves: PlayerProfileV2[] = [];
 
     async load(): Promise<unknown | null> { return this.raw; }
     async loadLegacyCampaignProgress(): Promise<unknown | null> { return this.legacy; }
-    async save(profile: PlayerProfileV1): Promise<void> {
+    async save(profile: PlayerProfileV2): Promise<void> {
       this.raw = profile;
       this.saves.push(profile);
     }

@@ -21,7 +21,7 @@ const RU_HELP_RULES: readonly HelpRule[] = [
   {
     id: 'goal',
     title: 'ЦЕЛЬ',
-    body: 'Отметь каждую изменяемую клетку как СТЕНА или ПОЛ так, чтобы все правила подземелья выполнялись одновременно.',
+    body: 'Расставь стены так, чтобы все правила подземелья выполнялись одновременно. Известный пол можно отмечать для удобства решения, но это не требуется для завершения уровня.',
   },
   {
     id: 'clues',
@@ -55,7 +55,7 @@ const RU_HELP_RULES: readonly HelpRule[] = [
   {
     id: 'controls',
     title: 'УПРАВЛЕНИЕ',
-    body: 'На компьютере: ЛКМ ставит стены, ПКМ отмечает пол; обе кнопки можно удерживать и вести по клеткам. На телефоне выбери СТЕНА или ПОЛ и нажимай/веди пальцем. Отмена отменяет последний жест, Сброс очищает доску.',
+    body: 'На компьютере: ЛКМ ставит стены, ПКМ отмечает известный пол для удобства; обе кнопки можно удерживать и вести по клеткам. На телефоне выбери СТЕНА или ПОЛ и нажимай/веди пальцем. ПОЛ — необязательная пометка и для завершения уровня не требуется. Отмена отменяет последний жест, Сброс очищает доску.',
   },
   {
     id: 'feedback',
@@ -68,7 +68,7 @@ const EN_HELP_RULES: readonly HelpRule[] = [
   {
     id: 'goal',
     title: 'GOAL',
-    body: 'Mark every editable cell as WALL or FLOOR so all dungeon rules are satisfied at the same time.',
+    body: 'Place walls so all dungeon rules are satisfied at the same time. You may mark known floor cells as a solving aid, but floor marks are not required to finish a level.',
   },
   {
     id: 'clues',
@@ -102,7 +102,7 @@ const EN_HELP_RULES: readonly HelpRule[] = [
   {
     id: 'controls',
     title: 'CONTROLS',
-    body: 'Desktop: LMB places walls, RMB marks floor; you can hold either button and drag across cells. On touch devices, choose WALL or FLOOR and tap/drag. Undo reverts the last gesture, Reset clears the board.',
+    body: 'Desktop: LMB places walls, RMB optionally marks known floor as a solving aid; you can hold either button and drag across cells. On touch devices, choose WALL or FLOOR and tap/drag. FLOOR is optional notation and is not required to finish a level. Undo reverts the last gesture, Reset clears the board.',
   },
   {
     id: 'feedback',

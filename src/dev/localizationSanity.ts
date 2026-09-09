@@ -1,4 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
+import { TUTORIAL_MANIFEST } from '../content/tutorial/manifest';
 import { getHelpRules } from '../help/HelpRules';
 import { resolveSupportedLanguage } from '../i18n/Language';
 import { getUiCopy } from '../i18n/UiCopy';
@@ -6,7 +7,7 @@ import { createOnboardingFlow } from '../onboarding/OnboardingFlow';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import { createOnboardingMessages } from '../runtime/GameLaunch';
 import { getManuscriptViewModels } from '../runtime/MetaSelectors';
 import { createPuzzleToolbarState } from '../runtime/PuzzleUiState';
@@ -49,7 +50,7 @@ class MemoryStorage implements PlayerProfileStorage {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV1): Promise<void> {
+  async save(profile: PlayerProfileV2): Promise<void> {
     this.raw = profile;
   }
 }
@@ -101,17 +102,22 @@ async function main(): Promise<void> {
   assert(ruCopy.game.wall !== enCopy.game.wall, 'Toolbar copy differs by locale.');
   assert(ruCopy.game.levelTitle(3, 30) === 'УРОВЕНЬ 3 / 30', 'Russian Game title shows campaign level number.');
   assert(enCopy.game.levelTitle(3, 30) === 'LEVEL 3 / 30', 'English Game title shows campaign level number.');
+  assert(ruCopy.game.tutorialTitle(2, 4) === 'ОБУЧЕНИЕ 2 / 4', 'Russian Tutorial title is localized.');
+  assert(enCopy.game.tutorialTitle(2, 4) === 'TUTORIAL 2 / 4', 'English Tutorial title is localized.');
+  assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО', 'Russian Tutorial completion copy is localized.');
+  assert(enCopy.game.tutorialComplete === 'TUTORIAL COMPLETE', 'English Tutorial completion copy is localized.');
 
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');
   assert(ruRules.map((rule) => rule.id).join(',') === enRules.map((rule) => rule.id).join(','), 'Help rule IDs/order are locale invariant.');
   assert(ruRules[0]?.title === 'ЦЕЛЬ' && enRules[0]?.title === 'GOAL', 'Help titles are localized.');
 
-  const ruFlow = createOnboardingFlow('campaign-001', 'ru');
-  const enFlow = createOnboardingFlow('campaign-001', 'en');
+  assert(TUTORIAL_MANIFEST[0]?.id === 'tutorial-001', 'Localization sanity uses the stable Tutorial manifest.');
+  const ruFlow = createOnboardingFlow('tutorial-001', 'ru');
+  const enFlow = createOnboardingFlow('tutorial-001', 'en');
   assert(ruFlow.length === enFlow.length && ruFlow.length > 0, 'Onboarding step count is locale invariant.');
   assert(ruFlow[0]?.target === enFlow[0]?.target, 'Onboarding targets are locale invariant.');
-  assert(JSON.stringify(ruFlow[0]?.target === 'board-cells' ? ruFlow[0].cells : []) === JSON.stringify(enFlow[0]?.target === 'board-cells' ? enFlow[0].cells : []), 'Onboarding target cells are locale invariant.');
+  assert(JSON.stringify(ruFlow[1]?.target === 'board-cells' ? ruFlow[1].cells : []) === JSON.stringify(enFlow[1]?.target === 'board-cells' ? enFlow[1].cells : []), 'Onboarding target cells are locale invariant.');
   assert(ruFlow[0]?.message !== enFlow[0]?.message, 'Onboarding prose is localized.');
 
   const onboardingData = {

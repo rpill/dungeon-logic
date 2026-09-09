@@ -2,7 +2,7 @@ import type { CampaignLevelEntry } from '../content/campaign/types';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import type { HelpReturnSceneKey } from '../help/HelpNavigation';
 import { SETTINGS_SCENE_KEY, shouldShowSettingsEntry } from '../runtime/MetaSelectors';
 import { SettingsService, detectVibrationSupport } from '../settings/SettingsService';
@@ -36,13 +36,13 @@ function entry(slot: number): CampaignLevelEntry {
 
 class MemoryStorage implements PlayerProfileStorage {
   raw: unknown = null;
-  saves: PlayerProfileV1[] = [];
+  saves: PlayerProfileV2[] = [];
 
   async load(): Promise<unknown | null> {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV1): Promise<void> {
+  async save(profile: PlayerProfileV2): Promise<void> {
     this.raw = profile;
     this.saves.push(profile);
   }
@@ -96,6 +96,7 @@ async function main(): Promise<void> {
       },
     },
     daily: {
+      activePuzzle: null,
       currentStreak: 4,
       bestStreak: 7,
       lastSolvedDate: '2026-09-08',
@@ -124,6 +125,9 @@ async function main(): Promise<void> {
   assert(reset.campaign.lastPlayedLevelId === null, 'Reset clears last played campaign level.');
   assert(Object.keys(reset.campaign.levelResults).length === 0, 'Reset clears campaign result history.');
   assert(reset.campaign.activePuzzle === null, 'Reset clears active campaign puzzle.');
+  assert(!reset.tutorial.completed, 'Reset relocks Tutorial for a fresh progression state.');
+  assert(reset.tutorial.completedLevelIds.length === 0, 'Reset clears Tutorial completions.');
+  assert(reset.tutorial.activePuzzle === null, 'Reset clears active Tutorial puzzle.');
   assert(reset.daily.totalSolved === 0 && reset.daily.solvedDates.length === 0, 'Reset clears Daily history.');
   assert(reset.daily.currentStreak === 0 && reset.daily.bestStreak === 0, 'Reset clears Daily streaks.');
   assert(reset.hints.freeRemaining === fresh.hints.freeRemaining && reset.hints.freeRemaining === 3, 'Reset restores exactly three free hints.');

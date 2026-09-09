@@ -98,5 +98,12 @@ export function createLocalPlatformServices(
         return () => {};
       },
     },
+    leaderboards: {
+      async isAuthorized() { return false; },
+      async requestAuthorization() { return false; },
+      async submitScore() { return 'unavailable'; },
+      async getPlayerEntry() { return null; },
+      async getEntries() { return null; },
+    },
   };
 }

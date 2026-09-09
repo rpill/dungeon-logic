@@ -3,7 +3,7 @@ import { level as campaign003 } from '../content/campaign/levels/campaign003';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV1 } from '../profile/types';
+import type { PlayerProfileV2 } from '../profile/types';
 import { CellState, type LevelDefinition } from '../puzzle/types';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -70,9 +70,9 @@ assert(
 
 
 class MemoryProfileStorage implements PlayerProfileStorage {
-  saved: PlayerProfileV1 | null = null;
+  saved: PlayerProfileV2 | null = null;
   async load(): Promise<unknown | null> { return this.saved; }
-  async save(profile: PlayerProfileV1): Promise<void> { this.saved = profile; }
+  async save(profile: PlayerProfileV2): Promise<void> { this.saved = profile; }
 }
 
 const storage = new MemoryProfileStorage();

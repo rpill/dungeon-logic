@@ -8,6 +8,8 @@ import { HomeScene } from './scenes/HomeScene';
 import { ArchiveScene } from './scenes/ArchiveScene';
 import { HelpScene } from './scenes/HelpScene';
 import { StatsScene } from './scenes/StatsScene';
+import { LeaderboardScene } from './scenes/LeaderboardScene';
+import { DailyScene } from './scenes/DailyScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { getInitialViewportSize } from './runtime/ResponsiveLayout';
 
@@ -37,6 +39,8 @@ const config: Phaser.Types.Core.GameConfig = {
     HomeScene,
     ArchiveScene,
     StatsScene,
+    DailyScene,
+    LeaderboardScene,
     GameScene,
     SettingsScene,
     HelpScene,

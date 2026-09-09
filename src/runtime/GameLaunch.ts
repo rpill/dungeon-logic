@@ -1,4 +1,4 @@
-import { getCampaignLevelState, shouldShowCampaignOnboarding } from '../campaign/CampaignProgress';
+import { getCampaignLevelState } from '../campaign/CampaignProgress';
 import type { SupportedLanguage } from '../i18n/Language';
 import type {
   CampaignCompletionMetadata,
@@ -11,10 +11,9 @@ import type {
   CampaignOnboardingId,
 } from '../content/campaign/types';
 import type { DailyEntry } from '../content/daily/types';
-import type { DailyCompletionResult } from '../daily/DailyService';
+import type { TutorialLevelEntry } from '../content/tutorial/types';
+import type { DailyAttemptLaunch, DailyCompletionResult } from '../daily/DailyService';
 import type { LevelDefinition } from '../puzzle/types';
-import type { DailyResultSummary } from '../profile/types';
-import { shouldShowContextualOnboarding } from '../onboarding/OnboardingFlow';
 
 export const ONBOARDING_COPY: Readonly<Record<CampaignOnboardingId, string>> = {
   'row-column-clues': 'Numbers show how many wall cells belong in each row and column.',
@@ -50,7 +49,8 @@ export interface DailyCompletionPort {
   completeDaily(
     dateKey: string,
     dailyId: string,
-    result: DailyResultSummary,
+    elapsedMs?: number,
+    hintsUsed?: number,
   ): Promise<DailyCompletionResult | null>;
 }
 
@@ -65,13 +65,32 @@ export function createDevGameSceneData(level: LevelDefinition): GameSceneData {
   };
 }
 
-export function createDailyGameSceneData(entry: DailyEntry): GameSceneData {
+
+export function createTutorialGameSceneData(entry: TutorialLevelEntry): GameSceneData {
+  return {
+    level: entry.level,
+    context: {
+      mode: 'tutorial',
+      tutorialLevelId: entry.id,
+    },
+    onboarding: [],
+    contextualOnboarding: true,
+  };
+}
+
+export function createDailyGameSceneData(
+  entry: DailyEntry,
+  attempt?: Pick<DailyAttemptLaunch, 'ranked' | 'archive' | 'elapsedMsAtLaunch'>,
+): GameSceneData {
   return {
     level: entry.level,
     context: {
       mode: 'daily',
       dailyId: entry.id,
       dateKey: entry.dateKey,
+      ranked: attempt?.ranked ?? true,
+      archive: attempt?.archive ?? false,
+      elapsedMsAtLaunch: attempt?.elapsedMsAtLaunch ?? 0,
     },
     onboarding: [],
     contextualOnboarding: false,
@@ -81,15 +100,16 @@ export function createDailyGameSceneData(entry: DailyEntry): GameSceneData {
 export async function completeDailyGameLaunch(
   data: GameSceneData,
   daily: DailyCompletionPort,
-  result: DailyResultSummary,
+  elapsedMs?: number,
+  hintsUsed?: number,
 ): Promise<DailyCompletionResult | null> {
   if (data.context.mode !== 'daily') return null;
-  return daily.completeDaily(data.context.dateKey, data.context.dailyId, result);
+  return daily.completeDaily(data.context.dateKey, data.context.dailyId, elapsedMs, hintsUsed);
 }
 
 export function createCampaignGameSceneData(
   entry: CampaignLevelEntry,
-  progress: CampaignProgressSnapshot,
+  _progress: CampaignProgressSnapshot,
 ): GameSceneData {
   return {
     level: entry.level,
@@ -97,22 +117,20 @@ export function createCampaignGameSceneData(
       mode: 'campaign',
       campaignLevelId: entry.id,
     },
-    onboarding: shouldShowCampaignOnboarding(entry, progress)
-      ? entry.onboarding
-      : [],
-    contextualOnboarding: shouldShowContextualOnboarding(
-      entry.id,
-      progress.completedLevelIds,
-    ),
+    onboarding: [],
+    contextualOnboarding: false,
   };
 }
 
 export function createLevelSelectItems(
   entries: readonly CampaignLevelEntry[],
   progress: CampaignProgressSnapshot,
+  campaignUnlocked = true,
 ): readonly LevelSelectItem[] {
   return entries.map((entry) => {
-    const state = getCampaignLevelState(entry, progress, entries);
+    const state = campaignUnlocked
+      ? getCampaignLevelState(entry, progress, entries)
+      : 'locked';
     return {
       entry,
       state,

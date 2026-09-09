@@ -8,6 +8,11 @@ assert.equal(
   'release acceptance must expose a testable npm invocation resolver',
 );
 
+assert(
+  acceptance.RELEASE_SANITY_SCRIPTS.includes('sanity:tutorial'),
+  'release acceptance must run the dedicated Tutorial regression gate',
+);
+
 const windowsInvocation = acceptance.getNpmInvocation({
   platform: 'win32',
   execPath: 'C:\\Program Files\\nodejs\\node.exe',

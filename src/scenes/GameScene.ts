@@ -13,14 +13,16 @@ import {
   getRecentDailyHistory,
   type DailyCompletionResult,
 } from '../daily/DailyService';
+import { encodeDailyLeaderboardScore, getDailyLeaderboardName } from '../daily/DailyLeaderboard';
 import { chooseHint, requestHint, type PuzzleHint } from '../gameplay/HintService';
+import { RANKED_DAILY_HINT_UNLOCK_MS } from '../gameplay/HintEconomy';
 import { MonetizationService } from '../monetization/MonetizationService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
-import type { PlatformServices } from '../platform/services';
+import type { LeaderboardPlayerView, PlatformServices } from '../platform/services';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import {
   createOnboardingFlow,
@@ -36,11 +38,20 @@ import {
 import {
   completeDailyGameLaunch,
   completeGameLaunch,
+  createCampaignGameSceneData,
   createNextCampaignGameSceneData,
+  createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
+import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
+import {
+  TUTORIAL_SERVICE_REGISTRY_KEY,
+  TutorialService,
+  type TutorialCompletionResult,
+} from '../tutorial/TutorialService';
 import { createCompletedReviewPuzzle, resolveCampaignPlayState } from '../runtime/CampaignPlayState';
 import { calculateGameBoardLayout } from './GameBoardLayout';
+import { LEADERBOARD_SCENE_KEY } from './LeaderboardScene';
+import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import {
@@ -123,6 +134,18 @@ export class GameScene extends Phaser.Scene {
       ? launchData.context
       : null;
     const campaignService = campaignContext === null ? null : this.getCampaignService();
+    const tutorialContext = launchData.context.mode === 'tutorial'
+      ? launchData.context
+      : null;
+    const dailyContext = launchData.context.mode === 'daily'
+      ? launchData.context
+      : null;
+    const rankedDaily = dailyContext?.ranked === true;
+    const tutorialService = tutorialContext === null ? null : this.getTutorialService();
+    const tutorialEntry = tutorialContext === null
+      ? null
+      : tutorialService?.getLevels().find((entry) => entry.id === tutorialContext.tutorialLevelId) ?? null;
+    const tutorialLevelTotal = tutorialService?.getLevels().length ?? 0;
     const campaignEntry = campaignContext === null
       ? null
       : campaignService?.getLevels().find((entry) => entry.id === campaignContext.campaignLevelId) ?? null;
@@ -149,6 +172,9 @@ export class GameScene extends Phaser.Scene {
     const getTitleLabel = (): string => {
       if (campaignEntry !== null) {
         return copy.game.levelTitle(campaignEntry.slot, campaignLevelTotal);
+      }
+      if (tutorialEntry !== null) {
+        return copy.game.tutorialTitle(tutorialEntry.slot, tutorialLevelTotal);
       }
       if (launchData.context.mode === 'daily') return copy.game.dailyTitle;
       return 'Dungeon Logic';
@@ -217,13 +243,45 @@ export class GameScene extends Phaser.Scene {
       : null;
     const rewardedHintAvailable = platformServices?.kind === 'yandex'
       && monetizationService !== null;
-    const puzzleSession = campaignContext === null || profileService === null || completedReview
-      ? null
-      : PuzzleSessionService.createCampaign(
-        launchData.level,
-        profileService,
-        campaignPlayState?.mode === 'active' ? campaignPlayState.savedPuzzle : undefined,
+    const submitRankedDailyResult = async (
+      result: DailyCompletionResult,
+    ): Promise<LeaderboardPlayerView | null> => {
+      if (!result.ranked || platformServices == null) return null;
+      const leaderboardName = getDailyLeaderboardName(result.dailyId);
+      const packedScore = encodeDailyLeaderboardScore(result.dateKey, result.result.bestTimeMs);
+      const submission = await platformServices.leaderboards.submitScore(
+        leaderboardName,
+        packedScore,
+        JSON.stringify({
+          dailyId: result.dailyId,
+          dateKey: result.dateKey,
+          timeMs: Math.floor(result.result.bestTimeMs),
+        }),
       );
+      if (submission !== 'submitted') return null;
+      return platformServices.leaderboards.getPlayerEntry(leaderboardName);
+    };
+    const puzzleSession = profileService === null || completedReview
+      ? null
+      : campaignContext !== null
+        ? PuzzleSessionService.createCampaign(
+          launchData.level,
+          profileService,
+          campaignPlayState?.mode === 'active' ? campaignPlayState.savedPuzzle : undefined,
+        )
+        : tutorialContext !== null
+          ? PuzzleSessionService.createTutorial(
+            launchData.level,
+            profileService,
+            profileService.getProfile().tutorial.activePuzzle ?? undefined,
+          )
+          : rankedDaily
+            ? PuzzleSessionService.createDaily(
+              launchData.level,
+              profileService,
+              profileService.getProfile().daily.activePuzzle ?? undefined,
+            )
+            : null;
     const puzzle = completedReview
       ? createCompletedReviewPuzzle(launchData.level)
       : puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
@@ -251,8 +309,26 @@ export class GameScene extends Phaser.Scene {
     }> = [];
     const initialTimerMs = completedReview
       ? campaignPlayState?.displayTimeMs ?? 0
-      : puzzleSession?.getActivePlayMs() ?? 0;
+      : rankedDaily
+        ? dailyContext?.elapsedMsAtLaunch ?? 0
+        : puzzleSession?.getActivePlayMs() ?? 0;
     const activeTimer = new ActiveTimer(initialTimerMs);
+    const rankedDailyDisplayAnchorMs = rankedDaily ? Date.now() : 0;
+    const rankedDailyInitialElapsedMs = rankedDaily ? initialTimerMs : 0;
+    const getDisplayedElapsedMs = (nowMs = readActiveClockMs()): number => {
+      if (!rankedDaily) return activeTimer.getElapsedMs(nowMs);
+      return rankedDailyInitialElapsedMs + Math.max(0, Date.now() - rankedDailyDisplayAnchorMs);
+    };
+    const formatHintCountdown = (ms: number): string => {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    };
+    const rankedDailyHintRemainingMs = (): number => (
+      rankedDaily ? Math.max(0, RANKED_DAILY_HINT_UNLOCK_MS - getDisplayedElapsedMs()) : 0
+    );
+    const rankedDailyHintUnlocked = (): boolean => rankedDailyHintRemainingMs() <= 0;
     let syncedActivePlayMs = initialTimerMs;
     let transientHintsUsed = 0;
     let sceneOverlayPaused = false;
@@ -264,7 +340,7 @@ export class GameScene extends Phaser.Scene {
       );
 
     const updateTimerText = (nowMs = readActiveClockMs()): void => {
-      timerText.setText(formatActiveTime(activeTimer.getElapsedMs(nowMs)));
+      timerText.setText(formatActiveTime(getDisplayedElapsedMs(nowMs)));
     };
 
     const syncTimerIntoSession = (nowMs = readActiveClockMs()): void => {
@@ -348,23 +424,31 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(0.5);
 
-    const onboardingSteps = launchData.context.mode === 'campaign'
+    const onboardingSteps = launchData.context.mode === 'tutorial'
       && launchData.contextualOnboarding
-      && !completedReview
-      ? createOnboardingFlow(launchData.context.campaignLevelId, language)
+      ? createOnboardingFlow(launchData.context.tutorialLevelId, language)
       : [];
-    let onboardingIndex = onboardingSteps.length > 0 ? 0 : -1;
+    const hasSavedTutorialProgress = tutorialContext !== null && onboardingSteps.some((step) => (
+      step.cells.some(({ x, y }) => puzzle.getCellState(x, y) !== 'unknown')
+    ));
+    const firstUnsatisfiedTutorialStep = hasSavedTutorialProgress
+      ? onboardingSteps.findIndex((step) => (
+        !isOnboardingStepSatisfied(step, (x, y) => puzzle.getCellState(x, y))
+      ))
+      : -1;
+    let onboardingIndex = onboardingSteps.length === 0
+      ? -1
+      : firstUnsatisfiedTutorialStep >= 0
+        ? firstUnsatisfiedTutorialStep
+        : hasSavedTutorialProgress
+          ? onboardingSteps.length - 1
+          : 0;
     onboardingOpen = onboardingIndex >= 0;
 
     const onboardingGuides = Array.from({ length: 12 }, () => (
       this.add.rectangle(0, 0, 1, 1, 0xd0b978, 0.18)
         .setVisible(false)
         .setDepth(40)
-    ));
-    const onboardingFocusGuides = Array.from({ length: 4 }, () => (
-      this.add.rectangle(0, 0, 1, 1, 0xd54a42, 0.22)
-        .setVisible(false)
-        .setDepth(41)
     ));
     const onboardingPanel = this.add.rectangle(0, 0, 1, 1, 0x171b20, 0.96)
       .setVisible(false)
@@ -388,15 +472,12 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setVisible(false)
       .setDepth(51);
-    let onboardingAutoAdvance: Phaser.Time.TimerEvent | null = null;
-
     const currentOnboardingStep = (): OnboardingStep | null => (
       onboardingIndex >= 0 ? onboardingSteps[onboardingIndex] ?? null : null
     );
 
     const hideOnboardingGuides = (): void => {
       for (const guide of onboardingGuides) guide.setVisible(false);
-      for (const guide of onboardingFocusGuides) guide.setVisible(false);
     };
 
     const relayoutOnboarding = (): void => {
@@ -415,19 +496,14 @@ export class GameScene extends Phaser.Scene {
       const panelWidth = Math.min(this.scale.width - 24, this.scale.width < 700 ? 390 : 620);
       const panelX = this.scale.width / 2;
 
-      let action = '';
-      if (step.target === 'board-cells') {
-        const wallStep = step.expectedState === 'wall';
-        if (showTouchToolButtons) {
-          action = wallStep
-            ? copy.game.onboardingTouchWall
-            : copy.game.onboardingTouchFloor;
-        } else {
-          action = wallStep
-            ? copy.game.onboardingMouseWall
-            : copy.game.onboardingMouseFloor;
-        }
-      }
+      const wallStep = step.expectedState === 'wall';
+      const action = showTouchToolButtons
+        ? wallStep
+          ? copy.game.onboardingTouchWall
+          : copy.game.onboardingTouchFloor
+        : wallStep
+          ? copy.game.onboardingMouseWall
+          : copy.game.onboardingMouseFloor;
 
       onboardingText
         .setWordWrapWidth(Math.max(120, panelWidth - 28), true)
@@ -453,21 +529,11 @@ export class GameScene extends Phaser.Scene {
         .setPosition(panelX, panelY + panelHeight / 2 - 14)
         .setVisible(action.length > 0);
 
-      if (step.target !== 'board-cells') return;
 
       const guideSize = Math.max(1, boardLayout.cellSize - 6);
       let guideIndex = 0;
-      let focusGuideIndex = 0;
       const placeGuide = (x: number, y: number): void => {
         const guide = onboardingGuides[guideIndex++];
-        if (guide === undefined) return;
-        guide
-          .setPosition(x, y)
-          .setDisplaySize(guideSize, guideSize)
-          .setVisible(true);
-      };
-      const placeFocusGuide = (x: number, y: number): void => {
-        const guide = onboardingFocusGuides[focusGuideIndex++];
         if (guide === undefined) return;
         guide
           .setPosition(x, y)
@@ -496,12 +562,6 @@ export class GameScene extends Phaser.Scene {
         );
       }
 
-      for (const { x, y } of step.focusCells ?? []) {
-        placeFocusGuide(
-          boardLayout.originX + x * boardLayout.cellSize + boardLayout.cellSize / 2,
-          boardLayout.originY + y * boardLayout.cellSize + boardLayout.cellSize / 2,
-        );
-      }
     };
 
     const controlsLocked = (): boolean => (
@@ -515,18 +575,25 @@ export class GameScene extends Phaser.Scene {
     const onboardingAllowsTool = (tool: 'wall' | 'floor'): boolean => {
       const step = currentOnboardingStep();
       if (!onboardingOpen || step === null) return true;
-      if (step.target === 'message') return step.allowInput === true;
       return step.expectedState === tool;
     };
 
     const syncToolbar = (): void => {
+      const hintStatus = profileService?.getHintRechargeStatus(Date.now());
+      const rankedHintOpen = !rankedDaily || rankedDailyHintUnlocked();
       const state = createPuzzleToolbarState(
         interaction.getActiveTool(),
         interaction.canUndo(),
         showTouchToolButtons,
-        profileService?.getFreeHintsRemaining() ?? 0,
-        rewardedHintAvailable,
+        rankedHintOpen ? hintStatus?.freeRemaining ?? 0 : 0,
+        rankedHintOpen && rewardedHintAvailable,
         language,
+        rankedDaily && !rankedHintOpen
+          ? {
+            label: copy.game.hintLocked(formatHintCountdown(rankedDailyHintRemainingMs())),
+            disabled: true,
+          }
+          : undefined,
       );
       const step = currentOnboardingStep();
 
@@ -546,7 +613,7 @@ export class GameScene extends Phaser.Scene {
           || (buttonState.id === 'reset' && !completedReview && interaction.getEditCount() === 0)
           || (buttonState.id === 'hint' && currentHint !== null);
         const guided = onboardingOpen
-          && step?.target === 'board-cells'
+          && step !== null
           && buttonState.id === step.expectedState;
         const fill = disabled
           ? 0x191d22
@@ -604,6 +671,14 @@ export class GameScene extends Phaser.Scene {
             ? copy.game.hintWall
             : copy.game.hintFloor)
           .setColor('#d0b978')
+          .setVisible(true);
+        return;
+      }
+      const hintStatus = profileService?.getHintRechargeStatus(Date.now());
+      if (!rankedDaily && hintStatus?.freeRemaining === 0 && hintStatus.nextRefillInMs !== null) {
+        statusText
+          .setText(copy.game.hintRechargeStatus(formatHintCountdown(hintStatus.nextRefillInMs)))
+          .setColor('#89929d')
           .setVisible(true);
         return;
       }
@@ -666,7 +741,7 @@ export class GameScene extends Phaser.Scene {
 
       await requestHint({
         puzzle,
-        consumeFreeHint: () => profileService.consumeFreeHint(),
+        consumeFreeHint: () => profileService.consumeFreeHint(Date.now()),
         requestRewarded: monetizationService === null
           ? null
           : () => monetizationService.requestRewardedHint(),
@@ -725,12 +800,16 @@ export class GameScene extends Phaser.Scene {
     };
 
     const showHintConfirm = (): void => {
+      if (rankedDaily && !rankedDailyHintUnlocked()) {
+        syncToolbar();
+        return;
+      }
       if (currentHint !== null) {
         refreshStatusText();
         return;
       }
       if (controlsLocked() || profileService === null || chooseHint(puzzle) === null) return;
-      const remaining = profileService.getFreeHintsRemaining();
+      const remaining = profileService.getFreeHintsRemaining(Date.now());
       const mode: 'free' | 'rewarded' = remaining > 0 ? 'free' : 'rewarded';
       if (mode === 'rewarded' && !rewardedHintAvailable) return;
 
@@ -739,10 +818,12 @@ export class GameScene extends Phaser.Scene {
       board?.setInputEnabled(false);
       pauseActiveTimer();
       setToolbarVisible(false);
+      const basePrompt = mode === 'rewarded'
+        ? copy.game.rewardedPrompt
+        : copy.game.freeHintPrompt(remaining);
       statusText
-        .setText(mode === 'rewarded'
-          ? copy.game.rewardedPrompt
-          : copy.game.freeHintPrompt(remaining))
+        .setText(rankedDaily ? `${copy.game.dailyHintOutsideRating}
+${basePrompt}` : basePrompt)
         .setColor('#d0b978')
         .setVisible(true);
       renderHintConfirm();
@@ -758,18 +839,31 @@ export class GameScene extends Phaser.Scene {
 
     let completionActions: Array<{ readonly label: string; readonly action: () => void }> = [];
 
+    const positionCompletionStatusText = (): void => {
+      const safeBottom = readSafeArea('--safe-area-inset-bottom');
+      const buttonHeight = 48;
+      const buttonTop = this.scale.height - safeBottom - 12 - buttonHeight;
+      statusText
+        .setOrigin(0.5, 1)
+        .setPosition(this.scale.width / 2, buttonTop - 18)
+        .setWordWrapWidth(Math.max(120, this.scale.width - 32), true)
+        .setAlign('center');
+    };
+
     const renderCompletionButtons = (): void => {
       clearCompletionButtons();
       if (!completionMode || completionActions.length === 0) return;
+      positionCompletionStatusText();
 
       const safeBottom = readSafeArea('--safe-area-inset-bottom');
-      const gap = 10;
-      const maxWidth = Math.min(this.scale.width - 24, 350);
+      const count = completionActions.length;
+      const gap = count >= 3 ? 8 : 10;
+      const maxWidth = Math.min(this.scale.width - 24, count >= 3 ? 560 : 350);
       const buttonHeight = 48;
-      const buttonWidth = completionActions.length === 1
+      const buttonWidth = count === 1
         ? Math.min(190, maxWidth)
-        : Math.floor((maxWidth - gap) / 2);
-      const totalWidth = buttonWidth * completionActions.length + gap * (completionActions.length - 1);
+        : Math.floor((maxWidth - gap * (count - 1)) / count);
+      const totalWidth = buttonWidth * count + gap * (count - 1);
       const startX = (this.scale.width - totalWidth) / 2;
       const y = this.scale.height - safeBottom - 12 - buttonHeight / 2;
 
@@ -780,13 +874,22 @@ export class GameScene extends Phaser.Scene {
           .setDepth(60);
         const label = this.add.text(x, y, definition.label, {
           fontFamily: 'monospace',
-          fontSize: this.scale.width < 700 ? '14px' : '16px',
+          fontSize: count >= 3
+            ? (this.scale.width < 700 ? '12px' : '14px')
+            : (this.scale.width < 700 ? '14px' : '16px'),
           color: '#f0d28a',
           fontStyle: 'bold',
         }).setOrigin(0.5).setDepth(61);
         rectangle.on('pointerup', definition.action);
         completionButtons.push({ rectangle, label });
       });
+    };
+
+    const launchUnlockedDaily = (): void => {
+      if (completionTransitionPending) return;
+      completionTransitionPending = true;
+      pauseActiveTimer();
+      this.scene.start(DAILY_SCENE_KEY);
     };
 
     const showCompletionState = (
@@ -812,85 +915,103 @@ export class GameScene extends Phaser.Scene {
           result.unlockedManuscript.roman,
           copy.manuscripts[result.unlockedManuscript.id],
         );
+      const solvedCopy = copy.game.solvedCampaign(
+        formatActiveTime(metadata.bestTimeMs),
+        hintCopy,
+        recordCopy,
+        unlockCopy,
+      );
+      const featureUnlockCopy = result.unlockedFeatures.length > 0
+        ? `
+
+${copy.game.featuresUnlocked}`
+        : '';
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
-        .setText(copy.game.solvedCampaign(
-          formatActiveTime(metadata.bestTimeMs),
-          hintCopy,
-          recordCopy,
-          unlockCopy,
-        ))
+        .setText(`${solvedCopy}${featureUnlockCopy}`)
         .setColor('#d8d1c4')
         .setVisible(true);
 
-      completionActions = [
-        {
-          label: copy.game.archive,
-          action: () => this.scene.start(ARCHIVE_SCENE_KEY),
-        },
-      ];
-      if (result.recommendedNextLevel !== null) {
+      const continueCampaign = (): void => {
+        if (result.recommendedNextLevel === null || completionTransitionPending) return;
+        completionTransitionPending = true;
+        pauseActiveTimer();
         const service = this.getCampaignService();
-        completionActions.push({
-          label: copy.game.next,
-          action: () => {
-            if (completionTransitionPending) return;
-            completionTransitionPending = true;
-            pauseActiveTimer();
-
-            const continueCampaign = async (): Promise<void> => {
-              if (monetizationService !== null && completedCampaignSlot !== null) {
-                await monetizationService.maybeShowCampaignInterstitial(completedCampaignSlot);
-              }
-              if (createVersion !== this.createVersion) return;
-              await this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
-            };
-
-            void continueCampaign().finally(() => {
-              if (createVersion === this.createVersion) {
-                completionTransitionPending = false;
-              }
-            });
-          },
+        const transition = async (): Promise<void> => {
+          if (monetizationService !== null && completedCampaignSlot !== null) {
+            await monetizationService.maybeShowCampaignInterstitial(completedCampaignSlot);
+          }
+          if (createVersion !== this.createVersion) return;
+          await this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
+        };
+        void transition().finally(() => {
+          if (createVersion === this.createVersion) completionTransitionPending = false;
         });
+      };
+
+      if (result.unlockedFeatures.length > 0) {
+        completionActions = [
+          {
+            label: copy.game.dailyTitle,
+            action: launchUnlockedDaily,
+          },
+          {
+            label: copy.common.statistics,
+            action: () => this.scene.start(STATS_SCENE_KEY),
+          },
+          result.recommendedNextLevel === null
+            ? {
+              label: copy.game.home,
+              action: () => this.scene.start(HOME_SCENE_KEY),
+            }
+            : {
+              label: copy.game.next,
+              action: continueCampaign,
+            },
+        ];
+      } else {
+        completionActions = [
+          {
+            label: copy.game.archive,
+            action: () => this.scene.start(ARCHIVE_SCENE_KEY),
+          },
+        ];
+        if (result.recommendedNextLevel !== null) {
+          completionActions.push({
+            label: copy.game.next,
+            action: continueCampaign,
+          });
+        }
       }
       renderCompletionButtons();
     };
 
-    const showDailyCompletionState = (
-      result: DailyCompletionResult,
-      metadata: CampaignCompletionMetadata,
-      newBestTime: boolean,
+    const showTutorialCompletionState = (
+      result: TutorialCompletionResult,
     ): void => {
       completionMode = true;
+      onboardingIndex = -1;
+      onboardingOpen = false;
+      onboardingBlocksInteraction = false;
+      onboardingBlocksTimer = false;
       currentHint = null;
       board?.setHintCellTarget(null);
+      board?.setInputCellTargets(null);
+      relayoutOnboarding();
       if (this.scale.height < 520) {
         boardLayout = calculateSafeBoardLayout(40);
         board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       }
       setToolbarVisible(false);
 
-      const hintCopy = metadata.minHintsUsed === 0
-        ? copy.game.withoutHints
-        : copy.game.hintsCount(metadata.minHintsUsed);
-      const recordCopy = newBestTime ? copy.game.newRecord : '';
-      const recent = getRecentDailyHistory(
-        result.dateKey,
-        this.getDailyService().getHistory().solvedDates,
-        7,
-      );
-      const recentCopy = recent
-        .map((day) => day.solved ? (day.isToday ? '◆' : '●') : '·')
-        .join(' ');
-
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
         .setText(
-          copy.game.solvedDaily(formatActiveTime(metadata.bestTimeMs), hintCopy, recordCopy)
-          + `\n${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
+          result.tutorialCompleted && result.recommendedNextLevel === null
+            ? copy.game.tutorialComplete
+            : `✓ ${copy.common.solved}`,
         )
         .setColor('#d8d1c4')
         .setVisible(true);
@@ -901,16 +1022,202 @@ export class GameScene extends Phaser.Scene {
           action: () => this.scene.start(HOME_SCENE_KEY),
         },
       ];
+
+      if (result.recommendedNextLevel !== null) {
+        const nextLevel = result.recommendedNextLevel;
+        const service = this.getTutorialService();
+        completionActions.push({
+          label: copy.game.next,
+          action: () => {
+            if (completionTransitionPending) return;
+            completionTransitionPending = true;
+            void service.startLevel(nextLevel.id)
+              .then((started) => {
+                if (createVersion !== this.createVersion) return;
+                this.scene.restart(createTutorialGameSceneData(started));
+              })
+              .catch((error) => {
+                console.error(`[Dungeon Logic] Could not start ${nextLevel.id}.`, error);
+                completionTransitionPending = false;
+              });
+          },
+        });
+      } else if (result.tutorialCompleted) {
+        completionActions.push({
+          label: copy.game.startChapterOne,
+          action: () => {
+            if (completionTransitionPending) return;
+            const service = this.getCampaignService();
+            const firstLevel = service.getLevels()[0];
+            if (firstLevel === undefined) return;
+            completionTransitionPending = true;
+            void service.startLevel(firstLevel.id)
+              .then((started) => {
+                if (createVersion !== this.createVersion) return;
+                this.scene.restart(createCampaignGameSceneData(started, service.getProgress()));
+              })
+              .catch((error) => {
+                console.error('[Dungeon Logic] Could not start Campaign after Tutorial.', error);
+                completionTransitionPending = false;
+              });
+          },
+        });
+      }
       renderCompletionButtons();
     };
 
-    const cancelOnboardingAutoAdvance = (): void => {
-      onboardingAutoAdvance?.destroy();
-      onboardingAutoAdvance = null;
+    const showDailyCompletionState = (
+      result: DailyCompletionResult,
+      leaderboardEntry: LeaderboardPlayerView | null,
+    ): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      if (this.scale.height < 520) {
+        boardLayout = calculateSafeBoardLayout(40);
+        board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
+      }
+      setToolbarVisible(false);
+
+      const recent = getRecentDailyHistory(
+        result.dateKey,
+        this.getDailyService().getHistory().solvedDates,
+        7,
+      );
+      const recentCopy = recent
+        .map((day) => day.solved ? (day.isToday ? '◆' : '●') : '·')
+        .join(' ');
+      const rankingCopy = leaderboardEntry === null
+        ? copy.game.dailyResultFixed
+        : `${copy.game.dailyResultFixed} · ${copy.game.dailyPlace(leaderboardEntry.place)}`;
+
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(
+          `${rankingCopy}
+${copy.game.solvedDaily(formatActiveTime(result.result.bestTimeMs), copy.game.withoutHints, '')}`
+          + `
+${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
+        )
+        .setColor('#d8d1c4')
+        .setVisible(true);
+
+      completionActions = [
+        {
+          label: copy.game.home,
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+        {
+          label: copy.common.leaderboard,
+          action: () => this.scene.start(LEADERBOARD_SCENE_KEY, {
+            dailyId: result.dailyId,
+            dateKey: result.dateKey,
+          }),
+        },
+      ];
+      renderCompletionButtons();
+    };
+
+    const showDailyArchiveCompletionState = (
+      result: DailyCompletionResult,
+    ): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      setToolbarVisible(false);
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(
+          `${copy.game.dailyArchiveComplete}
+${copy.game.dailyArchiveFirstResult(formatActiveTime(result.result.bestTimeMs))}
+${copy.game.dailyArchiveOutsideRating}`,
+        )
+        .setColor('#d8d1c4')
+        .setVisible(true);
+      completionActions = [
+        {
+          label: copy.game.dailyTitle,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
+        },
+        {
+          label: copy.game.home,
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+      ];
+      renderCompletionButtons();
+    };
+
+    const showDailyAssistedCompletionState = (
+      result: DailyCompletionResult,
+    ): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      setToolbarVisible(false);
+      const recent = getRecentDailyHistory(
+        result.dateKey,
+        this.getDailyService().getHistory().solvedDates,
+        7,
+      );
+      const recentCopy = recent
+        .map((day) => day.solved ? (day.isToday ? '◆' : '●') : '·')
+        .join(' ');
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(
+          `${copy.game.solvedDaily(
+            formatActiveTime(result.result.bestTimeMs),
+            copy.game.hintsCount(result.result.minHintsUsed),
+            '',
+          )}
+${copy.game.dailyArchiveOutsideRating}
+${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
+        )
+        .setColor('#d8d1c4')
+        .setVisible(true);
+      completionActions = [
+        {
+          label: copy.game.dailyTitle,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
+        },
+        {
+          label: copy.game.home,
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+      ];
+      renderCompletionButtons();
+    };
+
+    const showDailyPracticeCompletionState = (
+      metadata: CampaignCompletionMetadata,
+    ): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      setToolbarVisible(false);
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(`✓ ${copy.common.solved} · ${formatActiveTime(metadata.bestTimeMs)} · ${copy.game.dailyPractice}`)
+        .setColor('#d8d1c4')
+        .setVisible(true);
+      completionActions = [
+        {
+          label: copy.game.dailyTitle,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
+        },
+        {
+          label: copy.game.home,
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+      ];
+      renderCompletionButtons();
     };
 
     const finishOnboarding = (): void => {
-      cancelOnboardingAutoAdvance();
       onboardingIndex = -1;
       onboardingOpen = false;
       onboardingBlocksInteraction = false;
@@ -936,7 +1243,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     const applyOnboardingStep = (): void => {
-      cancelOnboardingAutoAdvance();
 
       while (true) {
         const step = currentOnboardingStep();
@@ -944,10 +1250,7 @@ export class GameScene extends Phaser.Scene {
           finishOnboarding();
           return;
         }
-        if (
-          step.target === 'board-cells'
-          && isOnboardingStepSatisfied(step, (x, y) => puzzle.getCellState(x, y))
-        ) {
+        if (isOnboardingStepSatisfied(step, (x, y) => puzzle.getCellState(x, y))) {
           onboardingIndex += 1;
           continue;
         }
@@ -963,28 +1266,11 @@ export class GameScene extends Phaser.Scene {
       statusText.setVisible(false);
       board?.setInputCellTargets(null);
 
-      if (step.target === 'board-cells') {
-        onboardingBlocksInteraction = true;
-        onboardingBlocksTimer = true;
-        pauseActiveTimer();
-        board?.setInputCellTargets(step.cells);
-        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
-      } else {
-        const blocksInput = step.allowInput !== true;
-        onboardingBlocksInteraction = blocksInput;
-        onboardingBlocksTimer = blocksInput;
-        if (blocksInput) {
-          pauseActiveTimer();
-          board?.setInputEnabled(false);
-        } else {
-          board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
-          resumeActiveTimer();
-        }
-        onboardingAutoAdvance = this.time.delayedCall(step.autoAdvanceMs, () => {
-          onboardingAutoAdvance = null;
-          advanceOnboarding();
-        });
-      }
+      onboardingBlocksInteraction = true;
+      onboardingBlocksTimer = true;
+      pauseActiveTimer();
+      board?.setInputCellTargets(step.cells);
+      board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
 
       relayoutOnboarding();
       syncToolbar();
@@ -1151,21 +1437,63 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      if (launchData.context.mode === 'daily') {
-        const previousResult = profileService?.getProfile().daily.results[launchData.context.dateKey];
-        const newBestTime = previousResult === undefined
-          || metadata.bestTimeMs < previousResult.bestTimeMs;
+      if (launchData.context.mode === 'tutorial') {
         statusText.setText('').setVisible(false);
+        void this.finishTutorialLevel(
+          launchData,
+          createVersion,
+          puzzleSession,
+        ).then((result) => {
+          if (result === null || createVersion !== this.createVersion) return;
+          showTutorialCompletionState(result);
+        });
+        return;
+      }
 
+      if (launchData.context.mode === 'daily') {
+        statusText.setText('').setVisible(false);
         void this.finishDailyLevel(
           launchData,
           createVersion,
           metadata,
         ).then((result) => {
           if (result === null || createVersion !== this.createVersion) return;
+
+          if (!result.wasFirstSolve) {
+            this.time.delayedCall(350, () => {
+              if (createVersion !== this.createVersion) return;
+              showDailyPracticeCompletionState(metadata);
+            });
+            return;
+          }
+
+          if (!result.ranked) {
+            this.time.delayedCall(350, () => {
+              if (createVersion !== this.createVersion) return;
+              if (result.archive) {
+                showDailyArchiveCompletionState(result);
+              } else {
+                showDailyAssistedCompletionState(result);
+              }
+            });
+            return;
+          }
+
+          let leaderboardEntry: LeaderboardPlayerView | null = null;
+          let resultShown = false;
+          void submitRankedDailyResult(result)
+            .then((entry) => {
+              if (createVersion !== this.createVersion) return;
+              leaderboardEntry = entry;
+              if (resultShown) showDailyCompletionState(result, leaderboardEntry);
+            })
+            .catch((error) => {
+              console.warn('[Dungeon Logic] Could not submit ranked Daily result yet.', error);
+            });
           this.time.delayedCall(500, () => {
             if (createVersion !== this.createVersion) return;
-            showDailyCompletionState(result, metadata, newBestTime);
+            resultShown = true;
+            showDailyCompletionState(result, leaderboardEntry);
           });
         });
         return;
@@ -1236,8 +1564,8 @@ export class GameScene extends Phaser.Scene {
       'wall',
       false,
       showTouchToolButtons,
-      profileService?.getFreeHintsRemaining() ?? 0,
-      rewardedHintAvailable,
+      rankedDaily ? 0 : profileService?.getFreeHintsRemaining() ?? 0,
+      rankedDaily ? false : rewardedHintAvailable,
       language,
     );
     for (const buttonState of initialToolbarState.buttons) {
@@ -1282,7 +1610,9 @@ export class GameScene extends Phaser.Scene {
         }
         if (this.scene.isActive()) {
           this.scene.start(
-            launchData.context.mode === 'daily' ? HOME_SCENE_KEY : ARCHIVE_SCENE_KEY,
+            launchData.context.mode === 'daily' || launchData.context.mode === 'tutorial'
+              ? HOME_SCENE_KEY
+              : ARCHIVE_SCENE_KEY,
           );
         }
       };
@@ -1435,11 +1765,7 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      const step = currentOnboardingStep();
-      const allowsInput = step === null
-        || step.target === 'board-cells'
-        || (step.target === 'message' && step.allowInput === true);
-      board?.setInputEnabled(allowsInput);
+      board?.setInputEnabled(currentOnboardingStep() !== null);
     };
 
     const unsubscribePlatformLifecycle = platformServices?.lifecycle.subscribe({
@@ -1468,7 +1794,7 @@ export class GameScene extends Phaser.Scene {
       sceneOverlayPaused = false;
       const latestLanguage = this.getPlayerProfileService().getProfile().settings.language;
       if (latestLanguage !== language) {
-        if (campaignContext !== null) {
+        if (campaignContext !== null || tutorialContext !== null) {
           this.scene.restart(launchData);
           return;
         }
@@ -1496,12 +1822,21 @@ export class GameScene extends Phaser.Scene {
       loop: true,
       callback: updateTimerText,
     });
+    const hintUiRefresh = this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        if (solved || completionMode || onboardingOpen || hintConfirmOpen || resetDialogOpen) return;
+        syncToolbar();
+        refreshStatusText();
+      },
+    });
 
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       pauseActiveTimer();
-      cancelOnboardingAutoAdvance();
       timerRefresh.destroy();
+      hintUiRefresh.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
       keyboard?.off('keydown', handleKeyDown);
       this.events.off(Phaser.Scenes.Events.RESUME, handleSceneResume);
@@ -1553,13 +1888,41 @@ export class GameScene extends Phaser.Scene {
     return result;
   }
 
+  private async finishTutorialLevel(
+    launchData: GameSceneData,
+    createVersion: number,
+    puzzleSession: PuzzleSessionService | null,
+  ): Promise<TutorialCompletionResult | null> {
+    if (launchData.context.mode !== 'tutorial') return null;
+    const service = this.getTutorialService();
+    const result = await service.completeLevel(launchData.context.tutorialLevelId);
+    if (createVersion !== this.createVersion) return null;
+
+    if (puzzleSession !== null) {
+      puzzleSession.clearActivePuzzle();
+      try {
+        await puzzleSession.flush();
+      } catch (error) {
+        console.warn('[Dungeon Logic] Tutorial completion cleared the active puzzle in memory, but the clear could not be flushed yet.', error);
+      }
+    }
+
+    if (createVersion !== this.createVersion) return null;
+    return result;
+  }
+
   private async finishDailyLevel(
     launchData: GameSceneData,
     createVersion: number,
-    resultMetadata: CampaignCompletionMetadata,
+    metadata: CampaignCompletionMetadata,
   ): Promise<DailyCompletionResult | null> {
     const service = this.getDailyService();
-    const result = await completeDailyGameLaunch(launchData, service, resultMetadata);
+    const result = await completeDailyGameLaunch(
+      launchData,
+      service,
+      metadata.bestTimeMs,
+      metadata.minHintsUsed,
+    );
     if (createVersion !== this.createVersion) return null;
     return result;
   }
@@ -1578,6 +1941,14 @@ export class GameScene extends Phaser.Scene {
     const service = this.registry.get(PLAYER_PROFILE_SERVICE_REGISTRY_KEY) as unknown;
     if (!(service instanceof PlayerProfileService)) {
       throw new Error('Profile-backed GameScene requires PlayerProfileService in Phaser registry.');
+    }
+    return service;
+  }
+
+  private getTutorialService(): TutorialService {
+    const service = this.registry.get(TUTORIAL_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof TutorialService)) {
+      throw new Error('Tutorial GameScene requires TutorialService in Phaser registry.');
     }
     return service;
   }

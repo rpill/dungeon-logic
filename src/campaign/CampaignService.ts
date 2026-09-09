@@ -68,6 +68,8 @@ export class CampaignService {
   }
 
   getPlayableLevels(): readonly CampaignLevelEntry[] {
+    if (!this.profileService.getProfile().tutorial.completed) return [];
+
     const playable = new Set(
       getPlayableCampaignIds(
         this.levels,
@@ -82,6 +84,7 @@ export class CampaignService {
 
   getContinueLevel(): CampaignLevelEntry | null {
     const profile = this.profileService.getProfile();
+    if (!profile.tutorial.completed) return null;
     const completed = new Set(profile.campaign.completedLevelIds);
     const activePuzzle = profile.campaign.activePuzzle;
 
@@ -154,6 +157,9 @@ export class CampaignService {
       unlockedManuscript: wasCompleted
         ? null
         : this.findNewlyUnlockedManuscript(beforeCompleted, progress.completedLevelIds),
+      unlockedFeatures: !wasCompleted && id === 'campaign-005'
+        ? ['daily', 'statistics']
+        : [],
       persisted,
     };
   }
