@@ -68,10 +68,10 @@ export function getCampaignContinueEntry(
 }
 
 export function shouldShowCampaignOnboarding(
-  entry: CampaignLevelEntry,
-  progress: CampaignProgressSnapshot,
+  _entry: CampaignLevelEntry,
+  _progress: CampaignProgressSnapshot,
 ): boolean {
-  return entry.onboarding.length > 0 && !progress.completedLevelIds.includes(entry.id);
+  return false;
 }
 
 export function campaignProgressSnapshot(

@@ -9,7 +9,7 @@ import {
 } from '../runtime/GameLaunch';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import type { TrustedClock } from '../platform/services';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -36,7 +36,7 @@ const expectedStart = [
   ['2026-09-13', 'daily-005'],
 ] as const;
 
-assert(DAILY_RELEASE_ENTRIES.length === 60, 'Daily release manifest must contain exactly sixty entries.');
+assert(DAILY_RELEASE_ENTRIES.length === 365, 'Daily release manifest must contain exactly 365 entries.');
 for (let index = 0; index < expectedStart.length; index += 1) {
   const [dateKey, id] = expectedStart[index];
   const entry = DAILY_RELEASE_ENTRIES[index];
@@ -44,9 +44,9 @@ for (let index = 0; index < expectedStart.length; index += 1) {
   assert(entry.id === id, `Release Daily ${index + 1} must use ${id}.`);
   assert(entry.level.id === id, `Release Daily ${index + 1} must reuse curated ${id}.`);
 }
-assert(DAILY_RELEASE_ENTRIES[59].dateKey === '2026-11-07' && DAILY_RELEASE_ENTRIES[59].id === 'daily-060', 'Release calendar must end with daily-060 on 2026-11-07.');
+assert(DAILY_RELEASE_ENTRIES[364].dateKey === '2027-09-08' && DAILY_RELEASE_ENTRIES[364].id === 'daily-365', 'Release calendar must end with daily-365 on 2027-09-08.');
 assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-08T23:59:59.999Z')) === null, 'Dates before the release calendar must return null.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-11-08T00:00:00.000Z')) === null, 'Dates after the release calendar must return null.');
+assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2027-09-09T00:00:00.000Z')) === null, 'Dates after the release calendar must return null.');
 
 assert(typeof DailyService.create === 'function', 'DailyService must expose a create factory.');
 
@@ -75,13 +75,13 @@ assert(!recentHistory[2].solved, 'Recent Daily history must preserve missed date
 assert(recentHistory[4].solved, 'Recent Daily history must mark Dec 31 across the year boundary.');
 
 class MemoryProfileStorage implements PlayerProfileStorage {
-  value: PlayerProfileV2 | null = null;
+  value: PlayerProfileV4 | null = null;
 
   async load(): Promise<unknown | null> {
     return this.value;
   }
 
-  async save(profile: PlayerProfileV2): Promise<void> {
+  async save(profile: PlayerProfileV4): Promise<void> {
     this.value = profile;
   }
 }
@@ -117,13 +117,13 @@ async function runServiceChecks(): Promise<void> {
   clock.value = new Date('2026-09-09T12:00:00.000Z');
   const firstAttempt = await service.beginDaily('2026-09-09', 'daily-001');
   assert(firstAttempt?.ranked === true, 'Unsolved Daily must begin a ranked attempt.');
-  assert(service.getHistory().activePuzzle?.puzzleId === 'daily-001', 'Ranked Daily attempt must persist its active puzzle immediately.');
-  assert(service.getHistory().activePuzzle?.startedAtMs === Date.parse('2026-09-09T12:00:00.000Z'), 'Ranked Daily attempt must use trusted start time.');
+  assert(service.getHistory().drafts['2026-09-09']?.puzzleId === 'daily-001', 'Ranked Daily attempt must persist its per-date draft immediately.');
+  assert(service.getHistory().drafts['2026-09-09']?.startedAtMs === Date.parse('2026-09-09T12:00:00.000Z'), 'Ranked Daily attempt must use trusted start time.');
   clock.value = new Date('2026-09-09T12:01:00.000Z');
   const resumedAttempt = await service.beginDaily('2026-09-09', 'daily-001');
   assert(resumedAttempt?.ranked === true, 'Leaving and reopening an unsolved Daily must resume the ranked attempt.');
   assert(resumedAttempt.elapsedMsAtLaunch === 60_000, 'Resumed ranked Daily must include elapsed trusted time since the original start.');
-  assert(service.getHistory().activePuzzle?.startedAtMs === Date.parse('2026-09-09T12:00:00.000Z'), 'Resuming Daily must preserve the original ranked start timestamp.');
+  assert(service.getHistory().drafts['2026-09-09']?.startedAtMs === Date.parse('2026-09-09T12:00:00.000Z'), 'Resuming Daily must preserve the original ranked start timestamp.');
   clock.value = new Date('2026-09-09T12:02:00.000Z');
   const first = await service.completeToday();
   assert(first !== null, 'Daily completion must resolve when trusted time and a manifest entry exist.');
@@ -140,6 +140,7 @@ async function runServiceChecks(): Promise<void> {
   assert(history.lastSolvedDate === '2026-09-09', 'Daily history must track the last solved UTC date.');
   assert(history.solvedDates.length === 1 && history.solvedDates[0] === '2026-09-09', 'Daily history must add the solved UTC date.');
   assert(history.results['2026-09-09']?.bestTimeMs === 120_000, 'Daily history must store the result summary by UTC date.');
+  assert(history.drafts['2026-09-09'] === undefined, 'Completing a Daily removes only that date draft.');
 
   clock.value = new Date('2026-09-10T08:00:00.000Z');
   const secondAttempt = await service.beginDaily('2026-09-10', 'daily-002');
@@ -178,7 +179,7 @@ async function runServiceChecks(): Promise<void> {
   const practice = await service.beginDaily('2026-09-12', 'daily-004');
   assert(practice?.ranked === false, 'Solved Daily must relaunch only as practice outside the ranking.');
   assert(practice?.archive === false, 'Solved current Daily practice is not an archive launch.');
-  assert(service.getHistory().activePuzzle === null, 'Solved Daily practice must not recreate a ranked active attempt.');
+  assert(service.getHistory().drafts['2026-09-12'] === undefined, 'Solved Daily practice must not recreate a saved Daily draft.');
 
   history = service.getHistory();
   assert(history.solvedDates.length === 3, 'Daily solved-date history must contain unique UTC dates only.');
@@ -190,7 +191,7 @@ async function runServiceChecks(): Promise<void> {
   const nextDay = await service.getToday();
   assert(nextDay !== null && nextDay.currentStreak === 1, 'Current streak must remain active through the day after the last solve.');
 
-  clock.value = new Date('2026-11-08T09:00:00.000Z');
+  clock.value = new Date('2027-09-09T09:00:00.000Z');
   const expired = await service.getToday();
   assert(expired !== null, 'Trusted date outside the release calendar must still expose Daily status.');
   assert(expired.entry === null, 'A trusted date outside the release calendar must expose no Daily entry.');
@@ -297,9 +298,14 @@ async function runArchiveChecks(): Promise<void> {
   assert(archive.every((item) => item.archive && !item.ranked), 'Archive view models must be explicitly unranked archive entries.');
   assert(archive.every((item) => item.result === null), 'Fresh archive entries must initially be unsolved.');
 
+  const archiveDraftAttempt = await service.beginDaily('2026-09-11', 'daily-003');
+  assert(archiveDraftAttempt?.archive === true && archiveDraftAttempt.ranked === false, 'Past unsolved Daily launches as archive practice.');
+  assert(service.getHistory().drafts['2026-09-11']?.puzzleId === 'daily-003', 'Past unsolved Daily persists its own per-date draft.');
+
   const pastAttempt = await service.beginDaily('2026-09-10', 'daily-002');
   assert(pastAttempt?.ranked === false && pastAttempt.archive === true, 'A released past Daily must launch as unranked archive play.');
-  assert(service.getHistory().activePuzzle === null, 'Archive play must not overwrite or create the live ranked Daily snapshot.');
+  assert(service.getHistory().drafts['2026-09-11']?.puzzleId === 'daily-003', 'Opening another archive Daily must preserve the earlier date draft.');
+  assert(service.getHistory().drafts['2026-09-10']?.puzzleId === 'daily-002', 'Archive play must persist the newly opened date draft.');
 
   clock.value = new Date('2026-09-12T12:02:00.000Z');
   const pastCompletion = await service.completeDaily('2026-09-10', 'daily-002', 95_000);
@@ -309,6 +315,8 @@ async function runArchiveChecks(): Promise<void> {
   assert(pastCompletion.totalSolved === 1, 'Archive completion must contribute to total Daily completion count.');
   assert(pastCompletion.currentStreak === 0 && pastCompletion.bestStreak === 0, 'Archive completion must not mutate streaks.');
   assert(service.getHistory().lastSolvedDate === null, 'Archive completion must not become the last on-time solved date.');
+  assert(service.getHistory().drafts['2026-09-10'] === undefined, 'Completing an archive Daily removes its own draft.');
+  assert(service.getHistory().drafts['2026-09-11']?.puzzleId === 'daily-003', 'Completing one archive Daily preserves other unfinished Daily drafts.');
 
   const replay = await service.beginDaily('2026-09-10', 'daily-002');
   assert(replay?.ranked === false && replay.archive === true, 'Solved archive Daily may replay only outside ranking.');
@@ -360,13 +368,13 @@ async function runReleaseEndStreakChecks(): Promise<void> {
   const clock = new MutableTrustedClock();
   const service = DailyService.create(DAILY_RELEASE_ENTRIES, profileService, clock);
 
-  clock.value = new Date('2026-11-07T20:00:00.000Z');
-  await service.beginDaily('2026-11-07', 'daily-060');
-  clock.value = new Date('2026-11-07T20:01:05.000Z');
+  clock.value = new Date('2027-09-08T20:00:00.000Z');
+  await service.beginDaily('2027-09-08', 'daily-365');
+  clock.value = new Date('2027-09-08T20:01:05.000Z');
   const finalSolve = await service.completeToday();
-  assert(finalSolve?.dateKey === '2026-11-07' && finalSolve.currentStreak === 1, 'Final scheduled Daily can start a streak.');
+  assert(finalSolve?.dateKey === '2027-09-08' && finalSolve.currentStreak === 1, 'Final scheduled Daily can start a streak.');
 
-  clock.value = new Date('2026-11-08T08:00:00.000Z');
+  clock.value = new Date('2027-09-09T08:00:00.000Z');
   const afterCalendar = await service.getToday();
   assert(afterCalendar !== null && afterCalendar.entry === null, 'Day after the release calendar has no Daily entry.');
   assert(afterCalendar.currentStreak === 0, 'A streak must not be displayed as active when today has no scheduled Daily.');

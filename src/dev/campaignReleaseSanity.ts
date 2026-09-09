@@ -94,8 +94,8 @@ assert(CAMPAIGN_RELEASE_MASTER_SEED === 20260908, 'Release corpus master seed mu
 assert(CAMPAIGN_RELEASE_MIN_NEIGHBOR_DISTANCE === 0.28, 'Neighbor diversity gate drifted.');
 assert(CAMPAIGN_RELEASE_SCAN_PLAN.length === 3, 'Release scan must stay V1-only and compact.');
 assert(CAMPAIGN_RELEASE_SCAN_PLAN.every((entry) => entry.size === 7), 'Campaign v1 release corpus should use 7x7 scans.');
-assert(Object.keys(CAMPAIGN_RELEASE_TARGET_SCORES).length === 25, 'Slots 006-030 need target scores.');
-for (let slot = 6; slot <= 30; slot += 1) {
+assert(Object.keys(CAMPAIGN_RELEASE_TARGET_SCORES).length === 59, 'Slots 006-064 need target scores.');
+for (let slot = 6; slot <= 64; slot += 1) {
   assert(CAMPAIGN_RELEASE_TARGET_SCORES[slot] !== undefined, `Missing target score for slot ${slot}.`);
 }
 
@@ -142,9 +142,9 @@ import { promotedCampaignLevels } from '../content/campaign/levels';
 import { analyzeCampaignPromotion } from './CampaignPromotion';
 import type { GeneratedCandidate } from '../puzzle/generator/types';
 
-assert(promotedCampaignLevels.length === 30, 'Campaign release must contain exactly 30 promoted levels.');
+assert(promotedCampaignLevels.length === 64, 'Campaign release must contain exactly 64 promoted levels.');
 const releaseFingerprints = new Set<string>();
-for (let slot = 6; slot <= 30; slot += 1) {
+for (let slot = 6; slot <= 64; slot += 1) {
   const source = promotedCampaignLevels.find((entry) => entry.slot === slot);
   assert(source !== undefined, `Missing promoted campaign slot ${slot}.`);
   assert(source.provenance.sourceSeed === CAMPAIGN_RELEASE_MASTER_SEED, `Slot ${slot} must preserve the release corpus master seed.`);
@@ -172,4 +172,4 @@ for (let slot = 6; slot <= 30; slot += 1) {
   assert(Math.abs(revalidated.difficultyScore - CAMPAIGN_RELEASE_TARGET_SCORES[slot]) <= 2, `Slot ${slot} is too far from its release target score.`);
 }
 
-console.info('[Dungeon Logic] Campaign release sanity: promoted 006-030 revalidation + structural uniqueness passed');
+console.info('[Dungeon Logic] Campaign release sanity: promoted 006-064 revalidation + structural uniqueness passed');

@@ -12,7 +12,7 @@ import { promotedCampaignLevels } from '../content/campaign/levels';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import { CellState, type LevelDefinition } from '../puzzle/types';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { validatePuzzle } from '../puzzle/LevelValidator';
@@ -50,12 +50,6 @@ function createSyntheticManifest(count: number): readonly CampaignLevelEntry[] {
       slot,
       id,
       level: fixtureLevel(id),
-      chapterId: 'graveyard',
-      onboarding: slot === 1
-        ? ['row-column-clues', 'monster-dead-end']
-        : slot === 2
-          ? ['treasure-room-rule']
-          : [],
     } satisfies CampaignLevelEntry;
   });
 }
@@ -66,18 +60,20 @@ const freshProgress = {
   lastPlayedLevelId: null,
 } as const;
 assert(getCampaignLevelState(selectorManifest[0], freshProgress, selectorManifest) === 'current', 'Fresh progression marks 001 current.');
-assert(getCampaignLevelState(selectorManifest[1], freshProgress, selectorManifest) === 'locked', 'Fresh progression locks 002.');
-assert(shouldShowCampaignOnboarding(selectorManifest[0], freshProgress), 'Slot 1 onboarding shows before completion.');
+assert(getCampaignLevelState(selectorManifest[1], freshProgress, selectorManifest) === 'unlocked', 'Fresh progression exposes 002 in the first three.');
+assert(getCampaignLevelState(selectorManifest[2], freshProgress, selectorManifest) === 'unlocked', 'Fresh progression exposes 003 in the first three.');
+assert(getCampaignLevelState(selectorManifest[3], freshProgress, selectorManifest) === 'locked', 'Fresh progression locks 004 beyond the three-level frontier.');
+assert(!shouldShowCampaignOnboarding(selectorManifest[0], freshProgress), 'Campaign contextual onboarding is disabled because Tutorial v2 owns rules teaching.');
 
-const afterOne = {
-  completedLevelIds: ['campaign-001'],
-  lastPlayedLevelId: 'campaign-001',
+const afterTwo = {
+  completedLevelIds: ['campaign-002'],
+  lastPlayedLevelId: 'campaign-002',
 } as const;
-assert(getCampaignLevelState(selectorManifest[0], afterOne, selectorManifest) === 'completed', 'Completed level is replayable/completed.');
-assert(getCampaignLevelState(selectorManifest[1], afterOne, selectorManifest) === 'current', 'Completing 001 advances strict onboarding to 002.');
-assert(!shouldShowCampaignOnboarding(selectorManifest[0], afterOne), 'Replay hides completed onboarding.');
-assert(shouldShowCampaignOnboarding(selectorManifest[1], afterOne), 'Treasure Room onboarding appears on slot 2.');
-assert(getCampaignContinueEntry(afterOne, selectorManifest)?.id === 'campaign-002', 'Continue chooses the next unsolved onboarding level.');
+assert(getCampaignLevelState(selectorManifest[1], afterTwo, selectorManifest) === 'completed', 'Completed level is replayable/completed.');
+assert(getCampaignLevelState(selectorManifest[0], afterTwo, selectorManifest) === 'current', 'Continue frontier chooses the first unsolved level when last played is completed.');
+assert(getCampaignLevelState(selectorManifest[2], afterTwo, selectorManifest) === 'unlocked', '003 remains in the frontier after solving 002.');
+assert(getCampaignLevelState(selectorManifest[3], afterTwo, selectorManifest) === 'unlocked', 'Solving 002 advances the frontier to include 004.');
+assert(getCampaignContinueEntry(afterTwo, selectorManifest)?.id === 'campaign-001', 'Continue chooses the first unsolved playable level after completed last-played entry.');
 
 let duplicateRejected = false;
 try {
@@ -103,29 +99,14 @@ function puzzleFromCanonicalSolution(level: LevelDefinition): PuzzleState {
 }
 
 function runReleaseContentChecks(): void {
-  assert(campaignManifest.length === 30, 'Release manifest contains exactly 30 promoted levels.');
+  assert(campaignManifest.length === 64, 'Release manifest contains exactly 64 promoted levels.');
   assert(
     campaignManifest.every((entry, index) => entry.id === `campaign-${String(index + 1).padStart(3, '0')}`),
-    'Release ids are contiguous campaign-001 through campaign-030.',
+    'Release ids are contiguous campaign-001 through campaign-064.',
   );
   assert(
-    campaignManifest.slice(0, 6).every((entry) => entry.chapterId === 'graveyard')
-      && campaignManifest.slice(6, 13).every((entry) => entry.chapterId === 'desert-ruins')
-      && campaignManifest.slice(13, 22).every((entry) => entry.chapterId === 'sewers')
-      && campaignManifest.slice(22, 30).every((entry) => entry.chapterId === 'crypt'),
-    'Release manifest follows the four technical visual chapter ranges.',
-  );
-  assert(
-    campaignManifest[0].onboarding.join(',') === 'row-column-clues,monster-dead-end',
-    'Slot 1 owns row/column and monster-dead-end onboarding.',
-  );
-  assert(
-    campaignManifest[1].onboarding.join(',') === 'treasure-room-rule',
-    'Slot 2 owns Treasure Room onboarding.',
-  );
-  assert(
-    campaignManifest.slice(2).every((entry) => entry.onboarding.length === 0),
-    'Slots 3-30 introduce no additional legacy onboarding cards.',
+    campaignManifest.every((entry) => !('chapterId' in entry) && !('onboarding' in entry)),
+    'Flat campaign manifest carries no chapter/manuscript/onboarding presentation metadata.',
   );
 
   for (const source of promotedCampaignLevels) {
@@ -160,7 +141,7 @@ function runReleaseContentChecks(): void {
 runReleaseContentChecks();
 
 class FakeProfileStorage implements PlayerProfileStorage {
-  value: PlayerProfileV2 | null = null;
+  value: PlayerProfileV4 | null = null;
   failSave = false;
   saveCalls = 0;
 
@@ -168,7 +149,7 @@ class FakeProfileStorage implements PlayerProfileStorage {
     return this.value;
   }
 
-  async save(profile: PlayerProfileV2): Promise<void> {
+  async save(profile: PlayerProfileV4): Promise<void> {
     this.saveCalls += 1;
     if (this.failSave) throw new Error('save failed');
     this.value = profile;
@@ -209,56 +190,64 @@ async function runServiceChecks(): Promise<void> {
   const harness = await createService(selectorManifest);
   const { service, profile } = harness;
 
-  assert(service.getPlayableLevels().map((entry) => entry.id).join(',') === 'campaign-001', 'Fresh service exposes only 001.');
-  await assertRejects(
-    () => service.startLevel('campaign-002'),
-    'Locked onboarding level cannot be started.',
-  );
-
-  await service.startLevel('campaign-001');
-  assert(service.getProgress().lastPlayedLevelId === 'campaign-001', 'Starting playable level updates profile last-played state in memory.');
-
-  for (let slot = 1; slot <= 5; slot += 1) {
-    const id = `campaign-${String(slot).padStart(3, '0')}`;
-    await service.completeLevel(id);
-  }
   assert(
     service.getPlayableLevels().filter((entry) => !service.getProgress().completedLevelIds.includes(entry.id)).map((entry) => entry.id).join(',')
-      === 'campaign-006,campaign-007',
-    'After onboarding, both promoted I-frontier levels are available.',
+      === 'campaign-001,campaign-002,campaign-003',
+    'Fresh service exposes 001/002/003.',
+  );
+  await assertRejects(
+    () => service.startLevel('campaign-004'),
+    '004 stays locked outside the first three unsolved frontier.',
   );
 
-  const thresholdResult = await service.completeLevel('campaign-006');
-  assert(thresholdResult.unlockedManuscript?.id === 'manuscript-ii', 'Six solved in Manuscript I unlock Manuscript II exactly once.');
-  assert(service.canPlayLevel('campaign-009'), '09 is playable without completing 08 once Manuscript II is unlocked.');
+  await service.startLevel('campaign-002');
+  assert(service.getProgress().lastPlayedLevelId === 'campaign-002', 'Starting any playable frontier level updates last-played state.');
+  profile.update((current) => ({
+    ...current,
+    campaign: {
+      ...current.campaign,
+      drafts: {
+        ...current.campaign.drafts,
+        'campaign-002': {
+          mode: 'campaign',
+          puzzleId: 'campaign-002',
+          cells: [['unknown']],
+          activePlayMs: 500,
+          hintsUsed: 0,
+          startedAtMs: 100,
+        },
+      },
+    },
+  }));
+  assert(service.getContinueLevel()?.id === 'campaign-002', 'Continue prioritizes the last-played incomplete level when it has a saved draft.');
+  const twoResult = await service.completeLevel('campaign-002');
+  assert(profile.getProfile().campaign.drafts['campaign-002'] === undefined, 'Completing a Campaign level removes its saved draft.');
+  assert(twoResult.recommendedNextLevel?.id === 'campaign-001', 'Completing 002 recommends the first remaining unsolved frontier level.');
+  assert(
+    service.getPlayableLevels().filter((entry) => !service.getProgress().completedLevelIds.includes(entry.id)).map((entry) => entry.id).join(',')
+      === 'campaign-001,campaign-003,campaign-004',
+    'Completing 002 advances the rolling frontier to 001/003/004.',
+  );
+  assert(service.canPlayLevel('campaign-004'), '004 becomes playable immediately after any frontier completion.');
 
-  await service.startLevel('campaign-009');
-  const nineResult = await service.completeLevel('campaign-009', {
+  await service.startLevel('campaign-004');
+  const fourResult = await service.completeLevel('campaign-004', {
     bestTimeMs: 12_000,
     minHintsUsed: 0,
     solveCount: 1,
     solvedWithoutHints: true,
   });
-  assert(
-    nineResult.recommendedNextLevel?.id === 'campaign-008',
-    'Completing 09 recommends another unsolved playable level from the same manuscript instead of requiring 08 first.',
-  );
-  assert(
-    service.getProgress().completedLevelIds.filter((id) => id === 'campaign-009').length === 1,
-    '09 is recorded once.',
-  );
+  assert(fourResult.recommendedNextLevel?.id === 'campaign-001', 'Recommendation remains the earliest unsolved playable level.');
+  assert(service.getProgress().completedLevelIds.filter((id) => id === 'campaign-004').length === 1, '004 is recorded once.');
 
-  await service.completeLevel('campaign-009', {
+  await service.completeLevel('campaign-004', {
     bestTimeMs: 10_000,
     minHintsUsed: 1,
     solveCount: 1,
     solvedWithoutHints: false,
   });
-  assert(
-    service.getProgress().completedLevelIds.filter((id) => id === 'campaign-009').length === 1,
-    'Replay completion never duplicates completed ids.',
-  );
-  const result = profile.getProfile().campaign.levelResults['campaign-009'];
+  assert(service.getProgress().completedLevelIds.filter((id) => id === 'campaign-004').length === 1, 'Replay completion never duplicates completed ids.');
+  const result = profile.getProfile().campaign.levelResults['campaign-004'];
   assert(result?.bestTimeMs === 10_000, 'Replay metadata keeps the best time.');
   assert(result?.minHintsUsed === 0, 'Replay metadata keeps the minimum hint count.');
   assert(result?.solveCount === 2, 'Replay metadata increments solve count.');
@@ -269,10 +258,7 @@ async function runServiceChecks(): Promise<void> {
   const failingHarness = await createService(selectorManifest, failingStorage);
   const failure = await failingHarness.service.completeLevel('campaign-001');
   assert(!failure.persisted, 'Completion reports persisted=false when profile flush fails.');
-  assert(
-    failingHarness.service.getProgress().completedLevelIds.join(',') === 'campaign-001',
-    'Flush failure keeps completion in memory for later retry.',
-  );
+  assert(failingHarness.service.getProgress().completedLevelIds.join(',') === 'campaign-001', 'Flush failure keeps completion in memory for later retry.');
 }
 
 runServiceChecks().then(

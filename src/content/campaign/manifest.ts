@@ -1,6 +1,3 @@
-import { getCampaignChapterForSlot } from './chapters';
-import { getCampaignCurationRule } from './curationPlan';
-import { getManuscriptForSlot } from './manuscripts';
 import { promotedCampaignLevels } from './levels';
 import type {
   CampaignLevelEntry,
@@ -25,14 +22,10 @@ export function validateCampaignManifest(entries: readonly CampaignLevelEntry[])
         `Promoted campaign slots must be contiguous and ordered from 1; expected ${expectedSlot}, got ${entry.slot}.`,
       );
     }
-    if (seenSlots.has(entry.slot)) {
-      throw new Error(`Duplicate campaign slot: ${entry.slot}.`);
-    }
+    if (seenSlots.has(entry.slot)) throw new Error(`Duplicate campaign slot: ${entry.slot}.`);
     seenSlots.add(entry.slot);
 
-    if (seenIds.has(entry.id)) {
-      throw new Error(`Duplicate campaign id: ${entry.id}.`);
-    }
+    if (seenIds.has(entry.id)) throw new Error(`Duplicate campaign id: ${entry.id}.`);
     seenIds.add(entry.id);
 
     const expectedId = expectedCampaignId(entry.slot);
@@ -41,13 +34,6 @@ export function validateCampaignManifest(entries: readonly CampaignLevelEntry[])
     }
     if (entry.level.id !== entry.id) {
       throw new Error(`Campaign entry ${entry.id} must match level id ${entry.level.id}.`);
-    }
-
-    const chapter = getCampaignChapterForSlot(entry.slot);
-    if (entry.chapterId !== chapter.id) {
-      throw new Error(
-        `Campaign slot ${entry.slot} belongs to chapter ${chapter.id}, not ${entry.chapterId}.`,
-      );
     }
   });
 }
@@ -62,29 +48,7 @@ export function buildCampaignManifest(
         `Promoted source for slot ${source.slot} must have level id ${expectedId}; got ${source.level.id}.`,
       );
     }
-
-    const curation = getCampaignCurationRule(source.slot);
-    const chapter = getCampaignChapterForSlot(source.slot);
-    if (curation.chapterId !== chapter.id) {
-      throw new Error(
-        `Curation rule for slot ${source.slot} points to ${curation.chapterId}, but chapter ownership is ${chapter.id}.`,
-      );
-    }
-
-    const manuscript = getManuscriptForSlot(source.slot);
-    if (manuscript === null || curation.manuscriptId !== manuscript.id) {
-      throw new Error(
-        `Curation rule for slot ${source.slot} points to manuscript ${curation.manuscriptId}, but manuscript ownership is ${manuscript?.id ?? 'none'}.`,
-      );
-    }
-
-    return {
-      slot: source.slot,
-      id: expectedId,
-      level: source.level,
-      chapterId: chapter.id,
-      onboarding: curation.onboarding,
-    } satisfies CampaignLevelEntry;
+    return { slot: source.slot, id: expectedId, level: source.level } satisfies CampaignLevelEntry;
   });
 
   validateCampaignManifest(entries);

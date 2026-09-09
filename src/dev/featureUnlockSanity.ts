@@ -2,20 +2,20 @@ import { CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
 class FakeStorage implements PlayerProfileStorage {
-  value: PlayerProfileV2 | null = null;
+  value: PlayerProfileV4 | null = null;
 
   async load(): Promise<unknown | null> {
     return this.value;
   }
 
-  async save(profile: PlayerProfileV2): Promise<void> {
+  async save(profile: PlayerProfileV4): Promise<void> {
     this.value = profile;
   }
 }

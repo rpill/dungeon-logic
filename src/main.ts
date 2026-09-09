@@ -5,7 +5,7 @@ import './style.css';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { HomeScene } from './scenes/HomeScene';
-import { ArchiveScene } from './scenes/ArchiveScene';
+import { LevelSelectScene } from './scenes/LevelSelectScene';
 import { HelpScene } from './scenes/HelpScene';
 import { StatsScene } from './scenes/StatsScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
@@ -37,7 +37,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [
     BootScene,
     HomeScene,
-    ArchiveScene,
+    LevelSelectScene,
     StatsScene,
     DailyScene,
     LeaderboardScene,

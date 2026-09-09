@@ -184,7 +184,7 @@ export class DailyService {
     const history = this.getHistory();
     const existing = history.results[dateKey];
 
-    if (archive || existing !== undefined) {
+    if (existing !== undefined) {
       return {
         dateKey,
         entry,
@@ -194,14 +194,14 @@ export class DailyService {
       };
     }
 
-    const saved = history.activePuzzle;
+    const saved = history.drafts[dateKey];
     const compatible = isCompatiblePuzzleSnapshot(
       entry.level,
       'daily',
       entry.id,
-      saved ?? undefined,
+      saved,
     );
-    const snapshot = compatible && saved !== null
+    const snapshot = compatible && saved !== undefined
       ? saved
       : PuzzleSessionState.create(entry.level, 'daily', entry.id, undefined, nowMs).snapshot();
 
@@ -210,7 +210,10 @@ export class DailyService {
         ...profile,
         daily: {
           ...profile.daily,
-          activePuzzle: snapshot,
+          drafts: {
+            ...profile.daily.drafts,
+            [dateKey]: snapshot,
+          },
         },
       }));
       await this.tryFlush();
@@ -219,9 +222,11 @@ export class DailyService {
     return {
       dateKey,
       entry,
-      ranked: true,
-      archive: false,
-      elapsedMsAtLaunch: Math.max(0, nowMs - snapshot.startedAtMs),
+      ranked: !archive,
+      archive,
+      elapsedMsAtLaunch: archive
+        ? snapshot.activePlayMs
+        : Math.max(0, nowMs - snapshot.startedAtMs),
     };
   }
 
@@ -279,19 +284,21 @@ export class DailyService {
     const finishedAtMs = trustedNow.getTime();
     if (!Number.isFinite(finishedAtMs)) return null;
 
-    const active = historyBefore.activePuzzle;
+    const active = historyBefore.drafts[dateKey];
     const compatibleRankedSnapshot = isCompatiblePuzzleSnapshot(
       entry.level,
       'daily',
       entry.id,
-      active ?? undefined,
+      active,
     );
 
     let completionTimeMs: number;
-    if (compatibleRankedSnapshot && active !== null) {
+    if (onTime && compatibleRankedSnapshot && active !== undefined) {
       completionTimeMs = Math.max(0, finishedAtMs - active.startedAtMs);
     } else if (archive && Number.isFinite(elapsedMs) && (elapsedMs ?? -1) >= 0) {
       completionTimeMs = Math.max(0, Math.floor(elapsedMs ?? 0));
+    } else if (archive && compatibleRankedSnapshot && active !== undefined) {
+      completionTimeMs = Math.max(0, finishedAtMs - active.startedAtMs);
     } else {
       return null;
     }
@@ -312,7 +319,10 @@ export class DailyService {
 
       const nextDaily = {
         ...profile.daily,
-        activePuzzle: compatibleRankedSnapshot ? null : profile.daily.activePuzzle,
+        drafts: Object.fromEntries(
+          Object.entries(profile.daily.drafts)
+            .filter(([draftDateKey]) => draftDateKey !== dateKey),
+        ),
         totalSolved: profile.daily.totalSolved + 1,
         solvedDates: [...profile.daily.solvedDates, dateKey],
         results: {

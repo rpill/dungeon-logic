@@ -1,21 +1,12 @@
-import {
-  CAMPAIGN_MANUSCRIPTS,
-  getManuscriptForSlot,
-} from '../content/campaign/manuscripts';
-import type {
-  CampaignLevelEntry,
-  ManuscriptDefinition,
-} from '../content/campaign/types';
+import type { CampaignLevelEntry } from '../content/campaign/types';
+import { isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { CampaignLevelResult } from '../profile/types';
 import {
   campaignProgressSnapshot,
   getCampaignContinueEntry,
 } from './CampaignProgress';
-import {
-  getPlayableCampaignIds,
-  isManuscriptUnlocked,
-} from './CampaignUnlocks';
+import { getPlayableCampaignIds } from './CampaignUnlocks';
 import type {
   CampaignCompletionResult,
   CampaignProgressSnapshot,
@@ -86,14 +77,27 @@ export class CampaignService {
     const profile = this.profileService.getProfile();
     if (!profile.tutorial.completed) return null;
     const completed = new Set(profile.campaign.completedLevelIds);
-    const activePuzzle = profile.campaign.activePuzzle;
+    const lastPlayedLevelId = profile.campaign.lastPlayedLevelId;
+    const lastPlayedDraft = lastPlayedLevelId === null
+      ? undefined
+      : profile.campaign.drafts[lastPlayedLevelId];
 
+    const lastPlayedEntry = lastPlayedLevelId === null
+      ? undefined
+      : this.levels.find((entry) => entry.id === lastPlayedLevelId);
     if (
-      activePuzzle?.mode === 'campaign'
-      && !completed.has(activePuzzle.puzzleId)
-      && this.canPlayLevel(activePuzzle.puzzleId)
+      lastPlayedEntry !== undefined
+      && lastPlayedDraft !== undefined
+      && isCompatiblePuzzleSnapshot(
+        lastPlayedEntry.level,
+        'campaign',
+        lastPlayedEntry.id,
+        lastPlayedDraft,
+      )
+      && !completed.has(lastPlayedEntry.id)
+      && this.canPlayLevel(lastPlayedEntry.id)
     ) {
-      return this.levels.find((entry) => entry.id === activePuzzle.puzzleId) ?? null;
+      return lastPlayedEntry;
     }
 
     return getCampaignContinueEntry(this.getProgress(), this.levels);
@@ -142,6 +146,10 @@ export class CampaignService {
           completedLevelIds,
           lastPlayedLevelId: id,
           levelResults,
+          drafts: Object.fromEntries(
+            Object.entries(profile.campaign.drafts)
+              .filter(([levelId]) => levelId !== id),
+          ),
         },
       };
     });
@@ -154,9 +162,6 @@ export class CampaignService {
     return {
       progress,
       recommendedNextLevel: this.getRecommendedNextLevel(entry, progress),
-      unlockedManuscript: wasCompleted
-        ? null
-        : this.findNewlyUnlockedManuscript(beforeCompleted, progress.completedLevelIds),
       unlockedFeatures: !wasCompleted && id === 'campaign-005'
         ? ['daily', 'statistics']
         : [],
@@ -172,43 +177,11 @@ export class CampaignService {
   }
 
   private getRecommendedNextLevel(
-    completedEntry: CampaignLevelEntry,
+    _completedEntry: CampaignLevelEntry,
     progress: CampaignProgressSnapshot,
   ): CampaignLevelEntry | null {
     const completed = new Set(progress.completedLevelIds);
-    const unsolvedPlayable = this.getPlayableLevels()
-      .filter((entry) => !completed.has(entry.id));
-    if (unsolvedPlayable.length === 0) return null;
-
-    const manuscript = getManuscriptForSlot(completedEntry.slot);
-    if (manuscript !== null) {
-      const sameManuscript = unsolvedPlayable.find(
-        (entry) => manuscript.slots.includes(entry.slot),
-      );
-      if (sameManuscript !== undefined) return sameManuscript;
-    }
-
-    return unsolvedPlayable[0];
-  }
-
-  private findNewlyUnlockedManuscript(
-    beforeCompleted: readonly string[],
-    afterCompleted: readonly string[],
-  ): ManuscriptDefinition | null {
-    for (const manuscript of CAMPAIGN_MANUSCRIPTS.slice(1)) {
-      const wasUnlocked = isManuscriptUnlocked(
-        manuscript.id,
-        beforeCompleted,
-        this.levels,
-      );
-      const isUnlocked = isManuscriptUnlocked(
-        manuscript.id,
-        afterCompleted,
-        this.levels,
-      );
-      if (!wasUnlocked && isUnlocked) return manuscript;
-    }
-    return null;
+    return this.getPlayableLevels().find((entry) => !completed.has(entry.id)) ?? null;
   }
 
   private async tryFlush(): Promise<boolean> {

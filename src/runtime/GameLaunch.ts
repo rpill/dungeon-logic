@@ -162,10 +162,10 @@ export async function completeGameLaunch(
 
 export function getCampaignCompletionActions(
   result: CampaignCompletionResult,
-): readonly ('next' | 'archive')[] {
+): readonly ('next' | 'levels')[] {
   return result.recommendedNextLevel === null
-    ? ['archive']
-    : ['next', 'archive'];
+    ? ['levels']
+    : ['next', 'levels'];
 }
 
 export async function createNextCampaignGameSceneData(

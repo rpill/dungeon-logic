@@ -6,7 +6,7 @@ import { validatePuzzle } from '../puzzle/LevelValidator';
 import { CellState } from '../puzzle/types';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { TutorialService } from '../tutorial/TutorialService';
 import { createLevelSelectItems, createTutorialGameSceneData } from '../runtime/GameLaunch';
@@ -33,10 +33,10 @@ async function main(): Promise<void> {
     TUTORIAL_MANIFEST.map((entry) => entry.id).join(',') === expectedIds.join(','),
     'Tutorial IDs are stable and ordered from tutorial-001 through tutorial-005.',
   );
-  assert(campaignManifest.length === 30, 'Dedicated Tutorial does not change the 30-level Campaign manifest.');
+  assert(campaignManifest.length === 64, 'Dedicated Tutorial coexists with the 64-level Campaign manifest.');
   assert(
-    campaignManifest[0]?.id === 'campaign-001' && campaignManifest.at(-1)?.id === 'campaign-030',
-    'Campaign IDs remain campaign-001 through campaign-030.',
+    campaignManifest[0]?.id === 'campaign-001' && campaignManifest.at(-1)?.id === 'campaign-064',
+    'Campaign IDs remain stable from campaign-001 through campaign-064.',
   );
 
   for (const entry of TUTORIAL_MANIFEST) {
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
   class MemoryStorage implements PlayerProfileStorage {
     raw: unknown = null;
     async load(): Promise<unknown | null> { return this.raw; }
-    async save(profile: PlayerProfileV2): Promise<void> { this.raw = profile; }
+    async save(profile: PlayerProfileV4): Promise<void> { this.raw = profile; }
   }
 
   const storage = new MemoryStorage();
@@ -120,7 +120,7 @@ async function main(): Promise<void> {
   session.getPuzzle().setCellState(1, 1, CellState.Wall);
   session.saveNow();
   assert(profileService.getProfile().tutorial.activePuzzle?.mode === 'tutorial', 'Tutorial session persists under tutorial.activePuzzle.');
-  assert(profileService.getProfile().campaign.activePuzzle === null, 'Tutorial session never writes Campaign active state.');
+  assert(Object.keys(profileService.getProfile().campaign.drafts).length === 0, 'Tutorial session never writes Campaign draft state.');
   session.clearActivePuzzle();
 
   for (const id of expectedIds.slice(0, 4)) await tutorial.completeLevel(id);

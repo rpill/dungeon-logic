@@ -23,8 +23,20 @@ export interface DailyResultSummary {
   readonly solvedWithoutHints: boolean;
 }
 
-export interface DailyProfileState {
+/** Daily persistence used through profile schema v3: one ranked active puzzle. */
+export interface DailyProfileStateV3 {
   readonly activePuzzle: SerializedPuzzleState | null;
+  readonly currentStreak: number;
+  readonly bestStreak: number;
+  readonly lastSolvedDate: string | null;
+  readonly totalSolved: number;
+  readonly solvedDates: readonly string[];
+  readonly results: Readonly<Record<string, DailyResultSummary>>;
+}
+
+/** Current Daily persistence: every started unsolved date owns its own draft. */
+export interface DailyProfileState {
+  readonly drafts: Readonly<Record<string, SerializedPuzzleState>>;
   readonly currentStreak: number;
   readonly bestStreak: number;
   readonly lastSolvedDate: string | null;
@@ -55,7 +67,7 @@ export interface PlayerProfileV1 {
     readonly levelResults: Readonly<Record<string, CampaignLevelResult>>;
     readonly activePuzzle: SerializedPuzzleState | null;
   };
-  readonly daily: DailyProfileState;
+  readonly daily: DailyProfileStateV3;
   readonly settings: PlayerSettings;
   readonly hints: {
     readonly freeRemaining: number;
@@ -71,6 +83,7 @@ export interface PlayerProfileV1 {
   };
 }
 
+/** Persisted unified profile used by Tutorial v2 before per-level Campaign drafts. */
 export interface PlayerProfileV2 {
   readonly schemaVersion: 2;
   readonly tutorial: TutorialProfileState;
@@ -79,6 +92,58 @@ export interface PlayerProfileV2 {
     readonly lastPlayedLevelId: string | null;
     readonly levelResults: Readonly<Record<string, CampaignLevelResult>>;
     readonly activePuzzle: SerializedPuzzleState | null;
+  };
+  readonly daily: DailyProfileStateV3;
+  readonly settings: PlayerSettings;
+  readonly hints: {
+    readonly freeRemaining: number;
+    readonly totalUsed: number;
+    readonly rechargeAnchorMs?: number | null;
+  };
+  readonly ads: {
+    readonly campaignCompletionsSinceOpportunity: number;
+    readonly lastInterstitialAtMs: number | null;
+  };
+  readonly totals: {
+    readonly activePlayMs: number;
+  };
+}
+
+/** Persisted unified profile used before per-date Daily drafts. */
+export interface PlayerProfileV3 {
+  readonly schemaVersion: 3;
+  readonly tutorial: TutorialProfileState;
+  readonly campaign: {
+    readonly completedLevelIds: readonly string[];
+    readonly lastPlayedLevelId: string | null;
+    readonly levelResults: Readonly<Record<string, CampaignLevelResult>>;
+    readonly drafts: Readonly<Record<string, SerializedPuzzleState>>;
+  };
+  readonly daily: DailyProfileStateV3;
+  readonly settings: PlayerSettings;
+  readonly hints: {
+    readonly freeRemaining: number;
+    readonly totalUsed: number;
+    readonly rechargeAnchorMs?: number | null;
+  };
+  readonly ads: {
+    readonly campaignCompletionsSinceOpportunity: number;
+    readonly lastInterstitialAtMs: number | null;
+  };
+  readonly totals: {
+    readonly activePlayMs: number;
+  };
+}
+
+/** Current profile schema: Campaign and Daily both keep independent persistent drafts. */
+export interface PlayerProfileV4 {
+  readonly schemaVersion: 4;
+  readonly tutorial: TutorialProfileState;
+  readonly campaign: {
+    readonly completedLevelIds: readonly string[];
+    readonly lastPlayedLevelId: string | null;
+    readonly levelResults: Readonly<Record<string, CampaignLevelResult>>;
+    readonly drafts: Readonly<Record<string, SerializedPuzzleState>>;
   };
   readonly daily: DailyProfileState;
   readonly settings: PlayerSettings;

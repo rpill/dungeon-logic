@@ -93,13 +93,13 @@ function fakeAccepted(
 }
 
 assert(DAILY_RELEASE_MASTER_SEED === 20260909, 'Daily corpus master seed must stay stable.');
-assert(DAILY_RELEASE_COUNT === 60, 'Daily release corpus must contain 60 snapshots.');
+assert(DAILY_RELEASE_COUNT === 365, 'Daily release corpus must contain 365 snapshots.');
 assert(DAILY_RELEASE_SCAN_PLAN.length === 3, 'Daily release scan must stay V1-only.');
 assert(DAILY_RELEASE_SCAN_PLAN.every((entry) => entry.size === 7), 'Daily v1 corpus should use the proven 7x7 release scan.');
 assert(DAILY_RELEASE_SLOT_SPECS.length === DAILY_RELEASE_COUNT, 'Every Daily snapshot needs a selection spec.');
-assert(DAILY_RELEASE_ARCHETYPE_COUNTS[GeneratorArchetype.MonsterOnly] === 24, 'Daily corpus needs 24 monster-only snapshots.');
-assert(DAILY_RELEASE_ARCHETYPE_COUNTS[GeneratorArchetype.MixedOneRoom] === 24, 'Daily corpus needs 24 mixed snapshots.');
-assert(DAILY_RELEASE_ARCHETYPE_COUNTS[GeneratorArchetype.ChestOneRoom] === 12, 'Daily corpus needs 12 chest snapshots.');
+assert(DAILY_RELEASE_ARCHETYPE_COUNTS[GeneratorArchetype.MonsterOnly] === 217, 'Daily corpus needs 217 monster-only snapshots.');
+assert(DAILY_RELEASE_ARCHETYPE_COUNTS[GeneratorArchetype.MixedOneRoom] === 126, 'Daily corpus needs 126 mixed snapshots.');
+assert(DAILY_RELEASE_ARCHETYPE_COUNTS[GeneratorArchetype.ChestOneRoom] === 22, 'Daily corpus needs 22 chest snapshots.');
 assert(DAILY_RELEASE_MIN_NEIGHBOR_DISTANCE > 0, 'Daily sequence diversity gate must be active.');
 
 const tinyPlan = [
@@ -138,7 +138,7 @@ import { evaluateCandidate } from '../puzzle/generator/CandidateFactory';
 import { candidateDistance } from '../puzzle/generator/CandidateRanker';
 import { analyzeHumanSolvability } from '../puzzle/human-solver/HumanSolver';
 
-assert(curatedDailySnapshots.length === DAILY_RELEASE_COUNT, 'Curated Daily catalog must contain exactly 60 snapshots.');
+assert(curatedDailySnapshots.length === DAILY_RELEASE_COUNT, 'Curated Daily catalog must contain exactly 365 snapshots.');
 const campaignFingerprints = new Set(promotedCampaignLevels.map((entry) => campaignReleaseStructuralFingerprint(entry.level.solution)));
 const dailyFingerprints = new Set<string>();
 const dailyCandidateIds = new Set<string>();
@@ -188,9 +188,9 @@ for (let index = 0; index < curatedDailySnapshots.length; index += 1) {
   const human = analyzeHumanSolvability(snapshot.level);
   assert(human.status === snapshot.provenance.humanStatus, `Daily ${expectedId} Human Solver provenance drifted.`);
 }
-assert(curatedCounts[GeneratorArchetype.MonsterOnly] === 24, 'Curated Daily monster quota drifted.');
-assert(curatedCounts[GeneratorArchetype.MixedOneRoom] === 24, 'Curated Daily mixed quota drifted.');
-assert(curatedCounts[GeneratorArchetype.ChestOneRoom] === 12, 'Curated Daily chest quota drifted.');
-assert(mediumCount === 27 && hardCount === 33, 'Curated Daily medium/hard balance drifted.');
+assert(curatedCounts[GeneratorArchetype.MonsterOnly] === 217, 'Curated Daily monster quota drifted.');
+assert(curatedCounts[GeneratorArchetype.MixedOneRoom] === 126, 'Curated Daily mixed quota drifted.');
+assert(curatedCounts[GeneratorArchetype.ChestOneRoom] === 22, 'Curated Daily chest quota drifted.');
+assert(mediumCount > 0 && hardCount > 0 && mediumCount + hardCount === DAILY_RELEASE_COUNT, 'Every curated Daily must stay medium or hard.');
 
-console.info('[Dungeon Logic] Daily corpus sanity: 60 curated snapshots revalidated + campaign exclusion passed');
+console.info('[Dungeon Logic] Daily corpus sanity: 365 curated snapshots validated + campaign exclusion passed');

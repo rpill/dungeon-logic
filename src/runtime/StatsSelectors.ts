@@ -1,8 +1,7 @@
-import { CAMPAIGN_MANUSCRIPTS } from '../content/campaign/manuscripts';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import { toUtcDateKey } from '../daily/DailySelector';
 
-const CAMPAIGN_TOTAL = 30;
+const CAMPAIGN_TOTAL = 64;
 const DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const UTC_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -11,8 +10,6 @@ export type DailyCalendarDayState = 'solved' | 'missed' | 'today' | 'future' | '
 export interface StatsCampaignView {
   readonly solved: number;
   readonly total: number;
-  readonly completedManuscripts: number;
-  readonly totalManuscripts: number;
   readonly solvedWithoutHints: number;
 }
 
@@ -50,10 +47,6 @@ export interface StatsViewModel {
   readonly calendar: DailyMonthCalendarView | null;
 }
 
-function campaignLevelId(slot: number): string {
-  return `campaign-${String(slot).padStart(3, '0')}`;
-}
-
 function parseUtcDateKey(dateKey: string): Date | null {
   const match = DATE_KEY_PATTERN.exec(dateKey);
   if (match === null) return null;
@@ -71,7 +64,7 @@ function previousUtcDateKey(dateKey: string): string | null {
 }
 
 function getActiveDailyStreak(
-  profile: PlayerProfileV2,
+  profile: PlayerProfileV4,
   todayDateKey: string | null,
   availableDailyDateKeys: readonly string[],
 ): number | null {
@@ -92,14 +85,8 @@ function getActiveDailyStreak(
   return 0;
 }
 
-function getCompletedManuscriptCount(completedLevelIds: ReadonlySet<string>): number {
-  return CAMPAIGN_MANUSCRIPTS.filter((manuscript) => (
-    manuscript.slots.every((slot) => completedLevelIds.has(campaignLevelId(slot)))
-  )).length;
-}
-
 function createDailyMonthCalendar(
-  profile: PlayerProfileV2,
+  profile: PlayerProfileV4,
   todayDateKey: string,
   availableDailyDateKeys: readonly string[],
 ): DailyMonthCalendarView {
@@ -149,7 +136,7 @@ function createDailyMonthCalendar(
 }
 
 export function getStatsViewModel(
-  profile: PlayerProfileV2,
+  profile: PlayerProfileV4,
   todayDateKey: string | null,
   availableDailyDateKeys: readonly string[],
 ): StatsViewModel {
@@ -165,8 +152,6 @@ export function getStatsViewModel(
     campaign: {
       solved: completedLevelIds.size,
       total: CAMPAIGN_TOTAL,
-      completedManuscripts: getCompletedManuscriptCount(completedLevelIds),
-      totalManuscripts: CAMPAIGN_MANUSCRIPTS.length,
       solvedWithoutHints: campaignNoHint,
     },
     daily: {

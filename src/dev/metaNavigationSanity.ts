@@ -1,9 +1,9 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import {
   getHomeDailyAction,
   getHomeCampaignAction,
-  getManuscriptViewModels,
+  LEVELS_SCENE_KEY,
   shouldShowDailyEntry,
   shouldShowSettingsEntry,
   type MetaCampaignPort,
@@ -18,8 +18,6 @@ function entry(slot: number): CampaignLevelEntry {
   return {
     slot,
     id,
-    chapterId: 'graveyard',
-    onboarding: [],
     level: {
       id,
       width: 1,
@@ -39,9 +37,9 @@ function profile(
   completed: readonly string[],
   lastPlayedLevelId: string | null = null,
   tutorialCompleted = true,
-): PlayerProfileV2 {
+): PlayerProfileV4 {
   return {
-    schemaVersion: 2,
+    schemaVersion: 4,
     tutorial: {
       completedLevelIds: tutorialCompleted
         ? ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004', 'tutorial-005']
@@ -53,10 +51,10 @@ function profile(
       completedLevelIds: [...completed],
       lastPlayedLevelId,
       levelResults: {},
-      activePuzzle: null,
+      drafts: {},
     },
     daily: {
-      activePuzzle: null,
+      drafts: {},
       currentStreak: 0,
       bestStreak: 0,
       lastSolvedDate: null,
@@ -76,7 +74,7 @@ function profile(
   };
 }
 
-const manifest = Array.from({ length: 30 }, (_, index) => entry(index + 1));
+const manifest = Array.from({ length: 64 }, (_, index) => entry(index + 1));
 
 function fakeCampaign(continueSlot: number | null): MetaCampaignPort {
   return {
@@ -134,46 +132,9 @@ assert(
 );
 
 const complete = profile(manifest.map((candidate) => candidate.id));
-const choose = getHomeCampaignAction(fakeCampaign(30), complete);
+const choose = getHomeCampaignAction(fakeCampaign(64), complete);
 assert(choose.kind === 'choose-level', 'Fully completed promoted campaign switches Home action to level choice.');
 
-const lockedViews = getManuscriptViewModels(manifest, fresh);
-assert(lockedViews.length === 6, 'Archive exposes four real manuscripts plus two sealed teasers.');
-const manuscriptI = lockedViews[0];
-const manuscriptII = lockedViews[1];
-assert(manuscriptI.kind === 'real' && manuscriptI.unlocked, 'Manuscript I starts unlocked.');
-assert(manuscriptII.kind === 'real' && !manuscriptII.unlocked, 'Manuscript II starts locked.');
-assert(
-  manuscriptII.kind === 'real' && manuscriptII.requirementText === 'Завершите 6 задач рукописи I',
-  'Locked real manuscript exposes the explicit unlock requirement.',
-);
+assert(LEVELS_SCENE_KEY === 'LevelSelectScene', 'Main campaign browser route is the Levels scene.');
 
-for (const sealed of lockedViews.slice(4)) {
-  assert(sealed.kind === 'sealed', 'V and VI are sealed metadata, not real campaign manuscripts.');
-  assert(!sealed.interactive, 'Sealed manuscript is non-interactive.');
-  assert(sealed.progress === null, 'Sealed manuscript has no progress count.');
-}
-
-const unlockedIIProfile = profile([
-  'campaign-001',
-  'campaign-002',
-  'campaign-003',
-  'campaign-004',
-  'campaign-005',
-  'campaign-006',
-]);
-const unlockedViews = getManuscriptViewModels(manifest, unlockedIIProfile);
-assert(unlockedViews[1].kind === 'real' && unlockedViews[1].unlocked, 'Six solved in I unlock Manuscript II.');
-
-const partialManifest = manifest.slice(0, 5);
-const partialViews = getManuscriptViewModels(partialManifest, afterFive);
-assert(
-  partialViews[0].kind === 'real' && partialViews[0].promotedLevelIds.length === 5,
-  'Archive view model contains only actually promoted level ids.',
-);
-assert(
-  partialViews[1].kind === 'real' && partialViews[1].promotedLevelIds.length === 0,
-  'Missing future snapshots never become fake cards.',
-);
-
-console.info('[Dungeon Logic] Meta navigation sanity: Home actions + manuscript archive view models passed');
+console.info('[Dungeon Logic] Meta navigation sanity: Home actions + flat Levels navigation passed');

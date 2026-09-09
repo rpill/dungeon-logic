@@ -7,7 +7,7 @@ import {
 import { LocalPlayerProfileStorage, PLAYER_PROFILE_STORAGE_KEY } from '../profile/LocalPlayerProfileStorage';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -18,8 +18,6 @@ function entry(slot: number): CampaignLevelEntry {
   return {
     slot,
     id,
-    chapterId: 'graveyard',
-    onboarding: [],
     level: {
       id,
       width: 1,
@@ -39,13 +37,14 @@ async function main(): Promise<void> {
   const manifest = [entry(1), entry(2), entry(3), entry(4), entry(5), entry(6), entry(7)];
 
   const fresh = normalizePlayerProfile({ nonsense: true }, manifest);
-  assert(fresh.schemaVersion === 2, 'Invalid profile input falls back to schema v2.');
+  assert(fresh.schemaVersion === 4, 'Invalid profile input falls back to schema v4.');
+  assert(Object.keys(fresh.campaign.drafts).length === 0, 'Fresh Campaign starts with no saved level drafts.');
   assert(!fresh.tutorial.completed, 'Fresh profile requires Tutorial before Campaign.');
   assert(fresh.tutorial.completedLevelIds.length === 0, 'Fresh Tutorial progress starts empty.');
   assert(fresh.tutorial.activePuzzle === null, 'Fresh Tutorial has no active puzzle.');
   assert(fresh.hints.freeRemaining === 3, 'Fresh profile grants exactly 3 free hints.');
   assert(fresh.hints.totalUsed === 0, 'Fresh profile starts with zero used hints.');
-  assert(fresh.daily.activePuzzle === null, 'Fresh profile has no active Daily ranked attempt.');
+  assert(Object.keys(fresh.daily.drafts).length === 0, 'Fresh profile has no saved Daily drafts.');
   assert(fresh.daily.currentStreak === 0 && fresh.daily.bestStreak === 0, 'Fresh profile starts with empty Daily streaks.');
   assert(fresh.ads.campaignCompletionsSinceOpportunity === 0, 'Fresh profile starts with zero ad opportunity completions.');
   assert(fresh.totals.activePlayMs === 0, 'Fresh profile starts with zero active play time.');
@@ -102,6 +101,36 @@ async function main(): Promise<void> {
   assert(normalized.campaign.lastPlayedLevelId === null, 'Unknown last-played IDs are discarded.');
   assert(Object.keys(normalized.campaign.levelResults).join(',') === 'campaign-002', 'Unknown level result entries are discarded.');
 
+
+  const v2Snapshot = {
+    mode: 'campaign' as const,
+    puzzleId: 'campaign-003',
+    cells: [['unknown']],
+    activePlayMs: 321,
+    hintsUsed: 1,
+    startedAtMs: 123,
+  };
+  const migratedV2 = normalizePlayerProfile({
+    schemaVersion: 2,
+    tutorial: createFreshPlayerProfile(manifest).tutorial,
+    campaign: {
+      completedLevelIds: ['campaign-001'],
+      lastPlayedLevelId: 'campaign-003',
+      levelResults: {},
+      activePuzzle: v2Snapshot,
+    },
+    daily: createFreshPlayerProfile(manifest).daily,
+    settings: createFreshPlayerProfile(manifest).settings,
+    hints: createFreshPlayerProfile(manifest).hints,
+    ads: createFreshPlayerProfile(manifest).ads,
+    totals: createFreshPlayerProfile(manifest).totals,
+  }, manifest);
+  assert(migratedV2.schemaVersion === 4, 'Schema v2 profile migrates to current schema v4.');
+  assert(
+    migratedV2.campaign.drafts['campaign-003']?.activePlayMs === 321,
+    'Schema v2 active Campaign puzzle migrates into the matching per-level draft.',
+  );
+
   const migrated = migrateLegacyCampaignProgress({
     schemaVersion: 1,
     highestUnlockedSlot: 4,
@@ -152,6 +181,7 @@ async function main(): Promise<void> {
     },
   }, manifest);
   assert(activeCampaignV1.tutorial.completed, 'Legacy active Campaign puzzle marks Tutorial complete.');
+  assert(activeCampaignV1.campaign.drafts['campaign-001']?.puzzleId === 'campaign-001', 'Legacy v1 active Campaign puzzle migrates into a per-level draft.');
 
   class MemoryKeyValueStorage {
     readonly values = new Map<string, string>();
@@ -174,11 +204,11 @@ async function main(): Promise<void> {
   class CountingStorage implements PlayerProfileStorage {
     raw: unknown = null;
     legacy: unknown = null;
-    saves: PlayerProfileV2[] = [];
+    saves: PlayerProfileV4[] = [];
 
     async load(): Promise<unknown | null> { return this.raw; }
     async loadLegacyCampaignProgress(): Promise<unknown | null> { return this.legacy; }
-    async save(profile: PlayerProfileV2): Promise<void> {
+    async save(profile: PlayerProfileV4): Promise<void> {
       this.raw = profile;
       this.saves.push(profile);
     }

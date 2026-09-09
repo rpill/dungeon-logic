@@ -10,9 +10,7 @@ import type {
 import { analyzeHumanSolvability } from '../puzzle/human-solver/HumanSolver';
 import { HumanSolveStatus, type HumanSolveResult } from '../puzzle/human-solver/types';
 import type { LevelDefinition } from '../puzzle/types';
-import { getCampaignChapterForSlot } from '../content/campaign/chapters';
 import { getCampaignCurationRule } from '../content/campaign/curationPlan';
-import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import { buildCampaignManifest } from '../content/campaign/manifest';
 import type {
   CampaignLevelProvenance,
@@ -111,11 +109,11 @@ export function parseCampaignPromotionArgs(argv: readonly string[]): CampaignPro
   }
 
   if (slotText === null || !/^\d+$/.test(slotText)) {
-    throw new Error('--slot is required and must be an integer from 1 to 30.');
+    throw new Error('--slot is required and must be an integer from 1 to 64.');
   }
   const slot = Number(slotText);
-  if (!Number.isSafeInteger(slot) || slot < 1 || slot > 30) {
-    throw new Error('--slot must be an integer from 1 to 30.');
+  if (!Number.isSafeInteger(slot) || slot < 1 || slot > 64) {
+    throw new Error('--slot must be an integer from 1 to 64.');
   }
 
   return { seed, candidateId, slot, replace };
@@ -162,20 +160,6 @@ export function analyzeCampaignPromotion(
   }
 
   const rule = getCampaignCurationRule(slot);
-  const chapter = getCampaignChapterForSlot(slot);
-  if (rule.chapterId !== chapter.id) {
-    throw new Error(
-      `Campaign slot ${slot} curation chapter ${rule.chapterId} does not match chapter ownership ${chapter.id}.`,
-    );
-  }
-
-  const manuscript = getManuscriptForSlot(slot);
-  if (manuscript === null || rule.manuscriptId !== manuscript.id) {
-    throw new Error(
-      `Campaign slot ${slot} curation manuscript ${rule.manuscriptId} does not match manuscript ownership ${manuscript?.id ?? 'none'}.`,
-    );
-  }
-
   if (!rule.allowedArchetypes.includes(candidate.archetype)) {
     throw new Error(
       `Candidate ${candidate.id} archetype ${candidate.archetype} is not allowed for campaign slot ${slot}.`,

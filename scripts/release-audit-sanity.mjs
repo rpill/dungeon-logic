@@ -32,6 +32,7 @@ const requiredReleaseSanities = [
   'sanity:profile',
   'sanity:settings',
   'sanity:campaign',
+  'sanity:campaign-preview',
   'sanity:campaign-release',
   'sanity:daily',
   'sanity:daily-calendar',

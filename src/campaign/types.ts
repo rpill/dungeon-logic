@@ -1,7 +1,6 @@
 import type {
   CampaignLevelEntry,
   CampaignOnboardingId,
-  ManuscriptDefinition,
 } from '../content/campaign/types';
 import type { CampaignLevelResult } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
@@ -28,7 +27,6 @@ export type FeatureUnlockId = 'daily' | 'statistics';
 export interface CampaignCompletionResult {
   readonly progress: CampaignProgressSnapshot;
   readonly recommendedNextLevel: CampaignLevelEntry | null;
-  readonly unlockedManuscript: ManuscriptDefinition | null;
   readonly unlockedFeatures: readonly FeatureUnlockId[];
   readonly persisted: boolean;
 }

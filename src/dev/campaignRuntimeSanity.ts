@@ -110,9 +110,10 @@ async function main(): Promise<void> {
   assert(devData.onboarding.length === 0, 'Dev scene data never includes campaign onboarding.');
 
   const levelSelectItems = createLevelSelectItems(campaignManifest, fresh);
-  assert(levelSelectItems.length === 30, 'Level Select model exposes all 30 promoted release entries.');
+  assert(levelSelectItems.length === 64, 'Level Select model exposes all 64 promoted release entries.');
   assert(levelSelectItems[0].state === 'current', 'Level Select marks slot 1 current in fresh progress.');
-  assert(levelSelectItems.slice(1).every((item) => item.state === 'locked'), 'Level Select locks slots 2-30 initially.');
+  assert(levelSelectItems[1].state === 'unlocked' && levelSelectItems[2].state === 'unlocked', 'Fresh Levels exposes three playable unsolved entries.');
+  assert(levelSelectItems.slice(3).every((item) => item.state === 'locked'), 'Fresh Levels locks entries after the first three.');
 
   const campaignRestart = createRestartGameSceneData(campaignData);
   assert(campaignRestart.level === campaignData.level, 'Campaign restart preserves concrete level snapshot.');
@@ -137,7 +138,6 @@ async function main(): Promise<void> {
       lastPlayedLevelId: 'campaign-001',
     },
     recommendedNextLevel: campaignManifest[1],
-    unlockedManuscript: null,
     unlockedFeatures: [],
     persisted: true,
   } as const;
@@ -170,12 +170,12 @@ async function main(): Promise<void> {
   assert(completeCalls === 0, 'Dev completion never calls CampaignService.');
 
   assert(
-    getCampaignCompletionActions(firstCompletion).join(',') === 'next,archive',
+    getCampaignCompletionActions(firstCompletion).join(',') === 'next,levels',
     'Completion actions include Next when a recommended frontier level exists.',
   );
   const finalCompletion = { ...firstCompletion, recommendedNextLevel: null };
   assert(
-    getCampaignCompletionActions(finalCompletion).join(',') === 'archive',
+    getCampaignCompletionActions(finalCompletion).join(',') === 'levels',
     'Completion without a recommended frontier level has no Next action.',
   );
 
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
   );
   assert(createOnboardingMessages(devData).length === 0, 'Dev launch produces no onboarding messages.');
 
-  console.info('[Dungeon Logic] Campaign runtime sanity: nonlinear routing/launch model checks passed');
+  console.info('[Dungeon Logic] Campaign runtime sanity: flat 64-level routing/launch model checks passed');
 }
 
 main().catch((error) => {

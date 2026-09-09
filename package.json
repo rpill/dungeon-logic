@@ -19,7 +19,6 @@
     "sanity:difficulty-corpus": "tsx src/dev/difficultyCorpusSanity.ts",
     "analyze:difficulty-corpus": "tsx src/dev/analyzeDifficultyCorpus.ts",
     "sanity:campaign": "tsx src/dev/campaignSanity.ts",
-    "sanity:campaign-theme": "tsx src/dev/campaignThemeSanity.ts",
     "sanity:board-visual": "tsx src/dev/boardTileVisualSanity.ts",
     "sanity:puzzle-interaction": "tsx src/dev/puzzleInteractionSanity.ts",
     "campaign:promote": "tsx src/dev/promoteCampaignLevel.ts",
@@ -44,6 +43,9 @@
     "sanity:hint": "tsx src/dev/hintSanity.ts",
     "sanity:game-regressions": "tsx src/dev/gameRegressionSanity.ts",
     "sanity:daily": "tsx src/dev/dailySanity.ts",
+    "sanity:daily-drafts": "tsx src/dev/dailyDraftsV4Sanity.ts",
+    "sanity:daily-preview": "tsx src/dev/dailyLevelPreviewSanity.ts",
+    "sanity:daily-preview-ui": "tsx src/dev/dailyPreviewUiSanity.ts",
     "sanity:daily-leaderboard": "tsx src/dev/dailyLeaderboardSanity.ts",
     "sanity:daily-leaderboard-scene": "node scripts/daily-leaderboard-scene-sanity.mjs",
     "sanity:daily-archive-scene": "node scripts/daily-archive-scene-sanity.mjs",
@@ -63,7 +65,10 @@
     "sanity:i18n": "tsx src/dev/localizationSanity.ts",
     "sanity:release-audit": "node scripts/release-audit-sanity.mjs && node scripts/release-acceptance-sanity.mjs",
     "audit:release-package": "node scripts/release-audit.mjs",
-    "sanity:release": "node scripts/release-acceptance.mjs"
+    "sanity:release": "node scripts/release-acceptance.mjs",
+    "sanity:levels-mode": "tsx src/dev/levelsModeSanity.ts",
+    "sanity:levels-content-cleanup": "node scripts/levels-content-cleanup-sanity.mjs",
+    "sanity:campaign-preview": "tsx src/dev/campaignLevelPreviewSanity.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

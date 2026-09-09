@@ -27,6 +27,7 @@ dungeon-logic/
 │       │   ├── 2026-09-08-dungeon-logic-wireframe-puzzle-input.md
 │       │   ├── 2026-09-08-release-content-curation-foundation.md
 │       │   ├── 2026-09-09-daily-leaderboard-unlocks.md
+│       │   ├── 2026-09-09-levels-and-year-dailies.md
 │       │   ├── 2026-09-09-release-acceptance.md
 │       │   ├── 2026-09-09-ru-en-localization.md
 │       │   ├── 2026-09-09-single-daily-leaderboard-archive.md
@@ -51,6 +52,7 @@ dungeon-logic/
 │           ├── 2026-09-07-campaign-v1-design.md
 │           ├── 2026-09-08-dungeon-logic-v1-product-ui-design.md
 │           ├── 2026-09-08-release-content-curation-foundation-design.md
+│           ├── 2026-09-09-levels-and-year-dailies-design.md
 │           ├── 2026-09-09-onboarding-polish-design.md
 │           ├── 2026-09-09-release-acceptance-design.md
 │           ├── 2026-09-09-ru-en-localization-design.md
@@ -80,6 +82,7 @@ dungeon-logic/
 │   ├── chatgpt-context.mjs
 │   ├── daily-archive-scene-sanity.mjs
 │   ├── daily-leaderboard-scene-sanity.mjs
+│   ├── levels-content-cleanup-sanity.mjs
 │   ├── release-acceptance-sanity.mjs
 │   ├── release-acceptance.mjs
 │   ├── release-audit-lib.mjs
@@ -129,12 +132,43 @@ dungeon-logic/
 │   │   │   │   ├── campaign028.ts
 │   │   │   │   ├── campaign029.ts
 │   │   │   │   ├── campaign030.ts
+│   │   │   │   ├── campaign031.ts
+│   │   │   │   ├── campaign032.ts
+│   │   │   │   ├── campaign033.ts
+│   │   │   │   ├── campaign034.ts
+│   │   │   │   ├── campaign035.ts
+│   │   │   │   ├── campaign036.ts
+│   │   │   │   ├── campaign037.ts
+│   │   │   │   ├── campaign038.ts
+│   │   │   │   ├── campaign039.ts
+│   │   │   │   ├── campaign040.ts
+│   │   │   │   ├── campaign041.ts
+│   │   │   │   ├── campaign042.ts
+│   │   │   │   ├── campaign043.ts
+│   │   │   │   ├── campaign044.ts
+│   │   │   │   ├── campaign045.ts
+│   │   │   │   ├── campaign046.ts
+│   │   │   │   ├── campaign047.ts
+│   │   │   │   ├── campaign048.ts
+│   │   │   │   ├── campaign049.ts
+│   │   │   │   ├── campaign050.ts
+│   │   │   │   ├── campaign051.ts
+│   │   │   │   ├── campaign052.ts
+│   │   │   │   ├── campaign053.ts
+│   │   │   │   ├── campaign054.ts
+│   │   │   │   ├── campaign055.ts
+│   │   │   │   ├── campaign056.ts
+│   │   │   │   ├── campaign057.ts
+│   │   │   │   ├── campaign058.ts
+│   │   │   │   ├── campaign059.ts
+│   │   │   │   ├── campaign060.ts
+│   │   │   │   ├── campaign061.ts
+│   │   │   │   ├── campaign062.ts
+│   │   │   │   ├── campaign063.ts
+│   │   │   │   ├── campaign064.ts
 │   │   │   │   └── index.ts
-│   │   │   ├── chapters.ts
 │   │   │   ├── curationPlan.ts
 │   │   │   ├── manifest.ts
-│   │   │   ├── manuscripts.ts
-│   │   │   ├── themes.ts
 │   │   │   └── types.ts
 │   │   ├── daily/
 │   │   │   ├── snapshots/
@@ -198,6 +232,311 @@ dungeon-logic/
 │   │   │   │   ├── daily058.ts
 │   │   │   │   ├── daily059.ts
 │   │   │   │   ├── daily060.ts
+│   │   │   │   ├── daily061.ts
+│   │   │   │   ├── daily062.ts
+│   │   │   │   ├── daily063.ts
+│   │   │   │   ├── daily064.ts
+│   │   │   │   ├── daily065.ts
+│   │   │   │   ├── daily066.ts
+│   │   │   │   ├── daily067.ts
+│   │   │   │   ├── daily068.ts
+│   │   │   │   ├── daily069.ts
+│   │   │   │   ├── daily070.ts
+│   │   │   │   ├── daily071.ts
+│   │   │   │   ├── daily072.ts
+│   │   │   │   ├── daily073.ts
+│   │   │   │   ├── daily074.ts
+│   │   │   │   ├── daily075.ts
+│   │   │   │   ├── daily076.ts
+│   │   │   │   ├── daily077.ts
+│   │   │   │   ├── daily078.ts
+│   │   │   │   ├── daily079.ts
+│   │   │   │   ├── daily080.ts
+│   │   │   │   ├── daily081.ts
+│   │   │   │   ├── daily082.ts
+│   │   │   │   ├── daily083.ts
+│   │   │   │   ├── daily084.ts
+│   │   │   │   ├── daily085.ts
+│   │   │   │   ├── daily086.ts
+│   │   │   │   ├── daily087.ts
+│   │   │   │   ├── daily088.ts
+│   │   │   │   ├── daily089.ts
+│   │   │   │   ├── daily090.ts
+│   │   │   │   ├── daily091.ts
+│   │   │   │   ├── daily092.ts
+│   │   │   │   ├── daily093.ts
+│   │   │   │   ├── daily094.ts
+│   │   │   │   ├── daily095.ts
+│   │   │   │   ├── daily096.ts
+│   │   │   │   ├── daily097.ts
+│   │   │   │   ├── daily098.ts
+│   │   │   │   ├── daily099.ts
+│   │   │   │   ├── daily100.ts
+│   │   │   │   ├── daily101.ts
+│   │   │   │   ├── daily102.ts
+│   │   │   │   ├── daily103.ts
+│   │   │   │   ├── daily104.ts
+│   │   │   │   ├── daily105.ts
+│   │   │   │   ├── daily106.ts
+│   │   │   │   ├── daily107.ts
+│   │   │   │   ├── daily108.ts
+│   │   │   │   ├── daily109.ts
+│   │   │   │   ├── daily110.ts
+│   │   │   │   ├── daily111.ts
+│   │   │   │   ├── daily112.ts
+│   │   │   │   ├── daily113.ts
+│   │   │   │   ├── daily114.ts
+│   │   │   │   ├── daily115.ts
+│   │   │   │   ├── daily116.ts
+│   │   │   │   ├── daily117.ts
+│   │   │   │   ├── daily118.ts
+│   │   │   │   ├── daily119.ts
+│   │   │   │   ├── daily120.ts
+│   │   │   │   ├── daily121.ts
+│   │   │   │   ├── daily122.ts
+│   │   │   │   ├── daily123.ts
+│   │   │   │   ├── daily124.ts
+│   │   │   │   ├── daily125.ts
+│   │   │   │   ├── daily126.ts
+│   │   │   │   ├── daily127.ts
+│   │   │   │   ├── daily128.ts
+│   │   │   │   ├── daily129.ts
+│   │   │   │   ├── daily130.ts
+│   │   │   │   ├── daily131.ts
+│   │   │   │   ├── daily132.ts
+│   │   │   │   ├── daily133.ts
+│   │   │   │   ├── daily134.ts
+│   │   │   │   ├── daily135.ts
+│   │   │   │   ├── daily136.ts
+│   │   │   │   ├── daily137.ts
+│   │   │   │   ├── daily138.ts
+│   │   │   │   ├── daily139.ts
+│   │   │   │   ├── daily140.ts
+│   │   │   │   ├── daily141.ts
+│   │   │   │   ├── daily142.ts
+│   │   │   │   ├── daily143.ts
+│   │   │   │   ├── daily144.ts
+│   │   │   │   ├── daily145.ts
+│   │   │   │   ├── daily146.ts
+│   │   │   │   ├── daily147.ts
+│   │   │   │   ├── daily148.ts
+│   │   │   │   ├── daily149.ts
+│   │   │   │   ├── daily150.ts
+│   │   │   │   ├── daily151.ts
+│   │   │   │   ├── daily152.ts
+│   │   │   │   ├── daily153.ts
+│   │   │   │   ├── daily154.ts
+│   │   │   │   ├── daily155.ts
+│   │   │   │   ├── daily156.ts
+│   │   │   │   ├── daily157.ts
+│   │   │   │   ├── daily158.ts
+│   │   │   │   ├── daily159.ts
+│   │   │   │   ├── daily160.ts
+│   │   │   │   ├── daily161.ts
+│   │   │   │   ├── daily162.ts
+│   │   │   │   ├── daily163.ts
+│   │   │   │   ├── daily164.ts
+│   │   │   │   ├── daily165.ts
+│   │   │   │   ├── daily166.ts
+│   │   │   │   ├── daily167.ts
+│   │   │   │   ├── daily168.ts
+│   │   │   │   ├── daily169.ts
+│   │   │   │   ├── daily170.ts
+│   │   │   │   ├── daily171.ts
+│   │   │   │   ├── daily172.ts
+│   │   │   │   ├── daily173.ts
+│   │   │   │   ├── daily174.ts
+│   │   │   │   ├── daily175.ts
+│   │   │   │   ├── daily176.ts
+│   │   │   │   ├── daily177.ts
+│   │   │   │   ├── daily178.ts
+│   │   │   │   ├── daily179.ts
+│   │   │   │   ├── daily180.ts
+│   │   │   │   ├── daily181.ts
+│   │   │   │   ├── daily182.ts
+│   │   │   │   ├── daily183.ts
+│   │   │   │   ├── daily184.ts
+│   │   │   │   ├── daily185.ts
+│   │   │   │   ├── daily186.ts
+│   │   │   │   ├── daily187.ts
+│   │   │   │   ├── daily188.ts
+│   │   │   │   ├── daily189.ts
+│   │   │   │   ├── daily190.ts
+│   │   │   │   ├── daily191.ts
+│   │   │   │   ├── daily192.ts
+│   │   │   │   ├── daily193.ts
+│   │   │   │   ├── daily194.ts
+│   │   │   │   ├── daily195.ts
+│   │   │   │   ├── daily196.ts
+│   │   │   │   ├── daily197.ts
+│   │   │   │   ├── daily198.ts
+│   │   │   │   ├── daily199.ts
+│   │   │   │   ├── daily200.ts
+│   │   │   │   ├── daily201.ts
+│   │   │   │   ├── daily202.ts
+│   │   │   │   ├── daily203.ts
+│   │   │   │   ├── daily204.ts
+│   │   │   │   ├── daily205.ts
+│   │   │   │   ├── daily206.ts
+│   │   │   │   ├── daily207.ts
+│   │   │   │   ├── daily208.ts
+│   │   │   │   ├── daily209.ts
+│   │   │   │   ├── daily210.ts
+│   │   │   │   ├── daily211.ts
+│   │   │   │   ├── daily212.ts
+│   │   │   │   ├── daily213.ts
+│   │   │   │   ├── daily214.ts
+│   │   │   │   ├── daily215.ts
+│   │   │   │   ├── daily216.ts
+│   │   │   │   ├── daily217.ts
+│   │   │   │   ├── daily218.ts
+│   │   │   │   ├── daily219.ts
+│   │   │   │   ├── daily220.ts
+│   │   │   │   ├── daily221.ts
+│   │   │   │   ├── daily222.ts
+│   │   │   │   ├── daily223.ts
+│   │   │   │   ├── daily224.ts
+│   │   │   │   ├── daily225.ts
+│   │   │   │   ├── daily226.ts
+│   │   │   │   ├── daily227.ts
+│   │   │   │   ├── daily228.ts
+│   │   │   │   ├── daily229.ts
+│   │   │   │   ├── daily230.ts
+│   │   │   │   ├── daily231.ts
+│   │   │   │   ├── daily232.ts
+│   │   │   │   ├── daily233.ts
+│   │   │   │   ├── daily234.ts
+│   │   │   │   ├── daily235.ts
+│   │   │   │   ├── daily236.ts
+│   │   │   │   ├── daily237.ts
+│   │   │   │   ├── daily238.ts
+│   │   │   │   ├── daily239.ts
+│   │   │   │   ├── daily240.ts
+│   │   │   │   ├── daily241.ts
+│   │   │   │   ├── daily242.ts
+│   │   │   │   ├── daily243.ts
+│   │   │   │   ├── daily244.ts
+│   │   │   │   ├── daily245.ts
+│   │   │   │   ├── daily246.ts
+│   │   │   │   ├── daily247.ts
+│   │   │   │   ├── daily248.ts
+│   │   │   │   ├── daily249.ts
+│   │   │   │   ├── daily250.ts
+│   │   │   │   ├── daily251.ts
+│   │   │   │   ├── daily252.ts
+│   │   │   │   ├── daily253.ts
+│   │   │   │   ├── daily254.ts
+│   │   │   │   ├── daily255.ts
+│   │   │   │   ├── daily256.ts
+│   │   │   │   ├── daily257.ts
+│   │   │   │   ├── daily258.ts
+│   │   │   │   ├── daily259.ts
+│   │   │   │   ├── daily260.ts
+│   │   │   │   ├── daily261.ts
+│   │   │   │   ├── daily262.ts
+│   │   │   │   ├── daily263.ts
+│   │   │   │   ├── daily264.ts
+│   │   │   │   ├── daily265.ts
+│   │   │   │   ├── daily266.ts
+│   │   │   │   ├── daily267.ts
+│   │   │   │   ├── daily268.ts
+│   │   │   │   ├── daily269.ts
+│   │   │   │   ├── daily270.ts
+│   │   │   │   ├── daily271.ts
+│   │   │   │   ├── daily272.ts
+│   │   │   │   ├── daily273.ts
+│   │   │   │   ├── daily274.ts
+│   │   │   │   ├── daily275.ts
+│   │   │   │   ├── daily276.ts
+│   │   │   │   ├── daily277.ts
+│   │   │   │   ├── daily278.ts
+│   │   │   │   ├── daily279.ts
+│   │   │   │   ├── daily280.ts
+│   │   │   │   ├── daily281.ts
+│   │   │   │   ├── daily282.ts
+│   │   │   │   ├── daily283.ts
+│   │   │   │   ├── daily284.ts
+│   │   │   │   ├── daily285.ts
+│   │   │   │   ├── daily286.ts
+│   │   │   │   ├── daily287.ts
+│   │   │   │   ├── daily288.ts
+│   │   │   │   ├── daily289.ts
+│   │   │   │   ├── daily290.ts
+│   │   │   │   ├── daily291.ts
+│   │   │   │   ├── daily292.ts
+│   │   │   │   ├── daily293.ts
+│   │   │   │   ├── daily294.ts
+│   │   │   │   ├── daily295.ts
+│   │   │   │   ├── daily296.ts
+│   │   │   │   ├── daily297.ts
+│   │   │   │   ├── daily298.ts
+│   │   │   │   ├── daily299.ts
+│   │   │   │   ├── daily300.ts
+│   │   │   │   ├── daily301.ts
+│   │   │   │   ├── daily302.ts
+│   │   │   │   ├── daily303.ts
+│   │   │   │   ├── daily304.ts
+│   │   │   │   ├── daily305.ts
+│   │   │   │   ├── daily306.ts
+│   │   │   │   ├── daily307.ts
+│   │   │   │   ├── daily308.ts
+│   │   │   │   ├── daily309.ts
+│   │   │   │   ├── daily310.ts
+│   │   │   │   ├── daily311.ts
+│   │   │   │   ├── daily312.ts
+│   │   │   │   ├── daily313.ts
+│   │   │   │   ├── daily314.ts
+│   │   │   │   ├── daily315.ts
+│   │   │   │   ├── daily316.ts
+│   │   │   │   ├── daily317.ts
+│   │   │   │   ├── daily318.ts
+│   │   │   │   ├── daily319.ts
+│   │   │   │   ├── daily320.ts
+│   │   │   │   ├── daily321.ts
+│   │   │   │   ├── daily322.ts
+│   │   │   │   ├── daily323.ts
+│   │   │   │   ├── daily324.ts
+│   │   │   │   ├── daily325.ts
+│   │   │   │   ├── daily326.ts
+│   │   │   │   ├── daily327.ts
+│   │   │   │   ├── daily328.ts
+│   │   │   │   ├── daily329.ts
+│   │   │   │   ├── daily330.ts
+│   │   │   │   ├── daily331.ts
+│   │   │   │   ├── daily332.ts
+│   │   │   │   ├── daily333.ts
+│   │   │   │   ├── daily334.ts
+│   │   │   │   ├── daily335.ts
+│   │   │   │   ├── daily336.ts
+│   │   │   │   ├── daily337.ts
+│   │   │   │   ├── daily338.ts
+│   │   │   │   ├── daily339.ts
+│   │   │   │   ├── daily340.ts
+│   │   │   │   ├── daily341.ts
+│   │   │   │   ├── daily342.ts
+│   │   │   │   ├── daily343.ts
+│   │   │   │   ├── daily344.ts
+│   │   │   │   ├── daily345.ts
+│   │   │   │   ├── daily346.ts
+│   │   │   │   ├── daily347.ts
+│   │   │   │   ├── daily348.ts
+│   │   │   │   ├── daily349.ts
+│   │   │   │   ├── daily350.ts
+│   │   │   │   ├── daily351.ts
+│   │   │   │   ├── daily352.ts
+│   │   │   │   ├── daily353.ts
+│   │   │   │   ├── daily354.ts
+│   │   │   │   ├── daily355.ts
+│   │   │   │   ├── daily356.ts
+│   │   │   │   ├── daily357.ts
+│   │   │   │   ├── daily358.ts
+│   │   │   │   ├── daily359.ts
+│   │   │   │   ├── daily360.ts
+│   │   │   │   ├── daily361.ts
+│   │   │   │   ├── daily362.ts
+│   │   │   │   ├── daily363.ts
+│   │   │   │   ├── daily364.ts
+│   │   │   │   ├── daily365.ts
 │   │   │   │   └── index.ts
 │   │   │   ├── calendar.ts
 │   │   │   ├── manifest.ts
@@ -240,7 +579,6 @@ dungeon-logic/
 │   ├── dev/
 │   │   ├── analyzeDifficultyCorpus.ts
 │   │   ├── analyzeHumanSolvability.ts
-│   │   ├── archiveLayoutSanity.ts
 │   │   ├── benchmarkTreasureRoomPruning.ts
 │   │   ├── boardTileVisualSanity.ts
 │   │   ├── campaignPlayStateSanity.ts
@@ -249,7 +587,6 @@ dungeon-logic/
 │   │   ├── campaignReleaseSanity.ts
 │   │   ├── campaignRuntimeSanity.ts
 │   │   ├── campaignSanity.ts
-│   │   ├── campaignThemeSanity.ts
 │   │   ├── campaignUnlockSanity.ts
 │   │   ├── dailyCalendarSanity.ts
 │   │   ├── dailyCorpusSanity.ts
@@ -271,6 +608,7 @@ dungeon-logic/
 │   │   ├── humanSolverSanity.ts
 │   │   ├── levelQualitySanity.ts
 │   │   ├── levelSelectScrollSanity.ts
+│   │   ├── levelsModeSanity.ts
 │   │   ├── liveResizeSanity.ts
 │   │   ├── localizationSanity.ts
 │   │   ├── metaNavigationSanity.ts
@@ -370,7 +708,6 @@ dungeon-logic/
 │   │   ├── StatsLayout.ts
 │   │   └── StatsSelectors.ts
 │   ├── scenes/
-│   │   ├── ArchiveScene.ts
 │   │   ├── BootScene.ts
 │   │   ├── DailyScene.ts
 │   │   ├── GameBoardLayout.ts
@@ -394,7 +731,6 @@ dungeon-logic/
 │   └── style.css
 ├── .gitignore
 ├── CURRENT_STATE.md
-├── dungeon-logic.zip
 ├── index.html
 ├── package-lock.json
 ├── package.json

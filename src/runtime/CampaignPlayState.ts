@@ -7,7 +7,7 @@ import type { CampaignLevelResult, SerializedPuzzleState } from '../profile/type
 export interface CampaignPlayProfileState {
   readonly completedLevelIds: readonly string[];
   readonly levelResults: Readonly<Record<string, CampaignLevelResult>>;
-  readonly activePuzzle: SerializedPuzzleState | null;
+  readonly drafts: Readonly<Record<string, SerializedPuzzleState>>;
 }
 
 export type CampaignPlayState =
@@ -38,7 +38,7 @@ export function resolveCampaignPlayState(
   level: LevelDefinition,
   campaign: CampaignPlayProfileState,
 ): CampaignPlayState {
-  const saved = campaign.activePuzzle ?? undefined;
+  const saved = campaign.drafts[level.id];
   const compatible = isCompatiblePuzzleSnapshot(level, 'campaign', level.id, saved);
   const completed = campaign.completedLevelIds.includes(level.id);
 

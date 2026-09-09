@@ -55,7 +55,18 @@ Regression gates: `sanity:daily`, `sanity:daily-leaderboard`, `sanity:daily-arch
 
 ---
 
-## Dedicated Tutorial chapter — Tutorial v2
+
+## Levels 64 + one-year Daily corpus
+
+- основной Campaign-browser называется `УРОВНИ`; главы, рукописи и отдельный campaign Archive удалены из player-facing flow;
+- Campaign содержит ровно 64 статических уровня `campaign-001`–`campaign-064`; исходные 001–030 сохранены, 031–064 добавлены как curated static content;
+- playable frontier: все завершённые уровни остаются replayable, плюс одновременно доступны первые три непройденных уровня;
+- на compact/wide layout уровни раскладываются по 3 карточки в строке; narrow portrait fallback использует 2;
+- Daily содержит 365 статических snapshot-задач `daily-001`–`daily-365`, привязанных к последовательным trusted UTC датам `2026-09-09`–`2027-09-08`;
+- исходные Daily 001–060 сохранены; будущий контент можно менять только новой версией билда, при этом уже наступившие Daily должны оставаться неизменными;
+- Daily Archive по-прежнему означает только прошлые ежедневные задания и остаётся отдельной частью Daily.
+
+## Dedicated Tutorial — Tutorial v2
 
 Обучение полностью отделено от Campaign и теперь содержит пять purpose-built уроков:
 
@@ -65,13 +76,13 @@ Regression gates: `sanity:daily`, `sanity:daily-leaderboard`, `sanity:daily-arch
 - `tutorial-004` — коридоры и запрет открытого `2×2` вне комнаты;
 - `tutorial-005` — комната 3×3 с сундуком и единственный вход.
 
-Campaign остаётся `campaign-001`–`campaign-030` без tutorial-overlay. Свежий профиль открывает Campaign только после `tutorial-005`. Профиль, который уже был помечен `tutorial.completed=true` в старой четырёхуровневой версии, мигрирует как полностью прошедший все пять уроков и не блокируется повторно.
+Основной режим теперь называется `УРОВНИ` и содержит 64 стабильных уровня `campaign-001`–`campaign-064` без глав/рукописей и без tutorial-overlay. Экран уровней использует схематичные мини-превью: completed показывает все правильные стены, started — стены из persistent per-level draft, unstarted — знак `?`; номер остаётся под квадратом. После Tutorial игрок видит единый список уровней; доступны все уже пройденные уровни и первые три непройденных. Профиль, который уже был помечен `tutorial.completed=true` в старой четырёхуровневой версии, мигрирует как полностью прошедший все пять уроков и не блокируется повторно.
 
 Каждый guided step — конкретное `WALL/FLOOR` действие, логически объяснимое из текущего видимого состояния. Standalone message-step отсутствуют; плашки не блокируют управление и автоматически меняются после выполнения шага. Правильные стены по-прежнему завершают пазл через общий `LevelValidator`; отмечать весь оставшийся `FLOOR` не требуется.
 
 Справочник `КАК ИГРАТЬ` повторяет порядок обучения восемью puzzle-rule карточками: цель → числа → ПОЛ → комнаты → монстры → связность → коридоры/2×2 → завершение. Управление и красный conflict-feedback вынесены в отдельный utility-раздел.
 
-После `tutorial-005` показывается короткое состояние `ОБУЧЕНИЕ ПРОЙДЕНО / TUTORIAL COMPLETE` с кнопкой перехода к Campaign Chapter I.
+После `tutorial-005` показывается короткое состояние `ОБУЧЕНИЕ ПРОЙДЕНО / TUTORIAL COMPLETE` с кнопкой перехода в `УРОВНИ`.
 
 Regression gates: `sanity:tutorial`, `sanity:onboarding`, `sanity:onboarding-message`, `sanity:profile`, `sanity:help-rules`, `sanity:i18n`, `sanity:game-regressions`.
 

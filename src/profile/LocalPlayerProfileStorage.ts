@@ -1,6 +1,6 @@
 import { CAMPAIGN_PROGRESS_STORAGE_KEY } from '../campaign/LocalCampaignProgressStorage';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV2 } from './types';
+import type { PlayerProfileV4 } from './types';
 
 export const PLAYER_PROFILE_STORAGE_KEY = 'dungeon-logic:player-profile:v1';
 
@@ -40,7 +40,7 @@ export class LocalPlayerProfileStorage implements PlayerProfileStorage {
     return this.parse(serialized, 'legacy campaign progress');
   }
 
-  async save(profile: PlayerProfileV2): Promise<void> {
+  async save(profile: PlayerProfileV4): Promise<void> {
     const serialized = JSON.stringify(profile);
     this.memoryProfileValue = serialized;
 

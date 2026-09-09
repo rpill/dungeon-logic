@@ -5,48 +5,16 @@ import type {
 } from '../../puzzle/generator/types';
 import type { LevelDefinition } from '../../puzzle/types';
 
-export type CampaignChapterId =
-  | 'graveyard'
-  | 'desert-ruins'
-  | 'sewers'
-  | 'crypt';
-
-export type CampaignThemeId = CampaignChapterId;
-
-export type ManuscriptId =
-  | 'manuscript-i'
-  | 'manuscript-ii'
-  | 'manuscript-iii'
-  | 'manuscript-iv';
-
-export interface ManuscriptDefinition {
-  readonly id: ManuscriptId;
-  readonly roman: 'I' | 'II' | 'III' | 'IV';
-  readonly title: 'Азбука' | 'Дедукция' | 'Комнаты' | 'Мастерство';
-  readonly slots: readonly number[];
-  readonly requiredPreviousSolved: number;
-}
-
 export type CampaignOnboardingId =
   | 'row-column-clues'
   | 'monster-dead-end'
   | 'treasure-room-rule';
 
-export interface CampaignChapterDefinition {
-  readonly id: CampaignChapterId;
-  readonly title: string;
-  readonly themeId: CampaignThemeId;
-  readonly slots: readonly number[];
-}
-
 export interface CampaignCurationRule {
   readonly slot: number;
-  readonly chapterId: CampaignChapterId;
-  readonly manuscriptId: ManuscriptId;
   readonly allowedArchetypes: readonly GeneratorArchetype[];
   readonly allowedDifficulties: readonly Exclude<DifficultyBand, 'unrated'>[];
   readonly allowedSizes: readonly GeneratorBoardSize[];
-  readonly onboarding: readonly CampaignOnboardingId[];
 }
 
 export interface CampaignLevelProvenance {
@@ -68,6 +36,4 @@ export interface CampaignLevelEntry {
   readonly slot: number;
   readonly id: string;
   readonly level: LevelDefinition;
-  readonly chapterId: CampaignChapterId;
-  readonly onboarding: readonly CampaignOnboardingId[];
 }

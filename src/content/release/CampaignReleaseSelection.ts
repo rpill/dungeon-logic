@@ -41,6 +41,40 @@ export const CAMPAIGN_RELEASE_TARGET_SCORES: Readonly<Record<number, number>> = 
   28: 64,
   29: 66,
   30: 69,
+  31: 56,
+  32: 59,
+  33: 64,
+  34: 61,
+  35: 59,
+  36: 59,
+  37: 64,
+  38: 67,
+  39: 59,
+  40: 66,
+  41: 62,
+  42: 58,
+  43: 63,
+  44: 64,
+  45: 59,
+  46: 62,
+  47: 56,
+  48: 44,
+  49: 66,
+  50: 69,
+  51: 69,
+  52: 56,
+  53: 67,
+  54: 68,
+  55: 44,
+  56: 44,
+  57: 62,
+  58: 33,
+  59: 32,
+  60: 31,
+  61: 44,
+  62: 41,
+  63: 57,
+  64: 45,
 };
 
 import { getCampaignCurationRule } from '../campaign/curationPlan';
@@ -65,7 +99,7 @@ const CAMPAIGN_RELEASE_DIVERSITY_WEIGHT = 24;
 
 export function selectCampaignReleaseSlots(
   reservoir: readonly AcceptedCandidate[],
-  slots: readonly number[] = Array.from({ length: 25 }, (_, index) => index + 6),
+  slots: readonly number[] = Array.from({ length: 59 }, (_, index) => index + 6),
 ): readonly CampaignReleaseSelectionEntry[] {
   const orderedSlots = [...slots];
   const seenSlots = new Set<number>();
@@ -74,8 +108,8 @@ export function selectCampaignReleaseSlots(
   const selected: CampaignReleaseSelectionEntry[] = [];
 
   for (const slot of orderedSlots) {
-    if (!Number.isInteger(slot) || slot < 6 || slot > 30) {
-      throw new RangeError(`Campaign release slot must be an integer from 6 to 30; got ${slot}.`);
+    if (!Number.isInteger(slot) || slot < 6 || slot > 64) {
+      throw new RangeError(`Campaign release slot must be an integer from 6 to 64; got ${slot}.`);
     }
     if (seenSlots.has(slot)) {
       throw new Error(`Duplicate campaign release slot: ${slot}.`);

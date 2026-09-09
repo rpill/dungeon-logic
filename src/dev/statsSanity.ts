@@ -1,5 +1,5 @@
 import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import { getStatsViewModel } from '../runtime/StatsSelectors';
 import { calculateStatsLayout } from '../runtime/StatsLayout';
 
@@ -12,8 +12,8 @@ function campaignId(slot: number): string {
 }
 
 const completedLevelIds = Array.from({ length: 15 }, (_, index) => campaignId(index + 1));
-const profile: PlayerProfileV2 = {
-  schemaVersion: 2,
+const profile: PlayerProfileV4 = {
+  schemaVersion: 4,
   tutorial: {
     completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004', 'tutorial-005'],
     completed: true,
@@ -27,10 +27,10 @@ const profile: PlayerProfileV2 = {
       'campaign-002': { bestTimeMs: 74_000, minHintsUsed: 1, solveCount: 1, solvedWithoutHints: false },
       'campaign-003': { bestTimeMs: 82_000, minHintsUsed: 0, solveCount: 2, solvedWithoutHints: true },
     },
-    activePuzzle: null,
+    drafts: {},
   },
   daily: {
-    activePuzzle: null,
+    drafts: {},
     currentStreak: 4,
     bestStreak: 7,
     lastSolvedDate: '2026-09-08',
@@ -65,8 +65,8 @@ const profile: PlayerProfileV2 = {
 
 const scheduledDates = ['2026-09-03', '2026-09-08', '2026-09-09', '2026-09-10'];
 const stats = getStatsViewModel(profile, '2026-09-08', scheduledDates);
-assert(stats.campaign.solved === 15 && stats.campaign.total === 30, 'Campaign stats expose solved / 30.');
-assert(stats.campaign.completedManuscripts === 2 && stats.campaign.totalManuscripts === 4, 'Two fully solved manuscripts are counted from manuscript slots.');
+assert(stats.campaign.solved === 15 && stats.campaign.total === 64, 'Campaign stats expose solved / 64.');
+assert(!('completedManuscripts' in stats.campaign) && !('totalManuscripts' in stats.campaign), 'Campaign stats no longer expose manuscript metrics.');
 assert(stats.campaign.solvedWithoutHints === 2, 'Campaign no-hint solves count solvedWithoutHints level results.');
 assert(stats.daily.totalSolved === 10, 'Daily total comes from persisted Daily total.');
 assert(stats.daily.currentStreak === 4 && stats.daily.bestStreak === 7, 'Active and best Daily streaks are projected.');

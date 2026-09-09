@@ -36,7 +36,7 @@ const review = resolveCampaignPlayState(campaign003, {
       solvedWithoutHints: true,
     },
   },
-  activePuzzle: null,
+  drafts: {},
 });
 assert(review.mode === 'completed-review' && review.displayTimeMs === 33_000, 'Completed campaign launch resolves to locked review with best time.');
 const solvedPuzzle = createCompletedReviewPuzzle(campaign003);
@@ -48,7 +48,15 @@ assert(gameSceneSource.includes("board.setInputEnabled(false);\n      updateTime
 assert(gameSceneSource.includes("const freshSession = PuzzleSessionService.createCampaign("), 'Completed Reset creates a new campaign puzzle session.');
 assert(gameSceneSource.includes("this.scene.restart(launchData);"), 'Fresh completed-level replay restarts GameScene from the new 00:00 session.');
 assert(gameSceneSource.includes("if (currentHint !== null) {\n        refreshStatusText();\n        return;"), 'Unresolved current hint cannot consume/reveal the same hint again.');
-assert(gameSceneSource.includes("this.scene.launch(SETTINGS_SCENE_KEY, { returnSceneKey: 'GameScene' });"), 'GameScene exposes direct Settings overlay navigation.');
+assert(gameSceneSource.includes('const menuText'), 'GameScene exposes one compact top-level Menu action.');
+assert(gameSceneSource.includes('const openGameMenu'), 'GameScene opens a modal menu instead of separate Help/Settings chrome actions.');
+assert(gameSceneSource.includes("openSceneOverlayFromMenu(SETTINGS_SCENE_KEY)"), 'Game menu opens Settings through the existing paused-scene overlay flow.');
+assert(gameSceneSource.includes("openSceneOverlayFromMenu(HELP_SCENE_KEY)"), 'Game menu opens Rules through the existing paused-scene overlay flow.');
+assert(gameSceneSource.includes('copy.game.exitHome'), 'Game menu exposes a direct exit to Home.');
+assert(gameSceneSource.includes('leaveGameTo(HOME_SCENE_KEY)'), 'Game menu direct Home exit preserves the existing save-and-flush leave flow.');
+assert(!gameSceneSource.includes('helpText'), 'Game top chrome no longer keeps a separate Rules text action.');
+assert(!gameSceneSource.includes('settingsText'), 'Game top chrome no longer keeps a separate Settings icon action.');
+assert(!gameSceneSource.includes("'⚙'"), 'Game top chrome no longer relies on a mismatched Unicode gear glyph.');
 assert(gameSceneSource.includes("copy.game.levelTitle(campaignEntry.slot, campaignLevelTotal)"), 'Campaign GameScene title identifies the current level number.');
 assert(settingsSceneSource.includes("this.scene.restart({ returnSceneKey: this.returnSceneKey });"), 'Settings preserves GameScene return target across its own restart.');
 assert(settingsSceneSource.includes("this.scene.resume('GameScene');"), 'Settings Back returns directly to the paused GameScene.');

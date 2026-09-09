@@ -5,12 +5,14 @@ import { getUiCopy } from '../i18n/UiCopy';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { createCampaignGameSceneData, createLevelSelectItems, createTutorialGameSceneData } from '../runtime/GameLaunch';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
+import { createCampaignLevelPreview, type CampaignLevelPreview } from '../runtime/CampaignLevelPreview';
+import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   clampMetaScrollY,
   getMetaScrollMaxY,
   isMetaScrollDrag,
 } from '../runtime/MetaScroll';
-import { calculateLevelSelectLayout } from '../runtime/ResponsiveLayout';
+import { calculateLevelSelectLayout, type LevelCardLayout } from '../runtime/ResponsiveLayout';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { TutorialLevelEntry } from '../content/tutorial/types';
 import {
@@ -18,6 +20,7 @@ import {
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
+import { drawLevelThumbnail } from '../view/LevelThumbnailRenderer';
 
 
 const STATE_COLOR = {
@@ -79,12 +82,23 @@ export class LevelSelectScene extends Phaser.Scene {
       1,
     ).setScrollFactor(0).setDepth(1000);
 
-    this.add.text(this.scale.width / 2, layout.titleY, 'Dungeon Logic', {
+    this.add.text(this.scale.width / 2, layout.titleY, copy.common.levels, {
       fontFamily: 'monospace',
       fontSize: `${layout.titleFontSize}px`,
       color: '#f0e6d2',
       fontStyle: 'bold',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
+
+    this.add.text(this.scale.width < 700 ? 16 : 28, layout.titleY, copy.common.backHome, {
+      fontFamily: 'monospace',
+      fontSize: `${Math.max(11, layout.continueFontSize)}px`,
+      color: '#89929d',
+      fontStyle: 'bold',
+    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1003)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.scene.start(HOME_SCENE_KEY);
+      });
 
     if (!profile.tutorial.completed) {
       const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
@@ -121,6 +135,7 @@ export class LevelSelectScene extends Phaser.Scene {
     items.forEach((item, index) => {
       const cardLayout = layout.cards[index];
       const color = STATE_COLOR[item.state];
+      const preview = createCampaignLevelPreview(item.entry, profile.campaign);
       const card = this.add
         .rectangle(
           cardLayout.x,
@@ -128,33 +143,24 @@ export class LevelSelectScene extends Phaser.Scene {
           cardLayout.width,
           cardLayout.height,
           0x20242b,
-          0.96,
+          item.state === 'locked' ? 0.7 : 0.96,
         )
         .setStrokeStyle(
           item.state === 'current' ? 3 : 2,
           Phaser.Display.Color.HexStringToColor(color).color,
         );
 
+      this.drawLevelPreview(item.entry, preview, cardLayout, item.state);
+
       this.add.text(
         cardLayout.x,
-        cardLayout.y - cardLayout.height * 0.22,
-        copy.levelSelect.level(item.entry.slot),
+        cardLayout.numberY,
+        String(item.entry.slot),
         {
           fontFamily: 'monospace',
           fontSize: `${layout.cardTitleFontSize}px`,
           color,
           fontStyle: 'bold',
-        },
-      ).setOrigin(0.5);
-
-      this.add.text(
-        cardLayout.x,
-        cardLayout.y + cardLayout.height * 0.22,
-        copy.levelSelect.state[item.state],
-        {
-          fontFamily: 'monospace',
-          fontSize: `${layout.cardStateFontSize}px`,
-          color,
         },
       ).setOrigin(0.5);
 
@@ -178,6 +184,44 @@ export class LevelSelectScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
     });
+  }
+
+  private drawLevelPreview(
+    entry: CampaignLevelEntry,
+    preview: CampaignLevelPreview,
+    cardLayout: LevelCardLayout,
+    state: keyof typeof STATE_COLOR,
+  ): void {
+    if (preview.status === 'unstarted') {
+      this.add.rectangle(
+        cardLayout.x,
+        cardLayout.y,
+        cardLayout.width - 4,
+        cardLayout.height - 4,
+        0xf3eee5,
+        0.12,
+      );
+      this.add.text(cardLayout.x, cardLayout.y, '?', {
+        fontFamily: 'monospace',
+        fontSize: `${Math.max(22, Math.floor(cardLayout.width * 0.5))}px`,
+        color: state === 'locked' ? '#777c84' : '#d8d1c4',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      return;
+    }
+
+    drawLevelThumbnail(
+      this,
+      entry.level,
+      preview.walls,
+      {
+        x: cardLayout.x,
+        y: cardLayout.y,
+        width: cardLayout.width,
+        height: cardLayout.height,
+      },
+      { showIncompleteOverlay: preview.showIncompleteOverlay },
+    );
   }
 
   private createActionButton(

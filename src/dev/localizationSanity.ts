@@ -7,9 +7,7 @@ import { createOnboardingFlow } from '../onboarding/OnboardingFlow';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV2 } from '../profile/types';
-import { createOnboardingMessages } from '../runtime/GameLaunch';
-import { getManuscriptViewModels } from '../runtime/MetaSelectors';
+import type { PlayerProfileV4 } from '../profile/types';
 import { createPuzzleToolbarState } from '../runtime/PuzzleUiState';
 import { getSettingsRows } from '../settings/SettingsViewModel';
 
@@ -22,8 +20,6 @@ function entry(slot: number): CampaignLevelEntry {
   return {
     slot,
     id,
-    chapterId: 'graveyard',
-    onboarding: [],
     level: {
       id,
       width: 1,
@@ -50,7 +46,7 @@ class MemoryStorage implements PlayerProfileStorage {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV2): Promise<void> {
+  async save(profile: PlayerProfileV4): Promise<void> {
     this.raw = profile;
   }
 }
@@ -99,9 +95,12 @@ async function main(): Promise<void> {
   const enCopy = getUiCopy('en');
   assert(ruCopy.home.chooseLevel === 'ВЫБРАТЬ УРОВЕНЬ', 'Russian Home copy is available.');
   assert(enCopy.home.chooseLevel === 'CHOOSE LEVEL', 'English Home copy is available.');
+  assert(ruCopy.common.levels === 'УРОВНИ' && enCopy.common.levels === 'LEVELS', 'Main campaign browser is named Levels in both locales.');
+  assert(ruCopy.home.levelsProgress(15, 64) === 'Уровни · 15 / 64', 'Russian Home campaign progress uses Levels terminology.');
+  assert(enCopy.home.levelsProgress(15, 64) === 'Levels · 15 / 64', 'English Home campaign progress uses Levels terminology.');
   assert(ruCopy.game.wall !== enCopy.game.wall, 'Toolbar copy differs by locale.');
-  assert(ruCopy.game.levelTitle(3, 30) === 'УРОВЕНЬ 3 / 30', 'Russian Game title shows campaign level number.');
-  assert(enCopy.game.levelTitle(3, 30) === 'LEVEL 3 / 30', 'English Game title shows campaign level number.');
+  assert(ruCopy.game.levelTitle(3, 64) === 'УРОВЕНЬ 3 / 64', 'Russian Game title shows campaign level number.');
+  assert(enCopy.game.levelTitle(3, 64) === 'LEVEL 3 / 64', 'English Game title shows campaign level number.');
   assert(ruCopy.game.tutorialTitle(2, 5) === 'ОБУЧЕНИЕ 2 / 5', 'Russian Tutorial title is localized.');
   assert(enCopy.game.tutorialTitle(2, 5) === 'TUTORIAL 2 / 5', 'English Tutorial title is localized.');
   assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.', 'Russian Tutorial completion copy is localized.');
@@ -119,23 +118,6 @@ async function main(): Promise<void> {
   assert(ruFlow[0]?.target === enFlow[0]?.target, 'Onboarding targets are locale invariant.');
   assert(JSON.stringify(ruFlow[1]?.target === 'board-cells' ? ruFlow[1].cells : []) === JSON.stringify(enFlow[1]?.target === 'board-cells' ? enFlow[1].cells : []), 'Onboarding target cells are locale invariant.');
   assert(ruFlow[0]?.message !== enFlow[0]?.message, 'Onboarding prose is localized.');
-
-  const onboardingData = {
-    level: manifest[0]!.level,
-    context: { mode: 'campaign', campaignLevelId: 'campaign-001' },
-    onboarding: ['row-column-clues'],
-    contextualOnboarding: false,
-  } as const;
-  assert(createOnboardingMessages(onboardingData, 'ru')[0]?.includes('Числа'), 'Campaign onboarding ID resolves Russian copy.');
-  assert(createOnboardingMessages(onboardingData, 'en')[0]?.includes('Numbers'), 'Campaign onboarding ID resolves English copy.');
-
-  const manuscriptManifest = Array.from({ length: 14 }, (_, index) => entry(index + 1));
-  const manuscriptProfile = createFreshPlayerProfile(manuscriptManifest, 'ru');
-  const ruManuscripts = getManuscriptViewModels(manuscriptManifest, manuscriptProfile, 'ru');
-  const enManuscripts = getManuscriptViewModels(manuscriptManifest, manuscriptProfile, 'en');
-  assert(ruManuscripts[0]?.title === 'Азбука' && enManuscripts[0]?.title === 'Primer', 'Manuscript display titles are localized.');
-  assert(ruManuscripts[1]?.requirementText?.includes('Завершите 6') === true, 'Locked manuscript has Russian requirement copy.');
-  assert(enManuscripts[1]?.requirementText?.includes('Complete 6') === true, 'Locked manuscript has English requirement copy.');
 
   const ruSettingsRows = getSettingsRows(savedRussian.settings, true, 'ru');
   const enSettingsRows = getSettingsRows({ ...savedRussian.settings, language: 'en' }, true, 'en');

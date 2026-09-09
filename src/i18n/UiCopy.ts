@@ -1,4 +1,3 @@
-import type { ManuscriptId } from '../content/campaign/types';
 import type { SupportedLanguage } from './Language';
 
 export type LevelSelectState = 'completed' | 'current' | 'unlocked' | 'locked';
@@ -6,9 +5,8 @@ export type LevelSelectState = 'completed' | 'current' | 'unlocked' | 'locked';
 export interface UiCopy {
   readonly common: {
     readonly backHome: string;
-    readonly backArchive: string;
     readonly back: string;
-    readonly archive: string;
+    readonly levels: string;
     readonly statistics: string;
     readonly leaderboard: string;
     readonly settings: string;
@@ -27,7 +25,7 @@ export interface UiCopy {
     readonly state: Readonly<Record<LevelSelectState, string>>;
   };
   readonly home: {
-    readonly archiveProgress: (completed: number, total: number) => string;
+    readonly levelsProgress: (completed: number, total: number) => string;
     readonly chooseLevel: string;
     readonly start: string;
     readonly continue: string;
@@ -35,7 +33,6 @@ export interface UiCopy {
     readonly tutorialContinue: string;
     readonly tutorialReplay: string;
     readonly levelContext: (slot: number) => string;
-    readonly manuscriptLevelContext: (roman: string, slot: number) => string;
     readonly dailyUnavailable: string;
     readonly noDailyForTrustedDate: string;
     readonly dailySolved: string;
@@ -43,23 +40,6 @@ export interface UiCopy {
     readonly streakSuffix: (streak: number) => string;
     readonly best: (time: string, streakSuffix: string) => string;
     readonly today: (streakSuffix: string) => string;
-  };
-  readonly archive: {
-    readonly title: string;
-    readonly sealed: string;
-    readonly completedFully: string;
-    readonly nextManuscriptUnlocked: string;
-    readonly available: string;
-    readonly locked: string;
-    readonly contentsUnknown: string;
-    readonly manuscript: (roman: string) => string;
-    readonly nextManuscriptProgress: (solved: number, required: number) => string;
-    readonly noPublishedLevels: string;
-    readonly levelSolved: string;
-    readonly levelAvailable: string;
-    readonly levelLocked: string;
-    readonly requirement: (required: number, previousRoman: string) => string;
-    readonly sealedTitle: string;
   };
   readonly settings: {
     readonly title: string;
@@ -87,7 +67,6 @@ export interface UiCopy {
     readonly daily: string;
     readonly overall: string;
     readonly solved: (solved: number, total: number) => string;
-    readonly manuscripts: (completed: number, total: number) => string;
     readonly withoutHints: (count: number) => string;
     readonly totalSolved: (count: number) => string;
     readonly streakBest: (current: string, best: number) => string;
@@ -136,8 +115,13 @@ export interface UiCopy {
     readonly dailyTitle: string;
     readonly tutorialTitle: (slot: number, total: number) => string;
     readonly tutorialComplete: string;
-    readonly startChapterOne: string;
+    readonly startLevels: string;
     readonly rules: string;
+    readonly menu: string;
+    readonly continueGame: string;
+    readonly exitLevels: string;
+    readonly exitDaily: string;
+    readonly exitHome: string;
     readonly mouseControls: string;
     readonly wall: string;
     readonly floor: string;
@@ -164,10 +148,8 @@ export interface UiCopy {
     readonly withoutHints: string;
     readonly hintsCount: (count: number) => string;
     readonly newRecord: string;
-    readonly manuscriptUnlocked: (roman: string, title: string) => string;
     readonly featuresUnlocked: string;
     readonly solvedCampaign: (time: string, hintCopy: string, recordCopy: string, unlockCopy: string) => string;
-    readonly archive: string;
     readonly next: string;
     readonly solvedDaily: (time: string, hintCopy: string, recordCopy: string) => string;
     readonly dailyPractice: string;
@@ -181,15 +163,13 @@ export interface UiCopy {
     readonly resetTitle: string;
     readonly resetBody: string;
   };
-  readonly manuscripts: Readonly<Record<ManuscriptId, string>>;
 }
 
 const RU: UiCopy = {
   common: {
     backHome: '← ГЛАВНАЯ',
-    backArchive: '← АРХИВ',
     back: '← НАЗАД',
-    archive: 'АРХИВ',
+    levels: 'УРОВНИ',
     statistics: 'СТАТИСТИКА',
     leaderboard: 'ТАБЛИЦА ЛИДЕРОВ',
     settings: 'НАСТРОЙКИ',
@@ -213,7 +193,7 @@ const RU: UiCopy = {
     },
   },
   home: {
-    archiveProgress: (completed, total) => `Архив · ${completed} / ${total}`,
+    levelsProgress: (completed, total) => `Уровни · ${completed} / ${total}`,
     chooseLevel: 'ВЫБРАТЬ УРОВЕНЬ',
     start: 'НАЧАТЬ',
     continue: 'ПРОДОЛЖИТЬ',
@@ -221,7 +201,6 @@ const RU: UiCopy = {
     tutorialContinue: 'ПРОДОЛЖИТЬ ОБУЧЕНИЕ',
     tutorialReplay: 'ПРОЙТИ ОБУЧЕНИЕ СНОВА',
     levelContext: (slot) => `Уровень ${String(slot).padStart(2, '0')}`,
-    manuscriptLevelContext: (roman, slot) => `Рукопись ${roman} · Уровень ${String(slot).padStart(2, '0')}`,
     dailyUnavailable: 'DAILY · НЕДОСТУПНО',
     noDailyForTrustedDate: 'Нет задания на доверенную дату',
     dailySolved: 'DAILY · РЕШЕНО',
@@ -229,23 +208,6 @@ const RU: UiCopy = {
     streakSuffix: (streak) => streak > 0 ? ` · Серия ${streak}` : '',
     best: (time, streakSuffix) => `Результат ${time}${streakSuffix}`,
     today: (streakSuffix) => `Сегодня${streakSuffix}`,
-  },
-  archive: {
-    title: 'АРХИВ',
-    sealed: 'ЗАПЕЧАТАНО',
-    completedFully: 'Завершено полностью',
-    nextManuscriptUnlocked: 'Следующая рукопись открыта',
-    available: 'Доступно',
-    locked: 'Закрыто',
-    contentsUnknown: 'Содержимое пока неизвестно',
-    manuscript: (roman) => `РУКОПИСЬ ${roman}`,
-    nextManuscriptProgress: (solved, required) => `До следующей рукописи: ${Math.min(solved, required)} / ${required}`,
-    noPublishedLevels: 'В текущей сборке пока нет опубликованных уровней этой рукописи.',
-    levelSolved: '✓ РЕШЕНО',
-    levelAvailable: 'ДОСТУПНО',
-    levelLocked: '🔒 ЗАКРЫТО',
-    requirement: (required, previousRoman) => `Завершите ${required} задач рукописи ${previousRoman}`,
-    sealedTitle: 'Запечатанная рукопись',
   },
   settings: {
     title: 'НАСТРОЙКИ',
@@ -273,7 +235,6 @@ const RU: UiCopy = {
     daily: 'DAILY',
     overall: 'ОБЩЕЕ',
     solved: (solved, total) => `Решено ${solved} / ${total}`,
-    manuscripts: (completed, total) => `Рукописи ${completed} / ${total}`,
     withoutHints: (count) => `Без подсказок ${count}`,
     totalSolved: (count) => `Всего решено ${count}`,
     streakBest: (current, best) => `Серия ${current} · Лучшая ${best}`,
@@ -287,7 +248,7 @@ const RU: UiCopy = {
   dailyHub: {
     title: 'DAILY',
     todayTitle: 'СЕГОДНЯ',
-    archiveTitle: 'АРХИВ DAILY',
+    archiveTitle: 'КАЛЕНДАРЬ',
     playToday: 'ИГРАТЬ СЕГОДНЯ',
     leaderboard: 'ТАБЛИЦА ЛИДЕРОВ',
     todaySolved: (time) => `Результат зафиксирован · ${time}`,
@@ -322,8 +283,13 @@ const RU: UiCopy = {
     dailyTitle: 'DAILY',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
-    startChapterOne: 'НАЧАТЬ ГЛАВУ I',
-    rules: 'ⓘ Правила',
+    startLevels: 'НАЧАТЬ ИГРУ',
+    rules: 'ПРАВИЛА',
+    menu: 'МЕНЮ',
+    continueGame: 'ПРОДОЛЖИТЬ',
+    exitLevels: 'ВЫЙТИ В УРОВНИ',
+    exitDaily: 'ВЫЙТИ В DAILY',
+    exitHome: 'ВЫЙТИ НА ГЛАВНУЮ',
     mouseControls: 'ЛКМ: Стена   •   ПКМ: Пол',
     wall: 'СТЕНА',
     floor: 'ПОЛ',
@@ -350,10 +316,8 @@ const RU: UiCopy = {
     withoutHints: 'БЕЗ ПОДСКАЗОК',
     hintsCount: (count) => `ПОДСКАЗОК: ${count}`,
     newRecord: '  ·  НОВЫЙ РЕКОРД',
-    manuscriptUnlocked: (roman, title) => `\nОТКРЫТА РУКОПИСЬ ${roman} · ${title.toUpperCase()}`,
     featuresUnlocked: 'ОТКРЫТО: DAILY И СТАТИСТИКА\nМожно открыть сейчас или продолжить кампанию.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ РЕШЕНО  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
-    archive: 'АРХИВ',
     next: 'ДАЛЬШЕ',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY РЕШЁН  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
     dailyPractice: 'ВНЕ ЗАЧЁТА',
@@ -367,20 +331,13 @@ const RU: UiCopy = {
     resetTitle: 'Сбросить задачу?',
     resetBody: 'Все отметки на этом поле будут удалены.',
   },
-  manuscripts: {
-    'manuscript-i': 'Азбука',
-    'manuscript-ii': 'Дедукция',
-    'manuscript-iii': 'Комнаты',
-    'manuscript-iv': 'Мастерство',
-  },
 };
 
 const EN: UiCopy = {
   common: {
     backHome: '← HOME',
-    backArchive: '← ARCHIVE',
     back: '← BACK',
-    archive: 'ARCHIVE',
+    levels: 'LEVELS',
     statistics: 'STATISTICS',
     leaderboard: 'LEADERBOARD',
     settings: 'SETTINGS',
@@ -404,7 +361,7 @@ const EN: UiCopy = {
     },
   },
   home: {
-    archiveProgress: (completed, total) => `Archive · ${completed} / ${total}`,
+    levelsProgress: (completed, total) => `Levels · ${completed} / ${total}`,
     chooseLevel: 'CHOOSE LEVEL',
     start: 'START',
     continue: 'CONTINUE',
@@ -412,7 +369,6 @@ const EN: UiCopy = {
     tutorialContinue: 'CONTINUE TUTORIAL',
     tutorialReplay: 'REPLAY TUTORIAL',
     levelContext: (slot) => `Level ${String(slot).padStart(2, '0')}`,
-    manuscriptLevelContext: (roman, slot) => `Manuscript ${roman} · Level ${String(slot).padStart(2, '0')}`,
     dailyUnavailable: 'DAILY · UNAVAILABLE',
     noDailyForTrustedDate: 'No puzzle for the trusted date',
     dailySolved: 'DAILY · SOLVED',
@@ -420,23 +376,6 @@ const EN: UiCopy = {
     streakSuffix: (streak) => streak > 0 ? ` · Streak ${streak}` : '',
     best: (time, streakSuffix) => `Result ${time}${streakSuffix}`,
     today: (streakSuffix) => `Today${streakSuffix}`,
-  },
-  archive: {
-    title: 'ARCHIVE',
-    sealed: 'SEALED',
-    completedFully: 'Fully completed',
-    nextManuscriptUnlocked: 'Next manuscript unlocked',
-    available: 'Available',
-    locked: 'Locked',
-    contentsUnknown: 'Contents are still unknown',
-    manuscript: (roman) => `MANUSCRIPT ${roman}`,
-    nextManuscriptProgress: (solved, required) => `Until next manuscript: ${Math.min(solved, required)} / ${required}`,
-    noPublishedLevels: 'This manuscript has no published levels in the current build yet.',
-    levelSolved: '✓ SOLVED',
-    levelAvailable: 'AVAILABLE',
-    levelLocked: '🔒 LOCKED',
-    requirement: (required, previousRoman) => `Complete ${required} puzzles in Manuscript ${previousRoman}`,
-    sealedTitle: 'Sealed manuscript',
   },
   settings: {
     title: 'SETTINGS',
@@ -464,7 +403,6 @@ const EN: UiCopy = {
     daily: 'DAILY',
     overall: 'OVERALL',
     solved: (solved, total) => `Solved ${solved} / ${total}`,
-    manuscripts: (completed, total) => `Manuscripts ${completed} / ${total}`,
     withoutHints: (count) => `Without hints ${count}`,
     totalSolved: (count) => `Total solved ${count}`,
     streakBest: (current, best) => `Streak ${current} · Best ${best}`,
@@ -478,7 +416,7 @@ const EN: UiCopy = {
   dailyHub: {
     title: 'DAILY',
     todayTitle: 'TODAY',
-    archiveTitle: 'DAILY ARCHIVE',
+    archiveTitle: 'CALENDAR',
     playToday: 'PLAY TODAY',
     leaderboard: 'LEADERBOARD',
     todaySolved: (time) => `Result locked · ${time}`,
@@ -513,8 +451,13 @@ const EN: UiCopy = {
     dailyTitle: 'DAILY',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
-    startChapterOne: 'START CHAPTER I',
-    rules: 'ⓘ Rules',
+    startLevels: 'START GAME',
+    rules: 'RULES',
+    menu: 'MENU',
+    continueGame: 'CONTINUE',
+    exitLevels: 'EXIT TO LEVELS',
+    exitDaily: 'EXIT TO DAILY',
+    exitHome: 'EXIT TO HOME',
     mouseControls: 'LMB: Wall   •   RMB: Floor',
     wall: 'WALL',
     floor: 'FLOOR',
@@ -541,10 +484,8 @@ const EN: UiCopy = {
     withoutHints: 'NO HINTS',
     hintsCount: (count) => `HINTS: ${count}`,
     newRecord: '  ·  NEW RECORD',
-    manuscriptUnlocked: (roman, title) => `\nMANUSCRIPT ${roman} UNLOCKED · ${title.toUpperCase()}`,
     featuresUnlocked: 'UNLOCKED: DAILY AND STATISTICS\nOpen them now or continue the Campaign.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
-    archive: 'ARCHIVE',
     next: 'NEXT',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
     dailyPractice: 'PRACTICE · UNRANKED',
@@ -557,12 +498,6 @@ const EN: UiCopy = {
     home: 'HOME',
     resetTitle: 'Reset puzzle?',
     resetBody: 'All marks on this board will be cleared.',
-  },
-  manuscripts: {
-    'manuscript-i': 'Primer',
-    'manuscript-ii': 'Deduction',
-    'manuscript-iii': 'Rooms',
-    'manuscript-iv': 'Mastery',
   },
 };
 

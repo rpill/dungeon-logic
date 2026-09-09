@@ -37,8 +37,6 @@ function entry(slot: number): CampaignLevelEntry {
   return {
     slot,
     id,
-    chapterId: 'graveyard',
-    onboarding: [],
     level: {
       id,
       width: 1,

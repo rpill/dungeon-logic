@@ -14,7 +14,7 @@ export interface DailyReleaseScanPlanEntry {
 }
 
 export const DAILY_RELEASE_MASTER_SEED = 20260909;
-export const DAILY_RELEASE_COUNT = 60;
+export const DAILY_RELEASE_COUNT = 365;
 export const DAILY_RELEASE_MIN_NEIGHBOR_DISTANCE = 0.18;
 
 export const DAILY_RELEASE_SCAN_PLAN = [
@@ -24,9 +24,9 @@ export const DAILY_RELEASE_SCAN_PLAN = [
 ] as const satisfies readonly DailyReleaseScanPlanEntry[];
 
 export const DAILY_RELEASE_ARCHETYPE_COUNTS = {
-  [GeneratorArchetype.MonsterOnly]: 24,
-  [GeneratorArchetype.MixedOneRoom]: 24,
-  [GeneratorArchetype.ChestOneRoom]: 12,
+  [GeneratorArchetype.MonsterOnly]: 217,
+  [GeneratorArchetype.MixedOneRoom]: 126,
+  [GeneratorArchetype.ChestOneRoom]: 22,
 } as const;
 
 const MONSTER_TARGETS = [32, 38, 44, 50, 56, 62, 34, 40, 46, 52, 58, 64, 36, 42, 48, 54, 60, 66, 33, 39, 45, 51, 57, 63] as const;
@@ -185,38 +185,56 @@ export function selectDailyReleaseCorpus(
 }
 
 function buildDailyReleaseSlotSpecs(): readonly DailyReleaseSlotSpec[] {
-  const pattern = [
+  const initialPattern = [
     GeneratorArchetype.MonsterOnly,
     GeneratorArchetype.MixedOneRoom,
     GeneratorArchetype.ChestOneRoom,
     GeneratorArchetype.MixedOneRoom,
     GeneratorArchetype.MonsterOnly,
   ] as const;
-  const indexes = {
+  const initialIndexes = {
     [GeneratorArchetype.MonsterOnly]: 0,
     [GeneratorArchetype.MixedOneRoom]: 0,
     [GeneratorArchetype.ChestOneRoom]: 0,
   };
-  const targetLists = {
+  const initialTargetLists = {
     [GeneratorArchetype.MonsterOnly]: MONSTER_TARGETS,
     [GeneratorArchetype.MixedOneRoom]: MIXED_TARGETS,
     [GeneratorArchetype.ChestOneRoom]: CHEST_TARGETS,
   } as const;
 
-  return Array.from({ length: DAILY_RELEASE_COUNT }, (_, index) => {
-    const archetype = pattern[index % pattern.length];
-    const targetIndex = indexes[archetype];
-    const targetScore = targetLists[archetype][targetIndex];
-    if (targetScore === undefined) {
-      throw new Error(`Daily release target list exhausted for ${archetype}.`);
-    }
-    indexes[archetype] += 1;
-    return {
-      ordinal: index + 1,
-      archetype,
-      targetScore,
-    };
+  const initial = Array.from({ length: 60 }, (_, index): DailyReleaseSlotSpec => {
+    const archetype = initialPattern[index % initialPattern.length];
+    const targetIndex = initialIndexes[archetype];
+    const targetScore = initialTargetLists[archetype][targetIndex];
+    if (targetScore === undefined) throw new Error(`Daily release target list exhausted for ${archetype}.`);
+    initialIndexes[archetype] += 1;
+    return { ordinal: index + 1, archetype, targetScore };
   });
+
+  const futureTargetCycles = {
+    [GeneratorArchetype.MonsterOnly]: [34, 40, 46, 52, 58, 64, 36, 42, 48, 54, 60, 66] as const,
+    [GeneratorArchetype.MixedOneRoom]: [34, 40, 46, 52, 58, 64, 36, 42, 48, 54, 60, 66] as const,
+    [GeneratorArchetype.ChestOneRoom]: [44, 48, 52, 56, 60, 64, 66, 58] as const,
+  };
+  const futureIndexes = {
+    [GeneratorArchetype.MonsterOnly]: 0,
+    [GeneratorArchetype.MixedOneRoom]: 0,
+    [GeneratorArchetype.ChestOneRoom]: 0,
+  };
+  const future = Array.from({ length: DAILY_RELEASE_COUNT - 60 }, (_, index): DailyReleaseSlotSpec => {
+    const archetype = index % 30 === 29
+      ? GeneratorArchetype.ChestOneRoom
+      : index % 3 === 1
+        ? GeneratorArchetype.MixedOneRoom
+        : GeneratorArchetype.MonsterOnly;
+    const targetList = futureTargetCycles[archetype];
+    const targetScore = targetList[futureIndexes[archetype] % targetList.length];
+    futureIndexes[archetype] += 1;
+    return { ordinal: index + 61, archetype, targetScore };
+  });
+
+  return [...initial, ...future];
 }
 
 function calculateSelectionScore(

@@ -16,14 +16,23 @@
 ## Tutorial runtime / profile v2
 
 - Tutorial — first-class runtime mode (`tutorial`), не fake Campaign level.
-- Stable IDs: `tutorial-001`–`tutorial-005`; Campaign IDs/slots остаются `campaign-001`–`campaign-030`.
-- `PlayerProfileV2` хранит отдельный `tutorial` state и migration из schema v1.
+- Stable IDs: `tutorial-001`–`tutorial-005`; Campaign IDs/slots: `campaign-001`–`campaign-064`; Daily snapshots: `daily-001`–`daily-365`.
+- `PlayerProfileV3` хранит отдельный `tutorial` state и `campaign.drafts[levelId]` для независимого сохранения каждой начатой Campaign-задачи; schema v1/v2 мигрируют автоматически, а старый `campaign.activePuzzle` становится соответствующим draft.
 - `SerializedPuzzleState.mode` поддерживает `campaign | daily | tutorial`.
 - Tutorial завершает пазл только через общий `LevelValidator`; onboarding может направлять `FLOOR`-дедукции как обучающие пометки, но solved-state по-прежнему не требует размечать весь пол.
 - Tutorial onboarding не имеет standalone `MessageOnboardingStep`: каждый текст привязан к конкретному `board-cells` действию. После выполнения нужных WALL/FLOOR клеток `GameScene` сразу продвигает flow и меняет текст; отдельный клик по плашке для продолжения отсутствует.
 - Tutorial v2 использует пять authored teaching fixtures; новый rule вводится только когда он создаёт видимую однозначную дедукцию.
 - Profile normalization трактует persisted `tutorial.completed=true` из старой четырёхуровневой версии как completion всех пяти стабильных Tutorial IDs.
 - `HelpRules.ts` разделяет восемь puzzle-rule cards и отдельные utility entries (`controls`, `feedback`).
+
+
+## Flat Levels / static content release
+
+- Campaign runtime не хранит chapter/manuscript progression. `getPlayableCampaignIds()` возвращает все completed IDs плюс первые три unsolved IDs по slot order.
+- Campaign manifest содержит ровно 64 статических promoted levels; существующие IDs 001–030 сохраняются для совместимости профиля.
+- Level Select на compact/wide экранах использует 3 колонки; narrow portrait fallback — 2.
+- Daily release corpus содержит ровно 365 immutable snapshot modules, one-to-one с trusted UTC датами `2026-09-09`–`2027-09-08`. Runtime ничего не генерирует.
+- Campaign Archive/Manuscript/Chapter runtime удалён; Daily Archive остаётся и означает только прошедшие Daily.
 
 ## Hint economy / ranked Daily assistance
 

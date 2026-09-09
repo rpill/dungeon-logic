@@ -2,7 +2,7 @@ import type { CampaignLevelEntry } from '../content/campaign/types';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV2 } from '../profile/types';
+import type { PlayerProfileV4 } from '../profile/types';
 import type { HelpReturnSceneKey } from '../help/HelpNavigation';
 import { SETTINGS_SCENE_KEY, shouldShowSettingsEntry } from '../runtime/MetaSelectors';
 import { SettingsService, detectVibrationSupport } from '../settings/SettingsService';
@@ -17,8 +17,6 @@ function entry(slot: number): CampaignLevelEntry {
   return {
     slot,
     id,
-    chapterId: 'graveyard',
-    onboarding: [],
     level: {
       id,
       width: 1,
@@ -36,13 +34,13 @@ function entry(slot: number): CampaignLevelEntry {
 
 class MemoryStorage implements PlayerProfileStorage {
   raw: unknown = null;
-  saves: PlayerProfileV2[] = [];
+  saves: PlayerProfileV4[] = [];
 
   async load(): Promise<unknown | null> {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV2): Promise<void> {
+  async save(profile: PlayerProfileV4): Promise<void> {
     this.raw = profile;
     this.saves.push(profile);
   }
@@ -86,17 +84,19 @@ async function main(): Promise<void> {
       levelResults: {
         'campaign-001': { bestTimeMs: 1111, minHintsUsed: 0, solveCount: 2, solvedWithoutHints: true },
       },
-      activePuzzle: {
-        mode: 'campaign',
-        puzzleId: 'campaign-006',
-        cells: [['unknown']],
-        activePlayMs: 700,
-        hintsUsed: 1,
-        startedAtMs: 123,
+      drafts: {
+        'campaign-006': {
+          mode: 'campaign',
+          puzzleId: 'campaign-006',
+          cells: [['unknown']],
+          activePlayMs: 700,
+          hintsUsed: 1,
+          startedAtMs: 123,
+        },
       },
     },
     daily: {
-      activePuzzle: null,
+      drafts: {},
       currentStreak: 4,
       bestStreak: 7,
       lastSolvedDate: '2026-09-08',
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
   assert(reset.campaign.completedLevelIds.length === 0, 'Reset clears campaign completions.');
   assert(reset.campaign.lastPlayedLevelId === null, 'Reset clears last played campaign level.');
   assert(Object.keys(reset.campaign.levelResults).length === 0, 'Reset clears campaign result history.');
-  assert(reset.campaign.activePuzzle === null, 'Reset clears active campaign puzzle.');
+  assert(Object.keys(reset.campaign.drafts).length === 0, 'Reset clears all saved Campaign level drafts.');
   assert(!reset.tutorial.completed, 'Reset relocks Tutorial for a fresh progression state.');
   assert(reset.tutorial.completedLevelIds.length === 0, 'Reset clears Tutorial completions.');
   assert(reset.tutorial.activePuzzle === null, 'Reset clears active Tutorial puzzle.');

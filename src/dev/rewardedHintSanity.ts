@@ -15,8 +15,6 @@ function assert(condition: boolean, message: string): void {
 const TEST_MANIFEST: readonly CampaignLevelEntry[] = [{
   slot: 1,
   id: 'campaign-001',
-  chapterId: 'graveyard',
-  onboarding: [],
   level: {
     id: 'campaign-001',
     width: 1,

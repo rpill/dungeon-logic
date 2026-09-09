@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
 import type { DailyEntry } from '../content/daily/types';
 import {
   DAILY_SERVICE_REGISTRY_KEY,
@@ -12,6 +13,12 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import {
+  createDailyHubCalendarMonth,
+  getInitialDailyHubCalendarMonth,
+  shiftDailyHubCalendarMonth,
+  type DailyHubCalendarDayState,
+} from '../runtime/DailyHubCalendar';
 import { createDailyGameSceneData } from '../runtime/GameLaunch';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
@@ -20,9 +27,25 @@ import {
   isMetaScrollDrag,
 } from '../runtime/MetaScroll';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
+import { createDailyLevelPreview } from '../runtime/DailyLevelPreview';
+import type { DailyProfileState } from '../profile/types';
+import { drawLevelThumbnail } from '../view/LevelThumbnailRenderer';
 import { LEADERBOARD_SCENE_KEY } from './LeaderboardScene';
 
 export const DAILY_SCENE_KEY = 'DailyScene';
+
+const CALENDAR_STATE_STYLE: Readonly<Record<DailyHubCalendarDayState, {
+  readonly fill: number;
+  readonly alpha: number;
+  readonly stroke: number;
+  readonly text: string;
+}>> = {
+  unavailable: { fill: 0x181b20, alpha: 0.6, stroke: 0x2e333a, text: '#4d535c' },
+  'archive-unsolved': { fill: 0x20242b, alpha: 1, stroke: 0xd0b978, text: '#d8d1c4' },
+  'archive-solved': { fill: 0x20242b, alpha: 1, stroke: 0x6f8b72, text: '#8fbf8f' },
+  today: { fill: 0x2a3038, alpha: 1, stroke: 0xf0d28a, text: '#f0d28a' },
+  future: { fill: 0x1c2026, alpha: 0.72, stroke: 0x4c535c, text: '#62666d' },
+};
 
 export class DailyScene extends Phaser.Scene {
   private launchPending = false;
@@ -87,7 +110,14 @@ export class DailyScene extends Phaser.Scene {
     ]).then(([today, archiveRows]) => {
       if (!this.scene.isActive() || this.registry.get('daily-scene-render-version') !== renderVersion) return;
       loading.destroy();
-      this.renderContent(today, archiveRows, copy, headerHeight, narrow);
+      this.renderContent(
+        today,
+        archiveRows,
+        this.getProfileService().getProfile().daily,
+        copy,
+        headerHeight,
+        narrow,
+      );
       this.setupMetaScroll();
     }).catch((error) => {
       console.warn('[Dungeon Logic] Could not load Daily hub.', error);
@@ -109,6 +139,7 @@ export class DailyScene extends Phaser.Scene {
   private renderContent(
     today: DailyTodaySnapshot | null,
     archiveRows: readonly DailyArchiveEntry[],
+    dailyProfile: DailyProfileState,
     copy: UiCopy,
     headerHeight: number,
     narrow: boolean,
@@ -182,7 +213,7 @@ export class DailyScene extends Phaser.Scene {
       );
     }
 
-    y = todayCardTop + todayHeight + (narrow ? 42 : 50);
+    y = todayCardTop + todayHeight + (narrow ? 38 : 46);
     const solvedArchive = archiveRows.filter((item) => item.solved).length;
     this.add.text(centerX, y, copy.dailyHub.archiveTitle, {
       fontFamily: 'monospace',
@@ -195,62 +226,169 @@ export class DailyScene extends Phaser.Scene {
       fontSize: narrow ? '10px' : '12px',
       color: '#89929d',
     }).setOrigin(0.5);
-    this.add.text(centerX, y + (narrow ? 44 : 48), copy.dailyHub.archiveOutsideRating, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '9px' : '11px',
-      color: '#686e76',
-    }).setOrigin(0.5);
-    y += narrow ? 86 : 96;
+    y += narrow ? 62 : 68;
 
-    if (archiveRows.length === 0) {
-      this.add.text(centerX, y, copy.dailyHub.archiveEmpty, {
+    if (today === null) {
+      this.add.text(centerX, y + 24, copy.dailyHub.archiveEmpty, {
         fontFamily: 'monospace',
         fontSize: narrow ? '12px' : '14px',
         color: '#686e76',
       }).setOrigin(0.5);
-      this.contentBottom = y + 44;
+      this.contentBottom = y + 70;
       return;
     }
 
-    const rowHeight = narrow ? 64 : 72;
-    const gap = narrow ? 9 : 10;
-    archiveRows.forEach((item, index) => {
-      const rowY = y + index * (rowHeight + gap);
-      this.add.rectangle(centerX, rowY, width, rowHeight, 0x1c2026, 1)
-        .setStrokeStyle(1, item.solved ? 0x6f7b70 : 0x4c535c);
-      this.add.text(centerX - width / 2 + 16, rowY - 12, this.formatDate(item.dateKey), {
+    const calendarContainer = this.add.container(0, 0);
+    let selectedMonth = getInitialDailyHubCalendarMonth(DAILY_RELEASE_ENTRIES, today.dateKey);
+    const calendarWidth = Math.min(width, narrow ? 440 : 540);
+    const columnGap = narrow ? 4 : 7;
+    const cellSize = Math.max(30, Math.min(narrow ? 48 : 58, Math.floor((calendarWidth - columnGap * 6) / 7)));
+    const gridWidth = cellSize * 7 + columnGap * 6;
+    const numberGap = narrow ? 8 : 10;
+    const numberHeight = narrow ? 10 : 12;
+    const rowGap = narrow ? 8 : 10;
+    const rowPitch = cellSize + numberGap + numberHeight + rowGap;
+    const monthHeaderY = y;
+    const weekdaysY = monthHeaderY + (narrow ? 32 : 36);
+    const gridTopY = weekdaysY + (narrow ? 24 : 28);
+
+    const renderCalendarMonth = (): void => {
+      calendarContainer.removeAll(true);
+      const calendar = createDailyHubCalendarMonth(
+        DAILY_RELEASE_ENTRIES,
+        archiveRows,
+        today,
+        selectedMonth.year,
+        selectedMonth.month,
+      );
+      selectedMonth = { year: calendar.year, month: calendar.month };
+
+      const monthLabel = `${copy.stats.months[calendar.month - 1]} ${calendar.year}`;
+      const monthText = this.add.text(centerX, monthHeaderY, monthLabel, {
         fontFamily: 'monospace',
-        fontSize: narrow ? '12px' : '14px',
-        color: '#d8d1c4',
+        fontSize: narrow ? '13px' : '15px',
+        color: '#f0e6d2',
         fontStyle: 'bold',
-      }).setOrigin(0, 0.5);
-      this.add.text(
-        centerX - width / 2 + 16,
-        rowY + 13,
-        item.result === null
-          ? copy.dailyHub.archiveNotSolved
-          : copy.dailyHub.archiveFirstResult(this.formatTime(item.result.bestTimeMs)),
-        {
+      }).setOrigin(0.5);
+      calendarContainer.add(monthText);
+
+      const createMonthArrow = (direction: -1 | 1, enabled: boolean): void => {
+        const x = centerX + direction * Math.min(gridWidth / 2 - 14, narrow ? 150 : 190);
+        const arrow = this.add.text(x, monthHeaderY, direction < 0 ? '‹' : '›', {
+          fontFamily: 'monospace',
+          fontSize: narrow ? '22px' : '26px',
+          color: enabled ? '#d0b978' : '#4c535c',
+          fontStyle: 'bold',
+        }).setOrigin(0.5);
+        if (enabled) {
+          arrow.setInteractive({ useHandCursor: true }).on('pointerup', (pointer: Phaser.Input.Pointer) => {
+            if (!this.shouldActivatePointer(pointer)) return;
+            selectedMonth = shiftDailyHubCalendarMonth(
+              DAILY_RELEASE_ENTRIES,
+              today.dateKey,
+              calendar.year,
+              calendar.month,
+              direction,
+            );
+            renderCalendarMonth();
+          });
+        }
+        calendarContainer.add(arrow);
+      };
+      createMonthArrow(-1, calendar.canGoPrevious);
+      createMonthArrow(1, calendar.canGoNext);
+
+      copy.stats.weekdays.forEach((weekday, column) => {
+        const x = centerX - gridWidth / 2 + cellSize / 2 + column * (cellSize + columnGap);
+        const text = this.add.text(x, weekdaysY, weekday, {
+          fontFamily: 'monospace',
+          fontSize: narrow ? '9px' : '10px',
+          color: '#686e76',
+          fontStyle: 'bold',
+        }).setOrigin(0.5);
+        calendarContainer.add(text);
+      });
+
+      calendar.days.forEach((day) => {
+        const position = calendar.leadingEmptyDays + day.day - 1;
+        const column = position % 7;
+        const row = Math.floor(position / 7);
+        const x = centerX - gridWidth / 2 + cellSize / 2 + column * (cellSize + columnGap);
+        const cellY = gridTopY + cellSize / 2 + row * rowPitch;
+        const numberY = cellY + cellSize / 2 + numberGap;
+        const style = CALENDAR_STATE_STYLE[day.state];
+        const cell = this.add.rectangle(x, cellY, cellSize, cellSize, style.fill, style.alpha)
+          .setStrokeStyle(day.state === 'today' ? 2 : 1, style.stroke);
+        calendarContainer.add(cell);
+
+        if (day.entry !== null && day.state !== 'future' && day.state !== 'unavailable') {
+          const preview = createDailyLevelPreview(day.entry, dailyProfile);
+          if (preview.status === 'unstarted') {
+            const veil = this.add.rectangle(x, cellY, cellSize - 4, cellSize - 4, 0xf3eee5, 0.12);
+            const question = this.add.text(x, cellY, '?', {
+              fontFamily: 'monospace',
+              fontSize: `${Math.max(16, Math.floor(cellSize * 0.42))}px`,
+              color: day.state === 'today' ? '#f0d28a' : '#d8d1c4',
+              fontStyle: 'bold',
+            }).setOrigin(0.5);
+            calendarContainer.add([veil, question]);
+          } else {
+            const thumbnail = drawLevelThumbnail(
+              this,
+              day.entry.level,
+              preview.walls,
+              { x, y: cellY, width: cellSize, height: cellSize },
+              { showIncompleteOverlay: preview.showIncompleteOverlay },
+            );
+            calendarContainer.add(thumbnail);
+          }
+        } else if (day.entry !== null && day.state === 'future') {
+          const question = this.add.text(x, cellY, '?', {
+            fontFamily: 'monospace',
+            fontSize: `${Math.max(15, Math.floor(cellSize * 0.38))}px`,
+            color: '#62666d',
+            fontStyle: 'bold',
+          }).setOrigin(0.5);
+          calendarContainer.add(question);
+        }
+
+        const number = this.add.text(x, numberY, String(day.day), {
           fontFamily: 'monospace',
           fontSize: narrow ? '10px' : '11px',
-          color: item.solved ? '#8fbf8f' : '#89929d',
-        },
-      ).setOrigin(0, 0.5);
-      this.createActionButton(
-        centerX + width / 2 - (narrow ? 49 : 58),
-        rowY,
-        narrow ? 82 : 100,
-        narrow ? 36 : 40,
-        item.solved ? copy.dailyHub.archiveReplay : copy.dailyHub.archivePlay,
-        item.solved ? '#89929d' : '#d0b978',
-        (pointer) => {
-          if (!this.shouldActivatePointer(pointer)) return;
-          void this.launchDaily(item.entry);
-        },
-      );
-    });
+          color: style.text,
+          fontStyle: day.state === 'today' ? 'bold' : 'normal',
+        }).setOrigin(0.5, 0);
+        calendarContainer.add(number);
 
-    this.contentBottom = y + (archiveRows.length - 1) * (rowHeight + gap) + rowHeight / 2 + 34;
+        if (day.state === 'archive-solved') {
+          const marker = this.add.text(x + cellSize / 2 - 3, cellY - cellSize / 2 + 2, '✓', {
+            fontFamily: 'monospace',
+            fontSize: narrow ? '8px' : '9px',
+            color: '#8fbf8f',
+            fontStyle: 'bold',
+          }).setOrigin(1, 0);
+          calendarContainer.add(marker);
+        }
+
+        if ((day.state === 'archive-unsolved' || day.state === 'archive-solved') && day.entry !== null) {
+          cell.setInteractive({ useHandCursor: true }).on('pointerup', (pointer: Phaser.Input.Pointer) => {
+            if (!this.shouldActivatePointer(pointer)) return;
+            void this.launchDaily(day.entry!);
+          });
+        }
+      });
+    };
+
+    renderCalendarMonth();
+
+    const calendarRows = 6;
+    const calendarBottom = gridTopY + calendarRows * rowPitch - rowGap;
+    this.add.text(centerX, calendarBottom + (narrow ? 12 : 16), copy.dailyHub.archiveOutsideRating, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '9px' : '11px',
+      color: '#686e76',
+    }).setOrigin(0.5, 0);
+    this.contentBottom = calendarBottom + (narrow ? 48 : 56);
   }
 
   private createActionButton(

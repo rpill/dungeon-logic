@@ -22,13 +22,12 @@ const level: LevelDefinition = {
   solution: ['#..', '.#.'],
 };
 
-const manifest: readonly CampaignLevelEntry[] = [{
-  slot: 1,
-  id: level.id,
-  level,
-  chapterId: 'graveyard',
-  onboarding: [],
-}];
+const levelTwo: LevelDefinition = { ...level, id: 'campaign-002' };
+
+const manifest: readonly CampaignLevelEntry[] = [
+  { slot: 1, id: level.id, level },
+  { slot: 2, id: levelTwo.id, level: levelTwo },
+];
 
 class FakeStorage implements PlayerProfileStorage {
   saved: unknown[] = [];
@@ -69,7 +68,7 @@ async function main(): Promise<void> {
   assert(snapshot.cells[1][0] === CellState.Floor, 'Chest stays fixed Floor in snapshot.');
   assert(snapshot.activePlayMs === 4321, 'Snapshot keeps active play time.');
   assert(snapshot.hintsUsed === 1, 'Snapshot keeps hint count.');
-  assert(profileService.getProfile().campaign.activePuzzle?.puzzleId === level.id, 'saveNow writes active puzzle into profile immediately.');
+  assert(profileService.getProfile().campaign.drafts[level.id]?.puzzleId === level.id, 'saveNow writes the Campaign draft under its level id immediately.');
   assert(storage.saved.length === 0, 'saveNow relies on coalesced profile persistence instead of flushing storage immediately.');
 
   const restored = PuzzleSessionService.createCampaign(level, profileService, snapshot, 9999);
@@ -108,8 +107,27 @@ async function main(): Promise<void> {
   const freshFromCorruptEnum = PuzzleSessionService.createCampaign(level, profileService, corruptEnum as any, 9991);
   assert(freshFromCorruptEnum.getPuzzle().getCellState(0, 0) === CellState.Unknown, 'Unknown cell enum rejects snapshot.');
 
-  first.clearActivePuzzle();
-  assert(profileService.getProfile().campaign.activePuzzle === null, 'clearActivePuzzle clears only campaign active puzzle in memory.');
+  const second = PuzzleSessionService.createCampaign(levelTwo, profileService, undefined, 2234);
+  second.getPuzzle().setCellState(1, 0, CellState.Wall);
+  second.saveNow();
+  assert(
+    profileService.getProfile().campaign.drafts[level.id]?.cells[0][0] === CellState.Wall,
+    'Saving another Campaign level preserves the earlier level draft.',
+  );
+  assert(
+    profileService.getProfile().campaign.drafts[levelTwo.id]?.cells[0][1] === CellState.Wall,
+    'Saving another Campaign level creates a second independent draft.',
+  );
+
+  second.clearActivePuzzle();
+  assert(
+    profileService.getProfile().campaign.drafts[levelTwo.id] === undefined,
+    'clearActivePuzzle removes only the current Campaign level draft.',
+  );
+  assert(
+    profileService.getProfile().campaign.drafts[level.id]?.puzzleId === level.id,
+    'Clearing one Campaign level preserves drafts for other levels.',
+  );
   await profileService.flush();
 
   console.info('[Dungeon Logic] Puzzle session sanity: active timer + round-trip + validation + coalesced profile autosave passed');

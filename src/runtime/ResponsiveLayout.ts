@@ -10,6 +10,7 @@ export interface LevelCardLayout {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+  readonly numberY: number;
 }
 
 export interface LevelSelectLayout {
@@ -63,117 +64,116 @@ export function calculateLevelSelectLayout(
   }
 
   const viewportClass = classifyViewport(viewport.width);
+  const portraitNarrow = viewportClass === 'narrow' && viewport.height >= viewport.width;
 
-  if (viewportClass === 'narrow') {
+  if (portraitNarrow) {
     const margin = 16;
-    const gapX = 12;
-    const gapY = 12;
-    const columns = Math.min(2, Math.max(1, itemCount));
-    const cardWidth = Math.floor(
+    const gapX = 8;
+    const gapY = 8;
+    const columns = Math.min(4, Math.max(1, itemCount));
+    const maxCardWidth = Math.floor(
       (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
     );
-    const compactHeight = viewport.height < 620;
-    const cardHeight = compactHeight ? 88 : 104;
-    const startY = compactHeight ? 152 : 174;
+    const cardSize = Math.min(72, maxCardWidth);
+    const numberFontSize = Math.max(10, Math.min(13, Math.floor(cardSize * 0.18)));
+    const numberGap = 3;
+    const numberHeight = numberFontSize + 2;
+    const rowPitch = cardSize + numberGap + numberHeight + gapY;
+    const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
+    const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
+    const compactHeader = viewport.height < 620;
+    const headerBottom = compactHeader ? 112 : 124;
+    const gridTop = headerBottom + 12;
     const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
       const column = index % columns;
       const row = Math.floor(index / columns);
+      const y = gridTop + cardSize / 2 + row * rowPitch;
       return {
-        x: margin + cardWidth / 2 + column * (cardWidth + gapX),
-        y: startY + cardHeight / 2 + row * (cardHeight + gapY),
-        width: cardWidth,
-        height: cardHeight,
+        x: startX + column * (cardSize + gapX),
+        y,
+        width: cardSize,
+        height: cardSize,
+        numberY: y + cardSize / 2 + numberGap + numberHeight / 2,
       };
     });
 
     return {
       viewportClass,
-      titleY: 42,
-      titleFontSize: 30,
-      continueY: 98,
+      titleY: 32,
+      titleFontSize: 28,
+      continueY: 78,
       continueWidth: viewport.width - margin * 2,
-      continueHeight: 48,
-      continueFontSize: 17,
-      headerBottom: compactHeight ? 140 : 158,
-      contentBottom: cards.length === 0 ? (compactHeight ? 140 : 158) : cards[cards.length - 1].y + cards[cards.length - 1].height / 2,
+      continueHeight: 42,
+      continueFontSize: 15,
+      headerBottom,
+      contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
       columns,
-      cardTitleFontSize: 18,
-      cardStateFontSize: 13,
+      cardTitleFontSize: numberFontSize,
+      cardStateFontSize: 11,
       cards,
     };
   }
 
-  if (viewportClass === 'compact') {
-    const margin = 24;
-    const gapX = 18;
-    const gapY = 18;
-    const columns = Math.min(3, Math.max(1, itemCount));
-    const cardWidth = Math.min(
-      190,
-      Math.floor(
-        (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
-      ),
-    );
-    const cardHeight = 130;
-    const totalWidth = columns * cardWidth + Math.max(0, columns - 1) * gapX;
-    const startX = (viewport.width - totalWidth) / 2 + cardWidth / 2;
-    const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      return {
-        x: startX + column * (cardWidth + gapX),
-        y: 210 + cardHeight / 2 + row * (cardHeight + gapY),
-        width: cardWidth,
-        height: cardHeight,
-      };
-    });
-
-    return {
-      viewportClass,
-      titleY: 54,
-      titleFontSize: 38,
-      continueY: 116,
-      continueWidth: Math.min(330, viewport.width - margin * 2),
-      continueHeight: 52,
-      continueFontSize: 19,
-      headerBottom: 166,
-      contentBottom: cards.length === 0 ? 166 : cards[cards.length - 1].y + cards[cards.length - 1].height / 2,
-      columns,
-      cardTitleFontSize: 21,
-      cardStateFontSize: 15,
-      cards,
-    };
-  }
-
-  const cardWidth = 190;
-  const cardGap = 22;
-  const columns = Math.min(5, Math.max(1, itemCount));
-  const totalWidth = columns * cardWidth + Math.max(0, columns - 1) * cardGap;
-  const startX = (viewport.width - totalWidth) / 2 + cardWidth / 2;
+  const margin = viewportClass === 'wide' ? 28 : 18;
+  const gapX = viewportClass === 'wide' ? 10 : 8;
+  const gapY = viewportClass === 'wide' ? 4 : 5;
+  const columns = Math.min(8, Math.max(1, itemCount));
+  const rows = columns === 0 ? 0 : Math.ceil(itemCount / columns);
+  const shortViewport = viewport.height < 500;
+  const headerBottom = shortViewport ? 108 : 122;
+  const gridTop = headerBottom + 8;
+  const bottomPadding = 24;
+  const numberGap = 2;
+  const numberFontSize = shortViewport ? 10 : 11;
+  const numberHeight = numberFontSize + 2;
+  const maxCardFromWidth = Math.floor(
+    (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
+  );
+  const maxCardFromHeight = rows === 0
+    ? 72
+    : Math.floor(
+        (
+          viewport.height
+          - gridTop
+          - bottomPadding
+          - rows * (numberGap + numberHeight)
+          - gapY * Math.max(0, rows - 1)
+        ) / rows,
+      );
+  const minimumReadableCard = shortViewport ? 46 : 48;
+  const cardSize = Math.max(
+    minimumReadableCard,
+    Math.min(72, maxCardFromWidth, maxCardFromHeight),
+  );
+  const rowPitch = cardSize + numberGap + numberHeight + gapY;
+  const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
+  const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
   const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
     const column = index % columns;
     const row = Math.floor(index / columns);
+    const y = gridTop + cardSize / 2 + row * rowPitch;
     return {
-      x: startX + column * (cardWidth + cardGap),
-      y: 310 + row * 192,
-      width: cardWidth,
-      height: 170,
+      x: startX + column * (cardSize + gapX),
+      y,
+      width: cardSize,
+      height: cardSize,
+      numberY: y + cardSize / 2 + numberGap + numberHeight / 2,
     };
   });
 
   return {
     viewportClass,
-    titleY: 70,
-    titleFontSize: 44,
-    continueY: 138,
-    continueWidth: 330,
-    continueHeight: 54,
-    continueFontSize: 20,
-    headerBottom: 190,
-    contentBottom: cards.length === 0 ? 190 : cards[cards.length - 1].y + cards[cards.length - 1].height / 2,
+    titleY: shortViewport ? 30 : 36,
+    titleFontSize: shortViewport ? 28 : 32,
+    continueY: shortViewport ? 72 : 82,
+    continueWidth: Math.min(300, viewport.width - margin * 2),
+    continueHeight: shortViewport ? 38 : 40,
+    continueFontSize: shortViewport ? 14 : 15,
+    headerBottom,
+    contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
     columns,
-    cardTitleFontSize: 24,
-    cardStateFontSize: 16,
+    cardTitleFontSize: numberFontSize,
+    cardStateFontSize: 10,
     cards,
   };
 }

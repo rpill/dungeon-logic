@@ -42,7 +42,7 @@ import {
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
+import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   TUTORIAL_SERVICE_REGISTRY_KEY,
   TutorialService,
@@ -141,6 +141,9 @@ export class GameScene extends Phaser.Scene {
       ? launchData.context
       : null;
     const rankedDaily = dailyContext?.ranked === true;
+    const dailyAlreadySolved = dailyContext !== null && profileService !== null
+      ? profileService.getProfile().daily.results[dailyContext.dateKey] !== undefined
+      : false;
     const tutorialService = tutorialContext === null ? null : this.getTutorialService();
     const tutorialEntry = tutorialContext === null
       ? null
@@ -158,13 +161,16 @@ export class GameScene extends Phaser.Scene {
 
     if (
       completedReview
-      && profileService?.getProfile().campaign.activePuzzle?.puzzleId === launchData.level.id
+      && profileService?.getProfile().campaign.drafts[launchData.level.id] !== undefined
     ) {
       profileService.update((profile) => ({
         ...profile,
         campaign: {
           ...profile.campaign,
-          activePuzzle: null,
+          drafts: Object.fromEntries(
+            Object.entries(profile.campaign.drafts)
+              .filter(([levelId]) => levelId !== launchData.level.id),
+          ),
         },
       }));
     }
@@ -213,25 +219,13 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5)
       .setInteractive({ useHandCursor: true });
 
-    const helpText = this.add.text(
+    const menuText = this.add.text(
       this.scale.width - chrome.actionInset,
       chrome.titleY + safeTop,
-      this.scale.width < 700 ? 'ⓘ' : copy.game.rules,
+      copy.game.menu,
       {
         fontFamily: 'monospace',
         fontSize: `${chrome.actionFontSize}px`,
-        color: '#89929d',
-        fontStyle: 'bold',
-      },
-    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-    const settingsText = this.add.text(
-      this.scale.width - chrome.actionInset - (this.scale.width < 700 ? 38 : 118),
-      chrome.titleY + safeTop,
-      '⚙',
-      {
-        fontFamily: 'monospace',
-        fontSize: `${Math.max(16, chrome.actionFontSize + 2)}px`,
         color: '#89929d',
         fontStyle: 'bold',
       },
@@ -275,11 +269,12 @@ export class GameScene extends Phaser.Scene {
             profileService,
             profileService.getProfile().tutorial.activePuzzle ?? undefined,
           )
-          : rankedDaily
+          : dailyContext !== null && !dailyAlreadySolved
             ? PuzzleSessionService.createDaily(
               launchData.level,
               profileService,
-              profileService.getProfile().daily.activePuzzle ?? undefined,
+              dailyContext.dateKey,
+              profileService.getProfile().daily.drafts[dailyContext.dateKey],
             )
             : null;
     const puzzle = completedReview
@@ -332,6 +327,8 @@ export class GameScene extends Phaser.Scene {
     let syncedActivePlayMs = initialTimerMs;
     let transientHintsUsed = 0;
     let sceneOverlayPaused = false;
+    let gameMenuOpen = false;
+    let gameMenuContainer: Phaser.GameObjects.Container | null = null;
     const platformGameplayActivity = platformServices == null
       ? null
       : new PlatformGameplayActivity(
@@ -355,7 +352,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const internalTimerMayRun = (): boolean => {
-      if (solved || onboardingBlocksTimer || resetDialogOpen || hintConfirmOpen || sceneOverlayPaused) return false;
+      if (solved || onboardingBlocksTimer || resetDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) return false;
       return typeof document === 'undefined' || !document.hidden;
     };
 
@@ -569,8 +566,114 @@ export class GameScene extends Phaser.Scene {
       || onboardingBlocksInteraction
       || resetDialogOpen
       || hintConfirmOpen
+      || gameMenuOpen
       || platformGameplayActivity?.isPlatformPaused() === true
     );
+
+    const closeGameMenu = (): void => {
+      if (!gameMenuOpen) return;
+      gameMenuOpen = false;
+      gameMenuContainer?.destroy(true);
+      gameMenuContainer = null;
+      if (!solved && !resetDialogOpen && !hintConfirmOpen) {
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
+      }
+      resumeActiveTimer();
+    };
+
+    const leaveGameTo = (sceneKey: string): void => {
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      const leave = async (): Promise<void> => {
+        try {
+          await flushProfileState();
+        } catch (error) {
+          console.warn('[Dungeon Logic] Could not flush profile state before leaving; keeping dirty in-memory state.', error);
+        }
+        if (this.scene.isActive()) this.scene.start(sceneKey);
+      };
+      void leave();
+    };
+
+    const openSceneOverlayFromMenu = (sceneKey: string): void => {
+      gameMenuOpen = false;
+      gameMenuContainer?.destroy(true);
+      gameMenuContainer = null;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      sceneOverlayPaused = true;
+      this.scene.launch(sceneKey, { returnSceneKey: 'GameScene' });
+      this.scene.pause();
+    };
+
+    const renderGameMenu = (): void => {
+      gameMenuContainer?.destroy(true);
+      const container = this.add.container(0, 0).setDepth(200);
+      gameMenuContainer = container;
+
+      const overlay = this.add.rectangle(
+        this.scale.width / 2,
+        this.scale.height / 2,
+        this.scale.width,
+        this.scale.height,
+        0x090b0e,
+        0.72,
+      ).setInteractive();
+      const panelWidth = Math.min(this.scale.width - 32, this.scale.width < 700 ? 340 : 420);
+      const buttonHeight = this.scale.width < 700 ? 42 : 48;
+      const buttonGap = 10;
+      const panelPadding = 20;
+      const titleHeight = 46;
+      const options = [
+        { label: copy.game.continueGame, action: closeGameMenu },
+        { label: copy.game.rules, action: () => openSceneOverlayFromMenu(HELP_SCENE_KEY) },
+        { label: copy.common.settings, action: () => openSceneOverlayFromMenu(SETTINGS_SCENE_KEY) },
+        {
+          label: launchData.context.mode === 'daily' ? copy.game.exitDaily : copy.game.exitLevels,
+          action: () => leaveGameTo(launchData.context.mode === 'daily' ? DAILY_SCENE_KEY : LEVELS_SCENE_KEY),
+        },
+        { label: copy.game.exitHome, action: () => leaveGameTo(HOME_SCENE_KEY) },
+      ];
+      const panelHeight = panelPadding * 2 + titleHeight + options.length * buttonHeight + (options.length - 1) * buttonGap;
+      const centerX = this.scale.width / 2;
+      const centerY = this.scale.height / 2;
+      const panel = this.add.rectangle(centerX, centerY, panelWidth, panelHeight, 0x171b20, 1)
+        .setStrokeStyle(2, 0x555b62);
+      const title = this.add.text(centerX, centerY - panelHeight / 2 + panelPadding + 8, copy.game.menu, {
+        fontFamily: 'monospace',
+        fontSize: this.scale.width < 700 ? '18px' : '22px',
+        color: '#f0e6d2',
+        fontStyle: 'bold',
+      }).setOrigin(0.5, 0);
+      container.add([overlay, panel, title]);
+
+      const firstButtonY = centerY - panelHeight / 2 + panelPadding + titleHeight + buttonHeight / 2;
+      options.forEach((option, index) => {
+        const y = firstButtonY + index * (buttonHeight + buttonGap);
+        const rectangle = this.add.rectangle(centerX, y, panelWidth - panelPadding * 2, buttonHeight, 0x2a3038, 1)
+          .setStrokeStyle(1, index >= options.length - 2 ? 0x686e76 : 0xd0b978)
+          .setInteractive({ useHandCursor: true });
+        const label = this.add.text(centerX, y, option.label, {
+          fontFamily: 'monospace',
+          fontSize: this.scale.width < 700 ? '12px' : '14px',
+          color: index >= options.length - 2 ? '#aeb4bc' : '#f0d28a',
+          fontStyle: 'bold',
+        }).setOrigin(0.5);
+        rectangle.on('pointerup', option.action);
+        container.add([rectangle, label]);
+      });
+    };
+
+    const openGameMenu = (): void => {
+      if (gameMenuOpen || resetDialogOpen || hintConfirmOpen || rewardedHintRequestPending) return;
+      gameMenuOpen = true;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      renderGameMenu();
+    };
 
     const onboardingAllowsTool = (tool: 'wall' | 'floor'): boolean => {
       const step = currentOnboardingStep();
@@ -909,12 +1012,7 @@ ${basePrompt}` : basePrompt)
         ? copy.game.withoutHints
         : copy.game.hintsCount(metadata.minHintsUsed);
       const recordCopy = newBestTime ? copy.game.newRecord : '';
-      const unlockCopy = result.unlockedManuscript === null
-        ? ''
-        : copy.game.manuscriptUnlocked(
-          result.unlockedManuscript.roman,
-          copy.manuscripts[result.unlockedManuscript.id],
-        );
+      const unlockCopy = '';
       const solvedCopy = copy.game.solvedCampaign(
         formatActiveTime(metadata.bestTimeMs),
         hintCopy,
@@ -973,8 +1071,8 @@ ${copy.game.featuresUnlocked}`
       } else {
         completionActions = [
           {
-            label: copy.game.archive,
-            action: () => this.scene.start(ARCHIVE_SCENE_KEY),
+            label: copy.common.levels,
+            action: () => this.scene.start(LEVELS_SCENE_KEY),
           },
         ];
         if (result.recommendedNextLevel !== null) {
@@ -1044,7 +1142,7 @@ ${copy.game.featuresUnlocked}`
         });
       } else if (result.tutorialCompleted) {
         completionActions.push({
-          label: copy.game.startChapterOne,
+          label: copy.game.startLevels,
           action: () => {
             if (completionTransitionPending) return;
             const service = this.getCampaignService();
@@ -1593,6 +1691,10 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     }
 
     backText.on('pointerdown', () => {
+      if (gameMenuOpen) {
+        closeGameMenu();
+        return;
+      }
       if (hintConfirmOpen) {
         closeHintConfirm();
         return;
@@ -1612,31 +1714,15 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           this.scene.start(
             launchData.context.mode === 'daily' || launchData.context.mode === 'tutorial'
               ? HOME_SCENE_KEY
-              : ARCHIVE_SCENE_KEY,
+              : LEVELS_SCENE_KEY,
           );
         }
       };
       void leave();
     });
 
-    helpText.on('pointerup', () => {
-      if (resetDialogOpen || hintConfirmOpen || solved) return;
-      board?.setInputEnabled(false);
-      pauseActiveTimer();
-      savePuzzleSession();
-      sceneOverlayPaused = true;
-      this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'GameScene' });
-      this.scene.pause();
-    });
-
-    settingsText.on('pointerup', () => {
-      if (resetDialogOpen || hintConfirmOpen || rewardedHintRequestPending) return;
-      board?.setInputEnabled(false);
-      pauseActiveTimer();
-      savePuzzleSession();
-      sceneOverlayPaused = true;
-      this.scene.launch(SETTINGS_SCENE_KEY, { returnSceneKey: 'GameScene' });
-      this.scene.pause();
+    menuText.on('pointerup', () => {
+      openGameMenu();
     });
 
     const keyboard = this.input.keyboard;
@@ -1695,13 +1781,10 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         .setPosition(nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.actionFontSize);
 
-      helpText
+      menuText
         .setPosition(width - nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.actionFontSize)
-        .setText(width < 700 ? 'ⓘ' : copy.game.rules);
-      settingsText
-        .setPosition(width - nextChrome.actionInset - (width < 700 ? 38 : 118), nextChrome.titleY + nextSafeTop)
-        .setFontSize(Math.max(16, nextChrome.actionFontSize + 2));
+        .setText(copy.game.menu);
 
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);
@@ -1734,6 +1817,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       relayoutOnboarding();
       if (hintConfirmOpen) renderHintConfirm();
       if (completionMode) renderCompletionButtons();
+      if (gameMenuOpen) renderGameMenu();
       syncToolbar();
     };
 
@@ -1756,7 +1840,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     }
 
     const restoreBoardInputAfterPlatformResume = (): void => {
-      if (solved || resetDialogOpen || hintConfirmOpen || sceneOverlayPaused) {
+      if (solved || resetDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) {
         board?.setInputEnabled(false);
         return;
       }
@@ -1802,7 +1886,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         copy = getUiCopy(language);
         titleText.setText(getTitleLabel());
         backText.setText(copy.game.back);
-        helpText.setText(this.scale.width < 700 ? 'ⓘ' : copy.game.rules);
+        menuText.setText(copy.game.menu);
         refreshStatusText();
       }
       if (onboardingOpen) {

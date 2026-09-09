@@ -1,60 +1,92 @@
 # Campaign v1 Curation Report
 
-**Date:** 2026-09-08
+**Updated:** 2026-09-09  
+**Shipped corpus:** **Campaign 001–064**
 
-## Reservoir recipe
+## Release model
 
-- Master seed: `20260908`
-- `monster-only` 7×7: 1,500 attempts → 289 release-accepted candidates
-- `mixed-one-room` 7×7: 5,000 attempts → 576 release-accepted candidates
-- `chest-one-room` 7×7: 2,000 attempts → 97 release-accepted candidates
-- Total release reservoir: **962 accepted candidates**
-- Promoted to campaign: **25** (`006–030`)
-- Retained reproducible reservoir: **937** candidates
+- The player-facing campaign is one flat `УРОВНИ` list with 64 stable IDs; there are no campaign chapters or manuscripts.
+- `campaign-001` … `campaign-030` are preserved unchanged from the previous build.
+- `campaign-031` … `campaign-064` were added from the deterministic offline release reservoir.
+- Runtime generation: **none**. Shipped Campaign puzzles are static source snapshots.
+- All 64 wall-layout fingerprints are unique under rotation/reflection.
+- Campaign/Daily structural collisions against the 365 shipped Daily snapshots: **0**.
 
-The reservoir is not committed as a large JSON blob. It is exactly reproducible from `CAMPAIGN_RELEASE_MASTER_SEED` and `CAMPAIGN_RELEASE_SCAN_PLAN` in `src/content/release/CampaignReleaseSelection.ts`.
+## Final mix
 
-8×8 candidates were not required for Campaign v1: every late slot permits 7×7, while 8×8 canonical solving was materially more expensive during offline curation. Generic 8×8 generation remains available for Daily/future content.
+- `monster-only`: **25**.
+- `mixed-one-room`: **23**.
+- `chest-one-room`: **16**.
+- Easy: **7**; medium: **17**; hard: **40**.
+- Difficulty score range: **4–69**; mean: **49.77**.
 
-## Selection gates
+## Shipped levels
 
-- Final-v1 campaign slot allow-list from `curationPlan.ts`.
-- Generic generator monster-density hard cap.
-- Canonical candidate acceptance and independent campaign promotion revalidation.
-- Human Solver rated result only.
-- Target difficulty score per slot.
-- Minimum adjacent structural distance `0.28` whenever eligible alternatives exist.
-- Global wall-layout fingerprint uniqueness across rotation/reflection.
-- Candidate id uniqueness.
+| Slot | Archetype | Difficulty | Score | Human Solver | Source candidate |
+|---:|---|---|---:|---|---|
+| 001 | `monster-only` | easy | 4 | `solved-direct` | `generated-monster-only-6-2398889868` |
+| 002 | `chest-one-room` | easy | 10 | `solved-direct` | `generated-chest-one-room-7-3193369624` |
+| 003 | `monster-only` | easy | 6 | `solved-direct` | `generated-monster-only-6-2057422507` |
+| 004 | `mixed-one-room` | easy | 6 | `solved-direct` | `generated-mixed-one-room-6-3782245294` |
+| 005 | `chest-one-room` | easy | 11 | `solved-direct` | `generated-chest-one-room-7-2320` |
+| 006 | `mixed-one-room` | easy | 14 | `solved-direct` | `generated-mixed-one-room-7-1202807671` |
+| 007 | `monster-only` | easy | 15 | `solved-direct` | `generated-monster-only-7-108316283` |
+| 008 | `monster-only` | medium | 30 | `solved-with-contradiction` | `generated-monster-only-7-3789115606` |
+| 009 | `monster-only` | medium | 32 | `solved-with-contradiction` | `generated-monster-only-7-754018346` |
+| 010 | `mixed-one-room` | medium | 31 | `solved-with-contradiction` | `generated-mixed-one-room-7-186736811` |
+| 011 | `monster-only` | medium | 32 | `solved-with-contradiction` | `generated-monster-only-7-4082243152` |
+| 012 | `monster-only` | medium | 43 | `solved-with-contradiction` | `generated-monster-only-7-4161707177` |
+| 013 | `mixed-one-room` | medium | 45 | `solved-with-contradiction` | `generated-mixed-one-room-7-1720831423` |
+| 014 | `monster-only` | hard | 56 | `solved-with-contradiction` | `generated-monster-only-7-1660428563` |
+| 015 | `chest-one-room` | medium | 44 | `solved-with-contradiction` | `generated-chest-one-room-7-3249734737` |
+| 016 | `chest-one-room` | hard | 57 | `solved-with-contradiction` | `generated-chest-one-room-7-3043298098` |
+| 017 | `mixed-one-room` | medium | 43 | `solved-with-contradiction` | `generated-mixed-one-room-7-1411362502` |
+| 018 | `chest-one-room` | hard | 58 | `solved-with-contradiction` | `generated-chest-one-room-7-3380548303` |
+| 019 | `mixed-one-room` | hard | 57 | `solved-with-contradiction` | `generated-mixed-one-room-7-4265337869` |
+| 020 | `chest-one-room` | hard | 60 | `solved-with-contradiction` | `generated-chest-one-room-7-2763683218` |
+| 021 | `mixed-one-room` | hard | 59 | `solved-with-contradiction` | `generated-mixed-one-room-7-1928236537` |
+| 022 | `chest-one-room` | hard | 62 | `solved-with-contradiction` | `generated-chest-one-room-7-1650520951` |
+| 023 | `monster-only` | hard | 57 | `solved-with-contradiction` | `generated-monster-only-7-3998501993` |
+| 024 | `chest-one-room` | hard | 60 | `solved-with-contradiction` | `generated-chest-one-room-7-1414354357` |
+| 025 | `mixed-one-room` | hard | 60 | `solved-with-contradiction` | `generated-mixed-one-room-7-1156550436` |
+| 026 | `monster-only` | hard | 62 | `solved-with-contradiction` | `generated-monster-only-7-118748130` |
+| 027 | `chest-one-room` | hard | 64 | `solved-with-contradiction` | `generated-chest-one-room-7-1989983689` |
+| 028 | `mixed-one-room` | hard | 62 | `solved-with-contradiction` | `generated-mixed-one-room-7-3716676536` |
+| 029 | `monster-only` | hard | 66 | `solved-with-contradiction` | `generated-monster-only-7-2131173993` |
+| 030 | `chest-one-room` | hard | 69 | `solved-with-contradiction` | `generated-chest-one-room-7-519962590` |
+| 031 | `monster-only` | hard | 56 | `solved-with-contradiction` | `generated-monster-only-7-1082725275` |
+| 032 | `mixed-one-room` | hard | 59 | `solved-with-contradiction` | `generated-mixed-one-room-7-299745381` |
+| 033 | `chest-one-room` | hard | 64 | `solved-with-contradiction` | `generated-chest-one-room-7-925120860` |
+| 034 | `mixed-one-room` | hard | 61 | `solved-with-contradiction` | `generated-mixed-one-room-7-712828176` |
+| 035 | `monster-only` | hard | 59 | `solved-with-contradiction` | `generated-monster-only-7-758427304` |
+| 036 | `monster-only` | hard | 59 | `solved-with-contradiction` | `generated-monster-only-7-2296793786` |
+| 037 | `mixed-one-room` | hard | 64 | `solved-with-contradiction` | `generated-mixed-one-room-7-399276142` |
+| 038 | `chest-one-room` | hard | 67 | `solved-with-contradiction` | `generated-chest-one-room-7-3258216195` |
+| 039 | `mixed-one-room` | hard | 59 | `solved-with-contradiction` | `generated-mixed-one-room-7-3082845912` |
+| 040 | `monster-only` | hard | 66 | `solved-with-contradiction` | `generated-monster-only-7-2527896273` |
+| 041 | `monster-only` | hard | 62 | `solved-with-contradiction` | `generated-monster-only-7-2434930474` |
+| 042 | `mixed-one-room` | hard | 58 | `solved-with-contradiction` | `generated-mixed-one-room-7-2508481628` |
+| 043 | `chest-one-room` | hard | 63 | `solved-with-contradiction` | `generated-chest-one-room-7-4260164457` |
+| 044 | `mixed-one-room` | hard | 64 | `solved-with-contradiction` | `generated-mixed-one-room-7-4119298720` |
+| 045 | `monster-only` | hard | 59 | `solved-with-contradiction` | `generated-monster-only-7-549895380` |
+| 046 | `monster-only` | hard | 62 | `solved-with-contradiction` | `generated-monster-only-7-775204923` |
+| 047 | `mixed-one-room` | hard | 56 | `solved-with-contradiction` | `generated-mixed-one-room-7-2840113963` |
+| 048 | `chest-one-room` | medium | 44 | `solved-with-contradiction` | `generated-chest-one-room-7-1915119007` |
+| 049 | `mixed-one-room` | hard | 66 | `solved-with-contradiction` | `generated-mixed-one-room-7-3512357849` |
+| 050 | `monster-only` | hard | 69 | `solved-with-contradiction` | `generated-monster-only-7-1100635727` |
+| 051 | `monster-only` | hard | 69 | `solved-with-contradiction` | `generated-monster-only-7-389771598` |
+| 052 | `mixed-one-room` | hard | 56 | `solved-with-contradiction` | `generated-mixed-one-room-7-3197931191` |
+| 053 | `chest-one-room` | hard | 67 | `solved-with-contradiction` | `generated-chest-one-room-7-923296479` |
+| 054 | `mixed-one-room` | hard | 68 | `solved-with-contradiction` | `generated-mixed-one-room-7-3696713054` |
+| 055 | `monster-only` | medium | 44 | `solved-with-contradiction` | `generated-monster-only-7-2010294335` |
+| 056 | `monster-only` | medium | 44 | `solved-with-contradiction` | `generated-monster-only-7-2538189400` |
+| 057 | `mixed-one-room` | hard | 62 | `solved-with-contradiction` | `generated-mixed-one-room-7-1475888277` |
+| 058 | `chest-one-room` | medium | 33 | `solved-with-contradiction` | `generated-chest-one-room-7-1996532405` |
+| 059 | `mixed-one-room` | medium | 32 | `solved-with-contradiction` | `generated-mixed-one-room-7-2944001240` |
+| 060 | `monster-only` | medium | 31 | `solved-with-contradiction` | `generated-monster-only-7-2639840852` |
+| 061 | `monster-only` | medium | 44 | `solved-with-contradiction` | `generated-monster-only-7-1915807245` |
+| 062 | `mixed-one-room` | medium | 41 | `solved-with-contradiction` | `generated-mixed-one-room-7-3149956388` |
+| 063 | `monster-only` | hard | 57 | `solved-with-contradiction` | `generated-monster-only-7-3859115476` |
+| 064 | `mixed-one-room` | medium | 45 | `solved-with-contradiction` | `generated-mixed-one-room-7-3572693294` |
 
-## Promoted levels
-
-| Slot | Archetype | Difficulty | Target | Actual | Quality | Prev. distance | Eligible | Source candidate |
-| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 006 | `mixed-one-room` | easy | 14 | 14 | 101.250 | — | 532 | `generated-mixed-one-room-7-1202807671` |
-| 007 | `monster-only` | easy | 15 | 15 | 101.500 | 0.327 | 231 | `generated-monster-only-7-108316283` |
-| 008 | `monster-only` | medium | 30 | 30 | 99.747 | 0.304 | 230 | `generated-monster-only-7-3789115606` |
-| 009 | `monster-only` | medium | 31 | 32 | 102.500 | 0.354 | 67 | `generated-monster-only-7-754018346` |
-| 010 | `mixed-one-room` | medium | 30 | 31 | 101.260 | 0.299 | 29 | `generated-mixed-one-room-7-186736811` |
-| 011 | `monster-only` | medium | 32 | 32 | 101.000 | 0.301 | 66 | `generated-monster-only-7-4082243152` |
-| 012 | `monster-only` | medium | 43 | 43 | 102.500 | 0.362 | 121 | `generated-monster-only-7-4161707177` |
-| 013 | `mixed-one-room` | medium | 44 | 45 | 100.000 | 0.318 | 69 | `generated-mixed-one-room-7-1720831423` |
-| 014 | `monster-only` | hard | 55 | 56 | 101.250 | 0.378 | 56 | `generated-monster-only-7-1660428563` |
-| 015 | `chest-one-room` | medium | 44 | 44 | 100.000 | 0.469 | 4 | `generated-chest-one-room-7-3249734737` |
-| 016 | `chest-one-room` | hard | 57 | 57 | 100.000 | 0.285 | 20 | `generated-chest-one-room-7-3043298098` |
-| 017 | `mixed-one-room` | medium | 45 | 43 | 99.564 | 0.497 | 27 | `generated-mixed-one-room-7-1411362502` |
-| 018 | `chest-one-room` | hard | 58 | 58 | 100.000 | 0.468 | 16 | `generated-chest-one-room-7-3380548303` |
-| 019 | `mixed-one-room` | hard | 56 | 57 | 101.500 | 0.447 | 67 | `generated-mixed-one-room-7-4265337869` |
-| 020 | `chest-one-room` | hard | 60 | 60 | 100.000 | 0.401 | 15 | `generated-chest-one-room-7-2763683218` |
-| 021 | `mixed-one-room` | hard | 59 | 59 | 100.000 | 0.419 | 40 | `generated-mixed-one-room-7-1928236537` |
-| 022 | `chest-one-room` | hard | 62 | 62 | 100.000 | 0.392 | 52 | `generated-chest-one-room-7-1650520951` |
-| 023 | `monster-only` | hard | 57 | 57 | 101.500 | 0.311 | 119 | `generated-monster-only-7-3998501993` |
-| 024 | `chest-one-room` | hard | 61 | 60 | 100.000 | 0.515 | 12 | `generated-chest-one-room-7-1414354357` |
-| 025 | `mixed-one-room` | hard | 60 | 60 | 101.250 | 0.558 | 39 | `generated-mixed-one-room-7-1156550436` |
-| 026 | `monster-only` | hard | 62 | 62 | 101.250 | 0.340 | 54 | `generated-monster-only-7-118748130` |
-| 027 | `chest-one-room` | hard | 64 | 64 | 91.806 | 0.455 | 11 | `generated-chest-one-room-7-1989983689` |
-| 028 | `mixed-one-room` | hard | 64 | 62 | 98.984 | 0.425 | 38 | `generated-mixed-one-room-7-3716676536` |
-| 029 | `monster-only` | hard | 66 | 66 | 100.000 | 0.361 | 53 | `generated-monster-only-7-2131173993` |
-| 030 | `chest-one-room` | hard | 69 | 69 | 93.745 | 0.465 | 99 | `generated-chest-one-room-7-519962590` |
-
-All 25 selections completed without the diversity fallback. `campaign001–005` remain unchanged.
+Selection/revalidation policy is encoded in `src/content/campaign/curationPlan.ts` and `src/content/release/CampaignReleaseSelection.ts`. The release sanity revalidates promoted content and structural uniqueness before packaging.

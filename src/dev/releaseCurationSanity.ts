@@ -1,5 +1,4 @@
 import { campaignCurationPlan } from '../content/campaign/curationPlan';
-import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import {
   evaluateDailyReleaseEligibility,
   V1_RELEASE_ARCHETYPES,
@@ -69,14 +68,9 @@ function cloneAnalysis(
 }
 
 const releaseArchetypes = new Set(V1_RELEASE_ARCHETYPES);
-assertEqual(campaignCurationPlan.length, 30);
+assertEqual(campaignCurationPlan.length, 64);
 
 for (const rule of campaignCurationPlan) {
-  assertEqual(
-    rule.manuscriptId,
-    getManuscriptForSlot(rule.slot)?.id,
-    `slot ${rule.slot} manuscript ownership drifted`,
-  );
   assertTrue(
     rule.allowedArchetypes.every((value) => releaseArchetypes.has(value as typeof V1_RELEASE_ARCHETYPES[number])),
     `slot ${rule.slot} contains a non-v1 archetype`,

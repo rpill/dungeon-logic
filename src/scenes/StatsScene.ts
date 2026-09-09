@@ -134,7 +134,6 @@ export class StatsScene extends Phaser.Scene {
         title: this.copy.stats.campaign,
         lines: [
           this.copy.stats.solved(stats.campaign.solved, stats.campaign.total),
-          this.copy.stats.manuscripts(stats.campaign.completedManuscripts, stats.campaign.totalManuscripts),
           this.copy.stats.withoutHints(stats.campaign.solvedWithoutHints),
         ],
       },

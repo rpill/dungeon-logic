@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
-import { getManuscriptForSlot } from '../content/campaign/manuscripts';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { TutorialLevelEntry } from '../content/tutorial/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
@@ -20,7 +19,7 @@ import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { PlatformServices } from '../platform/services';
 import {
-  ARCHIVE_SCENE_KEY,
+  LEVELS_SCENE_KEY,
   SETTINGS_SCENE_KEY,
   STATS_SCENE_KEY,
   getHomeCampaignAction,
@@ -74,7 +73,7 @@ export class HomeScene extends Phaser.Scene {
     this.add.text(
       this.scale.width / 2,
       titleY + (narrow ? 45 : 58),
-      copy.home.archiveProgress(completed, 30),
+      copy.home.levelsProgress(completed, campaign.getLevels().length),
       {
         fontFamily: 'monospace',
         fontSize: narrow ? '14px' : '17px',
@@ -126,7 +125,7 @@ export class HomeScene extends Phaser.Scene {
         mainHeight,
         copy.home.chooseLevel,
         '#f0d28a',
-        () => this.scene.start(ARCHIVE_SCENE_KEY),
+        () => this.scene.start(LEVELS_SCENE_KEY),
       );
     } else {
       const entry = campaign.getLevels().find((candidate) => candidate.id === action.levelId);
@@ -144,11 +143,7 @@ export class HomeScene extends Phaser.Scene {
       );
 
       if (entry !== undefined) {
-        const manuscript = getManuscriptForSlot(entry.slot);
-        const context = manuscript === null
-          ? copy.home.levelContext(entry.slot)
-          : copy.home.manuscriptLevelContext(manuscript.roman, entry.slot);
-        this.add.text(this.scale.width / 2, mainY + mainHeight / 2 + 23, context, {
+        this.add.text(this.scale.width / 2, mainY + mainHeight / 2 + 23, copy.home.levelContext(entry.slot), {
           fontFamily: 'monospace',
           fontSize: narrow ? '13px' : '15px',
           color: '#89929d',
@@ -161,9 +156,9 @@ export class HomeScene extends Phaser.Scene {
       mainY + secondaryStep * (dailyVisible ? 2 : 1),
       buttonWidth,
       narrow ? 52 : 56,
-      copy.common.archive,
+      copy.common.levels,
       '#d8d1c4',
-      () => this.scene.start(ARCHIVE_SCENE_KEY),
+      () => this.scene.start(LEVELS_SCENE_KEY),
     );
 
     if (dailyVisible) {

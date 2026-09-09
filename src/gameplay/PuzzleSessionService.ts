@@ -9,15 +9,18 @@ export class PuzzleSessionService {
   private readonly state: PuzzleSessionState;
   private readonly profileService: PlayerProfileService;
   private readonly persistenceMode: PersistedSessionMode;
+  private readonly dailyDateKey: string | null;
 
   private constructor(
     state: PuzzleSessionState,
     profileService: PlayerProfileService,
     persistenceMode: PersistedSessionMode,
+    dailyDateKey: string | null = null,
   ) {
     this.state = state;
     this.profileService = profileService;
     this.persistenceMode = persistenceMode;
+    this.dailyDateKey = dailyDateKey;
   }
 
   static createCampaign(
@@ -49,6 +52,7 @@ export class PuzzleSessionService {
   static createDaily(
     level: LevelDefinition,
     profileService: PlayerProfileService,
+    dateKey: string,
     saved?: SerializedPuzzleState,
     nowMs = Date.now(),
   ): PuzzleSessionService {
@@ -56,6 +60,7 @@ export class PuzzleSessionService {
       PuzzleSessionState.create(level, 'daily', level.id, saved, nowMs),
       profileService,
       'daily',
+      dateKey,
     );
   }
 
@@ -75,7 +80,10 @@ export class PuzzleSessionService {
           ...profile,
           campaign: {
             ...profile.campaign,
-            activePuzzle: snapshot,
+            drafts: {
+              ...profile.campaign.drafts,
+              [snapshot.puzzleId]: snapshot,
+            },
           },
         };
       }
@@ -88,11 +96,15 @@ export class PuzzleSessionService {
           },
         };
       }
+      if (this.dailyDateKey === null) return profile;
       return {
         ...profile,
         daily: {
           ...profile.daily,
-          activePuzzle: snapshot,
+          drafts: {
+            ...profile.daily.drafts,
+            [this.dailyDateKey]: snapshot,
+          },
         },
       };
     });
@@ -106,7 +118,10 @@ export class PuzzleSessionService {
           ...profile,
           campaign: {
             ...profile.campaign,
-            activePuzzle: null,
+            drafts: Object.fromEntries(
+              Object.entries(profile.campaign.drafts)
+                .filter(([levelId]) => levelId !== this.state.puzzleId),
+            ),
           },
         };
       }
@@ -119,11 +134,15 @@ export class PuzzleSessionService {
           },
         };
       }
+      if (this.dailyDateKey === null) return profile;
       return {
         ...profile,
         daily: {
           ...profile.daily,
-          activePuzzle: null,
+          drafts: Object.fromEntries(
+            Object.entries(profile.daily.drafts)
+              .filter(([dateKey]) => dateKey !== this.dailyDateKey),
+          ),
         },
       };
     });

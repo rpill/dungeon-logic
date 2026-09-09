@@ -21,7 +21,7 @@ const levelResult = {
 const noActive = resolveCampaignPlayState(campaign003, {
   completedLevelIds: completedIds,
   levelResults: { [campaign003.id]: levelResult },
-  activePuzzle: null,
+  drafts: {},
 });
 assert(noActive.mode === 'completed-review', 'Completed level without an active replay opens in review mode.');
 assert(noActive.displayTimeMs === 42_000, 'Completed review displays the stored best time.');
@@ -42,7 +42,7 @@ const freshReplay: SerializedPuzzleState = {
 const replay = resolveCampaignPlayState(campaign003, {
   completedLevelIds: completedIds,
   levelResults: { [campaign003.id]: levelResult },
-  activePuzzle: freshReplay,
+  drafts: { [campaign003.id]: freshReplay },
 });
 assert(replay.mode === 'active', 'Completed level with a fresh unsolved active snapshot resumes replay mode.');
 assert(replay.displayTimeMs === 0, 'Fresh replay begins at 00:00 rather than the old best time.');
@@ -62,7 +62,7 @@ const staleSolved: SerializedPuzzleState = {
 const stale = resolveCampaignPlayState(campaign003, {
   completedLevelIds: completedIds,
   levelResults: { [campaign003.id]: levelResult },
-  activePuzzle: staleSolved,
+  drafts: { [campaign003.id]: staleSolved },
 });
 assert(stale.mode === 'completed-review', 'Solved stale active snapshot cannot revive a completed timer.');
 assert(stale.savedPuzzle === undefined, 'Completed review discards the stale solved active snapshot.');
