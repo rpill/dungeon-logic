@@ -38,7 +38,8 @@ import {
   completeGameLaunch,
   createNextCampaignGameSceneData,
 } from '../runtime/GameLaunch';
-import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY } from '../runtime/MetaSelectors';
+import { ARCHIVE_SCENE_KEY, HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
+import { createCompletedReviewPuzzle, resolveCampaignPlayState } from '../runtime/CampaignPlayState';
 import { calculateGameBoardLayout } from './GameBoardLayout';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
@@ -113,13 +114,50 @@ export class GameScene extends Phaser.Scene {
 
     const safeTop = readSafeArea('--safe-area-inset-top');
     const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
-    const language = this.getPlayerProfileService().getProfile().settings.language;
-    const copy = getUiCopy(language);
+    const profileService = launchData.context.mode === 'dev'
+      ? null
+      : this.getPlayerProfileService();
+    let language = this.getPlayerProfileService().getProfile().settings.language;
+    let copy = getUiCopy(language);
+    const campaignContext = launchData.context.mode === 'campaign'
+      ? launchData.context
+      : null;
+    const campaignService = campaignContext === null ? null : this.getCampaignService();
+    const campaignEntry = campaignContext === null
+      ? null
+      : campaignService?.getLevels().find((entry) => entry.id === campaignContext.campaignLevelId) ?? null;
+    const completedCampaignSlot = campaignEntry?.slot ?? null;
+    const campaignLevelTotal = campaignService?.getLevels().length ?? 0;
+    const campaignPlayState = campaignContext !== null && profileService !== null
+      ? resolveCampaignPlayState(launchData.level, profileService.getProfile().campaign)
+      : null;
+    const completedReview = campaignPlayState?.mode === 'completed-review';
+
+    if (
+      completedReview
+      && profileService?.getProfile().campaign.activePuzzle?.puzzleId === launchData.level.id
+    ) {
+      profileService.update((profile) => ({
+        ...profile,
+        campaign: {
+          ...profile.campaign,
+          activePuzzle: null,
+        },
+      }));
+    }
+
+    const getTitleLabel = (): string => {
+      if (campaignEntry !== null) {
+        return copy.game.levelTitle(campaignEntry.slot, campaignLevelTotal);
+      }
+      if (launchData.context.mode === 'daily') return copy.game.dailyTitle;
+      return 'Dungeon Logic';
+    };
 
     const titleText = this.add.text(
       this.scale.width / 2,
       chrome.titleY + safeTop,
-      launchData.context.mode === 'daily' ? 'Dungeon Logic · Daily' : 'Dungeon Logic',
+      getTitleLabel(),
       {
         fontFamily: 'monospace',
         fontSize: `${chrome.titleFontSize}px`,
@@ -161,37 +199,40 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    const profileService = launchData.context.mode === 'dev'
-      ? null
-      : this.getPlayerProfileService();
-    const campaignContext = launchData.context.mode === 'campaign'
-      ? launchData.context
-      : null;
+    const settingsText = this.add.text(
+      this.scale.width - chrome.actionInset - (this.scale.width < 700 ? 38 : 118),
+      chrome.titleY + safeTop,
+      '⚙',
+      {
+        fontFamily: 'monospace',
+        fontSize: `${Math.max(16, chrome.actionFontSize + 2)}px`,
+        color: '#89929d',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
     const monetizationService = profileService !== null && platformServices != null
       ? MonetizationService.create(profileService, platformServices.ads)
       : null;
     const rewardedHintAvailable = platformServices?.kind === 'yandex'
       && monetizationService !== null;
-    const completedCampaignSlot = campaignContext === null
-      ? null
-      : this.getCampaignService().getLevels().find(
-        (entry) => entry.id === campaignContext.campaignLevelId,
-      )?.slot ?? null;
-    const puzzleSession = launchData.context.mode !== 'campaign' || profileService === null
+    const puzzleSession = campaignContext === null || profileService === null || completedReview
       ? null
       : PuzzleSessionService.createCampaign(
         launchData.level,
         profileService,
-        profileService.getProfile().campaign.activePuzzle ?? undefined,
+        campaignPlayState?.mode === 'active' ? campaignPlayState.savedPuzzle : undefined,
       );
-    const puzzle = puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
+    const puzzle = completedReview
+      ? createCompletedReviewPuzzle(launchData.level)
+      : puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
     puzzleSession?.saveNow();
     const interaction = new PuzzleInteractionSession(puzzle);
     let boardLayout = calculateSafeBoardLayout();
 
     let board: BoardView | null = null;
-    let solved = false;
+    let solved = completedReview;
     let onboardingOpen = false;
     let onboardingBlocksInteraction = false;
     let onboardingBlocksTimer = false;
@@ -208,8 +249,11 @@ export class GameScene extends Phaser.Scene {
       rectangle: Phaser.GameObjects.Rectangle;
       label: Phaser.GameObjects.Text;
     }> = [];
-    const activeTimer = new ActiveTimer(puzzleSession?.getActivePlayMs() ?? 0);
-    let syncedActivePlayMs = puzzleSession?.getActivePlayMs() ?? 0;
+    const initialTimerMs = completedReview
+      ? campaignPlayState?.displayTimeMs ?? 0
+      : puzzleSession?.getActivePlayMs() ?? 0;
+    const activeTimer = new ActiveTimer(initialTimerMs);
+    let syncedActivePlayMs = initialTimerMs;
     let transientHintsUsed = 0;
     let sceneOverlayPaused = false;
     const platformGameplayActivity = platformServices == null
@@ -269,7 +313,7 @@ export class GameScene extends Phaser.Scene {
         await puzzleSession.flush();
         return;
       }
-      if (launchData.context.mode === 'daily' && profileService !== null) {
+      if (profileService !== null) {
         await profileService.flush();
       }
     };
@@ -306,6 +350,7 @@ export class GameScene extends Phaser.Scene {
 
     const onboardingSteps = launchData.context.mode === 'campaign'
       && launchData.contextualOnboarding
+      && !completedReview
       ? createOnboardingFlow(launchData.context.campaignLevelId, language)
       : [];
     let onboardingIndex = onboardingSteps.length > 0 ? 0 : -1;
@@ -493,11 +538,13 @@ export class GameScene extends Phaser.Scene {
         const toolAllowed = isToolButton
           ? onboardingAllowsTool(buttonState.id)
           : !onboardingBlocksInteraction;
-        const disabled = solved
+        const resetAllowedInReview = completedReview && buttonState.id === 'reset';
+        const disabled = (solved && !resetAllowedInReview)
           || resetDialogOpen
           || !toolAllowed
           || buttonState.disabled
-          || (buttonState.id === 'reset' && interaction.getEditCount() === 0);
+          || (buttonState.id === 'reset' && !completedReview && interaction.getEditCount() === 0)
+          || (buttonState.id === 'hint' && currentHint !== null);
         const guided = onboardingOpen
           && step?.target === 'board-cells'
           && buttonState.id === step.expectedState;
@@ -533,6 +580,23 @@ export class GameScene extends Phaser.Scene {
     );
 
     const refreshStatusText = (): void => {
+      if (completedReview) {
+        const result = campaignContext === null || profileService === null
+          ? undefined
+          : profileService.getProfile().campaign.levelResults[campaignContext.campaignLevelId];
+        const hintCopy = result === undefined || result.minHintsUsed === 0
+          ? copy.game.withoutHints
+          : copy.game.hintsCount(result.minHintsUsed);
+        statusText
+          .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+          .setAlign('center')
+          .setText(result === undefined
+            ? copy.common.solved
+            : copy.game.solvedCampaign(formatActiveTime(result.bestTimeMs), hintCopy, '', ''))
+          .setColor('#d8d1c4')
+          .setVisible(true);
+        return;
+      }
       if (completionMode || hintConfirmOpen || onboardingOpen) return;
       if (currentHint !== null) {
         statusText
@@ -661,6 +725,10 @@ export class GameScene extends Phaser.Scene {
     };
 
     const showHintConfirm = (): void => {
+      if (currentHint !== null) {
+        refreshStatusText();
+        return;
+      }
       if (controlsLocked() || profileService === null || chooseHint(puzzle) === null) return;
       const remaining = profileService.getFreeHintsRemaining();
       const mode: 'free' | 'rewarded' = remaining > 0 ? 'free' : 'rewarded';
@@ -930,6 +998,24 @@ export class GameScene extends Phaser.Scene {
       syncToolbar();
     };
 
+    const startFreshCampaignReplay = async (): Promise<void> => {
+      if (!completedReview || profileService === null || campaignContext === null) return;
+
+      const freshSession = PuzzleSessionService.createCampaign(
+        launchData.level,
+        profileService,
+        undefined,
+      );
+      freshSession.saveNow();
+      try {
+        await freshSession.flush();
+      } catch (error) {
+        console.warn('[Dungeon Logic] Could not persist fresh campaign replay before restart; using in-memory state.', error);
+      }
+      if (createVersion !== this.createVersion || !this.scene.isActive()) return;
+      this.scene.restart(launchData);
+    };
+
     const closeResetDialog = (): void => {
       resetDialog?.destroy(true);
       resetDialog = null;
@@ -947,7 +1033,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const showResetDialog = (): void => {
-      if (resetDialogOpen || solved) return;
+      if (resetDialogOpen || (solved && !completedReview)) return;
       resetDialogOpen = true;
       board?.setInputEnabled(false);
       pauseActiveTimer();
@@ -1000,6 +1086,13 @@ export class GameScene extends Phaser.Scene {
         closeResetDialog();
       });
       confirm.on('pointerdown', () => {
+        if (completedReview) {
+          resetDialog?.destroy(true);
+          resetDialog = null;
+          resetDialogOpen = false;
+          void startFreshCampaignReplay();
+          return;
+        }
         board?.reset();
         closeResetDialog();
       });
@@ -1008,6 +1101,11 @@ export class GameScene extends Phaser.Scene {
     };
 
     const requestReset = (): void => {
+      if (completedReview) {
+        if (resetDialogOpen || hintConfirmOpen || platformGameplayActivity?.isPlatformPaused() === true) return;
+        showResetDialog();
+        return;
+      }
       if (controlsLocked() || interaction.getEditCount() === 0) return;
       if (shouldConfirmReset(interaction.getEditCount())) {
         showResetDialog();
@@ -1201,6 +1299,16 @@ export class GameScene extends Phaser.Scene {
       this.scene.pause();
     });
 
+    settingsText.on('pointerup', () => {
+      if (resetDialogOpen || hintConfirmOpen || rewardedHintRequestPending) return;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      sceneOverlayPaused = true;
+      this.scene.launch(SETTINGS_SCENE_KEY, { returnSceneKey: 'GameScene' });
+      this.scene.pause();
+    });
+
     const keyboard = this.input.keyboard;
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.repeat || controlsLocked()) return;
@@ -1248,7 +1356,8 @@ export class GameScene extends Phaser.Scene {
 
       titleText
         .setPosition(width / 2, nextChrome.titleY + nextSafeTop)
-        .setFontSize(nextChrome.titleFontSize);
+        .setFontSize(nextChrome.titleFontSize)
+        .setText(getTitleLabel());
       timerText
         .setPosition(width / 2, nextChrome.titleY + nextSafeTop + (width < 700 ? 28 : 34))
         .setFontSize(Math.max(12, nextChrome.statusFontSize));
@@ -1260,6 +1369,9 @@ export class GameScene extends Phaser.Scene {
         .setPosition(width - nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
         .setFontSize(nextChrome.actionFontSize)
         .setText(width < 700 ? 'ⓘ' : copy.game.rules);
+      settingsText
+        .setPosition(width - nextChrome.actionInset - (width < 700 ? 38 : 118), nextChrome.titleY + nextSafeTop)
+        .setFontSize(Math.max(16, nextChrome.actionFontSize + 2));
 
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);
@@ -1278,7 +1390,7 @@ export class GameScene extends Phaser.Scene {
       statusText
         .setPosition(width / 2, toolbarTop - 18)
         .setFontSize(nextChrome.statusFontSize);
-      if (completionMode) {
+      if (completionMode || completedReview) {
         statusText.setWordWrapWidth(Math.max(120, width - 24), true).setAlign('center');
       }
 
@@ -1354,6 +1466,19 @@ export class GameScene extends Phaser.Scene {
 
     const handleSceneResume = (): void => {
       sceneOverlayPaused = false;
+      const latestLanguage = this.getPlayerProfileService().getProfile().settings.language;
+      if (latestLanguage !== language) {
+        if (campaignContext !== null) {
+          this.scene.restart(launchData);
+          return;
+        }
+        language = latestLanguage;
+        copy = getUiCopy(language);
+        titleText.setText(getTitleLabel());
+        backText.setText(copy.game.back);
+        helpText.setText(this.scale.width < 700 ? 'ⓘ' : copy.game.rules);
+        refreshStatusText();
+      }
       if (onboardingOpen) {
         applyOnboardingStep();
         return;
@@ -1386,7 +1511,13 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    if (onboardingOpen) {
+    if (completedReview) {
+      board.setInputCellTarget(null);
+      board.setInputEnabled(false);
+      updateTimerText();
+      refreshStatusText();
+      syncToolbar();
+    } else if (onboardingOpen) {
       applyOnboardingStep();
     } else {
       board.setInputCellTarget(null);
@@ -1409,12 +1540,12 @@ export class GameScene extends Phaser.Scene {
 
     if (createVersion !== this.createVersion || result === null) return null;
 
-    if (result.persisted && puzzleSession !== null) {
+    if (puzzleSession !== null) {
       puzzleSession.clearActivePuzzle();
       try {
         await puzzleSession.flush();
       } catch (error) {
-        console.warn('[Dungeon Logic] Campaign result persisted, but clearing active puzzle could not be flushed yet.', error);
+        console.warn('[Dungeon Logic] Campaign completion cleared the active puzzle in memory, but the clear could not be flushed yet.', error);
       }
     }
 

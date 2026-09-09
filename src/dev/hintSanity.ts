@@ -1,4 +1,5 @@
 import { chooseHint } from '../gameplay/HintService';
+import { level as campaign003 } from '../content/campaign/levels/campaign003';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
@@ -44,6 +45,28 @@ for (let y = 0; y < level.height; y += 1) {
   }
 }
 assert(chooseHint(puzzle) === null, 'Fully correct editable board has no hint target.');
+
+
+const campaign003Puzzle = new PuzzleState(campaign003);
+for (let x = 1; x < campaign003.width; x += 1) {
+  campaign003Puzzle.setCellState(x, 0, CellState.Wall);
+}
+campaign003Puzzle.setCellState(0, 1, CellState.Floor);
+const campaign003FloorHint = chooseHint(campaign003Puzzle);
+assert(
+  campaign003FloorHint?.x === 1
+    && campaign003FloorHint.y === 1
+    && campaign003FloorHint.state === CellState.Floor,
+  'Campaign 003 disputed cell (1,1) is correctly revealed as Floor, not Wall.',
+);
+campaign003Puzzle.setCellState(1, 1, CellState.Wall);
+const campaign003WrongWallHint = chooseHint(campaign003Puzzle);
+assert(
+  campaign003WrongWallHint?.x === 1
+    && campaign003WrongWallHint.y === 1
+    && campaign003WrongWallHint.state === CellState.Floor,
+  'Putting a wrong Wall in the hinted Campaign 003 cell keeps the same target but still requires Floor.',
+);
 
 
 class MemoryProfileStorage implements PlayerProfileStorage {

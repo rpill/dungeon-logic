@@ -17,11 +17,16 @@ import { getSettingsRows, type SettingsRowId } from '../settings/SettingsViewMod
 
 export class SettingsScene extends Phaser.Scene {
   private readonly pointerGate = new MetaPointerGate();
+  private returnSceneKey = HOME_SCENE_KEY;
   private resetDialogOpen = false;
   private mutationPending = false;
 
   constructor() {
     super(SETTINGS_SCENE_KEY);
+  }
+
+  init(data?: { readonly returnSceneKey?: string }): void {
+    this.returnSceneKey = data?.returnSceneKey ?? HOME_SCENE_KEY;
   }
 
   create(): void {
@@ -55,14 +60,24 @@ export class SettingsScene extends Phaser.Scene {
       1,
     ).setDepth(-1000);
 
-    const back = this.add.text(16, narrow ? 17 : 20, copy.common.backHome, {
+    const back = this.add.text(
+      16,
+      narrow ? 17 : 20,
+      this.returnSceneKey === 'GameScene' ? copy.common.back : copy.common.backHome,
+      {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '14px',
       color: '#89929d',
       fontStyle: 'bold',
-    }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      },
+    ).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     back.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (!this.canActivate(pointer)) return;
+      if (this.returnSceneKey === 'GameScene') {
+        this.scene.resume('GameScene');
+        this.scene.stop();
+        return;
+      }
       this.scene.start(HOME_SCENE_KEY);
     });
 
@@ -95,7 +110,7 @@ export class SettingsScene extends Phaser.Scene {
     });
 
     const handleResize = (): void => {
-      if (this.scene.isActive()) this.scene.restart();
+      if (this.scene.isActive()) this.scene.restart({ returnSceneKey: this.returnSceneKey });
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -178,7 +193,7 @@ export class SettingsScene extends Phaser.Scene {
     this.mutationPending = true;
     try {
       await mutation();
-      if (this.scene.isActive()) this.scene.restart();
+      if (this.scene.isActive()) this.scene.restart({ returnSceneKey: this.returnSceneKey });
     } catch (error) {
       this.mutationPending = false;
       console.warn('[Dungeon Logic] Could not persist Settings change.', error);

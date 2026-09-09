@@ -99,6 +99,8 @@ async function main(): Promise<void> {
   assert(ruCopy.home.chooseLevel === 'ВЫБРАТЬ УРОВЕНЬ', 'Russian Home copy is available.');
   assert(enCopy.home.chooseLevel === 'CHOOSE LEVEL', 'English Home copy is available.');
   assert(ruCopy.game.wall !== enCopy.game.wall, 'Toolbar copy differs by locale.');
+  assert(ruCopy.game.levelTitle(3, 30) === 'УРОВЕНЬ 3 / 30', 'Russian Game title shows campaign level number.');
+  assert(enCopy.game.levelTitle(3, 30) === 'LEVEL 3 / 30', 'English Game title shows campaign level number.');
 
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');

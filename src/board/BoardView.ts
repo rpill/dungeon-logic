@@ -105,10 +105,19 @@ export class BoardView {
       : new Set(targets.map(({ x, y }) => `${x},${y}`));
   }
 
-  setHintCellTarget(target: { readonly x: number; readonly y: number } | null): void {
+  setHintCellTarget(
+    target: {
+      readonly x: number;
+      readonly y: number;
+      readonly state: typeof CellState.Wall | typeof CellState.Floor;
+    } | null,
+  ): void {
     for (let y = 0; y < this.puzzle.level.height; y += 1) {
       for (let x = 0; x < this.puzzle.level.width; x += 1) {
-        this.cells[y][x].setHintHighlighted(target !== null && target.x === x && target.y === y);
+        const state = target !== null && target.x === x && target.y === y
+          ? target.state
+          : null;
+        this.cells[y][x].setHintTarget(state);
       }
     }
   }

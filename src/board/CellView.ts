@@ -19,7 +19,8 @@ export const WIREFRAME = {
   hoverTint: 0xf0e6d2,
   hoverAlpha: 0.10,
   hintTint: 0xd0b978,
-  hintAlpha: 0.24,
+  hintAlpha: 0.10,
+  hintPreviewAlpha: 0.58,
   gap: 2,
 } as const;
 
@@ -38,6 +39,8 @@ export class CellView {
   private readonly wall: Phaser.GameObjects.Rectangle;
   private readonly hoverOverlay: Phaser.GameObjects.Rectangle;
   private readonly hintOverlay: Phaser.GameObjects.Rectangle;
+  private readonly hintWallPreview: Phaser.GameObjects.Rectangle;
+  private readonly hintFloorPreview: Phaser.GameObjects.Text;
   private readonly marker: Phaser.GameObjects.Text;
   private readonly fixedVisual: FixedCellVisual;
 
@@ -45,7 +48,7 @@ export class CellView {
   private state: CellStateValue = CellState.Unknown;
   private conflict = false;
   private hovered = false;
-  private hinted = false;
+  private hintState: typeof CellState.Wall | typeof CellState.Floor | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -102,6 +105,32 @@ export class CellView {
         WIREFRAME.hintTint,
         WIREFRAME.hintAlpha,
       )
+      .setVisible(false);
+
+    this.hintWallPreview = scene.add
+      .rectangle(
+        centerX,
+        centerY,
+        Math.max(10, visualSize * 0.64),
+        Math.max(10, visualSize * 0.64),
+        WIREFRAME.hintTint,
+        WIREFRAME.hintPreviewAlpha,
+      )
+      .setVisible(false);
+
+    this.hintFloorPreview = scene.add
+      .text(
+        centerX,
+        centerY,
+        '◆',
+        {
+          fontFamily: 'monospace',
+          fontSize: `${this.getHintMarkerFontSize()}px`,
+          color: '#d0b978',
+          fontStyle: 'bold',
+        },
+      )
+      .setOrigin(0.5)
       .setVisible(false);
 
     this.marker = scene.add
@@ -164,8 +193,8 @@ export class CellView {
     this.render();
   }
 
-  setHintHighlighted(highlighted: boolean): void {
-    this.hinted = highlighted;
+  setHintTarget(state: typeof CellState.Wall | typeof CellState.Floor | null): void {
+    this.hintState = state;
     this.renderHint();
   }
 
@@ -179,6 +208,12 @@ export class CellView {
         .setDisplaySize(visualSize, visualSize);
     }
 
+    this.hintWallPreview
+      .setPosition(centerX, centerY)
+      .setDisplaySize(Math.max(10, visualSize * 0.64), Math.max(10, visualSize * 0.64));
+    this.hintFloorPreview
+      .setPosition(centerX, centerY)
+      .setFontSize(this.getHintMarkerFontSize());
     this.marker
       .setPosition(centerX, centerY)
       .setFontSize(this.getMarkerFontSize());
@@ -188,6 +223,10 @@ export class CellView {
     return this.fixedVisual === null
       ? Math.max(14, Math.round(this.size * 0.24))
       : Math.max(18, Math.round(this.size * 0.46));
+  }
+
+  private getHintMarkerFontSize(): number {
+    return Math.max(18, Math.round(this.size * 0.34));
   }
 
   private render(): void {
@@ -242,6 +281,9 @@ export class CellView {
   }
 
   private renderHint(): void {
-    this.hintOverlay.setVisible(this.fixedVisual === null && this.hinted);
+    const visible = this.fixedVisual === null && this.hintState !== null;
+    this.hintOverlay.setVisible(visible);
+    this.hintWallPreview.setVisible(visible && this.hintState === CellState.Wall);
+    this.hintFloorPreview.setVisible(visible && this.hintState === CellState.Floor);
   }
 }

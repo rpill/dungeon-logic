@@ -94,6 +94,8 @@ export interface UiCopy {
   };
   readonly game: {
     readonly back: string;
+    readonly levelTitle: (slot: number, total: number) => string;
+    readonly dailyTitle: string;
     readonly rules: string;
     readonly mouseControls: string;
     readonly wall: string;
@@ -226,6 +228,8 @@ const RU: UiCopy = {
   },
   game: {
     back: '← НАЗАД',
+    levelTitle: (slot, total) => `УРОВЕНЬ ${slot} / ${total}`,
+    dailyTitle: 'DAILY',
     rules: 'ⓘ Правила',
     mouseControls: 'ЛКМ: Стена   •   ПКМ: Пол',
     wall: 'СТЕНА',
@@ -363,6 +367,8 @@ const EN: UiCopy = {
   },
   game: {
     back: '← BACK',
+    levelTitle: (slot, total) => `LEVEL ${slot} / ${total}`,
+    dailyTitle: 'DAILY',
     rules: 'ⓘ Rules',
     mouseControls: 'LMB: Wall   •   RMB: Floor',
     wall: 'WALL',

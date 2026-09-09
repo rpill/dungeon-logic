@@ -4,6 +4,7 @@ import { BoardView } from '../board/BoardView';
 import { WIREFRAME } from '../board/CellView';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { PuzzleState } from '../puzzle/PuzzleState';
+import { CellState } from '../puzzle/types';
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -193,7 +194,7 @@ const floorRect = editable.scene.rectangles.find((rectangle) => rectangle.fillCo
 const wallRect = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.wall);
 const hoverRect = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.hoverTint);
 const cellInput = editable.scene.rectangles.find((rectangle) => rectangle.interactive);
-const floorMark = editable.scene.texts.find((text) => text.value === '◆');
+const floorMark = editable.scene.texts.find((text) => text.value === '◆' && text.color === WIREFRAME.mark);
 assert(floorRect !== undefined, 'Unknown cell must render a primitive floor rectangle.');
 assert(wallRect !== undefined, 'Editable cell must own a primitive wall rectangle.');
 assert(hoverRect !== undefined && !hoverRect.visible, 'Editable cell owns a dedicated hover overlay without outline resizing.');
@@ -262,7 +263,7 @@ assert(mouseWall?.visible === true, 'Mouse left button always paints Wall even i
 mousePolicy.board.setActiveTool('wall');
 mouseInput.trigger('pointerdown', { isDown: true, wasTouch: false, rightButtonDown: () => true });
 mousePolicy.scene.inputHandlers.get('pointerup')?.();
-const mouseFloorMark = mousePolicy.scene.texts.find((text) => text.value === '◆');
+const mouseFloorMark = mousePolicy.scene.texts.find((text) => text.value === '◆' && text.color === WIREFRAME.mark);
 assert(readVisible(mouseWall) === false && readVisible(mouseFloorMark) === true, 'Mouse right button always paints Floor.');
 
 const touchPolicy = createBoard(createLevel());
@@ -270,8 +271,22 @@ const touchInputPolicy = touchPolicy.scene.rectangles.find((rectangle) => rectan
 touchPolicy.board.setActiveTool('floor');
 touchInputPolicy.trigger('pointerdown', { isDown: true, wasTouch: true, rightButtonDown: () => false });
 touchPolicy.scene.inputHandlers.get('pointerup')?.();
-const touchFloorMarkPolicy = touchPolicy.scene.texts.find((text) => text.value === '◆');
+const touchFloorMarkPolicy = touchPolicy.scene.texts.find((text) => text.value === '◆' && text.color === WIREFRAME.mark);
 assert(touchFloorMarkPolicy?.visible === true, 'Touch uses the currently selected Wall/Floor tool.');
+
+
+
+const hintPreview = createBoard(createLevel());
+hintPreview.board.setHintCellTarget({ x: 0, y: 0, state: CellState.Floor } as any);
+const visibleGoldFloorHint = hintPreview.scene.texts.find(
+  (text) => text.value === '◆' && text.color === '#d0b978' && text.visible,
+);
+assert(visibleGoldFloorHint !== undefined, 'Floor hint renders an explicit gold floor diamond preview.');
+hintPreview.board.setHintCellTarget({ x: 0, y: 0, state: CellState.Wall } as any);
+const visibleWallHint = hintPreview.scene.rectangles.find(
+  (rectangle) => rectangle.visible && rectangle.fillColor === WIREFRAME.hintTint && rectangle.fillAlpha >= 0.45,
+);
+assert(visibleWallHint !== undefined, 'Wall hint renders a distinct gold ghost-wall preview.');
 
 const monster = createBoard(createLevel({ monsters: [{ x: 0, y: 0 }], solution: ['.'] }));
 assert(monster.scene.imageCalls === 0, 'Monster cell must not create an image asset.');

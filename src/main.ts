@@ -37,8 +37,8 @@ const config: Phaser.Types.Core.GameConfig = {
     HomeScene,
     ArchiveScene,
     StatsScene,
-    SettingsScene,
     GameScene,
+    SettingsScene,
     HelpScene,
   ],
 };

@@ -1,5 +1,11 @@
 dungeon-logic/
 ├── docs/
+│   ├── content/
+│   │   └── campaign-v1-curation-report.md
+│   ├── release/
+│   │   ├── daily-calendar-v1.md
+│   │   ├── daily-corpus-v1.md
+│   │   └── yandex-release-acceptance-v1.md
 │   └── superpowers/
 │       ├── plans/
 │       │   ├── 2026-09-01-static-field-mechanics.md
@@ -17,7 +23,11 @@ dungeon-logic/
 │       │   ├── 2026-09-08-dungeon-logic-profile-manuscripts-navigation.md
 │       │   ├── 2026-09-08-dungeon-logic-puzzle-session-lifecycle.md
 │       │   ├── 2026-09-08-dungeon-logic-v1-roadmap.md
-│       │   └── 2026-09-08-dungeon-logic-wireframe-puzzle-input.md
+│       │   ├── 2026-09-08-dungeon-logic-wireframe-puzzle-input.md
+│       │   ├── 2026-09-08-release-content-curation-foundation.md
+│       │   ├── 2026-09-09-release-acceptance.md
+│       │   ├── 2026-09-09-ru-en-localization.md
+│       │   └── 2026-09-09-yandex-moderation-lifecycle-foundation.md
 │       ├── reports/
 │       │   ├── 2026-09-03-human-solvability-baseline.md
 │       │   ├── 2026-09-04-difficulty-v1-baseline.md
@@ -33,7 +43,11 @@ dungeon-logic/
 │           ├── 2026-09-04-difficulty-analysis-v1-design.md
 │           ├── 2026-09-04-generator-difficulty-v2-design.md
 │           ├── 2026-09-07-campaign-v1-design.md
-│           └── 2026-09-08-dungeon-logic-v1-product-ui-design.md
+│           ├── 2026-09-08-dungeon-logic-v1-product-ui-design.md
+│           ├── 2026-09-08-release-content-curation-foundation-design.md
+│           ├── 2026-09-09-release-acceptance-design.md
+│           ├── 2026-09-09-ru-en-localization-design.md
+│           └── 2026-09-09-yandex-moderation-lifecycle-foundation-design.md
 ├── public/
 │   ├── assets/
 │   │   └── board/
@@ -53,7 +67,12 @@ dungeon-logic/
 │   ├── favicon.svg
 │   └── icons.svg
 ├── scripts/
-│   └── chatgpt-context.mjs
+│   ├── chatgpt-context.mjs
+│   ├── release-acceptance-sanity.mjs
+│   ├── release-acceptance.mjs
+│   ├── release-audit-lib.mjs
+│   ├── release-audit-sanity.mjs
+│   └── release-audit.mjs
 ├── src/
 │   ├── board/
 │   │   ├── BoardView.ts
@@ -73,6 +92,31 @@ dungeon-logic/
 │   │   │   │   ├── campaign003.ts
 │   │   │   │   ├── campaign004.ts
 │   │   │   │   ├── campaign005.ts
+│   │   │   │   ├── campaign006.ts
+│   │   │   │   ├── campaign007.ts
+│   │   │   │   ├── campaign008.ts
+│   │   │   │   ├── campaign009.ts
+│   │   │   │   ├── campaign010.ts
+│   │   │   │   ├── campaign011.ts
+│   │   │   │   ├── campaign012.ts
+│   │   │   │   ├── campaign013.ts
+│   │   │   │   ├── campaign014.ts
+│   │   │   │   ├── campaign015.ts
+│   │   │   │   ├── campaign016.ts
+│   │   │   │   ├── campaign017.ts
+│   │   │   │   ├── campaign018.ts
+│   │   │   │   ├── campaign019.ts
+│   │   │   │   ├── campaign020.ts
+│   │   │   │   ├── campaign021.ts
+│   │   │   │   ├── campaign022.ts
+│   │   │   │   ├── campaign023.ts
+│   │   │   │   ├── campaign024.ts
+│   │   │   │   ├── campaign025.ts
+│   │   │   │   ├── campaign026.ts
+│   │   │   │   ├── campaign027.ts
+│   │   │   │   ├── campaign028.ts
+│   │   │   │   ├── campaign029.ts
+│   │   │   │   ├── campaign030.ts
 │   │   │   │   └── index.ts
 │   │   │   ├── chapters.ts
 │   │   │   ├── curationPlan.ts
@@ -80,9 +124,79 @@ dungeon-logic/
 │   │   │   ├── manuscripts.ts
 │   │   │   ├── themes.ts
 │   │   │   └── types.ts
-│   │   └── daily/
-│   │       ├── manifest.ts
-│   │       └── types.ts
+│   │   ├── daily/
+│   │   │   ├── snapshots/
+│   │   │   │   ├── daily001.ts
+│   │   │   │   ├── daily002.ts
+│   │   │   │   ├── daily003.ts
+│   │   │   │   ├── daily004.ts
+│   │   │   │   ├── daily005.ts
+│   │   │   │   ├── daily006.ts
+│   │   │   │   ├── daily007.ts
+│   │   │   │   ├── daily008.ts
+│   │   │   │   ├── daily009.ts
+│   │   │   │   ├── daily010.ts
+│   │   │   │   ├── daily011.ts
+│   │   │   │   ├── daily012.ts
+│   │   │   │   ├── daily013.ts
+│   │   │   │   ├── daily014.ts
+│   │   │   │   ├── daily015.ts
+│   │   │   │   ├── daily016.ts
+│   │   │   │   ├── daily017.ts
+│   │   │   │   ├── daily018.ts
+│   │   │   │   ├── daily019.ts
+│   │   │   │   ├── daily020.ts
+│   │   │   │   ├── daily021.ts
+│   │   │   │   ├── daily022.ts
+│   │   │   │   ├── daily023.ts
+│   │   │   │   ├── daily024.ts
+│   │   │   │   ├── daily025.ts
+│   │   │   │   ├── daily026.ts
+│   │   │   │   ├── daily027.ts
+│   │   │   │   ├── daily028.ts
+│   │   │   │   ├── daily029.ts
+│   │   │   │   ├── daily030.ts
+│   │   │   │   ├── daily031.ts
+│   │   │   │   ├── daily032.ts
+│   │   │   │   ├── daily033.ts
+│   │   │   │   ├── daily034.ts
+│   │   │   │   ├── daily035.ts
+│   │   │   │   ├── daily036.ts
+│   │   │   │   ├── daily037.ts
+│   │   │   │   ├── daily038.ts
+│   │   │   │   ├── daily039.ts
+│   │   │   │   ├── daily040.ts
+│   │   │   │   ├── daily041.ts
+│   │   │   │   ├── daily042.ts
+│   │   │   │   ├── daily043.ts
+│   │   │   │   ├── daily044.ts
+│   │   │   │   ├── daily045.ts
+│   │   │   │   ├── daily046.ts
+│   │   │   │   ├── daily047.ts
+│   │   │   │   ├── daily048.ts
+│   │   │   │   ├── daily049.ts
+│   │   │   │   ├── daily050.ts
+│   │   │   │   ├── daily051.ts
+│   │   │   │   ├── daily052.ts
+│   │   │   │   ├── daily053.ts
+│   │   │   │   ├── daily054.ts
+│   │   │   │   ├── daily055.ts
+│   │   │   │   ├── daily056.ts
+│   │   │   │   ├── daily057.ts
+│   │   │   │   ├── daily058.ts
+│   │   │   │   ├── daily059.ts
+│   │   │   │   ├── daily060.ts
+│   │   │   │   └── index.ts
+│   │   │   ├── calendar.ts
+│   │   │   ├── manifest.ts
+│   │   │   └── types.ts
+│   │   └── release/
+│   │       ├── CampaignReleaseReservoir.ts
+│   │       ├── CampaignReleaseSelection.ts
+│   │       ├── DailyReleaseCorpus.ts
+│   │       ├── DailyReleasePolicy.ts
+│   │       ├── DailyReleaseReservoir.ts
+│   │       └── ReleaseCuration.ts
 │   ├── daily/
 │   │   ├── DailySelector.ts
 │   │   └── DailyService.ts
@@ -107,18 +221,23 @@ dungeon-logic/
 │   │   ├── archiveLayoutSanity.ts
 │   │   ├── benchmarkTreasureRoomPruning.ts
 │   │   ├── boardTileVisualSanity.ts
+│   │   ├── campaignPlayStateSanity.ts
 │   │   ├── CampaignPromotion.ts
 │   │   ├── campaignPromotionSanity.ts
+│   │   ├── campaignReleaseSanity.ts
 │   │   ├── campaignRuntimeSanity.ts
 │   │   ├── campaignSanity.ts
 │   │   ├── campaignThemeSanity.ts
 │   │   ├── campaignUnlockSanity.ts
+│   │   ├── dailyCalendarSanity.ts
+│   │   ├── dailyCorpusSanity.ts
 │   │   ├── dailySanity.ts
 │   │   ├── DifficultyCorpusAnalyzer.ts
 │   │   ├── DifficultyCorpusOutput.ts
 │   │   ├── difficultyCorpusSanity.ts
 │   │   ├── difficultySanity.ts
 │   │   ├── gameBoardLayoutSanity.ts
+│   │   ├── gameRegressionSanity.ts
 │   │   ├── generateCandidates.ts
 │   │   ├── generatedPlaytestSanity.ts
 │   │   ├── generatorSanity.ts
@@ -127,12 +246,15 @@ dungeon-logic/
 │   │   ├── humanAnalysisSanity.ts
 │   │   ├── humanSolverSanity.ts
 │   │   ├── levelQualitySanity.ts
+│   │   ├── levelSelectScrollSanity.ts
 │   │   ├── liveResizeSanity.ts
+│   │   ├── localizationSanity.ts
 │   │   ├── metaNavigationSanity.ts
 │   │   ├── metaPointerGateSanity.ts
 │   │   ├── metaScrollSanity.ts
 │   │   ├── monetizationSanity.ts
 │   │   ├── onboardingSanity.ts
+│   │   ├── platformGameplaySanity.ts
 │   │   ├── platformSanity.ts
 │   │   ├── playerProfileSanity.ts
 │   │   ├── profileGenerator.ts
@@ -142,6 +264,7 @@ dungeon-logic/
 │   │   ├── puzzleInteractionSanity.ts
 │   │   ├── puzzlePointerPolicySanity.ts
 │   │   ├── puzzleSessionSanity.ts
+│   │   ├── releaseCurationSanity.ts
 │   │   ├── responsiveShellSanity.ts
 │   │   ├── rewardedHintSanity.ts
 │   │   ├── settingsSanity.ts
@@ -161,6 +284,9 @@ dungeon-logic/
 │   ├── help/
 │   │   ├── HelpNavigation.ts
 │   │   └── HelpRules.ts
+│   ├── i18n/
+│   │   ├── Language.ts
+│   │   └── UiCopy.ts
 │   ├── monetization/
 │   │   ├── InterstitialPolicy.ts
 │   │   └── MonetizationService.ts
@@ -205,11 +331,13 @@ dungeon-logic/
 │   │   └── types.ts
 │   ├── runtime/
 │   │   ├── ArchiveListLayout.ts
+│   │   ├── CampaignPlayState.ts
 │   │   ├── GameLaunch.ts
 │   │   ├── LaunchRouting.ts
 │   │   ├── MetaPointerGate.ts
 │   │   ├── MetaScroll.ts
 │   │   ├── MetaSelectors.ts
+│   │   ├── PlatformGameplayActivity.ts
 │   │   ├── PuzzleUiState.ts
 │   │   ├── ResponsiveLayout.ts
 │   │   ├── StatsLayout.ts
