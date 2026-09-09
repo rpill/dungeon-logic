@@ -83,7 +83,7 @@ assert(gameSceneSource.includes("launchData.context.mode === 'tutorial'"), 'Game
 assert(gameSceneSource.includes('PuzzleSessionService.createTutorial('), 'Tutorial gameplay persists through a dedicated tutorial puzzle session.');
 assert(gameSceneSource.includes('createOnboardingFlow(launchData.context.tutorialLevelId, language)'), 'Tutorial runtime loads tutorial-only guided flow.');
 assert(gameSceneSource.includes('finishTutorialLevel('), 'Solved Tutorial dispatches through TutorialService instead of Campaign completion.');
-assert(gameSceneSource.includes('copy.game.tutorialComplete'), 'Tutorial 4 exposes a blocking Tutorial Complete state.');
+assert(gameSceneSource.includes('copy.game.tutorialComplete'), 'Tutorial 5 exposes the Tutorial Complete state.');
 const puzzleChangedIndex = gameSceneSource.indexOf('const handlePuzzleChanged = (): void =>');
 const editCommittedIndex = gameSceneSource.indexOf('const handleEditCommitted = (): void =>');
 assert(puzzleChangedIndex >= 0 && editCommittedIndex > puzzleChangedIndex, 'Validator solve callback is defined before onboarding edit-commit advancement.');

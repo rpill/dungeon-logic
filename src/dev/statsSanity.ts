@@ -15,7 +15,7 @@ const completedLevelIds = Array.from({ length: 15 }, (_, index) => campaignId(in
 const profile: PlayerProfileV2 = {
   schemaVersion: 2,
   tutorial: {
-    completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004'],
+    completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004', 'tutorial-005'],
     completed: true,
     activePuzzle: null,
   },

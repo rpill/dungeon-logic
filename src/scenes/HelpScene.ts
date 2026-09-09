@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 
 import { HELP_SCENE_KEY, type HelpReturnSceneKey, type HelpSceneData } from '../help/HelpNavigation';
-import { getHelpRules, type HelpRule } from '../help/HelpRules';
+import {
+  getHelpRules,
+  getHelpUtilities,
+  type HelpRule,
+  type HelpUtility,
+} from '../help/HelpRules';
 import { getUiCopy } from '../i18n/UiCopy';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -87,6 +92,19 @@ export class HelpScene extends Phaser.Scene {
     for (const rule of getHelpRules(language)) {
       cursorY = this.createRuleCard(rule, cursorY, contentWidth, narrow) + cardGap;
     }
+
+    cursorY += narrow ? 10 : 16;
+    const utilityTitle = this.add.text(this.scale.width / 2, cursorY, copy.help.utilityTitle, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '17px' : '20px',
+      color: '#f0e6d2',
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0).setDepth(1);
+    cursorY = utilityTitle.y + utilityTitle.height + (narrow ? 12 : 16);
+
+    for (const utility of getHelpUtilities(language)) {
+      cursorY = this.createUtilityCard(utility, cursorY, contentWidth, narrow) + cardGap;
+    }
     this.contentBottom = cursorY;
 
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
@@ -114,7 +132,7 @@ export class HelpScene extends Phaser.Scene {
   }
 
   private createRuleCard(
-    rule: HelpRule,
+    rule: Pick<HelpRule, 'title' | 'body' | 'diagram'>,
     topY: number,
     width: number,
     narrow: boolean,
@@ -162,6 +180,15 @@ export class HelpScene extends Phaser.Scene {
     ).setStrokeStyle(1, 0x4f565f, 1).setDepth(0);
 
     return topY + cardHeight;
+  }
+
+  private createUtilityCard(
+    utility: HelpUtility,
+    topY: number,
+    width: number,
+    narrow: boolean,
+  ): number {
+    return this.createRuleCard(utility, topY, width, narrow);
   }
 
   private setupScroll(): void {

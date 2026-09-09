@@ -16,11 +16,14 @@
 ## Tutorial runtime / profile v2
 
 - Tutorial — first-class runtime mode (`tutorial`), не fake Campaign level.
-- Stable IDs: `tutorial-001`–`tutorial-004`; Campaign IDs/slots остаются `campaign-001`–`campaign-030`.
+- Stable IDs: `tutorial-001`–`tutorial-005`; Campaign IDs/slots остаются `campaign-001`–`campaign-030`.
 - `PlayerProfileV2` хранит отдельный `tutorial` state и migration из schema v1.
 - `SerializedPuzzleState.mode` поддерживает `campaign | daily | tutorial`.
 - Tutorial завершает пазл только через общий `LevelValidator`; onboarding может направлять `FLOOR`-дедукции как обучающие пометки, но solved-state по-прежнему не требует размечать весь пол.
 - Tutorial onboarding не имеет standalone `MessageOnboardingStep`: каждый текст привязан к конкретному `board-cells` действию. После выполнения нужных WALL/FLOOR клеток `GameScene` сразу продвигает flow и меняет текст; отдельный клик по плашке для продолжения отсутствует.
+- Tutorial v2 использует пять authored teaching fixtures; новый rule вводится только когда он создаёт видимую однозначную дедукцию.
+- Profile normalization трактует persisted `tutorial.completed=true` из старой четырёхуровневой версии как completion всех пяти стабильных Tutorial IDs.
+- `HelpRules.ts` разделяет восемь puzzle-rule cards и отдельные utility entries (`controls`, `feedback`).
 
 ## Hint economy / ranked Daily assistance
 

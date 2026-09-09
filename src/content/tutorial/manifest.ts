@@ -2,6 +2,7 @@ import { level as tutorial001 } from './levels/tutorial001';
 import { level as tutorial002 } from './levels/tutorial002';
 import { level as tutorial003 } from './levels/tutorial003';
 import { level as tutorial004 } from './levels/tutorial004';
+import { level as tutorial005 } from './levels/tutorial005';
 import type { TutorialLevelEntry } from './types';
 
 export const TUTORIAL_MANIFEST: readonly TutorialLevelEntry[] = [
@@ -9,6 +10,7 @@ export const TUTORIAL_MANIFEST: readonly TutorialLevelEntry[] = [
   { slot: 2, id: 'tutorial-002', level: tutorial002 },
   { slot: 3, id: 'tutorial-003', level: tutorial003 },
   { slot: 4, id: 'tutorial-004', level: tutorial004 },
+  { slot: 5, id: 'tutorial-005', level: tutorial005 },
 ];
 
 export function findTutorialEntry(id: string): TutorialLevelEntry | null {

@@ -55,33 +55,32 @@ Regression gates: `sanity:daily`, `sanity:daily-leaderboard`, `sanity:daily-arch
 
 ---
 
-## Dedicated Tutorial chapter — Task 31
+## Dedicated Tutorial chapter — Tutorial v2
 
-Обучение больше не встроено в первые уровни Campaign.
+Обучение полностью отделено от Campaign и теперь содержит пять purpose-built уроков:
 
-- отдельный Tutorial содержит `tutorial-001`–`tutorial-004`;
-- Campaign остаётся отдельной последовательностью `campaign-001`–`campaign-030` без tutorial-overlay;
-- свежий профиль сначала проходит Tutorial, после чего открывается Campaign;
-- существующий профиль с реальной Campaign-активностью мигрирует как уже прошедший Tutorial и не отбрасывается назад;
-- Tutorial после прохождения остаётся доступен для перепрохождения;
-- четыре tutorial-пазла специально уменьшены и последовательно обучают clues, монстрам/тупикам, связности + правилу открытого `2×2`, затем Treasure Room;
-- Tutorial учит реальному порядку дедукции: `tutorial-001` начинается с clue `0` и просит отметить гарантированный `FLOOR`, затем переходит к стенам; в monster tutorial единственный оставшийся выход монстра также явно отмечается как `FLOOR`; `FLOOR` остаётся необязательной пометкой для победы;
-- уровень завершается сразу, когда обычный `LevelValidator` сообщает solved — Tutorial не требует размечать весь оставшийся пол;
-- `focusCells` не рисуют поверх поля дополнительный цвет/контур; красный зарезервирован для реального conflict/error feedback;
-- tutorial-текст больше не существует отдельными message-step: каждая плашка привязана к конкретному действию на поле;
-- выполнил требуемые FLOOR/WALL клетки — обучение сразу автоматически переключает текст на следующий шаг; отдельного клика по плашке для продвижения нет;
-- после `tutorial-004` показывается функциональное состояние `ОБУЧЕНИЕ ПРОЙДЕНО` / `TUTORIAL COMPLETE` с переходом к Campaign Chapter I.
+- `tutorial-001` — числа и вспомогательная пометка `FLOOR`;
+- `tutorial-002` — монстры и оба направления правила тупиков;
+- `tutorial-003` — ортогональная связность всего пола;
+- `tutorial-004` — коридоры и запрет открытого `2×2` вне комнаты;
+- `tutorial-005` — комната 3×3 с сундуком и единственный вход.
 
-Профиль имеет schema v2 и отдельное tutorial-состояние (`completedLevelIds`, `completed`, `activePuzzle`). Активная tutorial-партия сохраняется отдельно от Campaign/Daily через mode `tutorial`.
+Campaign остаётся `campaign-001`–`campaign-030` без tutorial-overlay. Свежий профиль открывает Campaign только после `tutorial-005`. Профиль, который уже был помечен `tutorial.completed=true` в старой четырёхуровневой версии, мигрирует как полностью прошедший все пять уроков и не блокируется повторно.
 
-Regression gates: `sanity:tutorial`, `sanity:onboarding`, `sanity:game-regressions`, `sanity:profile`, `sanity:puzzle-session`, `sanity:campaign-runtime`.
+Каждый guided step — конкретное `WALL/FLOOR` действие, логически объяснимое из текущего видимого состояния. Standalone message-step отсутствуют; плашки не блокируют управление и автоматически меняются после выполнения шага. Правильные стены по-прежнему завершают пазл через общий `LevelValidator`; отмечать весь оставшийся `FLOOR` не требуется.
+
+Справочник `КАК ИГРАТЬ` повторяет порядок обучения восемью puzzle-rule карточками: цель → числа → ПОЛ → комнаты → монстры → связность → коридоры/2×2 → завершение. Управление и красный conflict-feedback вынесены в отдельный utility-раздел.
+
+После `tutorial-005` показывается короткое состояние `ОБУЧЕНИЕ ПРОЙДЕНО / TUTORIAL COMPLETE` с кнопкой перехода к Campaign Chapter I.
+
+Regression gates: `sanity:tutorial`, `sanity:onboarding`, `sanity:onboarding-message`, `sanity:profile`, `sanity:help-rules`, `sanity:i18n`, `sanity:game-regressions`.
 
 ## Tutorial action-driven copy — Task 39
 
 - standalone tutorial `message` steps удалены из runtime-модели;
 - первый экран Tutorial 1 сразу является действием `0 → FLOOR`, а не отдельной плашкой, которую надо закрывать;
 - после выполнения всех клеток текущего guided action `handleEditCommitted()` вызывает `advanceOnboarding()`, поэтому текст меняется автоматически;
-- Tutorial 2–4 также начинают сразу с практического действия; вводные правила встроены в microcopy этого действия;
+- Tutorial 2–5 также начинают сразу с практического действия; вводные правила встроены в microcopy этого действия;
 - ручной `pointerup` по onboarding panel больше не участвует в progression;
 - regression gate требует, чтобы все tutorial-flow steps были `board-cells` и не могли вернуть click-to-continue шаг.
 

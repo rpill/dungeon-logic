@@ -52,6 +52,37 @@ async function main(): Promise<void> {
   assert(fresh.settings.musicEnabled && fresh.settings.soundEnabled && fresh.settings.vibrationEnabled, 'Fresh settings enable music, sound, and vibration.');
   assert(fresh.settings.language === 'ru', 'Fresh profile language defaults to ru.');
 
+
+  const legacyCompletedTutorial = normalizePlayerProfile({
+    ...createFreshPlayerProfile(manifest),
+    tutorial: {
+      completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004'],
+      completed: true,
+      activePuzzle: null,
+    },
+  }, manifest);
+  assert(
+    legacyCompletedTutorial.tutorial.completedLevelIds.join(',')
+      === 'tutorial-001,tutorial-002,tutorial-003,tutorial-004,tutorial-005',
+    'A profile already marked Tutorial-complete under the four-level version migrates as all five levels complete.',
+  );
+  assert(legacyCompletedTutorial.tutorial.completed, 'Legacy four-level Tutorial completion remains permanently complete.');
+
+  const legacyPartialTutorial = normalizePlayerProfile({
+    ...createFreshPlayerProfile(manifest),
+    tutorial: {
+      completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004'],
+      completed: false,
+      activePuzzle: null,
+    },
+  }, manifest);
+  assert(
+    legacyPartialTutorial.tutorial.completedLevelIds.join(',')
+      === 'tutorial-001,tutorial-002,tutorial-003,tutorial-004',
+    'A partial four-level Tutorial profile preserves only genuinely completed levels.',
+  );
+  assert(!legacyPartialTutorial.tutorial.completed, 'A partial old Tutorial profile still has Tutorial 5 to complete.');
+
   const normalized = normalizePlayerProfile({
     ...createFreshPlayerProfile(manifest),
     campaign: {

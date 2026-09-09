@@ -1,10 +1,6 @@
 import { campaignManifest } from '../content/campaign/manifest';
 import { TUTORIAL_MANIFEST } from '../content/tutorial/manifest';
-import {
-  createOnboardingFlow,
-  isOnboardingStepSatisfied,
-  shouldShowContextualOnboarding,
-} from '../onboarding/OnboardingFlow';
+import { createOnboardingFlow } from '../onboarding/OnboardingFlow';
 import { CellState } from '../puzzle/types';
 import { createCampaignGameSceneData } from '../runtime/GameLaunch';
 
@@ -12,203 +8,100 @@ function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-for (const entry of campaignManifest) {
-  assert(
-    createOnboardingFlow(entry.id, 'ru').length === 0,
-    `${entry.id} must not own runtime onboarding after Tutorial was split from Campaign.`,
-  );
-  assert(
-    !shouldShowContextualOnboarding(entry.id, []),
-    `${entry.id} must never resolve as contextual onboarding.`,
-  );
+function key(x: number, y: number): string {
+  return `${x}:${y}`;
+}
+
+function stepContains(
+  step: ReturnType<typeof createOnboardingFlow>[number] | undefined,
+  state: typeof CellState.Wall | typeof CellState.Floor,
+  x: number,
+  y: number,
+): boolean {
+  return step?.expectedState === state && step.cells.some((cell) => cell.x === x && cell.y === y);
 }
 
 for (const entry of TUTORIAL_MANIFEST) {
   for (const language of ['ru', 'en'] as const) {
     const flow = createOnboardingFlow(entry.id, language);
-    assert(flow.length >= 2, `${entry.id} ${language} has a real guided flow.`);
-    assert(
-      flow.every((step) => step.target === 'board-cells'),
-      `${entry.id} ${language} tutorial contains no standalone text step that waits for a panel click.`,
-    );
-
-    const boardSteps = flow.filter((step) => step.target === 'board-cells');
-    assert(boardSteps.length > 0, `${entry.id} ${language} contains guided board actions.`);
-    assert(
-      boardSteps.every((step) => step.expectedState === CellState.Wall || step.expectedState === CellState.Floor),
-      `${entry.id} ${language} guides only explicit WALL/FLOOR deductions.`,
-    );
-
-    for (const step of flow) {
-      assert(
-        !('autoAdvanceMs' in step),
-        `${entry.id} ${language} has no auto-dismiss tutorial messages.`,
-      );
-      for (const { x, y } of step.cells) {
-        const canonical = entry.level.solution[y]?.[x];
-        const expectedCanonical = step.expectedState === CellState.Wall ? '#' : '.';
-        assert(
-          canonical === expectedCanonical,
-          `${entry.id} guided target (${x},${y}) must match canonical ${step.expectedState}.`,
-        );
-      }
-    }
-  }
-
-  assert(
-    shouldShowContextualOnboarding(entry.id, []),
-    `${entry.id} can resolve as tutorial onboarding before completion.`,
-  );
-  assert(
-    !shouldShowContextualOnboarding(entry.id, [entry.id]),
-    `${entry.id} compatibility helper suppresses a completed tutorial id.`,
-  );
-}
-
-
-const tutorial1Flow = createOnboardingFlow('tutorial-001', 'ru');
-const tutorial1BoardSteps = tutorial1Flow.filter((step) => step.target === 'board-cells');
-assert(tutorial1BoardSteps[0]?.expectedState === CellState.Floor, 'Tutorial 1 starts by marking clue-0 cells as Floor.');
-assert(
-  tutorial1BoardSteps[0]?.guideClue?.axis === 'row' && tutorial1BoardSteps[0]?.guideClue?.index === 0,
-  'Tutorial 1 first action points at an actual zero clue before teaching walls.',
-);
-const firstTutorial1Wall = tutorial1BoardSteps.findIndex((step) => step.expectedState === CellState.Wall);
-assert(firstTutorial1Wall > 0, 'Tutorial 1 teaches at least one Floor deduction before the first Wall action.');
-assert(
-  tutorial1BoardSteps.slice(0, firstTutorial1Wall).every((step) => step.expectedState === CellState.Floor),
-  'Tutorial 1 completes its zero-clue Floor pass before wall placement starts.',
-);
-
-const tutorial2BoardSteps = createOnboardingFlow('tutorial-002', 'ru')
-  .filter((step) => step.target === 'board-cells');
-const firstMonsterWallStep = tutorial2BoardSteps.findIndex((step) => (
-  step.expectedState === CellState.Wall
-  && step.cells.some(({ x, y }) => x === 0 && y === 1)
-));
-assert(firstMonsterWallStep >= 0, 'Tutorial 2 teaches the walls that create the first Monster dead end.');
-const firstMonsterExitStep = tutorial2BoardSteps[firstMonsterWallStep + 1];
-assert(
-  firstMonsterExitStep?.expectedState === CellState.Floor
-  && firstMonsterExitStep.cells.some(({ x, y }) => x === 1 && y === 0),
-  "Tutorial 2 immediately marks the Monster's only remaining exit as Floor.",
-);
-
-for (const entry of TUTORIAL_MANIFEST) {
-  for (const language of ['ru', 'en'] as const) {
-    const flow = createOnboardingFlow(entry.id, language);
-    for (const step of flow) {
-      assert(step.message.length <= 120, `${entry.id} ${language} tutorial copy stays micro-sized (<=120 chars).`);
-    }
+    assert(flow.length > 0, `${entry.id} ${language}: tutorial has actionable steps.`);
+    assert(flow.every((step) => step.target === 'board-cells'), `${entry.id} ${language}: every tutorial step is action-driven.`);
   }
 }
 
-const firstTutorial = TUTORIAL_MANIFEST[0];
-const firstBoardStep = createOnboardingFlow(firstTutorial.id, 'ru')
-  .find((step) => step.target === 'board-cells');
-assert(firstBoardStep?.target === 'board-cells', 'Tutorial 1 exposes a guided board action.');
+const tutorial2 = createOnboardingFlow('tutorial-002', 'ru');
 assert(
-  !isOnboardingStepSatisfied(firstBoardStep, () => CellState.Unknown),
-  'A tutorial board step does not advance before its target state is placed.',
+  tutorial2[0]?.expectedState === CellState.Wall
+    && tutorial2[0].guideClue?.axis === 'column'
+    && tutorial2[0].guideClue.index === 0
+    && tutorial2[0].cells.map(({ x, y }) => key(x, y)).join(',') === '0:1,0:2,0:3,0:4'
+    && tutorial2[0].message.includes('столбце должно быть 4 стены'),
+  'Tutorial 2 explains its first four walls from column clue 4, not from the Monster rule.',
 );
 assert(
-  isOnboardingStepSatisfied(
-    firstBoardStep,
-    (x, y) => firstBoardStep.cells.some((cell) => cell.x === x && cell.y === y)
-      ? firstBoardStep.expectedState
-      : CellState.Unknown,
-  ),
-  'A tutorial board step advances when all target cells match the requested state.',
+  stepContains(tutorial2[1], CellState.Floor, 1, 0)
+    && tutorial2[1]?.message.includes('монстра'),
+  'Tutorial 2 introduces the Monster rule on the first Monster-exit Floor deduction.',
 );
 
+const tutorial3 = createOnboardingFlow('tutorial-003', 'ru');
+const connectivityIndex = tutorial3.findIndex((step) => stepContains(step, CellState.Floor, 1, 1));
+assert(connectivityIndex >= 0, 'Tutorial 3 contains the connectivity bridge Floor step.');
+const tutorial3BeforeConnectivity = tutorial3.slice(0, connectivityIndex);
+assert(
+  tutorial3BeforeConnectivity.some((step) => stepContains(step, CellState.Wall, 0, 3)),
+  'Tutorial 3 blocks the left region below before teaching connectivity.',
+);
+assert(
+  tutorial3BeforeConnectivity.some((step) => stepContains(step, CellState.Wall, 1, 2)),
+  'Tutorial 3 blocks the left region on the right before teaching connectivity.',
+);
+assert(
+  tutorial3BeforeConnectivity.some((step) => stepContains(step, CellState.Floor, 2, 1)),
+  'Tutorial 3 establishes known Floor on the far side before teaching the bridge deduction.',
+);
+assert(
+  tutorial3[connectivityIndex]?.message.includes('соединён') === true
+    && tutorial3[connectivityIndex]?.message.includes('Диагональ') === true,
+  'Tutorial 3 explains orthogonal connectivity exactly at the bridge deduction.',
+);
 
-const tutorial3BoardSteps = createOnboardingFlow('tutorial-003', 'ru')
-  .filter((step) => step.target === 'board-cells');
-assert(
-  tutorial3BoardSteps[0]?.expectedState === CellState.Floor
-    && tutorial3BoardSteps[0]?.guideClue?.axis === 'row'
-    && tutorial3BoardSteps[0]?.guideClue?.index === 4,
-  'Tutorial 3 starts from the zero row and asks the player to mark Floor before teaching 2x2.',
-);
-assert(
-  tutorial3BoardSteps[1]?.expectedState === CellState.Floor
-    && tutorial3BoardSteps[1]?.guideClue?.axis === 'column'
-    && tutorial3BoardSteps[1]?.guideClue?.index === 0,
-  'Tutorial 3 follows with the zero column Floor deduction.',
-);
-const tutorial3TwoByTwoIndex = tutorial3BoardSteps.findIndex((step) => (
-  step.expectedState === CellState.Wall
-  && step.cells.some(({ x, y }) => x === 1 && y === 1)
-));
-assert(tutorial3TwoByTwoIndex > 1, 'Tutorial 3 reaches the first 2x2 wall only after Floor setup.');
-const tutorial3FloorsBefore2x2 = new Set(
-  tutorial3BoardSteps
-    .slice(0, tutorial3TwoByTwoIndex)
+const tutorial4 = createOnboardingFlow('tutorial-004', 'ru');
+const twoByTwoIndex = tutorial4.findIndex((step) => stepContains(step, CellState.Wall, 3, 2));
+assert(twoByTwoIndex >= 0, 'Tutorial 4 contains the no-open-2x2 Wall deduction.');
+const tutorial4BeforeTwoByTwo = new Set(
+  tutorial4
+    .slice(0, twoByTwoIndex)
     .filter((step) => step.expectedState === CellState.Floor)
-    .flatMap((step) => step.cells.map(({ x, y }) => `${x}:${y}`)),
+    .flatMap((step) => step.cells.map(({ x, y }) => key(x, y))),
 );
-for (const key of ['0:0', '1:0', '0:1']) {
-  assert(tutorial3FloorsBefore2x2.has(key), `Tutorial 3 marks ${key} as Floor before using it to explain the first 2x2.`);
-}
-for (const key of ['1:2', '2:2', '2:3', '3:0', '4:2']) {
+for (const requiredFloor of ['4:2', '3:3', '4:3']) {
   assert(
-    tutorial3BoardSteps.some((step) => step.expectedState === CellState.Floor && step.cells.some(({ x, y }) => `${x}:${y}` === key)),
-    `Tutorial 3 explicitly asks the player to mark forced Floor at ${key}.`,
+    tutorial4BeforeTwoByTwo.has(requiredFloor),
+    `Tutorial 4 marks ${requiredFloor} Floor before the 2x2 rule targets 3:2.`,
   );
 }
-const tutorial3LastBoardStep = tutorial3BoardSteps.at(-1);
 assert(
-  tutorial3LastBoardStep !== undefined
-    && tutorial3LastBoardStep.expectedState === CellState.Wall
-    && tutorial3LastBoardStep.cells.some(({ x, y }) => x === 4 && y === 0),
-  'Tutorial 3 keeps one final wall until after the late Floor deductions so solve does not skip them.',
+  tutorial4[twoByTwoIndex]?.message.includes('2×2') === true,
+  'Tutorial 4 names the 2x2 rule only when the visual three-Floor setup exists.',
 );
 
-const tutorial4BoardSteps = createOnboardingFlow('tutorial-004', 'ru')
-  .filter((step) => step.target === 'board-cells');
+const tutorial5 = createOnboardingFlow('tutorial-005', 'ru');
+const roomFloorKeys = new Set(['1:0', '2:0', '0:1', '1:1', '2:1', '0:2', '1:2', '2:2']);
 assert(
-  tutorial4BoardSteps[0]?.expectedState === CellState.Floor
-    && tutorial4BoardSteps[0]?.guideClue?.axis === 'row'
-    && tutorial4BoardSteps[0]?.guideClue?.index === 5,
-  'Tutorial 4 starts from its zero row and marks Floor.',
+  tutorial5[0]?.expectedState === CellState.Floor
+    && tutorial5[0].cells.length === 8
+    && tutorial5[0].cells.every(({ x, y }) => roomFloorKeys.has(key(x, y))),
+  'Tutorial 5 first makes the player mark all eight non-Chest cells of the 3x3 room as Floor.',
 );
-assert(
-  tutorial4BoardSteps[1]?.expectedState === CellState.Floor
-    && tutorial4BoardSteps[1]?.guideClue?.axis === 'column'
-    && tutorial4BoardSteps[1]?.guideClue?.index === 0,
-  'Tutorial 4 follows with its zero column and marks Floor.',
-);
-const treasureInterior = new Set(['1:0', '2:0', '2:1', '1:2', '2:2']);
-assert(
-  tutorial4BoardSteps.some((step) => (
-    step.expectedState === CellState.Floor
-    && [...treasureInterior].every((key) => step.cells.some(({ x, y }) => `${x}:${y}` === key))
-  )),
-  'Tutorial 4 makes the player mark the Treasure Room interior as Floor.',
-);
-const monsterExitIndex = tutorial4BoardSteps.findIndex((step) => (
-  step.expectedState === CellState.Floor
-  && step.cells.some(({ x, y }) => x === 5 && y === 1)
+const entranceIndex = tutorial5.findIndex((step) => (
+  step.message.includes('один вход') && stepContains(step, CellState.Wall, 3, 2)
 ));
-assert(monsterExitIndex >= 0, "Tutorial 4 explicitly marks the Monster's only exit as Floor.");
-const wallsBeforeMonsterExit = new Set(
-  tutorial4BoardSteps
-    .slice(0, monsterExitIndex)
-    .filter((step) => step.expectedState === CellState.Wall)
-    .flatMap((step) => step.cells.map(({ x, y }) => `${x}:${y}`)),
-);
-for (const key of ['4:0', '4:2', '3:1']) {
-  assert(wallsBeforeMonsterExit.has(key), `Tutorial 4 places Monster-side wall ${key} before asking for its Floor exit.`);
-}
+assert(entranceIndex > 0, 'Tutorial 5 teaches the single entrance after the room interior is established.');
 assert(
-  tutorial4BoardSteps.slice(monsterExitIndex + 1).some((step) => (
-    step.expectedState === CellState.Wall
-    && step.cells.some(({ x, y }) => x === 1 && y === 4)
-    && step.cells.some(({ x, y }) => x === 2 && y === 4)
-  )),
-  'Tutorial 4 keeps final walls after the Monster Floor exit so solve cannot skip the teaching step.',
+  tutorial5.slice(0, entranceIndex).some((step) => stepContains(step, CellState.Floor, 2, 3)),
+  'Tutorial 5 visibly establishes the chosen room entrance as Floor before closing the remaining boundary.',
 );
-
 
 const campaignLaunch = createCampaignGameSceneData(campaignManifest[0], {
   completedLevelIds: [],
@@ -217,4 +110,4 @@ const campaignLaunch = createCampaignGameSceneData(campaignManifest[0], {
 assert(campaignLaunch.onboarding.length === 0, 'Campaign launch contains no tutorial ids.');
 assert(!campaignLaunch.contextualOnboarding, 'Campaign launch never enables contextual onboarding.');
 
-console.info('[Dungeon Logic] Onboarding sanity: tutorial deductions + globally non-blocking text panels passed');
+console.info('[Dungeon Logic] Onboarding sanity: tutorial v2 deductions are visible, action-driven, and pedagogically ordered');

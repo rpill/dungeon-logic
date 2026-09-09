@@ -23,6 +23,7 @@ const TUTORIAL_IDS = [
   'tutorial-002',
   'tutorial-003',
   'tutorial-004',
+  'tutorial-005',
 ] as const;
 const KNOWN_TUTORIAL_IDS = new Set<string>(TUTORIAL_IDS);
 
@@ -166,6 +167,7 @@ function normalizeDaily(value: unknown): DailyProfileState {
 
 function normalizeTutorial(value: unknown): TutorialProfileState {
   const raw = isRecord(value) ? value : {};
+  const persistedCompleted = raw.completed === true;
   const completedSet = new Set(
     Array.isArray(raw.completedLevelIds)
       ? raw.completedLevelIds.filter(
@@ -173,11 +175,13 @@ function normalizeTutorial(value: unknown): TutorialProfileState {
       )
       : [],
   );
-  const completedLevelIds = TUTORIAL_IDS.filter((id) => completedSet.has(id));
+  const completedLevelIds = persistedCompleted
+    ? [...TUTORIAL_IDS]
+    : TUTORIAL_IDS.filter((id) => completedSet.has(id));
 
   return {
     completedLevelIds,
-    completed: raw.completed === true || completedLevelIds.length === TUTORIAL_IDS.length,
+    completed: persistedCompleted || completedLevelIds.length === TUTORIAL_IDS.length,
     activePuzzle: normalizeSerializedPuzzleState(
       raw.activePuzzle,
       'tutorial',

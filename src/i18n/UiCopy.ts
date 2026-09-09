@@ -77,6 +77,7 @@ export interface UiCopy {
   };
   readonly help: {
     readonly title: string;
+    readonly utilityTitle: string;
   };
   readonly stats: {
     readonly title: string;
@@ -262,6 +263,7 @@ const RU: UiCopy = {
   },
   help: {
     title: 'КАК ИГРАТЬ',
+    utilityTitle: 'УПРАВЛЕНИЕ',
   },
   stats: {
     title: 'СТАТИСТИКА',
@@ -319,7 +321,7 @@ const RU: UiCopy = {
     levelTitle: (slot, total) => `УРОВЕНЬ ${slot} / ${total}`,
     dailyTitle: 'DAILY',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
-    tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО',
+    tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
     startChapterOne: 'НАЧАТЬ ГЛАВУ I',
     rules: 'ⓘ Правила',
     mouseControls: 'ЛКМ: Стена   •   ПКМ: Пол',
@@ -452,6 +454,7 @@ const EN: UiCopy = {
   },
   help: {
     title: 'HOW TO PLAY',
+    utilityTitle: 'CONTROLS',
   },
   stats: {
     title: 'STATISTICS',
@@ -509,7 +512,7 @@ const EN: UiCopy = {
     levelTitle: (slot, total) => `LEVEL ${slot} / ${total}`,
     dailyTitle: 'DAILY',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
-    tutorialComplete: 'TUTORIAL COMPLETE',
+    tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
     startChapterOne: 'START CHAPTER I',
     rules: 'ⓘ Rules',
     mouseControls: 'LMB: Wall   •   RMB: Floor',

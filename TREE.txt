@@ -1,23 +1,4 @@
 dungeon-logic/
-├── .generated/
-│   ├── candidates-123456.json
-│   ├── difficulty-corpus-targeted.json
-│   ├── difficulty-corpus-targeted.md
-│   ├── difficulty-corpus.json
-│   ├── difficulty-corpus.md
-│   ├── difficulty-treasure-room-consensus-diagnostic.json
-│   ├── difficulty-treasure-room-consensus-diagnostic.md
-│   ├── difficulty-treasure-room-consensus-what-if.json
-│   ├── difficulty-treasure-room-consensus-what-if.md
-│   ├── difficulty-treasure-room-hypothesis-consequence-what-if.json
-│   ├── difficulty-treasure-room-hypothesis-consequence-what-if.md
-│   ├── difficulty-unrated-diagnostic.json
-│   ├── difficulty-unrated-diagnostic.md
-│   ├── human-analysis-123456.json
-│   ├── human-analysis-123456.md
-│   ├── human-analysis-authored.json
-│   ├── human-analysis-authored.md
-│   └── shortlist-123456.md
 ├── docs/
 │   ├── content/
 │   │   └── campaign-v1-curation-report.md
@@ -51,6 +32,7 @@ dungeon-logic/
 │       │   ├── 2026-09-09-single-daily-leaderboard-archive.md
 │       │   ├── 2026-09-09-task30-onboarding-polish.md
 │       │   ├── 2026-09-09-tutorial-chapter.md
+│       │   ├── 2026-09-09-tutorial-v2-implementation.md
 │       │   └── 2026-09-09-yandex-moderation-lifecycle-foundation.md
 │       ├── reports/
 │       │   ├── 2026-09-03-human-solvability-baseline.md
@@ -74,6 +56,7 @@ dungeon-logic/
 │           ├── 2026-09-09-ru-en-localization-design.md
 │           ├── 2026-09-09-single-daily-leaderboard-archive-design.md
 │           ├── 2026-09-09-tutorial-chapter-design.md
+│           ├── 2026-09-09-tutorial-v2-design.md
 │           └── 2026-09-09-yandex-moderation-lifecycle-foundation-design.md
 ├── public/
 │   ├── assets/
@@ -231,7 +214,8 @@ dungeon-logic/
 │   │       │   ├── tutorial001.ts
 │   │       │   ├── tutorial002.ts
 │   │       │   ├── tutorial003.ts
-│   │       │   └── tutorial004.ts
+│   │       │   ├── tutorial004.ts
+│   │       │   └── tutorial005.ts
 │   │       ├── manifest.ts
 │   │       └── types.ts
 │   ├── daily/
@@ -293,6 +277,7 @@ dungeon-logic/
 │   │   ├── metaPointerGateSanity.ts
 │   │   ├── metaScrollSanity.ts
 │   │   ├── monetizationSanity.ts
+│   │   ├── onboardingMessageNonBlockingSanity.ts
 │   │   ├── onboardingSanity.ts
 │   │   ├── platformGameplaySanity.ts
 │   │   ├── platformSanity.ts
@@ -317,6 +302,7 @@ dungeon-logic/
 │   │   └── wireframeUiSanity.ts
 │   ├── gameplay/
 │   │   ├── ActiveTimer.ts
+│   │   ├── HintEconomy.ts
 │   │   ├── HintService.ts
 │   │   ├── PuzzleInteractionSession.ts
 │   │   ├── PuzzlePointerPolicy.ts
@@ -408,11 +394,13 @@ dungeon-logic/
 │   └── style.css
 ├── .gitignore
 ├── CURRENT_STATE.md
+├── dungeon-logic.zip
 ├── index.html
 ├── package-lock.json
 ├── package.json
 ├── PROJECT.md
 ├── TECH.md
+├── tmp-analyze.ts
 ├── TREE.txt
 ├── tsconfig.json
 └── vite.config.ts

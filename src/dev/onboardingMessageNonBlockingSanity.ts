@@ -9,6 +9,7 @@ const tutorialIds = [
   'tutorial-002',
   'tutorial-003',
   'tutorial-004',
+  'tutorial-005',
 ] as const;
 
 for (const id of tutorialIds) {
@@ -21,4 +22,4 @@ for (const id of tutorialIds) {
   }
 }
 
-console.info('[Dungeon Logic] Onboarding message sanity: tutorial copy always advances from board actions');
+console.info('[Dungeon Logic] Onboarding message sanity: all five tutorials advance from board actions only');

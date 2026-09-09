@@ -194,7 +194,7 @@ async function createService(
     ...current,
     tutorial: {
       ...current.tutorial,
-      completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004'],
+      completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004', 'tutorial-005'],
       completed: true,
     },
   }));

@@ -102,15 +102,15 @@ async function main(): Promise<void> {
   assert(ruCopy.game.wall !== enCopy.game.wall, 'Toolbar copy differs by locale.');
   assert(ruCopy.game.levelTitle(3, 30) === 'УРОВЕНЬ 3 / 30', 'Russian Game title shows campaign level number.');
   assert(enCopy.game.levelTitle(3, 30) === 'LEVEL 3 / 30', 'English Game title shows campaign level number.');
-  assert(ruCopy.game.tutorialTitle(2, 4) === 'ОБУЧЕНИЕ 2 / 4', 'Russian Tutorial title is localized.');
-  assert(enCopy.game.tutorialTitle(2, 4) === 'TUTORIAL 2 / 4', 'English Tutorial title is localized.');
-  assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО', 'Russian Tutorial completion copy is localized.');
-  assert(enCopy.game.tutorialComplete === 'TUTORIAL COMPLETE', 'English Tutorial completion copy is localized.');
+  assert(ruCopy.game.tutorialTitle(2, 5) === 'ОБУЧЕНИЕ 2 / 5', 'Russian Tutorial title is localized.');
+  assert(enCopy.game.tutorialTitle(2, 5) === 'TUTORIAL 2 / 5', 'English Tutorial title is localized.');
+  assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.', 'Russian Tutorial completion copy is localized.');
+  assert(enCopy.game.tutorialComplete === 'TUTORIAL COMPLETE\nYou know every dungeon rule.', 'English Tutorial completion copy is localized.');
 
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');
   assert(ruRules.map((rule) => rule.id).join(',') === enRules.map((rule) => rule.id).join(','), 'Help rule IDs/order are locale invariant.');
-  assert(ruRules[0]?.title === 'ЦЕЛЬ' && enRules[0]?.title === 'GOAL', 'Help titles are localized.');
+  assert(ruRules[0]?.title === '1. ЦЕЛЬ' && enRules[0]?.title === '1. GOAL', 'Help titles are localized.');
 
   assert(TUTORIAL_MANIFEST[0]?.id === 'tutorial-001', 'Localization sanity uses the stable Tutorial manifest.');
   const ruFlow = createOnboardingFlow('tutorial-001', 'ru');
