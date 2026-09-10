@@ -106,7 +106,7 @@ export function calculatePuzzleToolbarLayout(
     const margin = viewportClass === 'narrow' ? 12 : 16;
     const gap = 10;
     const buttonHeight = 48;
-    const buttonWidth = viewportClass === 'wide' ? 116 : 104;
+    const buttonWidth = viewportClass === 'wide' ? 168 : 148;
     const totalWidth = buttonWidth * 3 + gap * 2;
     const startX = (viewportWidth - totalWidth) / 2;
     const y = viewportHeight - bottomInset - margin - buttonHeight / 2;

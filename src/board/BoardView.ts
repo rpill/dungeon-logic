@@ -4,10 +4,16 @@ import { PuzzleInteractionSession, type PuzzleTool } from '../gameplay/PuzzleInt
 import { resolvePointerTool } from '../gameplay/PuzzlePointerPolicy';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { CellState } from '../puzzle/types';
+import { monsterFrameKeys } from '../view/FixedObjectAssets';
+import { resolveMonsterSkin } from '../view/MonsterVisuals';
 import { CellView, WIREFRAME, type FixedCellVisual } from './CellView';
+import { resolveFloorTextureKey, resolveWallTextureKey } from '../view/BoardThemeAssets';
 
 type PuzzleChangedHandler = () => void;
 type PuzzleEditCommittedHandler = () => void;
+
+const CLUE_FONT_RATIO = 0.5;
+const CLUE_GAP_RATIO = 0.3;
 
 export class BoardView {
   private readonly scene: Phaser.Scene;
@@ -24,7 +30,6 @@ export class BoardView {
   private inputCellTargets: ReadonlySet<string> | null = null;
 
   private readonly cells: CellView[][] = [];
-  private readonly clueBackings: Phaser.GameObjects.Rectangle[] = [];
   private readonly rowClues: Phaser.GameObjects.Text[] = [];
   private readonly columnClues: Phaser.GameObjects.Text[] = [];
 
@@ -82,6 +87,7 @@ export class BoardView {
     }
 
     this.syncAllCells();
+    this.setSolvedVisualState(false);
     this.onEditCommitted();
     this.onPuzzleChanged();
     return true;
@@ -91,6 +97,14 @@ export class BoardView {
     this.inputEnabled = enabled;
     if (!enabled) {
       this.endGesture();
+    }
+  }
+
+  setSolvedVisualState(solved: boolean): void {
+    for (const row of this.cells) {
+      for (const cell of row) {
+        cell.setSolvedVisualState(solved);
+      }
     }
   }
 
@@ -133,33 +147,21 @@ export class BoardView {
     this.cellSize = cellSize;
 
     const level = this.puzzle.level;
-    const visualSize = Math.max(1, cellSize - WIREFRAME.gap);
-    const topCenterY = originY - cellSize / 2;
-    const leftCenterX = originX - cellSize / 2;
-
-    let backingIndex = 0;
-    this.clueBackings[backingIndex++]
-      .setPosition(leftCenterX, topCenterY)
-      .setDisplaySize(visualSize, visualSize);
+    const topCenterY = originY - cellSize * CLUE_GAP_RATIO;
+    const leftCenterX = originX - cellSize * CLUE_GAP_RATIO;
 
     for (let x = 0; x < level.width; x += 1) {
       const centerX = originX + x * cellSize + cellSize / 2;
-      this.clueBackings[backingIndex++]
-        .setPosition(centerX, topCenterY)
-        .setDisplaySize(visualSize, visualSize);
       this.columnClues[x]
         .setPosition(centerX, topCenterY)
-        .setFontSize(Math.max(16, Math.round(cellSize * 0.42)));
+        .setFontSize(Math.max(16, Math.round(cellSize * CLUE_FONT_RATIO)));
     }
 
     for (let y = 0; y < level.height; y += 1) {
       const centerY = originY + y * cellSize + cellSize / 2;
-      this.clueBackings[backingIndex++]
-        .setPosition(leftCenterX, centerY)
-        .setDisplaySize(visualSize, visualSize);
       this.rowClues[y]
         .setPosition(leftCenterX, centerY)
-        .setFontSize(Math.max(16, Math.round(cellSize * 0.42)));
+        .setFontSize(Math.max(16, Math.round(cellSize * CLUE_FONT_RATIO)));
 
       for (let x = 0; x < level.width; x += 1) {
         const centerX = originX + x * cellSize + cellSize / 2;
@@ -170,37 +172,18 @@ export class BoardView {
 
   private createClues(): void {
     const level = this.puzzle.level;
-    const topCenterY = this.originY - this.cellSize / 2;
-    const leftCenterX = this.originX - this.cellSize / 2;
-
-    this.createClueBacking(leftCenterX, topCenterY);
+    const topCenterY = this.originY - this.cellSize * CLUE_GAP_RATIO;
+    const leftCenterX = this.originX - this.cellSize * CLUE_GAP_RATIO;
 
     for (let x = 0; x < level.width; x += 1) {
       const centerX = this.originX + x * this.cellSize + this.cellSize / 2;
-      this.createClueBacking(centerX, topCenterY);
       this.columnClues.push(this.createClueText(centerX, topCenterY, level.columnClues[x]));
     }
 
     for (let y = 0; y < level.height; y += 1) {
       const centerY = this.originY + y * this.cellSize + this.cellSize / 2;
-      this.createClueBacking(leftCenterX, centerY);
       this.rowClues.push(this.createClueText(leftCenterX, centerY, level.rowClues[y]));
     }
-  }
-
-  private createClueBacking(centerX: number, centerY: number): void {
-    const visualSize = Math.max(1, this.cellSize - WIREFRAME.gap);
-
-    this.clueBackings.push(
-      this.scene.add.rectangle(
-        centerX,
-        centerY,
-        visualSize,
-        visualSize,
-        WIREFRAME.clueCell,
-        1,
-      ),
-    );
   }
 
   private createClueText(
@@ -215,7 +198,7 @@ export class BoardView {
         String(value),
         {
           fontFamily: 'monospace',
-          fontSize: `${Math.max(16, Math.round(this.cellSize * 0.42))}px`,
+          fontSize: `${Math.max(16, Math.round(this.cellSize * CLUE_FONT_RATIO))}px`,
           color: WIREFRAME.clueActive,
           fontStyle: 'bold',
         },
@@ -240,6 +223,8 @@ export class BoardView {
           centerY,
           this.cellSize,
           fixedVisual,
+          resolveFloorTextureKey(x, y),
+          resolveWallTextureKey(x, y),
           (pointer) => {
             this.beginGesture(x, y, pointer);
           },
@@ -258,10 +243,14 @@ export class BoardView {
 
   private resolveFixedVisual(x: number, y: number): FixedCellVisual {
     if (this.puzzle.isMonster(x, y)) {
-      return { kind: 'monster', marker: 'M' };
+      const skin = resolveMonsterSkin(this.puzzle.level.id, x, y);
+      return {
+        kind: 'monster',
+        monsterFrameKeys: monsterFrameKeys(skin),
+      };
     }
     if (this.puzzle.isChest(x, y)) {
-      return { kind: 'chest', marker: 'C' };
+      return { kind: 'chest' };
     }
     if (this.puzzle.isBlocker(x, y)) {
       return { kind: 'technical', marker: 'X' };

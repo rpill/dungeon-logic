@@ -68,7 +68,12 @@
     "sanity:release": "node scripts/release-acceptance.mjs",
     "sanity:levels-mode": "tsx src/dev/levelsModeSanity.ts",
     "sanity:levels-content-cleanup": "node scripts/levels-content-cleanup-sanity.mjs",
-    "sanity:campaign-preview": "tsx src/dev/campaignLevelPreviewSanity.ts"
+    "sanity:campaign-preview": "tsx src/dev/campaignLevelPreviewSanity.ts",
+    "sanity:background-presentation": "node scripts/background-presentation-sanity.mjs",
+    "sanity:home-menu-buttons": "node scripts/home-menu-button-sanity.mjs",
+    "sanity:home-logo": "node scripts/home-logo-sanity.mjs",
+    "sanity:game-ui-visual": "node scripts/game-controls-settings-visual-sanity.mjs",
+    "sanity:game-board-assets": "node scripts/game-board-assets-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

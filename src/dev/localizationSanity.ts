@@ -99,8 +99,8 @@ async function main(): Promise<void> {
   assert(ruCopy.home.levelsProgress(15, 64) === 'Уровни · 15 / 64', 'Russian Home campaign progress uses Levels terminology.');
   assert(enCopy.home.levelsProgress(15, 64) === 'Levels · 15 / 64', 'English Home campaign progress uses Levels terminology.');
   assert(ruCopy.game.wall !== enCopy.game.wall, 'Toolbar copy differs by locale.');
-  assert(ruCopy.game.levelTitle(3, 64) === 'УРОВЕНЬ 3 / 64', 'Russian Game title shows campaign level number.');
-  assert(enCopy.game.levelTitle(3, 64) === 'LEVEL 3 / 64', 'English Game title shows campaign level number.');
+  assert(ruCopy.game.levelTitle(3) === 'УРОВЕНЬ 3', 'Russian Game title shows only the current campaign level number.');
+  assert(enCopy.game.levelTitle(3) === 'LEVEL 3', 'English Game title shows only the current campaign level number.');
   assert(ruCopy.game.tutorialTitle(2, 5) === 'ОБУЧЕНИЕ 2 / 5', 'Russian Tutorial title is localized.');
   assert(enCopy.game.tutorialTitle(2, 5) === 'TUTORIAL 2 / 5', 'English Tutorial title is localized.');
   assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.', 'Russian Tutorial completion copy is localized.');

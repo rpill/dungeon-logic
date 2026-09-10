@@ -111,7 +111,7 @@ export interface UiCopy {
   };
   readonly game: {
     readonly back: string;
-    readonly levelTitle: (slot: number, total: number) => string;
+    readonly levelTitle: (slot: number) => string;
     readonly dailyTitle: string;
     readonly tutorialTitle: (slot: number, total: number) => string;
     readonly tutorialComplete: string;
@@ -279,7 +279,7 @@ const RU: UiCopy = {
   },
   game: {
     back: '← НАЗАД',
-    levelTitle: (slot, total) => `УРОВЕНЬ ${slot} / ${total}`,
+    levelTitle: (slot) => `УРОВЕНЬ ${slot}`,
     dailyTitle: 'DAILY',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
@@ -447,7 +447,7 @@ const EN: UiCopy = {
   },
   game: {
     back: '← BACK',
-    levelTitle: (slot, total) => `LEVEL ${slot} / ${total}`,
+    levelTitle: (slot) => `LEVEL ${slot}`,
     dailyTitle: 'DAILY',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',

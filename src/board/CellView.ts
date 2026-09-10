@@ -4,6 +4,15 @@ import {
   CellState,
   type CellState as CellStateValue,
 } from '../puzzle/types';
+import {
+  BOARD_FLOOR_MARK_KEY,
+  type BoardFloorTextureKey,
+  type BoardWallTextureKey,
+} from '../view/BoardThemeAssets';
+import {
+  CHEST_CLOSED_TEXTURE_KEY,
+  CHEST_OPEN_TEXTURE_KEY,
+} from '../view/FixedObjectAssets';
 
 export const WIREFRAME = {
   background: 0x111318,
@@ -24,24 +33,29 @@ export const WIREFRAME = {
   gap: 2,
 } as const;
 
+const MONSTER_FRAME_MS = 180;
+
 type CellPointerHandler = (
   pointer: Phaser.Input.Pointer,
 ) => void;
 
 export type FixedCellVisual =
-  | { readonly kind: 'monster'; readonly marker: 'M' }
-  | { readonly kind: 'chest'; readonly marker: 'C' }
+  | { readonly kind: 'monster'; readonly monsterFrameKeys: readonly string[] }
+  | { readonly kind: 'chest' }
   | { readonly kind: 'technical'; readonly marker: 'X' | '↔' | '↕' }
   | null;
 
 export class CellView {
-  private readonly floor: Phaser.GameObjects.Rectangle;
-  private readonly wall: Phaser.GameObjects.Rectangle;
+  private readonly scene: Phaser.Scene;
+  private readonly floor: Phaser.GameObjects.Image;
+  private readonly wall: Phaser.GameObjects.Image;
+  private readonly floorMark: Phaser.GameObjects.Image;
   private readonly hoverOverlay: Phaser.GameObjects.Rectangle;
   private readonly hintOverlay: Phaser.GameObjects.Rectangle;
   private readonly hintWallPreview: Phaser.GameObjects.Rectangle;
   private readonly hintFloorPreview: Phaser.GameObjects.Text;
-  private readonly marker: Phaser.GameObjects.Text;
+  private readonly fixedMarker: Phaser.GameObjects.Text;
+  private readonly fixedSprite: Phaser.GameObjects.Image | null;
   private readonly fixedVisual: FixedCellVisual;
 
   private size: number;
@@ -49,6 +63,9 @@ export class CellView {
   private conflict = false;
   private hovered = false;
   private hintState: typeof CellState.Wall | typeof CellState.Floor | null = null;
+  private monsterAnimationEvent: Phaser.Time.TimerEvent | null = null;
+  private monsterFrameIndex = 0;
+  private solvedVisualState = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -56,33 +73,29 @@ export class CellView {
     centerY: number,
     size: number,
     fixedVisual: FixedCellVisual,
+    floorTextureKey: BoardFloorTextureKey,
+    wallTextureKey: BoardWallTextureKey,
     onPointerDown: CellPointerHandler,
     onPointerOver: CellPointerHandler,
   ) {
+    this.scene = scene;
     this.fixedVisual = fixedVisual;
     this.size = size;
 
     const visualSize = Math.max(1, size - WIREFRAME.gap);
 
     this.floor = scene.add
-      .rectangle(
-        centerX,
-        centerY,
-        visualSize,
-        visualSize,
-        WIREFRAME.floor,
-        1,
-      );
+      .image(centerX, centerY, floorTextureKey)
+      .setDisplaySize(visualSize, visualSize);
 
     this.wall = scene.add
-      .rectangle(
-        centerX,
-        centerY,
-        visualSize,
-        visualSize,
-        WIREFRAME.wall,
-        1,
-      )
+      .image(centerX, centerY, wallTextureKey)
+      .setDisplaySize(visualSize, visualSize)
+      .setVisible(false);
+
+    this.floorMark = scene.add
+      .image(centerX, centerY, BOARD_FLOOR_MARK_KEY)
+      .setDisplaySize(visualSize, visualSize)
       .setVisible(false);
 
     this.hoverOverlay = scene.add
@@ -133,22 +146,27 @@ export class CellView {
       .setOrigin(0.5)
       .setVisible(false);
 
-    this.marker = scene.add
+    this.fixedMarker = scene.add
       .text(
         centerX,
         centerY,
-        fixedVisual?.marker ?? '◆',
+        fixedVisual?.kind === 'technical' ? fixedVisual.marker : '',
         {
           fontFamily: 'monospace',
-          fontSize: `${this.getMarkerFontSize()}px`,
-          color: fixedVisual === null
-            ? WIREFRAME.mark
-            : WIREFRAME.fixedText,
+          fontSize: `${this.getFixedMarkerFontSize()}px`,
+          color: WIREFRAME.fixedText,
           fontStyle: 'bold',
         },
       )
       .setOrigin(0.5)
-      .setVisible(fixedVisual !== null);
+      .setVisible(fixedVisual?.kind === 'technical');
+
+    this.fixedSprite = fixedVisual?.kind === 'monster'
+      ? scene.add.image(centerX, centerY, fixedVisual.monsterFrameKeys[0]!)
+      : fixedVisual?.kind === 'chest'
+        ? scene.add.image(centerX, centerY, CHEST_CLOSED_TEXTURE_KEY)
+        : null;
+    this.resizeFixedSprite(centerX, centerY, visualSize);
 
     if (fixedVisual !== null) {
       this.state = CellState.Floor;
@@ -198,11 +216,45 @@ export class CellView {
     this.renderHint();
   }
 
+  setSolvedVisualState(solved: boolean): void {
+    if (this.fixedVisual === null || this.fixedVisual.kind === 'technical') return;
+    if (this.solvedVisualState === solved) return;
+    this.solvedVisualState = solved;
+
+    if (this.fixedVisual.kind === 'chest') {
+      this.fixedSprite?.setTexture(solved ? CHEST_OPEN_TEXTURE_KEY : CHEST_CLOSED_TEXTURE_KEY);
+      return;
+    }
+
+    this.stopMonsterAnimation();
+    this.monsterFrameIndex = 0;
+    this.fixedSprite?.setTexture(this.fixedVisual.monsterFrameKeys[0]!);
+    if (!solved || this.fixedVisual.monsterFrameKeys.length <= 1) return;
+
+    this.monsterAnimationEvent = this.scene.time.addEvent({
+      delay: MONSTER_FRAME_MS,
+      loop: true,
+      callback: () => {
+        if (this.fixedVisual?.kind !== 'monster') return;
+        this.monsterFrameIndex = (this.monsterFrameIndex + 1) % this.fixedVisual.monsterFrameKeys.length;
+        this.fixedSprite?.setTexture(this.fixedVisual.monsterFrameKeys[this.monsterFrameIndex]!);
+      },
+    });
+  }
+
   relayout(centerX: number, centerY: number, size: number): void {
     this.size = size;
     const visualSize = Math.max(1, size - WIREFRAME.gap);
 
-    for (const rectangle of [this.floor, this.wall, this.hoverOverlay, this.hintOverlay]) {
+    for (const image of [this.floor, this.wall, this.floorMark]) {
+      image
+        .setPosition(centerX, centerY)
+        .setDisplaySize(visualSize, visualSize);
+    }
+
+    this.resizeFixedSprite(centerX, centerY, visualSize);
+
+    for (const rectangle of [this.hoverOverlay, this.hintOverlay]) {
       rectangle
         .setPosition(centerX, centerY)
         .setDisplaySize(visualSize, visualSize);
@@ -214,15 +266,26 @@ export class CellView {
     this.hintFloorPreview
       .setPosition(centerX, centerY)
       .setFontSize(this.getHintMarkerFontSize());
-    this.marker
+    this.fixedMarker
       .setPosition(centerX, centerY)
-      .setFontSize(this.getMarkerFontSize());
+      .setFontSize(this.getFixedMarkerFontSize());
   }
 
-  private getMarkerFontSize(): number {
-    return this.fixedVisual === null
-      ? Math.max(14, Math.round(this.size * 0.24))
-      : Math.max(18, Math.round(this.size * 0.46));
+  private resizeFixedSprite(centerX: number, centerY: number, visualSize: number): void {
+    if (this.fixedSprite === null || this.fixedVisual === null || this.fixedVisual.kind === 'technical') return;
+    const scale = this.fixedVisual.kind === 'chest' ? 0.92 : 0.96;
+    this.fixedSprite
+      .setPosition(centerX, centerY)
+      .setDisplaySize(visualSize * scale, visualSize * scale);
+  }
+
+  private stopMonsterAnimation(): void {
+    this.monsterAnimationEvent?.destroy();
+    this.monsterAnimationEvent = null;
+  }
+
+  private getFixedMarkerFontSize(): number {
+    return Math.max(18, Math.round(this.size * 0.46));
   }
 
   private getHintMarkerFontSize(): number {
@@ -231,44 +294,37 @@ export class CellView {
 
   private render(): void {
     if (this.fixedVisual !== null) {
-      this.floor.setFillStyle(WIREFRAME.floor, 1);
-      this.wall.setVisible(false);
-      this.marker
-        .setColor(WIREFRAME.fixedText)
-        .setFontSize(this.getMarkerFontSize())
-        .setText(this.fixedVisual.marker)
-        .setVisible(true);
+      this.wall.setVisible(false).clearTint();
+      this.floorMark.setVisible(false);
+      this.fixedMarker.setVisible(this.fixedVisual.kind === 'technical');
+      this.fixedSprite?.setVisible(this.fixedVisual.kind === 'monster' || this.fixedVisual.kind === 'chest');
       this.renderHover();
       this.renderHint();
       return;
     }
 
+    this.fixedMarker.setVisible(false);
+    this.fixedSprite?.setVisible(false);
+
     switch (this.state) {
       case CellState.Unknown:
-        this.floor.setFillStyle(WIREFRAME.floor, 1);
-        this.wall.setVisible(false);
-        this.marker.setVisible(false);
+        this.wall.setVisible(false).clearTint();
+        this.floorMark.setVisible(false);
         break;
 
       case CellState.Wall:
-        this.floor.setFillStyle(WIREFRAME.floor, 1);
-        this.wall
-          .setFillStyle(
-            this.conflict ? WIREFRAME.conflictWall : WIREFRAME.wall,
-            1,
-          )
-          .setVisible(true);
-        this.marker.setVisible(false);
+        this.wall.setVisible(true);
+        if (this.conflict) {
+          this.wall.setTint(WIREFRAME.conflictWall);
+        } else {
+          this.wall.clearTint();
+        }
+        this.floorMark.setVisible(false);
         break;
 
       case CellState.Floor:
-        this.floor.setFillStyle(WIREFRAME.floor, 1);
-        this.wall.setVisible(false);
-        this.marker
-          .setColor(WIREFRAME.mark)
-          .setFontSize(this.getMarkerFontSize())
-          .setText('◆')
-          .setVisible(true);
+        this.wall.setVisible(false).clearTint();
+        this.floorMark.setVisible(true);
         break;
     }
 

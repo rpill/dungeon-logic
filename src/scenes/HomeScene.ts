@@ -29,6 +29,16 @@ import {
 } from '../runtime/MetaSelectors';
 import { classifyViewport } from './GameBoardLayout';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
+import { createSceneBackground } from '../runtime/SceneBackground';
+import { createHomeMenuButton, type HomeMenuIcon } from '../runtime/HomeMenuButton';
+
+const HOME_MENU_ICONS = {
+  primary: { icon: 'play' as const },
+  daily: { icon: 'daily' as const },
+  levels: { icon: 'levels' as const },
+  statistics: { icon: 'statistics' as const },
+  settings: { icon: 'settings' as const },
+};
 
 export class HomeScene extends Phaser.Scene {
   private createVersion = 0;
@@ -40,6 +50,8 @@ export class HomeScene extends Phaser.Scene {
   }
 
   create(): void {
+    createSceneBackground(this, 'meta');
+
     const createVersion = this.createVersion + 1;
     this.createVersion = createVersion;
     this.launchPending = false;
@@ -60,26 +72,11 @@ export class HomeScene extends Phaser.Scene {
     const viewportClass = classifyViewport(this.scale.width);
     const narrow = viewportClass === 'narrow';
 
-    const titleY = narrow ? 84 : 108;
-    const titleSize = narrow ? 34 : 48;
-    this.add.text(this.scale.width / 2, titleY, 'DUNGEON LOGIC', {
-      fontFamily: 'monospace',
-      fontSize: `${titleSize}px`,
-      color: '#f0e6d2',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    const completed = profile.campaign.completedLevelIds.length;
-    this.add.text(
-      this.scale.width / 2,
-      titleY + (narrow ? 45 : 58),
-      copy.home.levelsProgress(completed, campaign.getLevels().length),
-      {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '14px' : '17px',
-        color: '#89929d',
-      },
-    ).setOrigin(0.5);
+    const logoY = narrow ? 86 : 104;
+    const logoWidth = Math.min(narrow ? this.scale.width - 48 : 560, 640);
+    const logo = this.add.image(this.scale.width / 2, logoY, 'home-logo').setOrigin(0.5);
+    const logoAspect = logo.width / logo.height;
+    logo.setDisplaySize(logoWidth, logoWidth / logoAspect);
 
     const buttonWidth = Math.min(narrow ? this.scale.width - 32 : 360, 420);
     const mainY = narrow ? 215 : 250;
@@ -101,6 +98,7 @@ export class HomeScene extends Phaser.Scene {
         mainHeight,
         started ? copy.home.tutorialContinue : copy.home.tutorialStart,
         '#f0d28a',
+        HOME_MENU_ICONS.primary.icon,
         () => {
           if (entry !== undefined) void this.launchTutorial(tutorial, entry);
         },
@@ -125,6 +123,7 @@ export class HomeScene extends Phaser.Scene {
         mainHeight,
         copy.home.chooseLevel,
         '#f0d28a',
+        HOME_MENU_ICONS.levels.icon,
         () => this.scene.start(LEVELS_SCENE_KEY),
       );
     } else {
@@ -137,18 +136,12 @@ export class HomeScene extends Phaser.Scene {
         mainHeight,
         label,
         '#f0d28a',
+        HOME_MENU_ICONS.primary.icon,
         () => {
           if (entry !== undefined) void this.launchLevel(campaign, entry);
         },
       );
 
-      if (entry !== undefined) {
-        this.add.text(this.scale.width / 2, mainY + mainHeight / 2 + 23, copy.home.levelContext(entry.slot), {
-          fontFamily: 'monospace',
-          fontSize: narrow ? '13px' : '15px',
-          color: '#89929d',
-        }).setOrigin(0.5);
-      }
     }
 
     this.createButton(
@@ -158,6 +151,7 @@ export class HomeScene extends Phaser.Scene {
       narrow ? 52 : 56,
       copy.common.levels,
       '#d8d1c4',
+      HOME_MENU_ICONS.levels.icon,
       () => this.scene.start(LEVELS_SCENE_KEY),
     );
 
@@ -169,6 +163,7 @@ export class HomeScene extends Phaser.Scene {
         narrow ? 52 : 56,
         copy.common.statistics,
         '#aeb4bc',
+        HOME_MENU_ICONS.statistics.icon,
         () => this.scene.start(STATS_SCENE_KEY),
       );
       void this.renderDailyEntry(
@@ -176,7 +171,6 @@ export class HomeScene extends Phaser.Scene {
         mainY + secondaryStep,
         buttonWidth,
         narrow ? 52 : 56,
-        narrow,
         createVersion,
       );
     }
@@ -189,6 +183,7 @@ export class HomeScene extends Phaser.Scene {
         narrow ? 52 : 56,
         copy.common.settings,
         '#89929d',
+        HOME_MENU_ICONS.settings.icon,
         () => this.scene.start(SETTINGS_SCENE_KEY),
       );
     }
@@ -236,24 +231,25 @@ export class HomeScene extends Phaser.Scene {
     height: number,
     label: string,
     color: string,
+    icon: HomeMenuIcon,
     onActivate: () => void,
     enabled = true,
   ): void {
-    const rectangle = this.add.rectangle(x, y, width, height, 0x2a3038, 1)
-      .setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(color).color);
-    if (enabled) rectangle.setInteractive({ useHandCursor: true });
-    this.add.text(x, y, label, {
-      fontFamily: 'monospace',
-      fontSize: this.scale.width < 700 ? '17px' : '19px',
-      color,
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    if (enabled) {
-      rectangle.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    createHomeMenuButton(this, {
+      x,
+      y,
+      width,
+      height,
+      label,
+      labelColor: color,
+      icon,
+      enabled,
+      accentFrame: icon === 'daily' && enabled,
+      onActivate: (pointer) => {
         if (!this.pointerGate.canActivate(pointer.id)) return;
         onActivate();
-      });
-    }
+      },
+    });
   }
 
   private getCampaignService(): CampaignService {
@@ -293,7 +289,6 @@ export class HomeScene extends Phaser.Scene {
     y: number,
     width: number,
     height: number,
-    narrow: boolean,
     createVersion: number,
   ): Promise<void> {
     let today = null;
@@ -317,14 +312,10 @@ export class HomeScene extends Phaser.Scene {
         height,
         copy.home.dailyUnavailable,
         '#5f666f',
+        HOME_MENU_ICONS.daily.icon,
         () => {},
         false,
       );
-      this.add.text(this.scale.width / 2, y + height / 2 + 20, copy.home.noDailyForTrustedDate, {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '11px' : '13px',
-        color: '#6f7780',
-      }).setOrigin(0.5);
       return;
     }
 
@@ -336,26 +327,11 @@ export class HomeScene extends Phaser.Scene {
       height,
       solved ? copy.home.dailySolved : copy.home.dailyNew,
       solved ? '#aeb4bc' : '#d0b978',
+      HOME_MENU_ICONS.daily.icon,
       () => this.scene.start(DAILY_SCENE_KEY),
     );
 
-    const streakCopy = copy.home.streakSuffix(action.currentStreak);
-    const detail = solved
-      ? copy.home.best(this.formatTime(action.result.bestTimeMs), streakCopy)
-      : copy.home.today(streakCopy);
-    this.add.text(this.scale.width / 2, y + height / 2 + 20, detail, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '11px' : '13px',
-      color: '#89929d',
-    }).setOrigin(0.5);
-  }
-
-  private formatTime(ms: number): string {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
+    }
 
   private async launchTutorial(
     service: TutorialService,

@@ -54,6 +54,7 @@ import { LEADERBOARD_SCENE_KEY } from './LeaderboardScene';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
+import { createSceneBackground } from '../runtime/SceneBackground';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -87,6 +88,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createGame(launchData: GameSceneData, createVersion: number): void {
+    const sceneBackground = createSceneBackground(this, 'gameplay');
+
     const readSafeArea = (name: '--safe-area-inset-top' | '--safe-area-inset-bottom'): number => {
       if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
         return 0;
@@ -153,7 +156,6 @@ export class GameScene extends Phaser.Scene {
       ? null
       : campaignService?.getLevels().find((entry) => entry.id === campaignContext.campaignLevelId) ?? null;
     const completedCampaignSlot = campaignEntry?.slot ?? null;
-    const campaignLevelTotal = campaignService?.getLevels().length ?? 0;
     const campaignPlayState = campaignContext !== null && profileService !== null
       ? resolveCampaignPlayState(launchData.level, profileService.getProfile().campaign)
       : null;
@@ -177,7 +179,7 @@ export class GameScene extends Phaser.Scene {
 
     const getTitleLabel = (): string => {
       if (campaignEntry !== null) {
-        return copy.game.levelTitle(campaignEntry.slot, campaignLevelTotal);
+        return copy.game.levelTitle(campaignEntry.slot);
       }
       if (tutorialEntry !== null) {
         return copy.game.tutorialTitle(tutorialEntry.slot, tutorialLevelTotal);
@@ -210,26 +212,52 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(0.5);
 
-    const backText = this.add.text(chrome.actionInset, chrome.titleY + safeTop, copy.game.back, {
-      fontFamily: 'monospace',
-      fontSize: `${chrome.actionFontSize}px`,
-      color: '#89929d',
-      fontStyle: 'bold',
-    })
+    const topActionY = chrome.titleY + safeTop;
+    const topActionGap = this.scale.width < 700 ? 6 : 8;
+    const topActionIconSize = Math.max(20, Math.round(chrome.actionFontSize * 1.25));
+    const getBackLabel = (): string => copy.game.back.replace(/^←\s*/, '');
+
+    const backIcon = this.add.image(
+      chrome.actionInset + topActionIconSize / 2,
+      topActionY,
+      'ui-icon-back',
+    )
+      .setDisplaySize(topActionIconSize, topActionIconSize)
+      .setTint(0xf4ead7)
+      .setInteractive({ useHandCursor: true });
+    const backText = this.add.text(
+      chrome.actionInset + topActionIconSize + topActionGap,
+      topActionY,
+      getBackLabel(),
+      {
+        fontFamily: 'monospace',
+        fontSize: `${chrome.actionFontSize}px`,
+        color: '#f4ead7',
+        fontStyle: 'bold',
+      },
+    )
       .setOrigin(0, 0.5)
       .setInteractive({ useHandCursor: true });
 
     const menuText = this.add.text(
       this.scale.width - chrome.actionInset,
-      chrome.titleY + safeTop,
+      topActionY,
       copy.game.menu,
       {
         fontFamily: 'monospace',
         fontSize: `${chrome.actionFontSize}px`,
-        color: '#89929d',
+        color: '#f4ead7',
         fontStyle: 'bold',
       },
     ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    const menuIcon = this.add.image(
+      this.scale.width - chrome.actionInset - menuText.width - topActionGap - topActionIconSize / 2,
+      topActionY,
+      'ui-icon-menu',
+    )
+      .setDisplaySize(topActionIconSize, topActionIconSize)
+      .setTint(0xf4ead7)
+      .setInteractive({ useHandCursor: true });
 
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
     const monetizationService = profileService !== null && platformServices != null
@@ -398,10 +426,72 @@ export class GameScene extends Phaser.Scene {
       typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
     );
 
-    const toolbarVisuals = new Map<
-      PuzzleToolbarButtonId,
-      { rectangle: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }
-    >();
+    type ToolbarVisual = {
+      readonly background: Phaser.GameObjects.Graphics;
+      readonly hitArea: Phaser.GameObjects.Zone;
+      readonly icon: Phaser.GameObjects.Image | null;
+      readonly label: Phaser.GameObjects.Text;
+      width: number;
+      height: number;
+      baseFill: number;
+      disabled: boolean;
+      hovered: boolean;
+      pressed: boolean;
+    };
+    const toolbarVisuals = new Map<PuzzleToolbarButtonId, ToolbarVisual>();
+    const toolbarIconKeys: Partial<Record<PuzzleToolbarButtonId, string>> = {
+      undo: 'ui-icon-undo',
+      reset: 'ui-icon-reset',
+      hint: 'ui-icon-hint',
+    };
+    const getToolbarRadius = (): number => this.scale.width < 700 ? 9 : 10;
+    const adjustToolbarColor = (color: number, amount: number): number => {
+      const r = Math.max(0, Math.min(255, ((color >> 16) & 0xff) + amount));
+      const g = Math.max(0, Math.min(255, ((color >> 8) & 0xff) + amount));
+      const b = Math.max(0, Math.min(255, (color & 0xff) + amount));
+      return (r << 16) | (g << 8) | b;
+    };
+    const redrawToolbarBackground = (visual: ToolbarVisual): void => {
+      const fill = visual.disabled
+        ? visual.baseFill
+        : visual.pressed
+          ? adjustToolbarColor(visual.baseFill, -18)
+          : visual.hovered
+            ? adjustToolbarColor(visual.baseFill, 16)
+            : visual.baseFill;
+      visual.background.clear();
+      visual.background.fillStyle(fill, 1);
+      visual.background.fillRoundedRect(
+        visual.hitArea.x - visual.width / 2,
+        visual.hitArea.y - visual.height / 2,
+        visual.width,
+        visual.height,
+        getToolbarRadius(),
+      );
+    };
+    const layoutToolbarContent = (
+      visual: ToolbarVisual,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+    ): void => {
+      visual.width = width;
+      visual.height = height;
+      visual.hitArea.setPosition(x, y).setSize(width, height);
+      const iconSize = this.scale.width < 700 ? 22 : 26;
+      if (visual.icon === null) {
+        visual.label.setPosition(x, y).setOrigin(0.5);
+      } else {
+        visual.icon.setDisplaySize(iconSize, iconSize);
+        const gap = this.scale.width < 700 ? 8 : 10;
+        const totalWidth = iconSize + gap + visual.label.width;
+        const startX = x - totalWidth / 2;
+        visual.icon.setPosition(startX + iconSize / 2, y);
+        visual.label.setPosition(startX + iconSize + gap, y).setOrigin(0, 0.5);
+      }
+      redrawToolbarBackground(visual);
+    };
     let toolbarLayout: PuzzleToolbarLayout = calculatePuzzleToolbarLayout(
       this.scale.width,
       this.scale.height,
@@ -719,28 +809,47 @@ export class GameScene extends Phaser.Scene {
           && step !== null
           && buttonState.id === step.expectedState;
         const fill = disabled
-          ? 0x191d22
-          : guided
-            ? 0x8a5155
-            : buttonState.active
-              ? 0x714245
-              : 0x2a3038;
+          ? 0x1a2238
+          : buttonState.id === 'reset'
+            ? 0xff4f57
+            : guided
+              ? 0x8a5155
+              : buttonState.active
+                ? 0x40557f
+                : 0x1f2c4a;
         const textColor = disabled
-          ? '#5f666f'
+          ? '#6f788c'
           : guided
             ? '#fff0e8'
-            : buttonState.active
-              ? '#f5ded7'
-              : '#d8d1c4';
+            : '#f4ead7';
 
-        visual.rectangle.setFillStyle(fill, 1);
+        visual.baseFill = fill;
+        visual.disabled = disabled;
+        visual.pressed = false;
         visual.label.setText(buttonState.label).setColor(textColor);
+        visual.icon?.setTint(Phaser.Display.Color.HexStringToColor(textColor).color);
+        visual.hitArea.disableInteractive();
+        if (!disabled) visual.hitArea.setInteractive({ useHandCursor: true });
+        const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
+        if (buttonLayout !== undefined) {
+          layoutToolbarContent(
+            visual,
+            buttonLayout.x,
+            buttonLayout.y,
+            buttonLayout.width,
+            buttonLayout.height,
+          );
+        } else {
+          redrawToolbarBackground(visual);
+        }
       }
     };
 
     const setToolbarVisible = (visible: boolean): void => {
       for (const visual of toolbarVisuals.values()) {
-        visual.rectangle.setVisible(visible);
+        visual.background.setVisible(visible);
+        visual.hitArea.setVisible(visible);
+        visual.icon?.setVisible(visible);
         visual.label.setVisible(visible);
       }
     };
@@ -1505,6 +1614,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       if (!validatePuzzle(puzzle).isSolved) return;
 
       solved = true;
+      board?.setSolvedVisualState(true);
       board?.setInputEnabled(false);
       pauseActiveTimer();
       savePuzzleSession();
@@ -1670,27 +1780,68 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
       if (buttonLayout === undefined) continue;
 
-      const rectangle = this.add.rectangle(
+      const background = this.add.graphics();
+      const hitArea = this.add.zone(
         buttonLayout.x,
         buttonLayout.y,
         buttonLayout.width,
         buttonLayout.height,
-        0x2a3038,
-        1,
-      )
-        .setInteractive({ useHandCursor: true })
-        .on('pointerup', toolbarActions[buttonState.id]);
+      ).setInteractive({ useHandCursor: true });
       const label = this.add.text(buttonLayout.x, buttonLayout.y, buttonState.label, {
         fontFamily: 'monospace',
-        fontSize: this.scale.width < 700 ? '15px' : '16px',
-        color: '#d8d1c4',
+        fontSize: this.scale.width < 700 ? '15px' : '17px',
+        color: '#f4ead7',
         fontStyle: 'bold',
       }).setOrigin(0.5);
-
-      toolbarVisuals.set(buttonState.id, { rectangle, label });
+      const iconKey = toolbarIconKeys[buttonState.id];
+      const icon = iconKey === undefined
+        ? null
+        : this.add.image(buttonLayout.x, buttonLayout.y, iconKey)
+          .setTint(0xf4ead7);
+      const visual: ToolbarVisual = {
+        background,
+        hitArea,
+        icon,
+        label,
+        width: buttonLayout.width,
+        height: buttonLayout.height,
+        baseFill: buttonState.id === 'reset' ? 0xff4f57 : 0x1f2c4a,
+        disabled: buttonState.disabled,
+        hovered: false,
+        pressed: false,
+      };
+      hitArea
+        .on('pointerover', () => {
+          visual.hovered = true;
+          redrawToolbarBackground(visual);
+        })
+        .on('pointerout', () => {
+          visual.hovered = false;
+          visual.pressed = false;
+          redrawToolbarBackground(visual);
+        })
+        .on('pointerdown', () => {
+          if (visual.disabled) return;
+          visual.pressed = true;
+          redrawToolbarBackground(visual);
+        })
+        .on('pointerup', () => {
+          if (visual.disabled) return;
+          visual.pressed = false;
+          redrawToolbarBackground(visual);
+          toolbarActions[buttonState.id]();
+        });
+      toolbarVisuals.set(buttonState.id, visual);
+      layoutToolbarContent(
+        visual,
+        buttonLayout.x,
+        buttonLayout.y,
+        buttonLayout.width,
+        buttonLayout.height,
+      );
     }
 
-    backText.on('pointerdown', () => {
+    const handleBackAction = (): void => {
       if (gameMenuOpen) {
         closeGameMenu();
         return;
@@ -1719,11 +1870,15 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         }
       };
       void leave();
-    });
+    };
+    backText.on('pointerdown', handleBackAction);
+    backIcon.on('pointerdown', handleBackAction);
 
-    menuText.on('pointerup', () => {
+    const handleMenuAction = (): void => {
       openGameMenu();
-    });
+    };
+    menuText.on('pointerup', handleMenuAction);
+    menuIcon.on('pointerup', handleMenuAction);
 
     const keyboard = this.input.keyboard;
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -1758,6 +1913,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     const handleResize = (): void => {
       if (!this.scene.isActive()) return;
 
+      sceneBackground.sync();
+
       const width = this.scale.width;
       const height = this.scale.height;
       const nextChrome = calculatePuzzleChromeLayout(width, height);
@@ -1777,24 +1934,39 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       timerText
         .setPosition(width / 2, nextChrome.titleY + nextSafeTop + (width < 700 ? 28 : 34))
         .setFontSize(Math.max(12, nextChrome.statusFontSize));
+      const nextTopActionY = nextChrome.titleY + nextSafeTop;
+      const nextTopActionGap = width < 700 ? 6 : 8;
+      const nextTopActionIconSize = Math.max(20, Math.round(nextChrome.actionFontSize * 1.25));
+      backIcon
+        .setPosition(nextChrome.actionInset + nextTopActionIconSize / 2, nextTopActionY)
+        .setDisplaySize(nextTopActionIconSize, nextTopActionIconSize);
       backText
-        .setPosition(nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
-        .setFontSize(nextChrome.actionFontSize);
+        .setPosition(nextChrome.actionInset + nextTopActionIconSize + nextTopActionGap, nextTopActionY)
+        .setFontSize(nextChrome.actionFontSize)
+        .setText(getBackLabel());
 
       menuText
-        .setPosition(width - nextChrome.actionInset, nextChrome.titleY + nextSafeTop)
+        .setPosition(width - nextChrome.actionInset, nextTopActionY)
         .setFontSize(nextChrome.actionFontSize)
         .setText(copy.game.menu);
+      menuIcon
+        .setPosition(
+          width - nextChrome.actionInset - menuText.width - nextTopActionGap - nextTopActionIconSize / 2,
+          nextTopActionY,
+        )
+        .setDisplaySize(nextTopActionIconSize, nextTopActionIconSize);
 
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);
         if (visual === undefined) continue;
-        visual.rectangle
-          .setPosition(buttonLayout.x, buttonLayout.y)
-          .setDisplaySize(buttonLayout.width, buttonLayout.height);
-        visual.label
-          .setPosition(buttonLayout.x, buttonLayout.y)
-          .setFontSize(width < 700 ? 15 : 16);
+        visual.label.setFontSize(width < 700 ? 15 : 17);
+        layoutToolbarContent(
+          visual,
+          buttonLayout.x,
+          buttonLayout.y,
+          buttonLayout.width,
+          buttonLayout.height,
+        );
       }
 
       const toolbarTop = Math.min(
@@ -1885,7 +2057,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         language = latestLanguage;
         copy = getUiCopy(language);
         titleText.setText(getTitleLabel());
-        backText.setText(copy.game.back);
+        backText.setText(getBackLabel());
         menuText.setText(copy.game.menu);
         refreshStatusText();
       }
@@ -1929,6 +2101,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     });
+
+    board.setSolvedVisualState(completedReview);
 
     if (completedReview) {
       board.setInputCellTarget(null);

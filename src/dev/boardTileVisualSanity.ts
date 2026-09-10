@@ -5,6 +5,7 @@ import { WIREFRAME } from '../board/CellView';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { CellState } from '../puzzle/types';
+import { BOARD_FLOOR_MARK_KEY } from '../view/BoardThemeAssets';
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -17,9 +18,62 @@ function readVisible(value: { readonly visible: boolean } | undefined): boolean 
 type EventHandler = (...args: any[]) => void;
 
 class FakeImage {
-  setDisplaySize(): this { return this; }
-  setTexture(): this { return this; }
-  setVisible(): this { return this; }
+  readonly handlers = new Map<string, EventHandler>();
+  visible = true;
+  interactive = false;
+  tint: number | null = null;
+  x: number;
+  y: number;
+  width = 0;
+  height = 0;
+  readonly textureKey: string;
+
+  constructor(x: number, y: number, textureKey: string) {
+    this.x = x;
+    this.y = y;
+    this.textureKey = textureKey;
+  }
+
+  setDisplaySize(width: number, height: number): this {
+    this.width = width;
+    this.height = height;
+    return this;
+  }
+
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  setVisible(visible: boolean): this {
+    this.visible = visible;
+    return this;
+  }
+
+  setInteractive(): this {
+    this.interactive = true;
+    return this;
+  }
+
+  setTint(tint: number): this {
+    this.tint = tint;
+    return this;
+  }
+
+  clearTint(): this {
+    this.tint = null;
+    return this;
+  }
+
+  on(event: string, callback: EventHandler): this {
+    this.handlers.set(event, callback);
+    return this;
+  }
+
+  trigger(event: string, ...args: any[]): void {
+    this.handlers.get(event)?.(...args);
+  }
 }
 
 class FakeRectangle {
@@ -31,10 +85,10 @@ class FakeRectangle {
   strokeAlpha = 0;
   visible = true;
   interactive = false;
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 
   constructor(
     x: number,
@@ -75,6 +129,18 @@ class FakeRectangle {
     return this;
   }
 
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  setDisplaySize(width: number, height: number): this {
+    this.width = width;
+    this.height = height;
+    return this;
+  }
+
   on(event: string, callback: EventHandler): this {
     this.handlers.set(event, callback);
     return this;
@@ -89,8 +155,8 @@ class FakeText {
   value: string;
   color: string | undefined;
   visible = true;
-  readonly x: number;
-  readonly y: number;
+  x: number;
+  y: number;
 
   constructor(x: number, y: number, value: string, style?: { color?: string }) {
     this.x = x;
@@ -104,19 +170,21 @@ class FakeText {
   setColor(color: string): this { this.color = color; return this; }
   setFontSize(): this { return this; }
   setVisible(visible: boolean): this { this.visible = visible; return this; }
+  setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
 }
 
 class FakeScene {
+  readonly images: FakeImage[] = [];
   readonly rectangles: FakeRectangle[] = [];
   readonly texts: FakeText[] = [];
   readonly inputHandlers = new Map<string, EventHandler>();
-  imageCalls = 0;
   tileSpriteCalls = 0;
 
   readonly add = {
-    image: () => {
-      this.imageCalls += 1;
-      return new FakeImage();
+    image: (x: number, y: number, textureKey: string) => {
+      const image = new FakeImage(x, y, textureKey);
+      this.images.push(image);
+      return image;
     },
     rectangle: (
       x: number,
@@ -150,7 +218,7 @@ class FakeScene {
 
 function createLevel(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'board-wireframe-sanity',
+    id: 'board-asset-sanity',
     width: 1,
     height: 1,
     rowClues: [1],
@@ -181,51 +249,45 @@ function createBoard(level = createLevel()) {
   return { board, puzzle, scene, getChanged: () => changed };
 }
 
-assert(WIREFRAME.floor === 0x252a30, 'Wireframe floor returns to the original dark neutral fill.');
-assert(WIREFRAME.wall === 0x827565, 'Wireframe wall returns to the original warm contrasting fill.');
-assert(WIREFRAME.clueCell === 0x171b20, 'Clue cells remain darker than both floor and wall states.');
-assert(WIREFRAME.mark === '#d54a42', 'Wireframe floor mark uses the approved muted red.');
-
 const editable = createBoard();
-assert(editable.scene.imageCalls === 0, 'Gameplay board must not create Phaser images in wireframe mode.');
-assert(editable.scene.tileSpriteCalls === 0, 'Gameplay board must not create tileSprites in wireframe mode.');
+assert(editable.scene.tileSpriteCalls === 0, 'Gameplay board must not create tileSprites.');
 
-const floorRect = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.floor);
-const wallRect = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.wall);
+const floorImage = editable.scene.images.find((image) => image.textureKey.startsWith('board-floor-'));
+const wallImage = editable.scene.images.find((image) => image.textureKey.startsWith('board-wall-'));
+const floorMark = editable.scene.images.find((image) => image.textureKey === BOARD_FLOOR_MARK_KEY);
 const hoverRect = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.hoverTint);
-const cellInput = editable.scene.rectangles.find((rectangle) => rectangle.interactive);
-const floorMark = editable.scene.texts.find((text) => text.value === '◆' && text.color === WIREFRAME.mark);
-assert(floorRect !== undefined, 'Unknown cell must render a primitive floor rectangle.');
-assert(wallRect !== undefined, 'Editable cell must own a primitive wall rectangle.');
-assert(hoverRect !== undefined && !hoverRect.visible, 'Editable cell owns a dedicated hover overlay without outline resizing.');
-assert(floorRect.strokeWidth === 0 && wallRect.strokeWidth === 0, 'Editable cells must not use per-cell strokes; spacing forms the grid.');
-assert(floorRect.width < 48 && floorRect.height < 48, 'Editable cells leave a fixed gap inside each cell slot.');
+const cellInput = editable.scene.images.find((image) => image.interactive);
+
+assert(floorImage !== undefined, 'Unknown cell must render a floor texture image.');
+assert(wallImage !== undefined, 'Editable cell must own a wall texture image.');
+assert(floorMark !== undefined, 'Editable cell must own the floor-mark image.');
+assert(cellInput === floorImage, 'Floor image is the editable pointer target.');
+assert(floorImage.width < 48 && floorImage.height < 48, 'Tile images preserve the board cell gap.');
+assert(!wallImage.visible, 'Unknown cell starts with wall image hidden.');
+assert(!floorMark.visible, 'Unknown cell starts with floor mark hidden.');
+assert(hoverRect !== undefined && !hoverRect.visible, 'Editable cell owns a dedicated hover overlay.');
+
 const clueBacking = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.clueCell);
-assert(clueBacking !== undefined && clueBacking.strokeWidth === 0, 'Clue cells also avoid per-cell strokes.');
-assert(clueBacking.width < 48 && clueBacking.height < 48, 'Clue cells use the same visual gap as editable cells.');
-assert(cellInput === floorRect, 'Floor rectangle is the editable pointer target.');
-assert(!wallRect.visible, 'Unknown cell starts with wall rectangle hidden.');
-assert(floorMark !== undefined && !floorMark.visible, 'Unknown cell starts with floor mark hidden.');
+assert(clueBacking === undefined, 'Row and column clues render as bare text with no backing tiles.');
 
 const touchPointer = { isDown: true, wasTouch: true, rightButtonDown: () => false };
 editable.board.setActiveTool('floor');
 cellInput.trigger('pointerdown', touchPointer);
 editable.scene.inputHandlers.get('pointerup')?.();
-assert(floorRect.fillColor === WIREFRAME.floor, 'Floor state keeps exactly the same underlying floor fill as Unknown.');
-assert(!wallRect.visible, 'Floor state does not show the wall rectangle.');
-assert(floorMark.visible, 'Floor state adds only the diamond mark.');
+assert(!wallImage.visible, 'Floor state does not show the wall image.');
+assert(floorMark.visible, 'Floor state shows the authored diamond mark asset.');
 assert(editable.getChanged() === 1, 'Actual pointer mutation emits one puzzle-changed callback.');
 
 cellInput.trigger('pointerover', touchPointer);
-assert(hoverRect.visible, 'Hover is rendered as a soft fill overlay instead of a border outline.');
+assert(hoverRect.visible, 'Hover remains a soft fill overlay above the textured cell.');
 cellInput.trigger('pointerout');
 assert(!hoverRect.visible, 'Hover overlay disappears on pointerout.');
 
 editable.board.setActiveTool('wall');
 cellInput.trigger('pointerdown', touchPointer);
 editable.scene.inputHandlers.get('pointerup')?.();
-assert(wallRect.visible, 'Wall state reveals the charcoal wall rectangle.');
-assert(wallRect.fillColor === WIREFRAME.wall, 'Normal wall keeps the warm contrasting fill.');
+assert(wallImage.visible, 'Wall state reveals the authored wall texture image.');
+assert(wallImage.tint === null, 'Normal wall texture has no conflict tint.');
 assert(!floorMark.visible, 'Wall state hides the floor mark.');
 assert(
   editable.scene.texts.filter((text) => text.value === '1').every((text) => text.color === WIREFRAME.clueComplete),
@@ -235,65 +297,64 @@ assert(
 const rightPointer = { isDown: true, rightButtonDown: () => true };
 cellInput.trigger('pointerdown', rightPointer);
 editable.scene.inputHandlers.get('pointerup')?.();
-assert(!wallRect.visible && floorMark.visible, 'Right click overrides the active tool and paints Floor.');
+assert(!wallImage.visible && floorMark.visible, 'Right click overrides the active tool and paints Floor.');
 assert(editable.board.undo(), 'BoardView exposes gesture-level Undo through PuzzleInteractionSession.');
-assert(wallRect.visible && !floorMark.visible, 'Undo refreshes primitive cell visuals from puzzle state.');
+assert(wallImage.visible && !floorMark.visible, 'Undo refreshes textured cell visuals from puzzle state.');
 assert(editable.board.reset(), 'BoardView exposes Reset through PuzzleInteractionSession.');
-assert(!wallRect.visible && !floorMark.visible, 'Reset refreshes the cell back to Unknown.');
+assert(!wallImage.visible && !floorMark.visible, 'Reset refreshes the cell back to Unknown.');
 
 const conflictBoard = createBoard(createLevel({ width: 2, height: 1, rowClues: [1], columnClues: [1, 1], solution: ['##'] }));
-const conflictInputs = conflictBoard.scene.rectangles.filter((rectangle) => rectangle.interactive);
+const conflictInputs = conflictBoard.scene.images.filter((image) => image.interactive);
 conflictBoard.board.setActiveTool('wall');
 conflictInputs[0].trigger('pointerdown', touchPointer);
 conflictBoard.scene.inputHandlers.get('pointerup')?.();
 conflictBoard.board.setActiveTool('wall');
 conflictInputs[1].trigger('pointerdown', touchPointer);
 conflictBoard.scene.inputHandlers.get('pointerup')?.();
-const conflictWalls = conflictBoard.scene.rectangles.filter((rectangle) => rectangle.visible && rectangle.fillColor === WIREFRAME.conflictWall);
-assert(conflictWalls.length >= 2, 'Overfilled rows/columns tint the conflicting wall cells themselves red.');
-
+const conflictWalls = conflictBoard.scene.images.filter(
+  (image) => image.visible && image.textureKey.startsWith('board-wall-') && image.tint === WIREFRAME.conflictWall,
+);
+assert(conflictWalls.length >= 2, 'Overfilled rows/columns tint the conflicting wall textures red.');
 
 const mousePolicy = createBoard(createLevel());
-const mouseInput = mousePolicy.scene.rectangles.find((rectangle) => rectangle.interactive)!;
+const mouseInput = mousePolicy.scene.images.find((image) => image.interactive)!;
+const mouseWall = mousePolicy.scene.images.find((image) => image.textureKey.startsWith('board-wall-'))!;
+const mouseFloorMark = mousePolicy.scene.images.find((image) => image.textureKey === BOARD_FLOOR_MARK_KEY)!;
 mousePolicy.board.setActiveTool('floor');
 mouseInput.trigger('pointerdown', { isDown: true, wasTouch: false, rightButtonDown: () => false });
 mousePolicy.scene.inputHandlers.get('pointerup')?.();
-const mouseWall = mousePolicy.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.wall || rectangle.fillColor === WIREFRAME.conflictWall);
-assert(mouseWall?.visible === true, 'Mouse left button always paints Wall even if Floor was previously selected.');
+assert(mouseWall.visible === true, 'Mouse left button always paints Wall even if Floor was previously selected.');
 mousePolicy.board.setActiveTool('wall');
 mouseInput.trigger('pointerdown', { isDown: true, wasTouch: false, rightButtonDown: () => true });
 mousePolicy.scene.inputHandlers.get('pointerup')?.();
-const mouseFloorMark = mousePolicy.scene.texts.find((text) => text.value === '◆' && text.color === WIREFRAME.mark);
 assert(readVisible(mouseWall) === false && readVisible(mouseFloorMark) === true, 'Mouse right button always paints Floor.');
 
 const touchPolicy = createBoard(createLevel());
-const touchInputPolicy = touchPolicy.scene.rectangles.find((rectangle) => rectangle.interactive)!;
+const touchInputPolicy = touchPolicy.scene.images.find((image) => image.interactive)!;
 touchPolicy.board.setActiveTool('floor');
 touchInputPolicy.trigger('pointerdown', { isDown: true, wasTouch: true, rightButtonDown: () => false });
 touchPolicy.scene.inputHandlers.get('pointerup')?.();
-const touchFloorMarkPolicy = touchPolicy.scene.texts.find((text) => text.value === '◆' && text.color === WIREFRAME.mark);
+const touchFloorMarkPolicy = touchPolicy.scene.images.find((image) => image.textureKey === BOARD_FLOOR_MARK_KEY);
 assert(touchFloorMarkPolicy?.visible === true, 'Touch uses the currently selected Wall/Floor tool.');
-
-
 
 const hintPreview = createBoard(createLevel());
 hintPreview.board.setHintCellTarget({ x: 0, y: 0, state: CellState.Floor } as any);
 const visibleGoldFloorHint = hintPreview.scene.texts.find(
   (text) => text.value === '◆' && text.color === '#d0b978' && text.visible,
 );
-assert(visibleGoldFloorHint !== undefined, 'Floor hint renders an explicit gold floor diamond preview.');
+assert(visibleGoldFloorHint !== undefined, 'Floor hint still renders an explicit gold floor preview.');
 hintPreview.board.setHintCellTarget({ x: 0, y: 0, state: CellState.Wall } as any);
 const visibleWallHint = hintPreview.scene.rectangles.find(
   (rectangle) => rectangle.visible && rectangle.fillColor === WIREFRAME.hintTint && rectangle.fillAlpha >= 0.45,
 );
-assert(visibleWallHint !== undefined, 'Wall hint renders a distinct gold ghost-wall preview.');
+assert(visibleWallHint !== undefined, 'Wall hint still renders a distinct gold ghost-wall preview.');
 
 const monster = createBoard(createLevel({ monsters: [{ x: 0, y: 0 }], solution: ['.'] }));
-assert(monster.scene.imageCalls === 0, 'Monster cell must not create an image asset.');
-assert(monster.scene.texts.some((text) => text.value === 'M' && text.visible), 'Monster uses the wireframe M marker.');
+assert(monster.scene.texts.some((text) => text.value === 'M' && text.visible), 'Monster remains a temporary M marker in this stage.');
+assert(monster.scene.images.some((image) => image.textureKey.startsWith('board-floor-')), 'Monster cell still uses the authored floor tile beneath its placeholder.');
 
 const chest = createBoard(createLevel({ chests: [{ x: 0, y: 0 }], solution: ['.'] }));
-assert(chest.scene.imageCalls === 0, 'Chest cell must not create an image asset.');
-assert(chest.scene.texts.some((text) => text.value === 'C' && text.visible), 'Chest uses the wireframe C marker.');
+assert(chest.scene.texts.some((text) => text.value === 'C' && text.visible), 'Chest remains a temporary C marker in this stage.');
+assert(chest.scene.images.some((image) => image.textureKey.startsWith('board-floor-')), 'Chest cell still uses the authored floor tile beneath its placeholder.');
 
-console.info('[Dungeon Logic] Board visual sanity: muted wireframe palette + hover fill + conflict tint passed');
+console.info('[Dungeon Logic] Board visual sanity: authored floor/wall/mark assets + existing interaction feedback passed');

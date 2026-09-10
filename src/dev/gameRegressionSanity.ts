@@ -57,7 +57,7 @@ assert(gameSceneSource.includes('leaveGameTo(HOME_SCENE_KEY)'), 'Game menu direc
 assert(!gameSceneSource.includes('helpText'), 'Game top chrome no longer keeps a separate Rules text action.');
 assert(!gameSceneSource.includes('settingsText'), 'Game top chrome no longer keeps a separate Settings icon action.');
 assert(!gameSceneSource.includes("'⚙'"), 'Game top chrome no longer relies on a mismatched Unicode gear glyph.');
-assert(gameSceneSource.includes("copy.game.levelTitle(campaignEntry.slot, campaignLevelTotal)"), 'Campaign GameScene title identifies the current level number.');
+assert(gameSceneSource.includes("copy.game.levelTitle(campaignEntry.slot)"), 'Campaign GameScene title identifies the current level number.');
 assert(settingsSceneSource.includes("this.scene.restart({ returnSceneKey: this.returnSceneKey });"), 'Settings preserves GameScene return target across its own restart.');
 assert(settingsSceneSource.includes("this.scene.resume('GameScene');"), 'Settings Back returns directly to the paused GameScene.');
 const gameSceneIndex = mainSource.indexOf('    GameScene,');

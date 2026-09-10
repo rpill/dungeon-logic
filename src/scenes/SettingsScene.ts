@@ -8,12 +8,22 @@ import {
 } from '../profile/PlayerProfileService';
 import { HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
+import { createSceneBackground } from '../runtime/SceneBackground';
 import {
   SettingsService,
   detectVibrationSupport,
   type SupportedLanguage,
 } from '../settings/SettingsService';
 import { getSettingsRows, type SettingsRowId } from '../settings/SettingsViewModel';
+
+const SETTINGS_ICON_KEYS: Readonly<Record<Exclude<SettingsRowId, 'reset'> | 'reset', string>> = {
+  music: 'ui-icon-music',
+  sound: 'ui-icon-sound',
+  vibration: 'ui-icon-vibration',
+  language: 'ui-icon-language',
+  help: 'ui-icon-hint',
+  reset: 'ui-icon-reset',
+};
 
 export class SettingsScene extends Phaser.Scene {
   private readonly pointerGate = new MetaPointerGate();
@@ -34,6 +44,8 @@ export class SettingsScene extends Phaser.Scene {
     this.resetDialogOpen = false;
     this.mutationPending = false;
 
+    const sceneBackground = createSceneBackground(this, 'meta');
+
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
     };
@@ -51,27 +63,30 @@ export class SettingsScene extends Phaser.Scene {
     const copy = getUiCopy(settings.language);
     const narrow = this.scale.width < 700;
 
-    this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      0x111318,
-      1,
-    ).setDepth(-1000);
-
-    const back = this.add.text(
-      16,
-      narrow ? 17 : 20,
-      this.returnSceneKey === 'GameScene' ? copy.common.back : copy.common.backHome,
+    const backY = narrow ? 28 : 42;
+    const backX = narrow ? 18 : 42;
+    const backIconSize = narrow ? 24 : 30;
+    this.add.image(backX + backIconSize / 2, backY, 'ui-icon-back')
+      .setDisplaySize(backIconSize, backIconSize)
+      .setTint(0xf4ead7);
+    const backLabel = this.add.text(
+      backX + backIconSize + (narrow ? 8 : 10),
+      backY,
+      this.returnSceneKey === 'GameScene' ? copy.common.back.replace(/^←\s*/, '') : copy.common.backHome.replace(/^←\s*/, ''),
       {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '14px',
-      color: '#89929d',
-      fontStyle: 'bold',
+        fontFamily: 'monospace',
+        fontSize: narrow ? '14px' : '17px',
+        color: '#f4ead7',
+        fontStyle: 'bold',
       },
-    ).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-    back.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    ).setOrigin(0, 0.5);
+    const backHit = this.add.zone(
+      backX + (backIconSize + 10 + backLabel.width) / 2,
+      backY,
+      backIconSize + 10 + backLabel.width,
+      Math.max(44, backIconSize + 10),
+    ).setInteractive({ useHandCursor: true });
+    backHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (!this.canActivate(pointer)) return;
       if (this.returnSceneKey === 'GameScene') {
         this.scene.resume('GameScene');
@@ -81,19 +96,40 @@ export class SettingsScene extends Phaser.Scene {
       this.scene.start(HOME_SCENE_KEY);
     });
 
-    const titleY = narrow ? 66 : 78;
-    this.add.text(this.scale.width / 2, titleY, copy.settings.title, {
+    const titleY = narrow ? 70 : 84;
+    const title = this.add.text(this.scale.width / 2, titleY, copy.settings.title, {
       fontFamily: 'monospace',
-      fontSize: narrow ? '26px' : '32px',
-      color: '#f0e6d2',
+      fontSize: narrow ? '28px' : '40px',
+      color: '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const width = Math.min(this.scale.width - (narrow ? 28 : 48), 650);
-    const rowHeight = narrow ? 52 : 56;
+    if (!narrow) {
+      const titleDecor = this.add.graphics();
+      titleDecor.fillStyle(0xf0b14f, 0.95);
+      const diamondSize = 6;
+      const leftDiamondX = title.x - title.width / 2 - 34;
+      const rightDiamondX = title.x + title.width / 2 + 34;
+      const drawDiamond = (x: number): void => {
+        titleDecor.beginPath();
+        titleDecor.moveTo(x, titleY - diamondSize);
+        titleDecor.lineTo(x + diamondSize, titleY);
+        titleDecor.lineTo(x, titleY + diamondSize);
+        titleDecor.lineTo(x - diamondSize, titleY);
+        titleDecor.closePath();
+        titleDecor.fillPath();
+      };
+      drawDiamond(leftDiamondX);
+      drawDiamond(rightDiamondX);
+      titleDecor.fillRect(leftDiamondX - 66, titleY - 1, 46, 2);
+      titleDecor.fillRect(rightDiamondX + 20, titleY - 1, 46, 2);
+    }
+
+    const width = Math.min(this.scale.width - (narrow ? 28 : 56), narrow ? 430 : 720);
+    const rowHeight = narrow ? 56 : 64;
     const rowGap = narrow ? 10 : 12;
     const rows = getSettingsRows(settings, settingsService.isVibrationSupported(), settings.language);
-    const startY = titleY + (narrow ? 70 : 82);
+    const startY = titleY + (narrow ? 72 : 94);
 
     rows.forEach((row, index) => {
       const y = startY + index * (rowHeight + rowGap);
@@ -110,6 +146,7 @@ export class SettingsScene extends Phaser.Scene {
     });
 
     const handleResize = (): void => {
+      sceneBackground.sync();
       if (this.scene.isActive()) this.scene.restart({ returnSceneKey: this.returnSceneKey });
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
@@ -128,35 +165,87 @@ export class SettingsScene extends Phaser.Scene {
     danger: boolean,
     service: SettingsService,
   ): void {
-    const fill = danger ? 0x2b2022 : 0x1b2027;
-    const stroke = danger ? 0x7d4d52 : 0x4b535d;
-    const labelColor = danger ? '#d58b91' : '#d8d1c4';
-    const row = this.add.rectangle(this.scale.width / 2, y, width, height, fill, 1)
-      .setStrokeStyle(1, stroke)
+    const narrow = this.scale.width < 700;
+    const radius = narrow ? 9 : 11;
+    const normalFill = danger ? 0xff4f57 : 0x1f2c4a;
+    const hoverFill = danger ? 0xff6168 : 0x28395f;
+    const pressedFill = danger ? 0xd83f47 : 0x18243d;
+    const background = this.add.graphics();
+    const hitArea = this.add.zone(this.scale.width / 2, y, width, height)
       .setInteractive({ useHandCursor: true });
 
-    const left = this.scale.width / 2 - width / 2 + 18;
-    const right = this.scale.width / 2 + width / 2 - 18;
-    this.add.text(left, y, label, {
+    const redraw = (fill: number): void => {
+      background.clear();
+      background.fillStyle(fill, 1);
+      background.fillRoundedRect(
+        this.scale.width / 2 - width / 2,
+        y - height / 2,
+        width,
+        height,
+        radius,
+      );
+    };
+    redraw(normalFill);
+
+    const left = this.scale.width / 2 - width / 2;
+    const right = this.scale.width / 2 + width / 2;
+    const iconSize = narrow ? 25 : 31;
+    const iconX = left + (narrow ? 28 : 36);
+    const labelX = left + (narrow ? 54 : 72);
+    const icon = this.add.image(iconX, y, SETTINGS_ICON_KEYS[id])
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(0xf4ead7);
+
+    const labelText = this.add.text(labelX, y, label, {
       fontFamily: 'monospace',
-      fontSize: this.scale.width < 700 ? '14px' : '16px',
-      color: labelColor,
+      fontSize: narrow ? '15px' : '19px',
+      color: danger ? '#fff4df' : '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
 
-    if (value !== null) {
-      this.add.text(right, y, value, {
+    let valueText: Phaser.GameObjects.Text | null = null;
+    if (!danger && value !== null && id !== 'help') {
+      const valueColor = id === 'language'
+        ? '#f0bd63'
+        : value === getUiCopy(service.getSettings().language).settings.on
+          ? '#55e5bd'
+          : '#7f8ba2';
+      valueText = this.add.text(right - (narrow ? 32 : 42), y, value, {
         fontFamily: 'monospace',
-        fontSize: this.scale.width < 700 ? '13px' : '15px',
-        color: danger ? '#d58b91' : '#d0b978',
+        fontSize: narrow ? '14px' : '18px',
+        color: valueColor,
         fontStyle: 'bold',
       }).setOrigin(1, 0.5);
     }
 
-    row.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.canActivate(pointer)) return;
-      void this.activateRow(id, service);
-    });
+    const chevron = danger
+      ? null
+      : this.add.text(right - (narrow ? 14 : 18), y, '›', {
+        fontFamily: 'monospace',
+        fontSize: narrow ? '24px' : '30px',
+        color: '#8190aa',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+
+    hitArea
+      .on('pointerover', () => {
+        if (!this.mutationPending && !this.resetDialogOpen) redraw(hoverFill);
+      })
+      .on('pointerout', () => redraw(normalFill))
+      .on('pointerdown', () => {
+        if (!this.mutationPending && !this.resetDialogOpen) redraw(pressedFill);
+      })
+      .on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        redraw(hoverFill);
+        if (!this.canActivate(pointer)) return;
+        void this.activateRow(id, service);
+      });
+
+    // Keep explicit references alive with the scene and make intent clear.
+    void icon;
+    void labelText;
+    void valueText;
+    void chevron;
   }
 
   private async activateRow(id: SettingsRowId, service: SettingsService): Promise<void> {
@@ -217,15 +306,17 @@ export class SettingsScene extends Phaser.Scene {
       this.scale.width,
       this.scale.height,
       0x000000,
-      0.65,
+      0.7,
     ).setDepth(2000).setInteractive();
-    const panel = this.add.rectangle(x, y, width, height, 0x20252c, 1)
-      .setStrokeStyle(2, 0x7d4d52)
-      .setDepth(2001);
+    const panel = this.add.graphics().setDepth(2001);
+    panel.fillStyle(0x17213a, 1);
+    panel.fillRoundedRect(x - width / 2, y - height / 2, width, height, 12);
+    panel.lineStyle(2, 0x6d7894, 1);
+    panel.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 12);
     const title = this.add.text(x, y - height / 2 + 34, copy.settings.resetTitle, {
       fontFamily: 'monospace',
       fontSize: narrow ? '17px' : '19px',
-      color: '#f0e6d2',
+      color: '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(2002);
     const dialogCopy = this.add.text(
@@ -235,7 +326,7 @@ export class SettingsScene extends Phaser.Scene {
       {
         fontFamily: 'monospace',
         fontSize: narrow ? '12px' : '13px',
-        color: '#b8b1a5',
+        color: '#aeb6c8',
         align: 'center',
         lineSpacing: 4,
       },
@@ -243,27 +334,31 @@ export class SettingsScene extends Phaser.Scene {
 
     const buttonGap = 10;
     const buttonWidth = (width - 36 - buttonGap) / 2;
+    const buttonHeight = 44;
     const buttonY = y + height / 2 - 43;
     const cancelX = x - (buttonWidth + buttonGap) / 2;
     const resetX = x + (buttonWidth + buttonGap) / 2;
-    const cancel = this.add.rectangle(cancelX, buttonY, buttonWidth, 44, 0x2a3038, 1)
-      .setStrokeStyle(1, 0x5b636d)
-      .setDepth(2002)
+    const buttons = this.add.graphics().setDepth(2002);
+    buttons.fillStyle(0x263451, 1);
+    buttons.fillRoundedRect(cancelX - buttonWidth / 2, buttonY - buttonHeight / 2, buttonWidth, buttonHeight, 9);
+    buttons.fillStyle(0xff4f57, 1);
+    buttons.fillRoundedRect(resetX - buttonWidth / 2, buttonY - buttonHeight / 2, buttonWidth, buttonHeight, 9);
+    const cancelHit = this.add.zone(cancelX, buttonY, buttonWidth, buttonHeight)
+      .setDepth(2003)
       .setInteractive({ useHandCursor: true });
-    const confirm = this.add.rectangle(resetX, buttonY, buttonWidth, 44, 0x4a292d, 1)
-      .setStrokeStyle(1, 0x9c5c63)
-      .setDepth(2002)
+    const confirmHit = this.add.zone(resetX, buttonY, buttonWidth, buttonHeight)
+      .setDepth(2003)
       .setInteractive({ useHandCursor: true });
     const cancelLabel = this.add.text(cancelX, buttonY, copy.common.cancel, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '13px',
-      color: '#d8d1c4',
+      color: '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(2003);
     const confirmLabel = this.add.text(resetX, buttonY, copy.common.reset, {
       fontFamily: 'monospace',
       fontSize: narrow ? '12px' : '13px',
-      color: '#e3a0a6',
+      color: '#fff4df',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(2003);
 
@@ -272,18 +367,19 @@ export class SettingsScene extends Phaser.Scene {
       panel.destroy();
       title.destroy();
       dialogCopy.destroy();
-      cancel.destroy();
-      confirm.destroy();
+      buttons.destroy();
+      cancelHit.destroy();
+      confirmHit.destroy();
       cancelLabel.destroy();
       confirmLabel.destroy();
       this.resetDialogOpen = false;
     };
 
-    cancel.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    cancelHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (!this.pointerGate.canActivate(pointer.id) || this.mutationPending) return;
       destroyDialog();
     });
-    confirm.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    confirmHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (!this.pointerGate.canActivate(pointer.id) || this.mutationPending) return;
       this.mutationPending = true;
       void service.resetProgress().then(() => {

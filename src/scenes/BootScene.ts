@@ -22,7 +22,12 @@ import {
 import { createYandexPlatformServices } from '../platform/yandex';
 import { resolveSupportedLanguage } from '../i18n/Language';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
+import { preloadSceneBackgrounds } from '../runtime/SceneBackground';
+import { preloadHomeMenuAssets } from '../runtime/HomeMenuButton';
+import { preloadCommonUiIcons } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
+import { preloadBoardThemeAssets } from '../view/BoardThemeAssets';
+import { preloadFixedObjectAssets } from '../view/FixedObjectAssets';
 import {
   loadGeneratedReportFromDevServer,
   resolveDevLaunch,
@@ -31,6 +36,15 @@ import {
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('BootScene');
+  }
+
+  preload(): void {
+    preloadSceneBackgrounds(this);
+    preloadHomeMenuAssets(this);
+    preloadCommonUiIcons(this);
+    preloadBoardThemeAssets(this);
+    preloadFixedObjectAssets(this);
+    this.load.image('home-logo', '/assets/logo.png');
   }
 
   create(): void {
