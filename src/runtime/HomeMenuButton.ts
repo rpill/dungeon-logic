@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-export type HomeMenuIcon = 'play' | 'daily' | 'levels' | 'statistics' | 'settings';
+export type HomeMenuIcon = 'play' | 'daily' | 'levels' | 'statistics' | 'settings' | 'info' | 'back';
 
 type HomeMenuButtonState = 'normal' | 'hover' | 'pressed';
 
@@ -17,6 +17,8 @@ const HOME_MENU_ICON_KEYS: Record<HomeMenuIcon, string> = {
   levels: 'home-menu-icon-levels',
   statistics: 'home-menu-icon-statistics',
   settings: 'home-menu-icon-settings',
+  info: 'ui-icon-info',
+  back: 'ui-icon-back',
 };
 
 const HOME_MENU_FILL_FLIPS: Record<HomeMenuIcon, { readonly x: boolean; readonly y: boolean }> = {
@@ -25,6 +27,8 @@ const HOME_MENU_FILL_FLIPS: Record<HomeMenuIcon, { readonly x: boolean; readonly
   levels: { x: false, y: true },
   statistics: { x: true, y: true },
   settings: { x: false, y: false },
+  info: { x: true, y: false },
+  back: { x: false, y: true },
 };
 
 const HORIZONTAL_SLICE = 48;
@@ -53,6 +57,7 @@ export interface HomeMenuButtonOptions {
   readonly icon: HomeMenuIcon;
   readonly enabled?: boolean;
   readonly accentFrame?: boolean;
+  readonly compact?: boolean;
   readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
 }
 
@@ -68,6 +73,7 @@ export function createHomeMenuButton(
   options: HomeMenuButtonOptions,
 ): HomeMenuButtonHandle {
   const enabled = options.enabled ?? true;
+  const compact = options.compact ?? false;
   const fill = scene.add.nineslice(
     options.x,
     options.y,
@@ -97,27 +103,43 @@ export function createHomeMenuButton(
   );
 
   const baseFontSize = scene.scale.width < 700 ? 22 : 24;
-  const iconSize = scene.scale.width < 700 ? 28 : 31;
+  const fontSize = compact
+    ? (scene.scale.width < 700 ? 13 : 15)
+    : baseFontSize;
+  const baseIconSize = scene.scale.width < 700 ? 28 : 31;
+  const iconSize = compact
+    ? (scene.scale.width < 700 ? 18 : 21)
+    : baseIconSize;
   const buttonLeft = options.x - options.width / 2;
   const buttonRight = options.x + options.width / 2;
   const iconX = buttonLeft + options.width * 0.27;
   const labelX = buttonLeft + options.width * 0.41;
   const label = scene.add.text(labelX, options.y, options.label, {
     fontFamily: 'monospace',
-    fontSize: `${baseFontSize}px`,
+    fontSize: `${fontSize}px`,
     color: options.labelColor,
     fontStyle: 'bold',
   }).setOrigin(0, 0.5);
 
-  const availableTextWidth = Math.max(80, buttonRight - 22 - labelX);
+  const availableTextWidth = compact
+    ? Math.max(52, options.width - iconSize - 44)
+    : Math.max(80, buttonRight - 22 - labelX);
   if (label.width > availableTextWidth) {
-    const fittedFontSize = Math.max(15, Math.floor(baseFontSize * availableTextWidth / label.width));
+    const fittedFontSize = Math.max(compact ? 11 : 15, Math.floor(fontSize * availableTextWidth / label.width));
     label.setFontSize(fittedFontSize);
   }
 
   const icon = scene.add.image(iconX, options.y, HOME_MENU_ICON_KEYS[options.icon])
     .setDisplaySize(iconSize, iconSize)
     .setTint(Phaser.Display.Color.HexStringToColor(options.labelColor).color);
+
+  if (compact) {
+    const compactGap = scene.scale.width < 700 ? 7 : 9;
+    const compactContentWidth = iconSize + compactGap + label.width;
+    const compactStartX = options.x - compactContentWidth / 2;
+    icon.setPosition(compactStartX + iconSize / 2, options.y);
+    label.setPosition(compactStartX + iconSize + compactGap, options.y);
+  }
 
   const restingFrameState: HomeMenuButtonState = options.accentFrame ? 'hover' : 'normal';
   const setState = (state: HomeMenuButtonState): void => {

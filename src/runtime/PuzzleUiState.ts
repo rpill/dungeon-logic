@@ -105,8 +105,8 @@ export function calculatePuzzleToolbarLayout(
   if (!showToolButtons) {
     const margin = viewportClass === 'narrow' ? 12 : 16;
     const gap = 10;
-    const buttonHeight = 48;
-    const buttonWidth = viewportClass === 'wide' ? 168 : 148;
+    const buttonHeight = viewportClass === 'wide' ? 58 : 54;
+    const buttonWidth = viewportClass === 'wide' ? 260 : 210;
     const totalWidth = buttonWidth * 3 + gap * 2;
     const startX = (viewportWidth - totalWidth) / 2;
     const y = viewportHeight - bottomInset - margin - buttonHeight / 2;
@@ -126,26 +126,27 @@ export function calculatePuzzleToolbarLayout(
   if (viewportClass === 'narrow') {
     const margin = 12;
     const gapX = 8;
-    const gapY = 8;
-    const buttonHeight = 48;
+    const gapY = 22;
+    const actionButtonHeight = 48;
+    const toolButtonHeight = 52;
     const toolButtonWidth = Math.floor((viewportWidth - margin * 2 - gapX) / 2);
     const actionButtonWidth = Math.floor((viewportWidth - margin * 2 - gapX * 2) / 3);
-    const bottomY = viewportHeight - bottomInset - margin - buttonHeight / 2;
-    const topY = bottomY - buttonHeight - gapY;
+    const bottomY = viewportHeight - bottomInset - margin - actionButtonHeight / 2;
+    const topY = bottomY - actionButtonHeight / 2 - gapY - toolButtonHeight / 2;
     const leftToolX = margin + toolButtonWidth / 2;
     const rightToolX = viewportWidth - margin - toolButtonWidth / 2;
     const firstActionX = margin + actionButtonWidth / 2;
 
     return {
       mode: 'stacked',
-      buttonHeight,
+      buttonHeight: actionButtonHeight,
       bottomY,
       buttons: [
-        { id: 'wall', x: leftToolX, y: topY, width: toolButtonWidth, height: buttonHeight },
-        { id: 'floor', x: rightToolX, y: topY, width: toolButtonWidth, height: buttonHeight },
-        { id: 'undo', x: firstActionX, y: bottomY, width: actionButtonWidth, height: buttonHeight },
-        { id: 'reset', x: firstActionX + actionButtonWidth + gapX, y: bottomY, width: actionButtonWidth, height: buttonHeight },
-        { id: 'hint', x: firstActionX + (actionButtonWidth + gapX) * 2, y: bottomY, width: actionButtonWidth, height: buttonHeight },
+        { id: 'wall', x: leftToolX, y: topY, width: toolButtonWidth, height: toolButtonHeight },
+        { id: 'floor', x: rightToolX, y: topY, width: toolButtonWidth, height: toolButtonHeight },
+        { id: 'undo', x: firstActionX, y: bottomY, width: actionButtonWidth, height: actionButtonHeight },
+        { id: 'reset', x: firstActionX + actionButtonWidth + gapX, y: bottomY, width: actionButtonWidth, height: actionButtonHeight },
+        { id: 'hint', x: firstActionX + (actionButtonWidth + gapX) * 2, y: bottomY, width: actionButtonWidth, height: actionButtonHeight },
       ],
     };
   }

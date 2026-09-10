@@ -55,6 +55,7 @@ import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createHomeMenuButton } from '../runtime/HomeMenuButton';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -212,52 +213,80 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(0.5);
 
-    const topActionY = chrome.titleY + safeTop;
-    const topActionGap = this.scale.width < 700 ? 6 : 8;
-    const topActionIconSize = Math.max(20, Math.round(chrome.actionFontSize * 1.25));
     const getBackLabel = (): string => copy.game.back.replace(/^←\s*/, '');
+    const topActionBackground = this.add.graphics();
+    const backHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
+    const menuHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
+    const backIcon = this.add.image(0, 0, 'ui-icon-back').setTint(0xf4ead7);
+    const backText = this.add.text(0, 0, getBackLabel(), {
+      fontFamily: 'monospace',
+      fontSize: `${chrome.actionFontSize}px`,
+      color: '#f4ead7',
+      fontStyle: 'bold',
+    }).setOrigin(0, 0.5);
+    const menuIcon = this.add.image(0, 0, 'ui-icon-menu').setTint(0xf4ead7);
+    const menuText = this.add.text(0, 0, copy.game.menu, {
+      fontFamily: 'monospace',
+      fontSize: `${chrome.actionFontSize}px`,
+      color: '#f4ead7',
+      fontStyle: 'bold',
+    }).setOrigin(0, 0.5);
+    let backHovered = false;
+    let menuHovered = false;
 
-    const backIcon = this.add.image(
-      chrome.actionInset + topActionIconSize / 2,
-      topActionY,
-      'ui-icon-back',
-    )
-      .setDisplaySize(topActionIconSize, topActionIconSize)
-      .setTint(0xf4ead7)
-      .setInteractive({ useHandCursor: true });
-    const backText = this.add.text(
-      chrome.actionInset + topActionIconSize + topActionGap,
-      topActionY,
-      getBackLabel(),
-      {
-        fontFamily: 'monospace',
-        fontSize: `${chrome.actionFontSize}px`,
-        color: '#f4ead7',
-        fontStyle: 'bold',
-      },
-    )
-      .setOrigin(0, 0.5)
-      .setInteractive({ useHandCursor: true });
+    const redrawTopActions = (): void => {
+      const draw = (hit: Phaser.GameObjects.Zone, hovered: boolean): void => {
+        topActionBackground.fillStyle(hovered ? 0x2a3d66 : 0x1d2b4b, 1);
+        topActionBackground.fillRoundedRect(
+          hit.x - hit.width / 2,
+          hit.y - hit.height / 2,
+          hit.width,
+          hit.height,
+          this.scale.width < 700 ? 9 : 11,
+        );
+      };
+      topActionBackground.clear();
+      draw(backHit, backHovered);
+      draw(menuHit, menuHovered);
+    };
 
-    const menuText = this.add.text(
-      this.scale.width - chrome.actionInset,
-      topActionY,
-      copy.game.menu,
-      {
-        fontFamily: 'monospace',
-        fontSize: `${chrome.actionFontSize}px`,
-        color: '#f4ead7',
-        fontStyle: 'bold',
-      },
-    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-    const menuIcon = this.add.image(
-      this.scale.width - chrome.actionInset - menuText.width - topActionGap - topActionIconSize / 2,
-      topActionY,
-      'ui-icon-menu',
-    )
-      .setDisplaySize(topActionIconSize, topActionIconSize)
-      .setTint(0xf4ead7)
-      .setInteractive({ useHandCursor: true });
+    const layoutTopActions = (layout = chrome, insetTop = safeTop): void => {
+      const narrowTop = this.scale.width < 700;
+      const height = narrowTop ? 40 : 48;
+      const backWidth = narrowTop ? 112 : 150;
+      const menuWidth = narrowTop ? 104 : 138;
+      const gap = narrowTop ? 7 : 9;
+      const iconSize = narrowTop ? 22 : 28;
+      const y = layout.titleY + insetTop;
+      const backX = layout.actionInset + backWidth / 2;
+      const menuX = this.scale.width - layout.actionInset - menuWidth / 2;
+
+      backHit.setPosition(backX, y).setSize(backWidth, height);
+      menuHit.setPosition(menuX, y).setSize(menuWidth, height);
+      backText.setFontSize(layout.actionFontSize).setText(getBackLabel());
+      menuText.setFontSize(layout.actionFontSize).setText(copy.game.menu);
+      backIcon.setDisplaySize(iconSize, iconSize);
+      menuIcon.setDisplaySize(iconSize, iconSize);
+
+      const backContentWidth = iconSize + gap + backText.width;
+      const backStartX = backX - backContentWidth / 2;
+      backIcon.setPosition(backStartX + iconSize / 2, y);
+      backText.setPosition(backStartX + iconSize + gap, y);
+
+      const menuContentWidth = iconSize + gap + menuText.width;
+      const menuStartX = menuX - menuContentWidth / 2;
+      menuIcon.setPosition(menuStartX + iconSize / 2, y);
+      menuText.setPosition(menuStartX + iconSize + gap, y);
+      redrawTopActions();
+    };
+
+    backHit
+      .on('pointerover', () => { backHovered = true; redrawTopActions(); })
+      .on('pointerout', () => { backHovered = false; redrawTopActions(); });
+    menuHit
+      .on('pointerover', () => { menuHovered = true; redrawTopActions(); })
+      .on('pointerout', () => { menuHovered = false; redrawTopActions(); });
+    layoutTopActions();
 
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
     const monetizationService = profileService !== null && platformServices != null
@@ -427,6 +456,7 @@ export class GameScene extends Phaser.Scene {
     );
 
     type ToolbarVisual = {
+      readonly id: PuzzleToolbarButtonId;
       readonly background: Phaser.GameObjects.Graphics;
       readonly hitArea: Phaser.GameObjects.Zone;
       readonly icon: Phaser.GameObjects.Image | null;
@@ -440,11 +470,17 @@ export class GameScene extends Phaser.Scene {
     };
     const toolbarVisuals = new Map<PuzzleToolbarButtonId, ToolbarVisual>();
     const toolbarIconKeys: Partial<Record<PuzzleToolbarButtonId, string>> = {
+      wall: 'board-wall-01',
+      floor: 'board-floor-mark',
       undo: 'ui-icon-undo',
       reset: 'ui-icon-reset',
       hint: 'ui-icon-hint',
     };
-    const getToolbarRadius = (): number => this.scale.width < 700 ? 9 : 10;
+    const getToolbarRadius = (id: PuzzleToolbarButtonId): number => (
+      id === 'wall' || id === 'floor'
+        ? (this.scale.width < 700 ? 7 : 8)
+        : (this.scale.width < 700 ? 9 : 10)
+    );
     const adjustToolbarColor = (color: number, amount: number): number => {
       const r = Math.max(0, Math.min(255, ((color >> 16) & 0xff) + amount));
       const g = Math.max(0, Math.min(255, ((color >> 8) & 0xff) + amount));
@@ -466,7 +502,7 @@ export class GameScene extends Phaser.Scene {
         visual.hitArea.y - visual.height / 2,
         visual.width,
         visual.height,
-        getToolbarRadius(),
+        getToolbarRadius(visual.id),
       );
     };
     const layoutToolbarContent = (
@@ -479,12 +515,17 @@ export class GameScene extends Phaser.Scene {
       visual.width = width;
       visual.height = height;
       visual.hitArea.setPosition(x, y).setSize(width, height);
-      const iconSize = this.scale.width < 700 ? 22 : 26;
+      const narrowToolbar = this.scale.width < 700;
+      const iconSize = visual.id === 'wall'
+        ? (narrowToolbar ? 30 : 34)
+        : visual.id === 'floor'
+          ? (narrowToolbar ? 26 : 30)
+          : (narrowToolbar ? 22 : 28);
       if (visual.icon === null) {
         visual.label.setPosition(x, y).setOrigin(0.5);
       } else {
         visual.icon.setDisplaySize(iconSize, iconSize);
-        const gap = this.scale.width < 700 ? 8 : 10;
+        const gap = narrowToolbar ? 8 : 10;
         const totalWidth = iconSize + gap + visual.label.width;
         const startX = x - totalWidth / 2;
         visual.icon.setPosition(startX + iconSize / 2, y);
@@ -703,56 +744,78 @@ export class GameScene extends Phaser.Scene {
       const container = this.add.container(0, 0).setDepth(200);
       gameMenuContainer = container;
 
+      const narrowMenu = this.scale.width < 700;
       const overlay = this.add.rectangle(
         this.scale.width / 2,
         this.scale.height / 2,
         this.scale.width,
         this.scale.height,
-        0x090b0e,
-        0.72,
+        0x080d18,
+        0.82,
       ).setInteractive();
-      const panelWidth = Math.min(this.scale.width - 32, this.scale.width < 700 ? 340 : 420);
-      const buttonHeight = this.scale.width < 700 ? 42 : 48;
-      const buttonGap = 10;
-      const panelPadding = 20;
-      const titleHeight = 46;
-      const options = [
-        { label: copy.game.continueGame, action: closeGameMenu },
-        { label: copy.game.rules, action: () => openSceneOverlayFromMenu(HELP_SCENE_KEY) },
-        { label: copy.common.settings, action: () => openSceneOverlayFromMenu(SETTINGS_SCENE_KEY) },
-        {
-          label: launchData.context.mode === 'daily' ? copy.game.exitDaily : copy.game.exitLevels,
-          action: () => leaveGameTo(launchData.context.mode === 'daily' ? DAILY_SCENE_KEY : LEVELS_SCENE_KEY),
-        },
-        { label: copy.game.exitHome, action: () => leaveGameTo(HOME_SCENE_KEY) },
-      ];
-      const panelHeight = panelPadding * 2 + titleHeight + options.length * buttonHeight + (options.length - 1) * buttonGap;
+      container.add(overlay);
+
+      const buttonWidth = Math.min(
+        this.scale.width - (narrowMenu ? 36 : 72),
+        narrowMenu ? 340 : 420,
+      );
+      const buttonHeight = narrowMenu ? 54 : 60;
+      const buttonGap = narrowMenu ? 10 : 14;
+      const titleHeight = narrowMenu ? 44 : 52;
+      const totalHeight = titleHeight
+        + 18
+        + buttonHeight * 4
+        + buttonGap * 3;
       const centerX = this.scale.width / 2;
-      const centerY = this.scale.height / 2;
-      const panel = this.add.rectangle(centerX, centerY, panelWidth, panelHeight, 0x171b20, 1)
-        .setStrokeStyle(2, 0x555b62);
-      const title = this.add.text(centerX, centerY - panelHeight / 2 + panelPadding + 8, copy.game.menu, {
+      const topY = this.scale.height / 2 - totalHeight / 2;
+      const title = this.add.text(centerX, topY, copy.game.menu, {
         fontFamily: 'monospace',
-        fontSize: this.scale.width < 700 ? '18px' : '22px',
-        color: '#f0e6d2',
+        fontSize: narrowMenu ? '22px' : '28px',
+        color: '#f4ead7',
         fontStyle: 'bold',
       }).setOrigin(0.5, 0);
-      container.add([overlay, panel, title]);
+      container.add(title);
 
-      const firstButtonY = centerY - panelHeight / 2 + panelPadding + titleHeight + buttonHeight / 2;
+      const options = [
+        {
+          label: copy.game.continueGame,
+          icon: 'play' as const,
+          labelColor: '#f4ead7',
+          action: closeGameMenu,
+        },
+        {
+          label: copy.game.rules,
+          icon: 'info' as const,
+          labelColor: '#f4ead7',
+          action: () => openSceneOverlayFromMenu(HELP_SCENE_KEY),
+        },
+        {
+          label: copy.common.settings,
+          icon: 'settings' as const,
+          labelColor: '#f4ead7',
+          action: () => openSceneOverlayFromMenu(SETTINGS_SCENE_KEY),
+        },
+        {
+          label: copy.game.exitHome,
+          icon: 'back' as const,
+          labelColor: '#d98a8e',
+          action: () => leaveGameTo(HOME_SCENE_KEY),
+        },
+      ];
+
+      const firstButtonY = topY + titleHeight + 18 + buttonHeight / 2;
       options.forEach((option, index) => {
-        const y = firstButtonY + index * (buttonHeight + buttonGap);
-        const rectangle = this.add.rectangle(centerX, y, panelWidth - panelPadding * 2, buttonHeight, 0x2a3038, 1)
-          .setStrokeStyle(1, index >= options.length - 2 ? 0x686e76 : 0xd0b978)
-          .setInteractive({ useHandCursor: true });
-        const label = this.add.text(centerX, y, option.label, {
-          fontFamily: 'monospace',
-          fontSize: this.scale.width < 700 ? '12px' : '14px',
-          color: index >= options.length - 2 ? '#aeb4bc' : '#f0d28a',
-          fontStyle: 'bold',
-        }).setOrigin(0.5);
-        rectangle.on('pointerup', option.action);
-        container.add([rectangle, label]);
+        const button = createHomeMenuButton(this, {
+          x: centerX,
+          y: firstButtonY + index * (buttonHeight + buttonGap),
+          width: buttonWidth,
+          height: buttonHeight,
+          label: option.label,
+          labelColor: option.labelColor,
+          icon: option.icon,
+          onActivate: () => option.action(),
+        });
+        container.add([button.fill, button.frame, button.icon, button.label]);
       });
     };
 
@@ -771,6 +834,7 @@ export class GameScene extends Phaser.Scene {
       return step.expectedState === tool;
     };
 
+    let toolbarVisible = true;
     const syncToolbar = (): void => {
       const hintStatus = profileService?.getHintRechargeStatus(Date.now());
       const rankedHintOpen = !rankedDaily || rankedDailyHintUnlocked();
@@ -794,8 +858,8 @@ export class GameScene extends Phaser.Scene {
         const visual = toolbarVisuals.get(buttonState.id);
         if (visual === undefined) continue;
 
-        const isToolButton = buttonState.id === 'wall' || buttonState.id === 'floor';
-        const toolAllowed = isToolButton
+        const isToolSelector = buttonState.id === 'wall' || buttonState.id === 'floor';
+        const toolAllowed = isToolSelector
           ? onboardingAllowsTool(buttonState.id)
           : !onboardingBlocksInteraction;
         const resetAllowedInReview = completedReview && buttonState.id === 'reset';
@@ -811,25 +875,34 @@ export class GameScene extends Phaser.Scene {
         const fill = disabled
           ? 0x1a2238
           : buttonState.id === 'reset'
-            ? 0xff4f57
+            ? 0xc96568
             : guided
               ? 0x8a5155
-              : buttonState.active
-                ? 0x40557f
+              : isToolSelector
+                ? (buttonState.active ? 0x40577f : 0x18233a)
                 : 0x1f2c4a;
         const textColor = disabled
           ? '#6f788c'
           : guided
             ? '#fff0e8'
             : '#f4ead7';
+        const hideHintButton = showTouchToolButtons && currentHint !== null && buttonState.id === 'hint';
+        const buttonVisible = toolbarVisible && !hideHintButton;
 
         visual.baseFill = fill;
         visual.disabled = disabled;
         visual.pressed = false;
         visual.label.setText(buttonState.label).setColor(textColor);
-        visual.icon?.setTint(Phaser.Display.Color.HexStringToColor(textColor).color);
+        if (visual.icon !== null) {
+          visual.icon.setAlpha(disabled ? 0.52 : 1);
+          if (!isToolSelector) {
+            visual.icon.setTint(Phaser.Display.Color.HexStringToColor(textColor).color);
+          } else {
+            visual.icon.clearTint();
+          }
+        }
         visual.hitArea.disableInteractive();
-        if (!disabled) visual.hitArea.setInteractive({ useHandCursor: true });
+        if (!disabled && buttonVisible) visual.hitArea.setInteractive({ useHandCursor: true });
         const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
         if (buttonLayout !== undefined) {
           layoutToolbarContent(
@@ -842,15 +915,24 @@ export class GameScene extends Phaser.Scene {
         } else {
           redrawToolbarBackground(visual);
         }
+
+        visual.background.setVisible(!hideHintButton);
+        visual.hitArea.setVisible(buttonVisible);
+        visual.icon?.setVisible(buttonVisible);
+        visual.label.setVisible(buttonVisible);
+        if (!toolbarVisible) visual.background.setVisible(false);
       }
     };
 
     const setToolbarVisible = (visible: boolean): void => {
-      for (const visual of toolbarVisuals.values()) {
-        visual.background.setVisible(visible);
-        visual.hitArea.setVisible(visible);
-        visual.icon?.setVisible(visible);
-        visual.label.setVisible(visible);
+      toolbarVisible = visible;
+      for (const [id, visual] of toolbarVisuals) {
+        const hideHintButton = showTouchToolButtons && currentHint !== null && id === 'hint';
+        const buttonVisible = visible && !hideHintButton;
+        visual.background.setVisible(buttonVisible);
+        visual.hitArea.setVisible(buttonVisible);
+        visual.icon?.setVisible(buttonVisible);
+        visual.label.setVisible(buttonVisible);
       }
     };
 
@@ -1734,6 +1816,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         currentHint = null;
         board?.setHintCellTarget(null);
         refreshStatusText();
+        syncToolbar();
       }
       const step = currentOnboardingStep();
       if (
@@ -1789,23 +1872,26 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       ).setInteractive({ useHandCursor: true });
       const label = this.add.text(buttonLayout.x, buttonLayout.y, buttonState.label, {
         fontFamily: 'monospace',
-        fontSize: this.scale.width < 700 ? '15px' : '17px',
+        fontSize: this.scale.width < 700 ? '15px' : '19px',
         color: '#f4ead7',
         fontStyle: 'bold',
       }).setOrigin(0.5);
       const iconKey = toolbarIconKeys[buttonState.id];
       const icon = iconKey === undefined
         ? null
-        : this.add.image(buttonLayout.x, buttonLayout.y, iconKey)
-          .setTint(0xf4ead7);
+        : this.add.image(buttonLayout.x, buttonLayout.y, iconKey);
+      if (icon !== null && buttonState.id !== 'wall' && buttonState.id !== 'floor') {
+        icon.setTint(0xf4ead7);
+      }
       const visual: ToolbarVisual = {
+        id: buttonState.id,
         background,
         hitArea,
         icon,
         label,
         width: buttonLayout.width,
         height: buttonLayout.height,
-        baseFill: buttonState.id === 'reset' ? 0xff4f57 : 0x1f2c4a,
+        baseFill: buttonState.id === 'reset' ? 0xc96568 : 0x1f2c4a,
         disabled: buttonState.disabled,
         hovered: false,
         pressed: false,
@@ -1871,14 +1957,12 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       };
       void leave();
     };
-    backText.on('pointerdown', handleBackAction);
-    backIcon.on('pointerdown', handleBackAction);
+    backHit.on('pointerup', handleBackAction);
 
     const handleMenuAction = (): void => {
       openGameMenu();
     };
-    menuText.on('pointerup', handleMenuAction);
-    menuIcon.on('pointerup', handleMenuAction);
+    menuHit.on('pointerup', handleMenuAction);
 
     const keyboard = this.input.keyboard;
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -1934,27 +2018,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       timerText
         .setPosition(width / 2, nextChrome.titleY + nextSafeTop + (width < 700 ? 28 : 34))
         .setFontSize(Math.max(12, nextChrome.statusFontSize));
-      const nextTopActionY = nextChrome.titleY + nextSafeTop;
-      const nextTopActionGap = width < 700 ? 6 : 8;
-      const nextTopActionIconSize = Math.max(20, Math.round(nextChrome.actionFontSize * 1.25));
-      backIcon
-        .setPosition(nextChrome.actionInset + nextTopActionIconSize / 2, nextTopActionY)
-        .setDisplaySize(nextTopActionIconSize, nextTopActionIconSize);
-      backText
-        .setPosition(nextChrome.actionInset + nextTopActionIconSize + nextTopActionGap, nextTopActionY)
-        .setFontSize(nextChrome.actionFontSize)
-        .setText(getBackLabel());
-
-      menuText
-        .setPosition(width - nextChrome.actionInset, nextTopActionY)
-        .setFontSize(nextChrome.actionFontSize)
-        .setText(copy.game.menu);
-      menuIcon
-        .setPosition(
-          width - nextChrome.actionInset - menuText.width - nextTopActionGap - nextTopActionIconSize / 2,
-          nextTopActionY,
-        )
-        .setDisplaySize(nextTopActionIconSize, nextTopActionIconSize);
+      layoutTopActions(nextChrome, nextSafeTop);
 
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);
@@ -2059,6 +2123,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         titleText.setText(getTitleLabel());
         backText.setText(getBackLabel());
         menuText.setText(copy.game.menu);
+        layoutTopActions(calculatePuzzleChromeLayout(this.scale.width, this.scale.height), readSafeArea('--safe-area-inset-top'));
         refreshStatusText();
       }
       if (onboardingOpen) {

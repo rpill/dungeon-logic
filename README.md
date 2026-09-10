@@ -1,12 +1,19 @@
-Dungeon Logic — gameplay navigation/readability patch
+Dungeon Logic — navigation/UI polish patch
 
-Replace these files in the project root, preserving paths.
+Replace the files preserving paths:
+- src/scenes/GameScene.ts
+- src/scenes/HomeScene.ts
+- src/runtime/PuzzleUiState.ts
+- scripts/game-controls-settings-visual-sanity.mjs
 
 Changes:
-- disabled gameplay action buttons are fully opaque (muted via solid color/text, not alpha);
-- campaign header is "УРОВЕНЬ N" / "LEVEL N" without "/ 64";
-- Back and Menu actions use bright cream labels + icons;
-- menu_fill.svg from the supplied archive is normalized to menu.svg:
-  32x32, viewBox 0 0 24 24, utility path removed, visible path #FFFFFF.
+- Desktop Undo / Reset / Hint buttons enlarged substantially.
+- Back and Menu are solid rounded controls with one full hit area each.
+- Game pause/menu overlay redesigned to solid rounded dungeon-style UI.
+- Removed duplicate Exit to Levels / Exit to Daily entry from the pause menu.
+- Pause menu keeps Continue / Rules / Settings / Home.
+- Home Tutorial and How to Play are now visible rounded utility buttons on desktop and mobile.
+- All icon/text gaps inside these controls are clickable because input is owned by one full-button Zone.
 
-No SettingsScene changes are included in this patch.
+After replacing, run:
+  npm run build

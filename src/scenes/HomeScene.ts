@@ -189,27 +189,48 @@ export class HomeScene extends Phaser.Scene {
     }
 
     const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
-    const tutorialLink = this.add.text(16, 18, copy.common.tutorial, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '14px',
-      color: '#89929d',
-      fontStyle: 'bold',
-    }).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-    tutorialLink.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.pointerGate.canActivate(pointer.id) || tutorialEntry === undefined) return;
-      void this.launchTutorial(tutorial, tutorialEntry);
-    });
+    const lastMenuIndex = settingsVisible ? 4 : dailyVisible ? 3 : 1;
+    const lastMenuY = mainY + secondaryStep * lastMenuIndex;
+    const utilityGap = narrow ? 10 : 18;
+    const utilityMargin = narrow ? 12 : 22;
+    const utilityHeight = narrow ? 40 : 46;
+    const utilityWidth = narrow
+      ? Math.floor((this.scale.width - utilityMargin * 2 - utilityGap) / 2)
+      : 184;
+    const utilityY = narrow
+      ? Math.min(this.scale.height - utilityHeight / 2 - 12, lastMenuY + 66)
+      : 40;
+    const tutorialX = utilityMargin + utilityWidth / 2;
+    const helpX = this.scale.width - utilityMargin - utilityWidth / 2;
 
-    const helpLink = this.add.text(this.scale.width - 16, 18, copy.common.howToPlay, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '14px',
-      color: '#89929d',
-      fontStyle: 'bold',
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
-    helpLink.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.pointerGate.canActivate(pointer.id)) return;
-      this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'HomeScene' });
-      this.scene.pause();
+    createHomeMenuButton(this, {
+      x: tutorialX,
+      y: utilityY,
+      width: utilityWidth,
+      height: utilityHeight,
+      label: copy.common.tutorial,
+      labelColor: '#f4ead7',
+      icon: 'play',
+      compact: true,
+      onActivate: (pointer) => {
+        if (!this.pointerGate.canActivate(pointer.id) || tutorialEntry === undefined) return;
+        void this.launchTutorial(tutorial, tutorialEntry);
+      },
+    });
+    createHomeMenuButton(this, {
+      x: helpX,
+      y: utilityY,
+      width: utilityWidth,
+      height: utilityHeight,
+      label: copy.common.howToPlay,
+      labelColor: '#f4ead7',
+      icon: 'info',
+      compact: true,
+      onActivate: (pointer) => {
+        if (!this.pointerGate.canActivate(pointer.id)) return;
+        this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'HomeScene' });
+        this.scene.pause();
+      },
     });
 
     const handleResize = (): void => {
