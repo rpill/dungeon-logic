@@ -58,6 +58,7 @@ export interface UiCopy {
   readonly help: {
     readonly title: string;
     readonly utilityTitle: string;
+    readonly done: string;
   };
   readonly stats: {
     readonly title: string;
@@ -228,6 +229,7 @@ const RU: UiCopy = {
   help: {
     title: 'КАК ИГРАТЬ',
     utilityTitle: 'УПРАВЛЕНИЕ',
+    done: 'ПОНЯТНО',
   },
   stats: {
     title: 'СТАТИСТИКА',
@@ -398,6 +400,7 @@ const EN: UiCopy = {
   help: {
     title: 'HOW TO PLAY',
     utilityTitle: 'CONTROLS',
+    done: 'GOT IT',
   },
   stats: {
     title: 'STATISTICS',

@@ -16,7 +16,6 @@ export interface HelpRule {
   readonly id: HelpRuleId;
   readonly title: string;
   readonly body: string;
-  readonly diagram?: string;
 }
 
 export interface HelpUtility {
@@ -28,46 +27,42 @@ export interface HelpUtility {
 const RU_HELP_RULES: readonly HelpRule[] = [
   {
     id: 'goal',
-    title: '1. ЦЕЛЬ',
+    title: 'ЦЕЛЬ',
     body: 'Расставь стены так, чтобы одновременно выполнялись все правила. ПОЛ можно отмечать для удобства, но для победы это не обязательно.',
   },
   {
     id: 'clues',
-    title: '2. ЧИСЛА',
+    title: 'ЧИСЛА ПО КРАЯМ',
     body: 'Число слева — точное количество стен в строке. Число сверху — точное количество стен в столбце.',
-    diagram: '    2\n  ┌─────┐\n2 │ ■ · ■ │\n  └─────┘',
   },
   {
     id: 'floor',
-    title: '3. ПОЛ',
+    title: 'СТЕНЫ И ПОЛ',
     body: 'Если клетка точно не является стеной, её можно отметить как ПОЛ. Это вспомогательная пометка — заполнять весь пол не требуется.',
   },
   {
     id: 'treasure-room',
-    title: '4. КОМНАТЫ',
+    title: 'КОМНАТЫ И СУНДУК',
     body: 'Каждый сундук находится в открытой комнате ровно 3×3. У комнаты один сундук и ровно один вход. Монстров внутри быть не может.',
-    diagram: '■ ■ · ■ ■\n■ · · · ■\n■ · C · ■\n■ · · · ■\n■ ■ ■ ■ ■',
   },
   {
     id: 'monsters',
-    title: '5. МОНСТРЫ',
+    title: 'МОНСТРЫ',
     body: 'У каждого монстра ровно один соседний проход. И наоборот: любой тупик коридора должен содержать монстра.',
-    diagram: '■ ■ ■\n■ M ·\n■ ■ ■',
   },
   {
     id: 'connectivity',
-    title: '6. СВЯЗНОСТЬ',
+    title: 'СВЯЗНОСТЬ',
     body: 'Весь проход образует одну общую область. Клетки соединяются только сторонами; диагональ не считается.',
   },
   {
     id: 'open-2x2',
-    title: '7. КОРИДОРЫ',
+    title: 'КОРИДОРЫ',
     body: 'Вне комнаты с сундуком открытого блока 2×2 быть не может.',
-    diagram: 'НЕЛЬЗЯ      МОЖНО\n· ·         · ■\n· ·         · ·',
   },
   {
     id: 'completion',
-    title: '8. ЗАВЕРШЕНИЕ',
+    title: 'ЗАВЕРШЕНИЕ',
     body: 'Поставь все стены правильно — уровень завершится автоматически. Отмечать весь оставшийся ПОЛ не нужно.',
   },
 ] as const;
@@ -75,46 +70,42 @@ const RU_HELP_RULES: readonly HelpRule[] = [
 const EN_HELP_RULES: readonly HelpRule[] = [
   {
     id: 'goal',
-    title: '1. GOAL',
+    title: 'GOAL',
     body: 'Place walls so every dungeon rule is satisfied at the same time. FLOOR can be marked as a solving aid, but it is not required to win.',
   },
   {
     id: 'clues',
-    title: '2. NUMBERS',
+    title: 'EDGE NUMBERS',
     body: 'The number on the left is the exact number of walls in that row. The number above is the exact number of walls in that column.',
-    diagram: '    2\n  ┌─────┐\n2 │ ■ · ■ │\n  └─────┘',
   },
   {
     id: 'floor',
-    title: '3. FLOOR',
+    title: 'WALLS AND FLOOR',
     body: 'If a cell is definitely not a wall, you can mark it as FLOOR. This is optional solving notation; you do not need to mark every floor cell.',
   },
   {
     id: 'treasure-room',
-    title: '4. ROOMS',
+    title: 'ROOMS AND CHESTS',
     body: 'Every Chest is inside an open room exactly 3×3. A room has one Chest and exactly one entrance. Monsters cannot be inside it.',
-    diagram: '■ ■ · ■ ■\n■ · · · ■\n■ · C · ■\n■ · · · ■\n■ ■ ■ ■ ■',
   },
   {
     id: 'monsters',
-    title: '5. MONSTERS',
+    title: 'MONSTERS',
     body: 'Every Monster has exactly one neighboring passage. Conversely, every corridor dead end must contain a Monster.',
-    diagram: '■ ■ ■\n■ M ·\n■ ■ ■',
   },
   {
     id: 'connectivity',
-    title: '6. CONNECTIVITY',
+    title: 'CONNECTIVITY',
     body: 'All passages form one connected area. Cells connect only by their sides; diagonal contact does not connect them.',
   },
   {
     id: 'open-2x2',
-    title: '7. CORRIDORS',
+    title: 'CORRIDORS',
     body: 'Outside a room with a Chest, an open 2×2 block is forbidden.',
-    diagram: 'NOT OK      OK\n· ·         · ■\n· ·         · ·',
   },
   {
     id: 'completion',
-    title: '8. COMPLETION',
+    title: 'COMPLETION',
     body: 'Place every wall correctly and the level completes automatically. You do not need to mark all remaining FLOOR cells.',
   },
 ] as const;

@@ -74,7 +74,8 @@
     "sanity:home-logo": "node scripts/home-logo-sanity.mjs",
     "sanity:game-ui-visual": "node scripts/game-controls-settings-visual-sanity.mjs",
     "sanity:game-board-assets": "node scripts/game-board-assets-sanity.mjs",
-    "sanity:tutorial-hud": "tsx src/dev/tutorialHudSanity.ts"
+    "sanity:tutorial-hud": "tsx src/dev/tutorialHudSanity.ts",
+    "sanity:icon-rendering": "node scripts/icon-rendering-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

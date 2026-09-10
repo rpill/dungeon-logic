@@ -109,7 +109,7 @@ async function main(): Promise<void> {
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');
   assert(ruRules.map((rule) => rule.id).join(',') === enRules.map((rule) => rule.id).join(','), 'Help rule IDs/order are locale invariant.');
-  assert(ruRules[0]?.title === '1. ЦЕЛЬ' && enRules[0]?.title === '1. GOAL', 'Help titles are localized.');
+  assert(ruRules[0]?.title === 'ЦЕЛЬ' && enRules[0]?.title === 'GOAL', 'Help titles are localized.');
 
   assert(TUTORIAL_MANIFEST[0]?.id === 'tutorial-001', 'Localization sanity uses the stable Tutorial manifest.');
   const ruFlow = createOnboardingFlow('tutorial-001', 'ru');

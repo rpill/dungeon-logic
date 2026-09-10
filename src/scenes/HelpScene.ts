@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { renderHelpIllustration } from '../help/HelpIllustrations';
 import { HELP_SCENE_KEY, type HelpReturnSceneKey, type HelpSceneData } from '../help/HelpNavigation';
 import {
   getHelpRules,
@@ -12,6 +13,7 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
@@ -25,7 +27,6 @@ import {
 export class HelpScene extends Phaser.Scene {
   private returnSceneKey: HelpReturnSceneKey = 'HomeScene';
   private contentBottom = 0;
-  private headerBottom = 0;
   private scrollMaxY = 0;
   private scrollPointerId: number | null = null;
   private scrollStartPointerY = 0;
@@ -45,7 +46,6 @@ export class HelpScene extends Phaser.Scene {
 
   create(): void {
     this.contentBottom = 0;
-    this.headerBottom = 0;
     this.scrollMaxY = 0;
     this.scrollPointerId = null;
     this.scrollGestureDragged = false;
@@ -58,14 +58,12 @@ export class HelpScene extends Phaser.Scene {
     const copy = getUiCopy(language);
     const header = calculateMetaPageHeaderMetrics(this.scale.width, this.scale.height);
     const narrow = header.narrow;
-    this.headerBottom = header.headerHeight;
-    const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 48), narrow ? 620 : 820);
-    const cardGap = narrow ? 10 : 14;
-    let cursorY = this.headerBottom + (narrow ? 18 : 22);
+    const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 48), narrow ? 620 : 760);
+    const cardGap = narrow ? 14 : 18;
+    let cursorY = header.headerHeight + (narrow ? 18 : 24);
 
     const sceneBackground = createSceneBackground(this, 'meta');
     sceneBackground.image.setScrollFactor(0);
-
 
     createMetaPageHeader(this, {
       title: copy.help.title,
@@ -80,19 +78,30 @@ export class HelpScene extends Phaser.Scene {
       cursorY = this.createRuleCard(rule, cursorY, contentWidth, narrow) + cardGap;
     }
 
-    cursorY += narrow ? 10 : 16;
-    const utilityTitle = this.add.text(this.scale.width / 2, cursorY, copy.help.utilityTitle, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '17px' : '20px',
-      color: '#f0e6d2',
-      fontStyle: 'bold',
-    }).setOrigin(0.5, 0).setDepth(1);
-    cursorY = utilityTitle.y + utilityTitle.height + (narrow ? 12 : 16);
-
     for (const utility of getHelpUtilities(language)) {
       cursorY = this.createUtilityCard(utility, cursorY, contentWidth, narrow) + cardGap;
     }
-    this.contentBottom = cursorY;
+
+    const ctaWidth = Math.min(narrow ? 260 : 300, this.scale.width - (narrow ? 32 : 80));
+    const ctaHeight = narrow ? 48 : 54;
+    const ctaY = cursorY + ctaHeight / 2 + (narrow ? 6 : 10);
+    const cta = createCenteredTextMenuButton(this, {
+      x: this.scale.width / 2,
+      y: ctaY,
+      width: ctaWidth,
+      height: ctaHeight,
+      label: copy.help.done,
+      labelColor: '#f4ead7',
+      accentFrame: true,
+      onActivate: (pointer) => {
+        if (!this.shouldActivatePointer(pointer)) return;
+        this.closeHelp();
+      },
+    });
+    cta.fill.setDepth(2);
+    cta.frame.setDepth(3);
+    cta.label.setDepth(4);
+    this.contentBottom = ctaY + ctaHeight / 2 + (narrow ? 20 : 30);
 
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
@@ -115,54 +124,12 @@ export class HelpScene extends Phaser.Scene {
   }
 
   private createRuleCard(
-    rule: Pick<HelpRule, 'title' | 'body' | 'diagram'>,
+    rule: HelpRule,
     topY: number,
     width: number,
     narrow: boolean,
   ): number {
-    const left = this.scale.width / 2 - width / 2;
-    const paddingX = narrow ? 14 : 18;
-    const paddingY = narrow ? 13 : 16;
-    const textWidth = width - paddingX * 2;
-
-    const title = this.add.text(left + paddingX, topY + paddingY, rule.title, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '15px' : '17px',
-      color: '#d0b978',
-      fontStyle: 'bold',
-      wordWrap: { width: textWidth },
-    }).setOrigin(0, 0).setDepth(1);
-
-    const body = this.add.text(left + paddingX, title.y + title.height + 8, rule.body, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '14px',
-      color: '#d8d1c4',
-      lineSpacing: narrow ? 3 : 4,
-      wordWrap: { width: textWidth },
-    }).setOrigin(0, 0).setDepth(1);
-
-    let bottom = body.y + body.height;
-    if (rule.diagram !== undefined) {
-      const diagram = this.add.text(left + paddingX, bottom + 10, rule.diagram, {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '14px' : '16px',
-        color: '#f0e6d2',
-        lineSpacing: 2,
-      }).setOrigin(0, 0).setDepth(1);
-      bottom = diagram.y + diagram.height;
-    }
-
-    const cardHeight = bottom - topY + paddingY;
-    this.add.rectangle(
-      this.scale.width / 2,
-      topY + cardHeight / 2,
-      width,
-      cardHeight,
-      0x20252c,
-      1,
-    ).setStrokeStyle(1, 0x4f565f, 1).setDepth(0);
-
-    return topY + cardHeight;
+    return this.createCard(rule, topY, width, narrow);
   }
 
   private createUtilityCard(
@@ -171,7 +138,67 @@ export class HelpScene extends Phaser.Scene {
     width: number,
     narrow: boolean,
   ): number {
-    return this.createRuleCard(utility, topY, width, narrow);
+    return this.createCard(utility, topY, width, narrow);
+  }
+
+  private createCard(
+    content: HelpRule | HelpUtility,
+    topY: number,
+    width: number,
+    narrow: boolean,
+  ): number {
+    const left = this.scale.width / 2 - width / 2;
+    const paddingX = narrow ? 16 : 24;
+    const paddingTop = narrow ? 16 : 20;
+    const paddingBottom = narrow ? 16 : 20;
+    const textWidth = width - paddingX * 2;
+
+    const title = this.add.text(left + paddingX, topY + paddingTop, content.title, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '16px' : '20px',
+      color: '#f0bd63',
+      fontStyle: 'bold',
+      wordWrap: { width: textWidth },
+    }).setOrigin(0, 0).setDepth(3);
+
+    const titleMark = this.add.graphics().setDepth(3);
+    titleMark.fillStyle(0xf0b14f, 0.95);
+    const diamondX = left + paddingX - (narrow ? 8 : 10);
+    const diamondY = title.y + title.height / 2;
+    const diamondSize = narrow ? 3 : 4;
+    titleMark.beginPath();
+    titleMark.moveTo(diamondX, diamondY - diamondSize);
+    titleMark.lineTo(diamondX + diamondSize, diamondY);
+    titleMark.lineTo(diamondX, diamondY + diamondSize);
+    titleMark.lineTo(diamondX - diamondSize, diamondY);
+    titleMark.closePath();
+    titleMark.fillPath();
+
+    const body = this.add.text(left + paddingX, title.y + title.height + (narrow ? 9 : 11), content.body, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '13px' : '16px',
+      color: '#e7e1d6',
+      lineSpacing: narrow ? 4 : 6,
+      wordWrap: { width: textWidth },
+    }).setOrigin(0, 0).setDepth(3);
+
+    const illustrationTop = body.y + body.height + (narrow ? 14 : 18);
+    const illustrationHeight = renderHelpIllustration(this, content.id, {
+      x: this.scale.width / 2,
+      topY: illustrationTop,
+      width: textWidth,
+      narrow,
+      language: this.getProfileService().getProfile().settings.language,
+    });
+    const cardHeight = illustrationTop + illustrationHeight - topY + paddingBottom;
+
+    const card = this.add.graphics().setDepth(1);
+    card.fillStyle(0x1f2c4a, 0.95);
+    card.fillRoundedRect(left, topY, width, cardHeight, narrow ? 10 : 12);
+    card.lineStyle(1, 0x4b6386, 0.82);
+    card.strokeRoundedRect(left, topY, width, cardHeight, narrow ? 10 : 12);
+
+    return topY + cardHeight;
   }
 
   private setupScroll(): void {

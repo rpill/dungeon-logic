@@ -26,7 +26,9 @@ const config: Phaser.Types.Core.GameConfig = {
 
   backgroundColor: '#111318',
 
-  pixelArt: true,
+  pixelArt: false,
+  antialias: true,
+  antialiasGL: true,
   roundPixels: true,
 
   scale: {
