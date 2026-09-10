@@ -21,6 +21,8 @@ assert(home.includes('copy.home.levelsProgress(completed, campaign.getLevels().l
 assert(!home.includes('getManuscriptForSlot'), 'Home level context no longer mentions manuscripts.');
 
 assert(levelSelect.includes('copy.common.levels'), 'LevelSelectScene title uses localized LEVELS copy.');
+assert(levelSelect.includes("createSceneBackground(this, 'meta')"), 'LevelSelectScene reuses the shared meta background art.');
+assert(levelSelect.includes('createHomeMenuButton'), 'LevelSelectScene reuses the shared menu-button component for its primary action.');
 assert(levelSelect.includes('copy.common.backHome'), 'Levels scene exposes a fixed back-to-main-menu action.');
 assert(levelSelect.includes(".on('pointerdown', () => {"), 'Levels back action activates on the first pointer press.');
 assert(levelSelect.includes('this.scene.start(HOME_SCENE_KEY)'), 'Levels back action returns directly to HomeScene.');

@@ -20,6 +20,31 @@ export interface LevelThumbnailOptions {
   readonly showIncompleteOverlay: boolean;
 }
 
+interface PreviewCellBounds {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+interface PreviewSquare {
+  readonly left: number;
+  readonly top: number;
+  readonly size: number;
+}
+
+const PREVIEW_COLORS = {
+  background: 0x141f33,
+  border: 0x30445f,
+  wall: 0xa9aecf,
+  monster: 0xff6a66,
+  chest: 0xf0cb66,
+  chestLid: 0xd8a74d,
+  chestLock: 0x7f5628,
+  blocker: 0x7d879c,
+  door: 0xf0b14f,
+} as const;
+
 export function mergePreviewWallCells(walls: readonly GridPosition[]): PreviewWallRect[] {
   const rows = new Map<number, number[]>();
   for (const wall of walls) {
@@ -67,6 +92,16 @@ export function mergePreviewWallCells(walls: readonly GridPosition[]): PreviewWa
   return rectangles;
 }
 
+function centeredSquare(cell: PreviewCellBounds, fillRatio: number): PreviewSquare {
+  const cellWidth = Math.max(1, cell.right - cell.left);
+  const cellHeight = Math.max(1, cell.bottom - cell.top);
+  const baseSize = Math.max(1, Math.min(cellWidth, cellHeight));
+  const size = Math.max(1, Math.min(baseSize, Math.round(baseSize * fillRatio)));
+  const left = Math.round((cell.left + cell.right - size) / 2);
+  const top = Math.round((cell.top + cell.bottom - size) / 2);
+  return { left, top, size };
+}
+
 export function drawLevelThumbnail(
   scene: Phaser.Scene,
   level: LevelDefinition,
@@ -87,19 +122,19 @@ export function drawLevelThumbnail(
 
   const xEdge = (x: number): number => left + Math.round((x * boardWidth) / level.width);
   const yEdge = (y: number): number => top + Math.round((y * boardHeight) / level.height);
-  const cellBounds = (x: number, y: number): { left: number; top: number; right: number; bottom: number } => ({
+  const cellBounds = (x: number, y: number): PreviewCellBounds => ({
     left: xEdge(x),
     top: yEdge(y),
     right: xEdge(x + 1),
     bottom: yEdge(y + 1),
   });
 
-  graphics.fillStyle(0x171b20, 1);
+  graphics.fillStyle(PREVIEW_COLORS.background, 1);
   graphics.fillRect(left, top, boardWidth, boardHeight);
-  graphics.lineStyle(1, 0x3f464f, 0.72);
+  graphics.lineStyle(1, PREVIEW_COLORS.border, 0.72);
   graphics.strokeRect(left, top, boardWidth, boardHeight);
 
-  graphics.fillStyle(0x8b5f45, 1);
+  graphics.fillStyle(PREVIEW_COLORS.wall, 1);
   for (const wall of mergePreviewWallCells(walls)) {
     const x0 = xEdge(wall.x);
     const x1 = xEdge(wall.x + wall.width);
@@ -108,36 +143,35 @@ export function drawLevelThumbnail(
     graphics.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
   }
 
-  graphics.fillStyle(0xb65f59, 1);
+  graphics.fillStyle(PREVIEW_COLORS.monster, 1);
   for (const monster of level.monsters) {
-    const cell = cellBounds(monster.x, monster.y);
-    const cellWidth = cell.right - cell.left;
-    const cellHeight = cell.bottom - cell.top;
-    graphics.fillCircle(
-      (cell.left + cell.right) / 2,
-      (cell.top + cell.bottom) / 2,
-      Math.max(1.4, Math.min(cellWidth, cellHeight) * 0.23),
-    );
+    const monsterRect = centeredSquare(cellBounds(monster.x, monster.y), 0.42);
+    graphics.fillRect(monsterRect.left, monsterRect.top, monsterRect.size, monsterRect.size);
   }
 
-  graphics.fillStyle(0xd3aa59, 1);
   for (const chest of level.chests) {
-    const cell = cellBounds(chest.x, chest.y);
-    const cellWidth = cell.right - cell.left;
-    const cellHeight = cell.bottom - cell.top;
-    graphics.fillRect(
-      cell.left + cellWidth * 0.25,
-      cell.top + cellHeight * 0.3,
-      Math.max(1, cellWidth * 0.5),
-      Math.max(1, cellHeight * 0.4),
-    );
+    const chestRect = centeredSquare(cellBounds(chest.x, chest.y), 0.5);
+    graphics.fillStyle(PREVIEW_COLORS.chest, 1);
+    graphics.fillRect(chestRect.left, chestRect.top, chestRect.size, chestRect.size);
+    if (chestRect.size >= 3) {
+      const lidHeight = Math.max(1, Math.floor(chestRect.size * 0.34));
+      graphics.fillStyle(PREVIEW_COLORS.chestLid, 1);
+      graphics.fillRect(chestRect.left, chestRect.top, chestRect.size, lidHeight);
+    }
+    if (chestRect.size >= 5) {
+      const lockSize = Math.max(1, Math.floor(chestRect.size * 0.18));
+      const lockLeft = Math.round(chestRect.left + (chestRect.size - lockSize) / 2);
+      const lockTop = Math.round(chestRect.top + chestRect.size * 0.46);
+      graphics.fillStyle(PREVIEW_COLORS.chestLock, 1);
+      graphics.fillRect(lockLeft, lockTop, lockSize, lockSize);
+    }
   }
 
   for (const blocker of level.blockers) {
     const cell = cellBounds(blocker.x, blocker.y);
     const cellWidth = cell.right - cell.left;
     const cellHeight = cell.bottom - cell.top;
-    graphics.lineStyle(Math.max(1, Math.min(cellWidth, cellHeight) * 0.12), 0x747b84, 1);
+    graphics.lineStyle(Math.max(1, Math.min(cellWidth, cellHeight) * 0.12), PREVIEW_COLORS.blocker, 1);
     const x0 = cell.left + cellWidth * 0.25;
     const x1 = cell.left + cellWidth * 0.75;
     const y0 = cell.top + cellHeight * 0.25;
@@ -152,7 +186,7 @@ export function drawLevelThumbnail(
     const cellHeight = cell.bottom - cell.top;
     const centerX = (cell.left + cell.right) / 2;
     const centerY = (cell.top + cell.bottom) / 2;
-    graphics.lineStyle(Math.max(1, Math.min(cellWidth, cellHeight) * 0.16), 0xc49b55, 1);
+    graphics.lineStyle(Math.max(1, Math.min(cellWidth, cellHeight) * 0.16), PREVIEW_COLORS.door, 1);
     if (door.orientation === 'horizontal') {
       graphics.lineBetween(centerX - cellWidth * 0.3, centerY, centerX + cellWidth * 0.3, centerY);
     } else {

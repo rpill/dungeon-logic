@@ -82,7 +82,7 @@ export function calculateLevelSelectLayout(
     const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
     const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
     const compactHeader = viewport.height < 620;
-    const headerBottom = compactHeader ? 112 : 124;
+    const headerBottom = compactHeader ? 126 : 138;
     const gridTop = headerBottom + 12;
     const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
       const column = index % columns;
@@ -101,10 +101,10 @@ export function calculateLevelSelectLayout(
       viewportClass,
       titleY: 32,
       titleFontSize: 28,
-      continueY: 78,
-      continueWidth: viewport.width - margin * 2,
-      continueHeight: 42,
-      continueFontSize: 15,
+      continueY: 100,
+      continueWidth: Math.min(viewport.width - margin * 2, 260),
+      continueHeight: 46,
+      continueFontSize: 16,
       headerBottom,
       contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
       columns,
@@ -120,7 +120,7 @@ export function calculateLevelSelectLayout(
   const columns = Math.min(8, Math.max(1, itemCount));
   const rows = columns === 0 ? 0 : Math.ceil(itemCount / columns);
   const shortViewport = viewport.height < 500;
-  const headerBottom = shortViewport ? 108 : 122;
+  const headerBottom = shortViewport ? 136 : 154;
   const gridTop = headerBottom + 8;
   const bottomPadding = 24;
   const numberGap = 2;
@@ -165,10 +165,10 @@ export function calculateLevelSelectLayout(
     viewportClass,
     titleY: shortViewport ? 30 : 36,
     titleFontSize: shortViewport ? 28 : 32,
-    continueY: shortViewport ? 72 : 82,
-    continueWidth: Math.min(300, viewport.width - margin * 2),
-    continueHeight: shortViewport ? 38 : 40,
-    continueFontSize: shortViewport ? 14 : 15,
+    continueY: shortViewport ? 88 : 102,
+    continueWidth: Math.min(shortViewport ? 240 : 260, viewport.width - margin * 2),
+    continueHeight: shortViewport ? 42 : 46,
+    continueFontSize: shortViewport ? 14 : 16,
     headerBottom,
     contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
     columns,
