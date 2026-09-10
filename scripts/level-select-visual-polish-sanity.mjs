@@ -16,6 +16,6 @@ assert(scene.includes('hoverOverlay.setAlpha(0.28).setVisible(true)'), 'Pressed 
 assert(!scene.includes('hoverStrokeWidth'), 'Level hover must not change border thickness.');
 assert(!scene.includes('pressedStrokeWidth'), 'Level press must not change border thickness.');
 assert(layout.includes('continueWidth: Math.min(shortViewport ? 240 : 260'), 'Desktop Continue button must stay compact.');
-assert(layout.includes('continueY: shortViewport ? 88 : 102'), 'Desktop Continue button must sit lower below the Levels title.');
+assert(layout.includes('const continueY = metaHeader.headerHeight +'), 'Continue button must sit below the shared fixed Levels header.');
 
 console.info('[Dungeon Logic] Level Select visual polish sanity: compact Continue + overlay hover passed');

@@ -119,6 +119,22 @@ export class BoardView {
       : new Set(targets.map(({ x, y }) => `${x},${y}`));
   }
 
+  setTutorialCellTargets(
+    targets: readonly { readonly x: number; readonly y: number }[] | null,
+    state: typeof CellState.Wall | typeof CellState.Floor | null = null,
+  ): void {
+    const targetSet = targets === null || state === null
+      ? null
+      : new Set(targets.map(({ x, y }) => `${x},${y}`));
+    for (let y = 0; y < this.puzzle.level.height; y += 1) {
+      for (let x = 0; x < this.puzzle.level.width; x += 1) {
+        this.cells[y][x].setTutorialTarget(
+          targetSet !== null && targetSet.has(`${x},${y}`) ? state : null,
+        );
+      }
+    }
+  }
+
   setHintCellTarget(
     target: {
       readonly x: number;

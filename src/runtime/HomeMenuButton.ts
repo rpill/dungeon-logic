@@ -174,3 +174,93 @@ export function createHomeMenuButton(
 
   return { fill, frame, icon, label };
 }
+
+export interface CenteredTextMenuButtonOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly label: string;
+  readonly labelColor: string;
+  readonly accentFrame?: boolean;
+  readonly compact?: boolean;
+  readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
+}
+
+export interface CenteredTextMenuButtonHandle {
+  readonly fill: Phaser.GameObjects.NineSlice;
+  readonly frame: Phaser.GameObjects.NineSlice;
+  readonly label: Phaser.GameObjects.Text;
+}
+
+export function createCenteredTextMenuButton(
+  scene: Phaser.Scene,
+  options: CenteredTextMenuButtonOptions,
+): CenteredTextMenuButtonHandle {
+  const compact = options.compact ?? false;
+  const fill = scene.add.nineslice(
+    options.x,
+    options.y,
+    HOME_MENU_FILL_KEY,
+    undefined,
+    options.width,
+    options.height,
+    HORIZONTAL_SLICE,
+    HORIZONTAL_SLICE,
+    VERTICAL_SLICE,
+    VERTICAL_SLICE,
+  );
+
+  const frame = scene.add.nineslice(
+    options.x,
+    options.y,
+    HOME_MENU_FRAME_KEYS.normal,
+    undefined,
+    options.width,
+    options.height,
+    HORIZONTAL_SLICE,
+    HORIZONTAL_SLICE,
+    VERTICAL_SLICE,
+    VERTICAL_SLICE,
+  );
+
+  const baseFontSize = scene.scale.width < 700 ? 20 : 22;
+  const fontSize = compact ? (scene.scale.width < 700 ? 12 : 14) : baseFontSize;
+  const label = scene.add.text(options.x, options.y, options.label, {
+    fontFamily: 'monospace',
+    fontSize: `${fontSize}px`,
+    color: options.labelColor,
+    fontStyle: 'bold',
+  }).setOrigin(0.5);
+
+  const availableTextWidth = Math.max(64, options.width - 36);
+  if (label.width > availableTextWidth) {
+    label.setFontSize(Math.max(compact ? 10 : 14, Math.floor(fontSize * availableTextWidth / label.width)));
+  }
+
+  const restingFrameState: HomeMenuButtonState = options.accentFrame ? 'hover' : 'normal';
+  const setState = (state: HomeMenuButtonState): void => {
+    if (options.accentFrame) {
+      frame.setTexture(HOME_MENU_FRAME_KEYS.hover);
+      frame.clearTint();
+      frame.setAlpha(state === 'normal' ? 0.88 : 1);
+      if (state === 'pressed') frame.setTint(0xd59a46);
+      return;
+    }
+    frame.setAlpha(1);
+    frame.clearTint();
+    frame.setTexture(HOME_MENU_FRAME_KEYS[state]);
+  };
+  setState(restingFrameState);
+
+  fill.setInteractive({ useHandCursor: true });
+  fill.on('pointerover', () => setState('hover'));
+  fill.on('pointerout', () => setState(restingFrameState));
+  fill.on('pointerdown', () => setState('pressed'));
+  fill.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    setState('hover');
+    options.onActivate(pointer);
+  });
+
+  return { fill, frame, label };
+}

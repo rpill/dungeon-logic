@@ -5,8 +5,6 @@ const CAMPAIGN_TOTAL = 64;
 const DATE_KEY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const UTC_DAY_MS = 24 * 60 * 60 * 1000;
 
-export type DailyCalendarDayState = 'solved' | 'missed' | 'today' | 'future' | 'unavailable';
-
 export interface StatsCampaignView {
   readonly solved: number;
   readonly total: number;
@@ -26,25 +24,10 @@ export interface StatsOverallView {
   readonly totalHintsUsed: number;
 }
 
-export interface DailyCalendarDayView {
-  readonly dateKey: string;
-  readonly dayOfMonth: number;
-  readonly state: DailyCalendarDayState;
-  readonly solved: boolean;
-}
-
-export interface DailyMonthCalendarView {
-  readonly year: number;
-  readonly month: number;
-  readonly leadingBlankCount: number;
-  readonly days: readonly DailyCalendarDayView[];
-}
-
 export interface StatsViewModel {
   readonly campaign: StatsCampaignView;
   readonly daily: StatsDailyView;
   readonly overall: StatsOverallView;
-  readonly calendar: DailyMonthCalendarView | null;
 }
 
 function parseUtcDateKey(dateKey: string): Date | null {
@@ -85,56 +68,6 @@ function getActiveDailyStreak(
   return 0;
 }
 
-function createDailyMonthCalendar(
-  profile: PlayerProfileV4,
-  todayDateKey: string,
-  availableDailyDateKeys: readonly string[],
-): DailyMonthCalendarView {
-  const today = parseUtcDateKey(todayDateKey);
-  if (today === null) throw new RangeError(`Invalid trusted UTC date key: ${todayDateKey}`);
-
-  const year = today.getUTCFullYear();
-  const monthIndex = today.getUTCMonth();
-  const month = monthIndex + 1;
-  const firstDay = new Date(Date.UTC(year, monthIndex, 1));
-  const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-  const leadingBlankCount = (firstDay.getUTCDay() + 6) % 7;
-  const solvedDates = new Set(profile.daily.solvedDates);
-  const availableDates = new Set(availableDailyDateKeys);
-
-  const days = Array.from({ length: daysInMonth }, (_, index): DailyCalendarDayView => {
-    const dayOfMonth = index + 1;
-    const dateKey = toUtcDateKey(new Date(Date.UTC(year, monthIndex, dayOfMonth)));
-    const available = availableDates.has(dateKey);
-    const solved = available && solvedDates.has(dateKey);
-    let state: DailyCalendarDayState;
-
-    if (!available) {
-      state = 'unavailable';
-    } else if (dateKey === todayDateKey) {
-      state = 'today';
-    } else if (dateKey > todayDateKey) {
-      state = 'future';
-    } else {
-      state = solved ? 'solved' : 'missed';
-    }
-
-    return {
-      dateKey,
-      dayOfMonth,
-      state,
-      solved,
-    };
-  });
-
-  return {
-    year,
-    month,
-    leadingBlankCount,
-    days,
-  };
-}
-
 export function getStatsViewModel(
   profile: PlayerProfileV4,
   todayDateKey: string | null,
@@ -165,8 +98,5 @@ export function getStatsViewModel(
       totalPuzzlesSolved: completedLevelIds.size + profile.daily.totalSolved,
       totalHintsUsed: profile.hints.totalUsed,
     },
-    calendar: todayDateKey === null
-      ? null
-      : createDailyMonthCalendar(profile, todayDateKey, availableDailyDateKeys),
   };
 }

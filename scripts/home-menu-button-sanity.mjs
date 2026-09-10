@@ -36,8 +36,8 @@ assert(
   'BootScene must preload menu button textures and SVG icons.',
 );
 assert(
-  rendererSource.includes('scene.add.nineslice') && rendererSource.match(/scene\.add\.nineslice/g)?.length === 2,
-  'Each menu button must be composed from exactly two NineSlice layers: fill + frame.',
+  rendererSource.includes('scene.add.nineslice') && rendererSource.match(/scene\.add\.nineslice/g)?.length === 4,
+  'Both shared menu-button variants must each be composed from fill + frame NineSlice layers.',
 );
 assert(
   rendererSource.includes("'home-menu-frame-normal'")

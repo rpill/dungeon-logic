@@ -29,8 +29,21 @@ assert(narrow.buttons.every((button) => button.x + button.width / 2 <= 378), 'Ph
 const safe = calculatePuzzleToolbarLayout(390, 844, 24, true);
 assert(safe.bottomY < narrow.bottomY, 'Bottom safe area moves toolbar upward.');
 
+const boardAnchored = calculatePuzzleToolbarLayout(390, 844, 0, true, 568);
+const boardAnchoredWall = boardAnchored.buttons.find((button) => button.id === 'wall')!;
+assert(boardAnchoredWall.y - boardAnchoredWall.height / 2 === 580, 'Phone Wall/Floor row starts 12px below the supplied board bottom.');
+const pendingHintLayout = calculatePuzzleToolbarLayout(390, 844, 0, true, 568, true);
+assert(pendingHintLayout.buttons.map((button) => button.id).join(',') === 'wall,floor,undo,reset', 'Pending touch hint removes Hint from the phone action-row layout.');
+const pendingUndo = pendingHintLayout.buttons.find((button) => button.id === 'undo')!;
+const pendingReset = pendingHintLayout.buttons.find((button) => button.id === 'reset')!;
+assert(pendingUndo.width === pendingReset.width && pendingUndo.width > 150, 'Undo and Reset expand into the freed Hint-button space.');
+
 assert(!shouldConfirmReset(2), 'One or two edits reset immediately.');
 assert(shouldConfirmReset(3), 'Three or more edits require reset confirmation.');
+
+const compactTouch = calculatePuzzleToolbarLayout(844, 390, 0, true, 250, true);
+assert(compactTouch.mode === 'stacked', 'Landscape touch phone keeps Wall/Floor in a separate row below the board.');
+assert(compactTouch.buttons.map((button) => button.id).join(',') === 'wall,floor,undo,reset', 'Landscape touch phone also removes Hint from layout while a hint is pending.');
 
 const wide = calculatePuzzleToolbarLayout(1280, 720, 0, false);
 assert(wide.mode === 'inline', 'Desktop toolbar uses one inline row.');

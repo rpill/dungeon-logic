@@ -45,29 +45,30 @@ assert(classifyViewport(699) === 'narrow', '699px viewport is narrow.');
 assert(classifyViewport(390) === 'narrow', '390px viewport is narrow.');
 
 const phoneSeven = calculateGameBoardLayout(390, 844, 7, 7);
-const phoneSevenLeft = phoneSeven.originX - phoneSeven.cellSize;
+const phoneSevenLeft = phoneSeven.originX;
 const phoneSevenRight = phoneSeven.originX + phoneSeven.boardWidth;
-assert(phoneSeven.cellSize >= 45, '390x844 uses almost the full width for a 7x7 puzzle.');
-assert(phoneSevenLeft >= 12, 'Phone clue gutter stays inside the 12px narrow margin.');
-assert(phoneSevenRight <= 390 - 12, 'Phone puzzle stays inside the right 12px narrow margin.');
+const phoneSevenClueLeft = phoneSeven.originX - phoneSeven.cellSize * 0.55;
+assert(phoneSeven.cellSize >= 44, '390x844 keeps a readable 7x7 puzzle while reserving the left clue gutter.');
+assert(phoneSevenClueLeft >= 12, 'Phone clue text stays inside the 12px narrow margin.');
+assert(phoneSevenRight <= 390 - 12, 'Phone board stays inside the right 12px narrow margin.');
 assert(
   approxEqual((phoneSevenLeft + phoneSevenRight) / 2, 390 / 2),
-  'The complete clue+board puzzle block is horizontally centered on phone.',
+  'The gameplay board itself is horizontally centered on phone.',
 );
 assert(phoneSeven.originY - phoneSeven.cellSize >= 72, 'Phone column clues stay below the narrow header reserve.');
 assert(phoneSeven.originY + phoneSeven.boardHeight <= 844 - 132, 'Phone board stays above the narrow toolbar reserve.');
 
 const phoneSix = calculateGameBoardLayout(390, 844, 6, 6);
-const phoneSixLeft = phoneSix.originX - phoneSix.cellSize;
+const phoneSixLeft = phoneSix.originX;
 const phoneSixRight = phoneSix.originX + phoneSix.boardWidth;
-assert(phoneSix.cellSize >= 52, '390x844 makes a 6x6 puzzle substantially larger than the previous centered-board geometry.');
+assert(phoneSix.cellSize >= 50, '390x844 keeps a large readable 6x6 puzzle.');
 assert(
   approxEqual((phoneSixLeft + phoneSixRight) / 2, 390 / 2),
-  'The complete 6x6 clue+board block is centered on phone.',
+  'The 6x6 gameplay board itself is centered on phone.',
 );
 
 const widerPhone = calculateGameBoardLayout(430, 844, 7, 7);
-assert(widerPhone.cellSize >= 50, 'A 430px-wide phone can provide at least 50px 7x7 cells.');
+assert(widerPhone.cellSize >= 49, 'A 430px-wide phone can provide roughly 50px 7x7 cells while keeping the board centered.');
 
 const desktop = calculateGameBoardLayout(1280, 720, 6, 6);
 assert(desktop.cellSize <= 72, 'Desktop cell size is capped instead of expanding with the viewport.');
@@ -83,4 +84,4 @@ const desktopSeven = calculateGameBoardLayout(1280, 720, 7, 7);
 assert(desktopSeven.cellSize < desktop.cellSize, '7x7 scales down when vertical safe space requires it.');
 assert(desktopSeven.cellSize >= 60, '7x7 desktop cells stay comfortably playable.');
 
-console.info('[Dungeon Logic] Game board layout sanity: viewport classes + full-width centered mobile puzzle passed');
+console.info('[Dungeon Logic] Game board layout sanity: viewport classes + board-centered mobile puzzle passed');

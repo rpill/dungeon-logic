@@ -94,6 +94,8 @@ export function calculatePuzzleToolbarLayout(
   viewportHeight: number,
   safeAreaBottom = 0,
   showToolButtons = true,
+  boardBottom?: number,
+  hideHintButton = false,
 ): PuzzleToolbarLayout {
   if (viewportWidth <= 0 || viewportHeight <= 0) {
     throw new RangeError('Viewport dimensions must be positive.');
@@ -123,19 +125,46 @@ export function calculatePuzzleToolbarLayout(
     };
   }
 
-  if (viewportClass === 'narrow') {
-    const margin = 12;
+  if (showToolButtons && viewportClass !== 'wide') {
+    const margin = viewportClass === 'narrow' ? 12 : 18;
     const gapX = 8;
     const gapY = 22;
     const actionButtonHeight = 48;
     const toolButtonHeight = 52;
-    const toolButtonWidth = Math.floor((viewportWidth - margin * 2 - gapX) / 2);
-    const actionButtonWidth = Math.floor((viewportWidth - margin * 2 - gapX * 2) / 3);
+    const toolButtonWidth = Math.min(
+      viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : 280,
+      Math.floor((viewportWidth - margin * 2 - gapX) / 2),
+    );
+    const actionIds: readonly PuzzleToolbarButtonId[] = hideHintButton
+      ? ['undo', 'reset']
+      : ['undo', 'reset', 'hint'];
+    const actionButtonWidth = Math.min(
+      viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : (actionIds.length === 2 ? 240 : 210),
+      Math.floor(
+        (viewportWidth - margin * 2 - gapX * Math.max(0, actionIds.length - 1)) / actionIds.length,
+      ),
+    );
     const bottomY = viewportHeight - bottomInset - margin - actionButtonHeight / 2;
-    const topY = bottomY - actionButtonHeight / 2 - gapY - toolButtonHeight / 2;
-    const leftToolX = margin + toolButtonWidth / 2;
-    const rightToolX = viewportWidth - margin - toolButtonWidth / 2;
-    const firstActionX = margin + actionButtonWidth / 2;
+    const actionTop = bottomY - actionButtonHeight / 2;
+    const maxToolY = actionTop - gapY - toolButtonHeight / 2;
+    const desiredToolY = boardBottom === undefined
+      ? maxToolY
+      : boardBottom + 12 + toolButtonHeight / 2;
+    const topY = Math.min(desiredToolY, maxToolY);
+    const toolTotalWidth = toolButtonWidth * 2 + gapX;
+    const toolStartX = (viewportWidth - toolTotalWidth) / 2;
+    const leftToolX = toolStartX + toolButtonWidth / 2;
+    const rightToolX = toolStartX + toolButtonWidth + gapX + toolButtonWidth / 2;
+    const actionTotalWidth = actionButtonWidth * actionIds.length + gapX * Math.max(0, actionIds.length - 1);
+    const actionStartX = (viewportWidth - actionTotalWidth) / 2;
+    const firstActionX = actionStartX + actionButtonWidth / 2;
+    const actionButtons = actionIds.map((id, index): PuzzleToolbarButtonLayout => ({
+      id,
+      x: firstActionX + index * (actionButtonWidth + gapX),
+      y: bottomY,
+      width: actionButtonWidth,
+      height: actionButtonHeight,
+    }));
 
     return {
       mode: 'stacked',
@@ -144,9 +173,7 @@ export function calculatePuzzleToolbarLayout(
       buttons: [
         { id: 'wall', x: leftToolX, y: topY, width: toolButtonWidth, height: toolButtonHeight },
         { id: 'floor', x: rightToolX, y: topY, width: toolButtonWidth, height: toolButtonHeight },
-        { id: 'undo', x: firstActionX, y: bottomY, width: actionButtonWidth, height: actionButtonHeight },
-        { id: 'reset', x: firstActionX + actionButtonWidth + gapX, y: bottomY, width: actionButtonWidth, height: actionButtonHeight },
-        { id: 'hint', x: firstActionX + (actionButtonWidth + gapX) * 2, y: bottomY, width: actionButtonWidth, height: actionButtonHeight },
+        ...actionButtons,
       ],
     };
   }

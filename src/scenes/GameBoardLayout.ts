@@ -59,12 +59,11 @@ export function calculateGameBoardLayout(
     throw new RangeError('Viewport is too small for the puzzle header and toolbar reserves.');
   }
 
-  // On narrow screens the clue gutter and gameplay board are treated as one
-  // visual puzzle block. Centering that complete block lets the board use
-  // nearly the full phone width instead of wasting a second clue-sized gutter
-  // on the right. Wider layouts keep the gameplay board itself centered.
+  // The gameplay board itself stays horizontally centered on every viewport.
+  // Narrow screens still reserve enough width for the left clue gutter instead
+  // of shifting the whole board to compensate for it.
   const widthCellDivisor = viewportClass === 'narrow'
-    ? boardColumns + 1
+    ? boardColumns + 1.2
     : boardColumns + 2;
   const maxCellFromWidth = Math.floor(
     (viewportWidth - 2 * margin) / widthCellDivisor,
@@ -89,9 +88,7 @@ export function calculateGameBoardLayout(
   const boardWidth = boardColumns * cellSize;
   const boardHeight = boardRows * cellSize;
 
-  const originX = viewportClass === 'narrow'
-    ? (viewportWidth - (boardWidth + cellSize)) / 2 + cellSize
-    : (viewportWidth - boardWidth) / 2;
+  const originX = (viewportWidth - boardWidth) / 2;
 
   const totalPuzzleHeight = (boardRows + 1) * cellSize;
   const safeTop = headerHeight;

@@ -50,6 +50,27 @@ export class TutorialService {
     return this.levels.find((entry) => !completed.has(entry.id)) ?? null;
   }
 
+  async startEntryLevel(): Promise<TutorialLevelEntry> {
+    const tutorial = this.profileService.getProfile().tutorial;
+    if (tutorial.completed) {
+      const firstLevel = this.levels[0];
+      if (firstLevel === undefined) throw new Error('Tutorial manifest is empty.');
+
+      this.profileService.update((profile) => ({
+        ...profile,
+        tutorial: {
+          ...profile.tutorial,
+          activePuzzle: null,
+        },
+      }));
+      return firstLevel;
+    }
+
+    const continueLevel = this.getContinueLevel() ?? this.levels[0];
+    if (continueLevel === undefined) throw new Error('Tutorial manifest is empty.');
+    return this.requirePlayableLevel(continueLevel.id);
+  }
+
   canPlayLevel(id: string): boolean {
     const entry = this.levels.find((level) => level.id === id);
     if (entry === undefined) return false;

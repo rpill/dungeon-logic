@@ -33,8 +33,8 @@ assert(game.includes("floor: 'board-floor-mark'"), 'Floor tool selector must sho
 assert(game.includes("const isToolSelector = buttonState.id === 'wall' || buttonState.id === 'floor';"), 'Wall/Floor must have their own selector visual treatment.');
 assert(puzzleUi.includes('const gapY = 22;'), 'Touch tool selectors must sit higher above the action-button row.');
 
-assert(game.includes("const hideHintButton = showTouchToolButtons && currentHint !== null && buttonState.id === 'hint';"), 'An active delivered hint must hide the touch Hint button.');
-assert(game.includes('visual.background.setVisible(!hideHintButton);'), 'Hidden touch Hint state must hide its button surface.');
+assert(puzzleUi.includes('hideHintButton = false') && puzzleUi.includes("? ['undo', 'reset']"), 'An active delivered hint must remove the touch Hint button from the action-row layout.');
+assert(game.includes('const buttonVisible = toolbarVisible && buttonLayout !== undefined;'), 'Toolbar surfaces must only render for buttons present in the current layout.');
 const editStart = game.indexOf('const handleEditCommitted = (): void =>');
 const boardStart = game.indexOf('board = new BoardView(', editStart);
 const editSource = game.slice(editStart, boardStart);

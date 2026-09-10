@@ -22,6 +22,7 @@ class FakeImage {
   visible = true;
   interactive = false;
   tint: number | null = null;
+  alpha = 1;
   x: number;
   y: number;
   width = 0;
@@ -58,6 +59,11 @@ class FakeImage {
 
   setTint(tint: number): this {
     this.tint = tint;
+    return this;
+  }
+
+  setAlpha(alpha: number): this {
+    this.alpha = alpha;
     return this;
   }
 
@@ -214,6 +220,13 @@ class FakeScene {
       this.inputHandlers.set(event, callback);
     },
   };
+
+  readonly tweens = {
+    add: () => ({
+      restart: () => {},
+      pause: () => {},
+    }),
+  };
 }
 
 function createLevel(overrides: Record<string, unknown> = {}) {
@@ -339,15 +352,15 @@ assert(touchFloorMarkPolicy?.visible === true, 'Touch uses the currently selecte
 
 const hintPreview = createBoard(createLevel());
 hintPreview.board.setHintCellTarget({ x: 0, y: 0, state: CellState.Floor } as any);
-const visibleGoldFloorHint = hintPreview.scene.texts.find(
-  (text) => text.value === '◆' && text.color === '#d0b978' && text.visible,
+const visibleFloorHint = hintPreview.scene.images.find(
+  (image) => image.textureKey === BOARD_FLOOR_MARK_KEY && image.tint === 0xd54a42 && image.visible,
 );
-assert(visibleGoldFloorHint !== undefined, 'Floor hint still renders an explicit gold floor preview.');
+assert(visibleFloorHint !== undefined, 'Floor hint uses the same pulsing coral floor marker as Tutorial guidance.');
 hintPreview.board.setHintCellTarget({ x: 0, y: 0, state: CellState.Wall } as any);
-const visibleWallHint = hintPreview.scene.rectangles.find(
-  (rectangle) => rectangle.visible && rectangle.fillColor === WIREFRAME.hintTint && rectangle.fillAlpha >= 0.45,
+const visibleWallHint = hintPreview.scene.images.find(
+  (image) => image.textureKey.startsWith('board-wall-') && image.visible && image.alpha < 1,
 );
-assert(visibleWallHint !== undefined, 'Wall hint still renders a distinct gold ghost-wall preview.');
+assert(visibleWallHint !== undefined, 'Wall hint uses the same semi-transparent wall texture as Tutorial guidance.');
 
 const monster = createBoard(createLevel({ monsters: [{ x: 0, y: 0 }], solution: ['.'] }));
 assert(monster.scene.texts.some((text) => text.value === 'M' && text.visible), 'Monster remains a temporary M marker in this stage.');

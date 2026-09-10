@@ -16,6 +16,7 @@ import {
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
 import { createHomeMenuButton, type HomeMenuButtonHandle } from '../runtime/HomeMenuButton';
+import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
@@ -45,7 +46,6 @@ const STATE_FILL = {
 export class LevelSelectScene extends Phaser.Scene {
   private launchPending = false;
   private contentBottom = 0;
-  private headerBottom = 0;
   private scrollMaxY = 0;
   private scrollPointerId: number | null = null;
   private scrollStartPointerY = 0;
@@ -63,7 +63,6 @@ export class LevelSelectScene extends Phaser.Scene {
     this.launchPending = false;
     this.pointerGate.reset();
     this.contentBottom = 0;
-    this.headerBottom = 0;
     this.scrollMaxY = 0;
     this.scrollPointerId = null;
     this.scrollGestureDragged = false;
@@ -72,6 +71,7 @@ export class LevelSelectScene extends Phaser.Scene {
     this.cameras.main.setScroll(0, 0);
 
     const sceneBackground = createSceneBackground(this, 'meta');
+    sceneBackground.image.setScrollFactor(0);
     const service = this.getCampaignService();
     const tutorial = this.getTutorialService();
     const profile = this.getProfileService().getProfile();
@@ -84,20 +84,16 @@ export class LevelSelectScene extends Phaser.Scene {
       items.length,
     );
     this.contentBottom = layout.contentBottom;
-    this.headerBottom = layout.headerBottom;
 
-    const narrow = this.scale.width < 700;
-    const headerScrim = this.add.rectangle(
-      this.scale.width / 2,
-      layout.headerBottom / 2,
-      this.scale.width,
-      layout.headerBottom,
-      0x07111f,
-      narrow ? 0.32 : 0.24,
-    ).setScrollFactor(0).setDepth(1000);
 
-    this.createBackControl(copy.common.backHome, layout.titleY, narrow);
-    this.createTitle(copy.common.levels, layout.titleY, narrow);
+    createMetaPageHeader(this, {
+      title: copy.common.levels,
+      backLabel: copy.common.backHome,
+      onBack: (pointer) => {
+        if (!this.shouldActivatePointer(pointer)) return;
+        this.scene.start(HOME_SCENE_KEY);
+      },
+    });
 
     if (!profile.tutorial.completed) {
       const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
@@ -208,71 +204,7 @@ export class LevelSelectScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
-      headerScrim.destroy();
     });
-  }
-
-  private createBackControl(label: string, y: number, narrow: boolean): void {
-    const iconSize = narrow ? 22 : 26;
-    const x = narrow ? 16 : 26;
-    const icon = this.add.image(x + iconSize / 2, y, 'ui-icon-back')
-      .setDisplaySize(iconSize, iconSize)
-      .setTint(0xf4ead7)
-      .setScrollFactor(0)
-      .setDepth(1003);
-    const text = this.add.text(
-      x + iconSize + (narrow ? 8 : 10),
-      y,
-      label.replace(/^←\s*/, ''),
-      {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '13px' : '16px',
-        color: '#f4ead7',
-        fontStyle: 'bold',
-      },
-    ).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1003);
-
-    this.add.zone(
-      x + (iconSize + 10 + text.width) / 2,
-      y,
-      iconSize + 10 + text.width,
-      Math.max(42, iconSize + 8),
-    ).setScrollFactor(0).setDepth(1004).setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        this.scene.start(HOME_SCENE_KEY);
-      });
-
-    void icon;
-  }
-
-  private createTitle(label: string, y: number, narrow: boolean): void {
-    const title = this.add.text(this.scale.width / 2, y, label, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '28px' : '32px',
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
-
-    const decor = this.add.graphics().setScrollFactor(0).setDepth(1001);
-    decor.fillStyle(0xf0b14f, 0.95);
-    const diamondSize = narrow ? 4 : 5;
-    const lineWidth = narrow ? 34 : 40;
-    const gap = narrow ? 20 : 26;
-    const leftDiamondX = title.x - title.width / 2 - gap;
-    const rightDiamondX = title.x + title.width / 2 + gap;
-    const drawDiamond = (x: number): void => {
-      decor.beginPath();
-      decor.moveTo(x, y - diamondSize);
-      decor.lineTo(x + diamondSize, y);
-      decor.lineTo(x, y + diamondSize);
-      decor.lineTo(x - diamondSize, y);
-      decor.closePath();
-      decor.fillPath();
-    };
-    drawDiamond(leftDiamondX);
-    drawDiamond(rightDiamondX);
-    decor.fillRect(leftDiamondX - lineWidth - (narrow ? 12 : 16), y - 1, lineWidth, 2);
-    decor.fillRect(rightDiamondX + (narrow ? 12 : 16), y - 1, lineWidth, 2);
   }
 
   private drawLevelPreview(
@@ -332,12 +264,11 @@ export class LevelSelectScene extends Phaser.Scene {
       icon: 'play',
       accentFrame: true,
       onActivate: (pointer) => {
-        if (!this.shouldActivatePointer(pointer, true)) return;
+        if (!this.shouldActivatePointer(pointer)) return;
         onActivate();
       },
     });
     this.centerActionButtonContent(button, x, y);
-    this.pinHomeMenuButton(button);
   }
 
   private centerActionButtonContent(button: HomeMenuButtonHandle, x: number, y: number): void {
@@ -348,12 +279,6 @@ export class LevelSelectScene extends Phaser.Scene {
     button.label.setPosition(startX + button.icon.displayWidth + gap, y);
   }
 
-  private pinHomeMenuButton(button: HomeMenuButtonHandle): void {
-    button.fill.setScrollFactor(0).setDepth(1002);
-    button.frame.setScrollFactor(0).setDepth(1003);
-    button.icon.setScrollFactor(0).setDepth(1004);
-    button.label.setScrollFactor(0).setDepth(1004);
-  }
 
   private setupPointerOwnership(): void {
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
@@ -423,12 +348,8 @@ export class LevelSelectScene extends Phaser.Scene {
     });
   }
 
-  private shouldActivatePointer(
-    pointer: Phaser.Input.Pointer,
-    allowFixedHeader = false,
-  ): boolean {
+  private shouldActivatePointer(pointer: Phaser.Input.Pointer): boolean {
     if (!this.pointerGate.canActivate(pointer.id)) return false;
-    if (!allowFixedHeader && pointer.y < this.headerBottom) return false;
     if (this.scrollPointerId === pointer.id && this.scrollGestureDragged) return false;
     return !(
       this.lastDraggedPointerId === pointer.id

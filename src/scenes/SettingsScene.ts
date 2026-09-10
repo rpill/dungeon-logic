@@ -6,6 +6,8 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createSceneBackground } from '../runtime/SceneBackground';
@@ -61,75 +63,28 @@ export class SettingsScene extends Phaser.Scene {
     const settingsService = new SettingsService(profileService, { vibrationSupported });
     const settings = settingsService.getSettings();
     const copy = getUiCopy(settings.language);
-    const narrow = this.scale.width < 700;
-
-    const backY = narrow ? 28 : 42;
-    const backX = narrow ? 18 : 42;
-    const backIconSize = narrow ? 24 : 30;
-    this.add.image(backX + backIconSize / 2, backY, 'ui-icon-back')
-      .setDisplaySize(backIconSize, backIconSize)
-      .setTint(0xf4ead7);
-    const backLabel = this.add.text(
-      backX + backIconSize + (narrow ? 8 : 10),
-      backY,
-      this.returnSceneKey === 'GameScene' ? copy.common.back.replace(/^←\s*/, '') : copy.common.backHome.replace(/^←\s*/, ''),
-      {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '14px' : '17px',
-        color: '#f4ead7',
-        fontStyle: 'bold',
+    const header = calculateMetaPageHeaderMetrics(this.scale.width, this.scale.height);
+    const narrow = header.narrow;
+    createMetaPageHeader(this, {
+      title: copy.settings.title,
+      backLabel: this.returnSceneKey === 'GameScene' ? copy.common.back : copy.common.backHome,
+      onBack: (pointer) => {
+        if (!this.canActivate(pointer)) return;
+        if (this.returnSceneKey === 'GameScene') {
+          this.scene.resume('GameScene');
+          this.scene.stop();
+          return;
+        }
+        this.scene.start(HOME_SCENE_KEY);
       },
-    ).setOrigin(0, 0.5);
-    const backHit = this.add.zone(
-      backX + (backIconSize + 10 + backLabel.width) / 2,
-      backY,
-      backIconSize + 10 + backLabel.width,
-      Math.max(44, backIconSize + 10),
-    ).setInteractive({ useHandCursor: true });
-    backHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.canActivate(pointer)) return;
-      if (this.returnSceneKey === 'GameScene') {
-        this.scene.resume('GameScene');
-        this.scene.stop();
-        return;
-      }
-      this.scene.start(HOME_SCENE_KEY);
     });
 
-    const titleY = narrow ? 70 : 84;
-    const title = this.add.text(this.scale.width / 2, titleY, copy.settings.title, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '28px' : '40px',
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    if (!narrow) {
-      const titleDecor = this.add.graphics();
-      titleDecor.fillStyle(0xf0b14f, 0.95);
-      const diamondSize = 6;
-      const leftDiamondX = title.x - title.width / 2 - 34;
-      const rightDiamondX = title.x + title.width / 2 + 34;
-      const drawDiamond = (x: number): void => {
-        titleDecor.beginPath();
-        titleDecor.moveTo(x, titleY - diamondSize);
-        titleDecor.lineTo(x + diamondSize, titleY);
-        titleDecor.lineTo(x, titleY + diamondSize);
-        titleDecor.lineTo(x - diamondSize, titleY);
-        titleDecor.closePath();
-        titleDecor.fillPath();
-      };
-      drawDiamond(leftDiamondX);
-      drawDiamond(rightDiamondX);
-      titleDecor.fillRect(leftDiamondX - 66, titleY - 1, 46, 2);
-      titleDecor.fillRect(rightDiamondX + 20, titleY - 1, 46, 2);
-    }
-
     const width = Math.min(this.scale.width - (narrow ? 28 : 56), narrow ? 430 : 720);
-    const rowHeight = narrow ? 56 : 64;
-    const rowGap = narrow ? 10 : 12;
+    const compactHeight = this.scale.height < 500;
+    const rowHeight = compactHeight ? 44 : narrow ? 56 : 64;
+    const rowGap = compactHeight ? 6 : narrow ? 10 : 12;
     const rows = getSettingsRows(settings, settingsService.isVibrationSupported(), settings.language);
-    const startY = titleY + (narrow ? 72 : 94);
+    const startY = header.headerHeight + (compactHeight ? 28 : narrow ? 52 : 60);
 
     rows.forEach((row, index) => {
       const y = startY + index * (rowHeight + rowGap);

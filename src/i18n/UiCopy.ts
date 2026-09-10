@@ -73,9 +73,6 @@ export interface UiCopy {
     readonly activeTime: (duration: string) => string;
     readonly puzzlesSolved: (count: number) => string;
     readonly hints: (count: number) => string;
-    readonly dailyCalendar: string;
-    readonly noTrustedDate: string;
-    readonly dailyMonth: (month: string, year: number) => string;
   };
   readonly dailyHub: {
     readonly title: string;
@@ -98,13 +95,18 @@ export interface UiCopy {
   readonly leaderboard: {
     readonly title: string;
     readonly back: string;
+    readonly subtitle: (date: string) => string;
     readonly firstResultOnly: string;
     readonly yourResult: (time: string) => string;
     readonly yourPlace: (place: number) => string;
+    readonly noResult: string;
+    readonly assistedResult: string;
+    readonly playToRank: string;
     readonly signInTitle: string;
     readonly signInBody: string;
     readonly signIn: string;
     readonly unavailable: string;
+    readonly localUnavailable: string;
     readonly noEntries: string;
     readonly playerFallback: string;
     readonly currentPlayerSuffix: string;
@@ -133,10 +135,6 @@ export interface UiCopy {
     readonly hintLocked: (time: string) => string;
     readonly hintRechargeStatus: (time: string) => string;
     readonly dailyHintOutsideRating: string;
-    readonly onboardingTouchWall: string;
-    readonly onboardingTouchFloor: string;
-    readonly onboardingMouseWall: string;
-    readonly onboardingMouseFloor: string;
     readonly onboardingDismiss: string;
     readonly hintWall: string;
     readonly hintFloor: string;
@@ -145,6 +143,10 @@ export interface UiCopy {
     readonly ad: string;
     readonly rewardedPrompt: string;
     readonly freeHintPrompt: (remaining: number) => string;
+    readonly hintConfirmTitle: string;
+    readonly freeHintsRemaining: (remaining: number) => string;
+    readonly rewardedHintConfirmTitle: string;
+    readonly rewardedHintConfirmMeta: string;
     readonly withoutHints: string;
     readonly hintsCount: (count: number) => string;
     readonly newRecord: string;
@@ -241,9 +243,6 @@ const RU: UiCopy = {
     activeTime: (duration) => `Активное время ${duration}`,
     puzzlesSolved: (count) => `Решено задач ${count}`,
     hints: (count) => `Подсказок ${count}`,
-    dailyCalendar: 'DAILY · КАЛЕНДАРЬ',
-    noTrustedDate: 'Недоступно без доверенной даты',
-    dailyMonth: (month, year) => `DAILY · ${month} ${year}`,
   },
   dailyHub: {
     title: 'DAILY',
@@ -252,27 +251,32 @@ const RU: UiCopy = {
     playToday: 'ИГРАТЬ СЕГОДНЯ',
     leaderboard: 'ТАБЛИЦА ЛИДЕРОВ',
     todaySolved: (time) => `Результат зафиксирован · ${time}`,
-    todaySolvedOutsideRating: (time) => `Пройдено вне рейтинга · ${time}`,
-    todayUnsolved: 'Первое успешное прохождение идёт в рейтинг.',
+    todaySolvedOutsideRating: (time) => `Пройдено вне таблицы лидеров · ${time}`,
+    todayUnsolved: 'Первое прохождение без подсказок попадёт в таблицу лидеров.',
     todayUnavailable: 'На доверенную сегодняшнюю дату задания нет.',
     archiveProgress: (solved, total) => `Пройдено ${solved} / ${total}`,
     archiveNotSolved: 'НЕ ПРОЙДЕНО',
     archiveFirstResult: (time) => `Первое время · ${time}`,
     archivePlay: 'ИГРАТЬ',
     archiveReplay: 'ПЕРЕИГРАТЬ',
-    archiveOutsideRating: 'Архивные Daily проходят вне рейтинга.',
+    archiveOutsideRating: 'Архивные Daily не участвуют в таблице лидеров.',
     archiveEmpty: 'Старых Daily пока нет.',
   },
   leaderboard: {
-    title: 'DAILY · ТАБЛИЦА ЛИДЕРОВ',
-    back: '← ГЛАВНАЯ',
-    firstResultOnly: 'В зачёт идёт только первое успешное прохождение.',
+    title: 'ТАБЛИЦА ЛИДЕРОВ',
+    back: '← DAILY',
+    subtitle: (date) => `DAILY · ${date}`,
+    firstResultOnly: 'В зачёт идёт только первое успешное прохождение без подсказок.',
     yourResult: (time) => `Твой результат · ${time}`,
     yourPlace: (place) => `Твоё место · #${place}`,
+    noResult: 'У тебя пока нет результата сегодня.',
+    assistedResult: 'Результат с подсказками не участвует в таблице лидеров.',
+    playToRank: 'Пройди Daily без подсказок, чтобы попасть в таблицу лидеров.',
     signInTitle: 'ВОЙДИ В ЯНДЕКС',
-    signInBody: 'Чтобы твой зафиксированный результат попал в общий рейтинг.',
-    signIn: 'ВОЙТИ',
+    signInBody: 'Войди, чтобы сохранить результат и увидеть своё место.',
+    signIn: 'ВОЙТИ В ЯНДЕКС',
     unavailable: 'Таблица лидеров сейчас недоступна.',
+    localUnavailable: 'Таблица лидеров доступна в версии Яндекс Игр.',
     noEntries: 'Пока нет результатов.',
     playerFallback: 'Игрок',
     currentPlayerSuffix: ' · ВЫ',
@@ -297,22 +301,22 @@ const RU: UiCopy = {
     reset: 'СБРОС',
     hint: 'ПОДСКАЗКА',
     hintFree: (remaining) => `ПОДСКАЗКА ×${remaining}`,
-    hintRewarded: 'ПОДСКАЗКА ▶',
+    hintRewarded: 'ПОДСКАЗКА',
     hintLocked: (time) => `🔒 ${time}`,
-    hintRechargeStatus: (time) => `Бесплатная подсказка через ${time}.`,
-    dailyHintOutsideRating: 'Подсказка поможет пройти Daily, но результат не попадёт в рейтинг.',
-    onboardingTouchWall: 'ПОСТАВЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК СТЕНЫ',
-    onboardingTouchFloor: 'ВЫБЕРИ ПОЛ И ОТМЕТЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ',
-    onboardingMouseWall: 'ЛКМ: ПОСТАВЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК СТЕНЫ',
-    onboardingMouseFloor: 'ПКМ: ОТМЕТЬ ВСЕ ЗОЛОТЫЕ КЛЕТКИ КАК ПОЛ',
+    hintRechargeStatus: (time) => `Бесплатная подсказка через ${time}`,
+    dailyHintOutsideRating: 'Подсказка поможет пройти Daily, но результат не попадёт в таблицу лидеров.',
     onboardingDismiss: 'НАЖМИ НА СООБЩЕНИЕ, ЧТОБЫ ЗАКРЫТЬ',
-    hintWall: 'ПОДСКАЗКА: золотая клетка должна быть СТЕНОЙ',
-    hintFloor: 'ПОДСКАЗКА: золотая клетка должна быть ПОЛОМ',
+    hintWall: 'Мигающая клетка — СТЕНА',
+    hintFloor: 'Мигающая клетка — ПОЛ',
     loadingAd: 'ЗАГРУЗКА РЕКЛАМЫ…',
     show: 'ПОКАЗАТЬ',
     ad: 'РЕКЛАМА',
     rewardedPrompt: '1 РЕКЛАМА = 1 ПОДСКАЗКА. ПОКАЗАТЬ РЕКЛАМУ?',
     freeHintPrompt: (remaining) => `Показать одну клетку? Бесплатных подсказок: ${remaining}`,
+    hintConfirmTitle: 'ПОКАЗАТЬ ОДНУ КЛЕТКУ?',
+    freeHintsRemaining: (remaining) => `БЕСПЛАТНЫХ ПОДСКАЗОК: ${remaining}`,
+    rewardedHintConfirmTitle: 'ПОКАЗАТЬ ПОДСКАЗКУ?',
+    rewardedHintConfirmMeta: '1 РЕКЛАМА = 1 ПОДСКАЗКА',
     withoutHints: 'БЕЗ ПОДСКАЗОК',
     hintsCount: (count) => `ПОДСКАЗОК: ${count}`,
     newRecord: '  ·  НОВЫЙ РЕКОРД',
@@ -324,7 +328,7 @@ const RU: UiCopy = {
     dailyResultFixed: 'РЕЗУЛЬТАТ ЗАФИКСИРОВАН',
     dailyPlace: (place) => `МЕСТО #${place}` ,
     dailyArchiveComplete: 'АРХИВНЫЙ DAILY ПРОЙДЕН',
-    dailyArchiveOutsideRating: 'ЭТОТ РЕЗУЛЬТАТ НЕ УЧАСТВУЕТ В РЕЙТИНГЕ',
+    dailyArchiveOutsideRating: 'ЭТОТ РЕЗУЛЬТАТ НЕ УЧАСТВУЕТ В ТАБЛИЦЕ ЛИДЕРОВ',
     dailyArchiveFirstResult: (time) => `ПЕРВОЕ ВРЕМЯ · ${time}`,
     streakRecent: (streak, recent) => `СЕРИЯ: ${streak}  ·  7 ДНЕЙ: ${recent}`,
     home: 'ГЛАВНАЯ',
@@ -409,9 +413,6 @@ const EN: UiCopy = {
     activeTime: (duration) => `Active time ${duration}`,
     puzzlesSolved: (count) => `Puzzles solved ${count}`,
     hints: (count) => `Hints ${count}`,
-    dailyCalendar: 'DAILY · CALENDAR',
-    noTrustedDate: 'Unavailable without a trusted date',
-    dailyMonth: (month, year) => `DAILY · ${month} ${year}`,
   },
   dailyHub: {
     title: 'DAILY',
@@ -420,27 +421,32 @@ const EN: UiCopy = {
     playToday: 'PLAY TODAY',
     leaderboard: 'LEADERBOARD',
     todaySolved: (time) => `Result locked · ${time}`,
-    todaySolvedOutsideRating: (time) => `Completed outside ranking · ${time}`,
-    todayUnsolved: 'Only the first successful solve enters the ranking.',
+    todaySolvedOutsideRating: (time) => `Completed outside leaderboard · ${time}`,
+    todayUnsolved: 'Your first solve without hints enters the leaderboard.',
     todayUnavailable: 'There is no puzzle for the trusted date today.',
     archiveProgress: (solved, total) => `Solved ${solved} / ${total}`,
     archiveNotSolved: 'NOT SOLVED',
     archiveFirstResult: (time) => `First time · ${time}`,
     archivePlay: 'PLAY',
     archiveReplay: 'REPLAY',
-    archiveOutsideRating: 'Archived Dailies are always outside the ranking.',
+    archiveOutsideRating: 'Archived Dailies do not enter the leaderboard.',
     archiveEmpty: 'No older Dailies yet.',
   },
   leaderboard: {
-    title: 'DAILY · LEADERBOARD',
-    back: '← HOME',
-    firstResultOnly: 'Only the first successful solve counts.',
+    title: 'LEADERBOARD',
+    back: '← DAILY',
+    subtitle: (date) => `DAILY · ${date}`,
+    firstResultOnly: 'Only the first successful solve without hints counts.',
     yourResult: (time) => `Your result · ${time}`,
     yourPlace: (place) => `Your place · #${place}`,
+    noResult: 'You do not have a result for today yet.',
+    assistedResult: 'Results with hints do not enter the leaderboard.',
+    playToRank: 'Solve today’s Daily without hints to enter the leaderboard.',
     signInTitle: 'SIGN IN TO YANDEX',
-    signInBody: 'Sign in to add your fixed result to the shared ranking.',
-    signIn: 'SIGN IN',
+    signInBody: 'Sign in to save your result and see your place.',
+    signIn: 'SIGN IN TO YANDEX',
     unavailable: 'Leaderboard is currently unavailable.',
+    localUnavailable: 'The leaderboard is available in the Yandex Games version.',
     noEntries: 'No results yet.',
     playerFallback: 'Player',
     currentPlayerSuffix: ' · YOU',
@@ -465,22 +471,22 @@ const EN: UiCopy = {
     reset: 'RESET',
     hint: 'HINT',
     hintFree: (remaining) => `HINT ×${remaining}`,
-    hintRewarded: 'HINT ▶',
+    hintRewarded: 'HINT',
     hintLocked: (time) => `🔒 ${time}`,
-    hintRechargeStatus: (time) => `Free hint in ${time}.`,
+    hintRechargeStatus: (time) => `Free hint in ${time}`,
     dailyHintOutsideRating: 'A hint can finish the Daily, but this run will not enter the leaderboard.',
-    onboardingTouchWall: 'MARK ALL GOLD CELLS AS WALLS',
-    onboardingTouchFloor: 'SELECT FLOOR AND MARK ALL GOLD CELLS',
-    onboardingMouseWall: 'LMB: MARK ALL GOLD CELLS AS WALLS',
-    onboardingMouseFloor: 'RMB: MARK ALL GOLD CELLS AS FLOOR',
     onboardingDismiss: 'CLICK THE MESSAGE TO CLOSE',
-    hintWall: 'HINT: the gold cell must be a WALL',
-    hintFloor: 'HINT: the gold cell must be FLOOR',
+    hintWall: 'Blinking cell — WALL',
+    hintFloor: 'Blinking cell — FLOOR',
     loadingAd: 'LOADING AD…',
     show: 'SHOW',
     ad: 'AD',
     rewardedPrompt: '1 AD = 1 HINT. SHOW AN AD?',
     freeHintPrompt: (remaining) => `Reveal one cell? Free hints: ${remaining}`,
+    hintConfirmTitle: 'REVEAL ONE CELL?',
+    freeHintsRemaining: (remaining) => `FREE HINTS: ${remaining}`,
+    rewardedHintConfirmTitle: 'REVEAL A HINT?',
+    rewardedHintConfirmMeta: '1 AD = 1 HINT',
     withoutHints: 'NO HINTS',
     hintsCount: (count) => `HINTS: ${count}`,
     newRecord: '  ·  NEW RECORD',
@@ -492,7 +498,7 @@ const EN: UiCopy = {
     dailyResultFixed: 'RESULT LOCKED',
     dailyPlace: (place) => `PLACE #${place}`,
     dailyArchiveComplete: 'ARCHIVED DAILY COMPLETE',
-    dailyArchiveOutsideRating: 'THIS RESULT DOES NOT ENTER THE RANKING',
+    dailyArchiveOutsideRating: 'THIS RESULT DOES NOT ENTER THE LEADERBOARD',
     dailyArchiveFirstResult: (time) => `FIRST TIME · ${time}`,
     streakRecent: (streak, recent) => `STREAK: ${streak}  ·  7 DAYS: ${recent}`,
     home: 'HOME',

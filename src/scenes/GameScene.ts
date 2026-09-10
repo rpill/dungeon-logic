@@ -55,7 +55,7 @@ import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import { createSceneBackground } from '../runtime/SceneBackground';
-import { createHomeMenuButton } from '../runtime/HomeMenuButton';
+import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -252,12 +252,12 @@ export class GameScene extends Phaser.Scene {
 
     const layoutTopActions = (layout = chrome, insetTop = safeTop): void => {
       const narrowTop = this.scale.width < 700;
-      const height = narrowTop ? 40 : 48;
-      const backWidth = narrowTop ? 112 : 150;
-      const menuWidth = narrowTop ? 104 : 138;
-      const gap = narrowTop ? 7 : 9;
-      const iconSize = narrowTop ? 22 : 28;
-      const y = layout.titleY + insetTop;
+      const height = narrowTop ? 38 : 48;
+      const backWidth = narrowTop ? 100 : 150;
+      const menuWidth = narrowTop ? 92 : 138;
+      const gap = narrowTop ? 6 : 9;
+      const iconSize = narrowTop ? 20 : 28;
+      const y = layout.titleY + insetTop - (narrowTop ? 2 : 0);
       const backX = layout.actionInset + backWidth / 2;
       const menuX = this.scale.width - layout.actionInset - menuWidth / 2;
 
@@ -277,6 +277,21 @@ export class GameScene extends Phaser.Scene {
       const menuStartX = menuX - menuContentWidth / 2;
       menuIcon.setPosition(menuStartX + iconSize / 2, y);
       menuText.setPosition(menuStartX + iconSize + gap, y);
+
+      const titleY = y + (narrowTop ? 28 : 0);
+      titleText
+        .setPosition(this.scale.width / 2, titleY)
+        .setFontSize(layout.titleFontSize)
+        .setText(getTitleLabel());
+      const availableTitleWidth = Math.max(120, (menuX - menuWidth / 2) - (backX + backWidth / 2) - (narrowTop ? 16 : 40));
+      if (titleText.width > availableTitleWidth) {
+        const fitted = Math.max(narrowTop ? 18 : 24, Math.floor(layout.titleFontSize * availableTitleWidth / titleText.width));
+        titleText.setFontSize(fitted);
+      }
+      timerText
+        .setPosition(this.scale.width / 2, titleText.y + (narrowTop ? 24 : 34))
+        .setFontSize(Math.max(12, layout.statusFontSize));
+
       redrawTopActions();
     };
 
@@ -355,10 +370,7 @@ export class GameScene extends Phaser.Scene {
     let currentHint: PuzzleHint | null = null;
     let completionMode = false;
     let completionTransitionPending = false;
-    const completionButtons: Array<{
-      rectangle: Phaser.GameObjects.Rectangle;
-      label: Phaser.GameObjects.Text;
-    }> = [];
+    const completionButtons: Phaser.GameObjects.GameObject[] = [];
     const initialTimerMs = completedReview
       ? campaignPlayState?.displayTimeMs ?? 0
       : rankedDaily
@@ -505,6 +517,25 @@ export class GameScene extends Phaser.Scene {
         getToolbarRadius(visual.id),
       );
     };
+    const fitToolbarLabelToButton = (
+      visual: ToolbarVisual,
+      width: number,
+      iconSize: number,
+      gap: number,
+    ): void => {
+      const narrowToolbar = this.scale.width < 700;
+      const baseFontSize = narrowToolbar ? 15 : 17;
+      const minFontSize = narrowToolbar ? 10 : 12;
+      const horizontalPadding = narrowToolbar ? 12 : 16;
+      visual.label.setFontSize(baseFontSize);
+      const availableTextWidth = Math.max(24, width - iconSize - gap - horizontalPadding * 2);
+      if (visual.label.width > availableTextWidth) {
+        visual.label.setFontSize(
+          Math.max(minFontSize, Math.floor(baseFontSize * availableTextWidth / visual.label.width)),
+        );
+      }
+    };
+
     const layoutToolbarContent = (
       visual: ToolbarVisual,
       x: number,
@@ -526,6 +557,7 @@ export class GameScene extends Phaser.Scene {
       } else {
         visual.icon.setDisplaySize(iconSize, iconSize);
         const gap = narrowToolbar ? 8 : 10;
+        fitToolbarLabelToButton(visual, width, iconSize, gap);
         const totalWidth = iconSize + gap + visual.label.width;
         const startX = x - totalWidth / 2;
         visual.icon.setPosition(startX + iconSize / 2, y);
@@ -538,7 +570,19 @@ export class GameScene extends Phaser.Scene {
       this.scale.height,
       readSafeArea('--safe-area-inset-bottom'),
       showTouchToolButtons,
+      boardLayout.originY + boardLayout.boardHeight,
+      showTouchToolButtons && currentHint !== null,
     );
+    const recalculateToolbarLayout = (layout = boardLayout): void => {
+      toolbarLayout = calculatePuzzleToolbarLayout(
+        this.scale.width,
+        this.scale.height,
+        readSafeArea('--safe-area-inset-bottom'),
+        showTouchToolButtons,
+        layout.originY + layout.boardHeight,
+        showTouchToolButtons && currentHint !== null,
+      );
+    };
 
     const statusText = this.add.text(
       this.scale.width / 2,
@@ -551,6 +595,33 @@ export class GameScene extends Phaser.Scene {
         fontStyle: 'bold',
       },
     ).setOrigin(0.5);
+
+    const positionStatusText = (): void => {
+      const width = this.scale.width;
+      const currentChrome = calculatePuzzleChromeLayout(width, this.scale.height);
+      if (showTouchToolButtons && currentHint !== null && toolbarLayout.mode === 'stacked') {
+        const toolButtons = toolbarLayout.buttons.filter((button) => button.id === 'wall' || button.id === 'floor');
+        const actionButtons = toolbarLayout.buttons.filter((button) => button.id === 'undo' || button.id === 'reset' || button.id === 'hint');
+        if (toolButtons.length > 0 && actionButtons.length > 0) {
+          const toolBottom = Math.max(...toolButtons.map((button) => button.y + button.height / 2));
+          const actionTop = Math.min(...actionButtons.map((button) => button.y - button.height / 2));
+          statusText
+            .setPosition(width / 2, (toolBottom + actionTop) / 2)
+            .setWordWrapWidth(Math.min(Math.max(180, width - 32), 520), true)
+            .setFontSize(this.scale.height < 500 ? 12 : width < 700 ? 15 : currentChrome.statusFontSize)
+            .setAlign('center');
+          return;
+        }
+      }
+      const toolbarTop = Math.min(
+        ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
+      );
+      statusText
+        .setPosition(width / 2, toolbarTop - 18)
+        .setWordWrapWidth(Math.max(120, width - 24), true)
+        .setFontSize(width < 700 ? 14 : currentChrome.statusFontSize)
+        .setAlign('center');
+    };
 
     const onboardingSteps = launchData.context.mode === 'tutorial'
       && launchData.contextualOnboarding
@@ -573,123 +644,86 @@ export class GameScene extends Phaser.Scene {
           : 0;
     onboardingOpen = onboardingIndex >= 0;
 
-    const onboardingGuides = Array.from({ length: 12 }, () => (
-      this.add.rectangle(0, 0, 1, 1, 0xd0b978, 0.18)
-        .setVisible(false)
-        .setDepth(40)
-    ));
-    const onboardingPanel = this.add.rectangle(0, 0, 1, 1, 0x171b20, 0.96)
+    const onboardingPanel = this.add.graphics()
       .setVisible(false)
       .setDepth(50);
     const onboardingText = this.add.text(0, 0, '', {
       fontFamily: 'monospace',
       fontSize: '14px',
-      color: '#f0e6d2',
+      color: '#f4ead7',
       align: 'center',
       wordWrap: { width: 420 },
     })
       .setOrigin(0.5)
       .setVisible(false)
-      .setDepth(51);
-    const onboardingActionText = this.add.text(0, 0, '', {
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      color: '#d0b978',
-      fontStyle: 'bold',
-    })
-      .setOrigin(0.5)
-      .setVisible(false)
-      .setDepth(51);
+      .setDepth(52);
     const currentOnboardingStep = (): OnboardingStep | null => (
       onboardingIndex >= 0 ? onboardingSteps[onboardingIndex] ?? null : null
     );
 
-    const hideOnboardingGuides = (): void => {
-      for (const guide of onboardingGuides) guide.setVisible(false);
+    const getOnboardingBottomReserve = (): number => {
+      if (!onboardingOpen) return 0;
+      return this.scale.width < 700 ? 92 : 86;
     };
 
     const relayoutOnboarding = (): void => {
       const step = currentOnboardingStep();
-      hideOnboardingGuides();
       if (!onboardingOpen || step === null) {
         onboardingPanel.setVisible(false);
         onboardingText.setVisible(false);
-        onboardingActionText.setVisible(false);
+        board?.setTutorialCellTargets(null);
         return;
       }
 
       const toolbarTop = Math.min(
         ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
       );
-      const panelWidth = Math.min(this.scale.width - 24, this.scale.width < 700 ? 390 : 620);
+      const toolButtons = toolbarLayout.buttons.filter((button) => button.id === 'wall' || button.id === 'floor');
+      const actionButtons = toolbarLayout.buttons.filter((button) => button.id !== 'wall' && button.id !== 'floor');
+      const narrowScreen = this.scale.width < 700;
+      const panelWidth = Math.min(
+        this.scale.width - (narrowScreen ? 28 : 56),
+        narrowScreen ? 344 : 500,
+      );
       const panelX = this.scale.width / 2;
 
-      const wallStep = step.expectedState === 'wall';
-      const action = showTouchToolButtons
-        ? wallStep
-          ? copy.game.onboardingTouchWall
-          : copy.game.onboardingTouchFloor
-        : wallStep
-          ? copy.game.onboardingMouseWall
-          : copy.game.onboardingMouseFloor;
-
       onboardingText
-        .setWordWrapWidth(Math.max(120, panelWidth - 28), true)
-        .setFontSize(this.scale.width < 700 ? 13 : 14)
+        .setWordWrapWidth(Math.max(120, panelWidth - 36), true)
+        .setFontSize(narrowScreen ? 14 : 16)
         .setText(step.message);
-      onboardingActionText.setText(action);
 
-      const actionReserve = action.length > 0 ? 28 : 0;
+      const verticalPadding = narrowScreen ? 14 : 16;
       const panelHeight = Math.max(
-        this.scale.width < 700 ? 92 : 76,
-        onboardingText.height + 24 + actionReserve,
+        narrowScreen ? 64 : 70,
+        onboardingText.height + verticalPadding * 2,
       );
-      const panelY = toolbarTop - panelHeight / 2 - 10;
-
-      onboardingPanel
-        .setPosition(panelX, panelY)
-        .setDisplaySize(panelWidth, panelHeight)
-        .setVisible(true);
-      onboardingText
-        .setPosition(panelX, panelY - actionReserve / 2)
-        .setVisible(true);
-      onboardingActionText
-        .setPosition(panelX, panelY + panelHeight / 2 - 14)
-        .setVisible(action.length > 0);
-
-
-      const guideSize = Math.max(1, boardLayout.cellSize - 6);
-      let guideIndex = 0;
-      const placeGuide = (x: number, y: number): void => {
-        const guide = onboardingGuides[guideIndex++];
-        if (guide === undefined) return;
-        guide
-          .setPosition(x, y)
-          .setDisplaySize(guideSize, guideSize)
-          .setVisible(true);
-      };
-
-      if (step.guideClue !== undefined) {
-        if (step.guideClue.axis === 'row') {
-          placeGuide(
-            boardLayout.originX - boardLayout.cellSize / 2,
-            boardLayout.originY + step.guideClue.index * boardLayout.cellSize + boardLayout.cellSize / 2,
-          );
-        } else {
-          placeGuide(
-            boardLayout.originX + step.guideClue.index * boardLayout.cellSize + boardLayout.cellSize / 2,
-            boardLayout.originY - boardLayout.cellSize / 2,
-          );
+      const panelBottomGap = narrowScreen ? 14 : 18;
+      let panelY = toolbarTop - panelBottomGap - panelHeight / 2;
+      if (showTouchToolButtons && toolButtons.length > 0 && actionButtons.length > 0) {
+        const toolBottom = Math.max(...toolButtons.map((button) => button.y + button.height / 2));
+        const actionTop = Math.min(...actionButtons.map((button) => button.y - button.height / 2));
+        const gapTop = toolBottom + 10;
+        const gapBottom = actionTop - 10;
+        if (gapBottom - gapTop >= panelHeight) {
+          panelY = (gapTop + gapBottom) / 2;
         }
       }
 
-      for (const { x, y } of step.cells) {
-        placeGuide(
-          boardLayout.originX + x * boardLayout.cellSize + boardLayout.cellSize / 2,
-          boardLayout.originY + y * boardLayout.cellSize + boardLayout.cellSize / 2,
-        );
-      }
+      const panelLeft = panelX - panelWidth / 2;
+      const panelTop = panelY - panelHeight / 2;
+      const panelRadius = narrowScreen ? 10 : 12;
+      onboardingPanel
+        .clear()
+        .fillStyle(0x111b2f, 0.98)
+        .fillRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, panelRadius)
+        .lineStyle(1, 0x516b92, 0.9)
+        .strokeRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, panelRadius)
+        .setVisible(true);
+      onboardingText
+        .setPosition(panelX, panelY)
+        .setVisible(true);
 
+      board?.setTutorialCellTargets(step.cells, step.expectedState);
     };
 
     const controlsLocked = (): boolean => (
@@ -836,6 +870,7 @@ export class GameScene extends Phaser.Scene {
 
     let toolbarVisible = true;
     const syncToolbar = (): void => {
+      recalculateToolbarLayout();
       const hintStatus = profileService?.getHintRechargeStatus(Date.now());
       const rankedHintOpen = !rankedDaily || rankedDailyHintUnlocked();
       const state = createPuzzleToolbarState(
@@ -886,8 +921,8 @@ export class GameScene extends Phaser.Scene {
           : guided
             ? '#fff0e8'
             : '#f4ead7';
-        const hideHintButton = showTouchToolButtons && currentHint !== null && buttonState.id === 'hint';
-        const buttonVisible = toolbarVisible && !hideHintButton;
+        const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
+        const buttonVisible = toolbarVisible && buttonLayout !== undefined;
 
         visual.baseFill = fill;
         visual.disabled = disabled;
@@ -903,7 +938,6 @@ export class GameScene extends Phaser.Scene {
         }
         visual.hitArea.disableInteractive();
         if (!disabled && buttonVisible) visual.hitArea.setInteractive({ useHandCursor: true });
-        const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
         if (buttonLayout !== undefined) {
           layoutToolbarContent(
             visual,
@@ -916,19 +950,19 @@ export class GameScene extends Phaser.Scene {
           redrawToolbarBackground(visual);
         }
 
-        visual.background.setVisible(!hideHintButton);
+        visual.background.setVisible(buttonVisible);
         visual.hitArea.setVisible(buttonVisible);
         visual.icon?.setVisible(buttonVisible);
         visual.label.setVisible(buttonVisible);
-        if (!toolbarVisible) visual.background.setVisible(false);
       }
     };
 
     const setToolbarVisible = (visible: boolean): void => {
       toolbarVisible = visible;
+      recalculateToolbarLayout();
+      const visibleIds = new Set(toolbarLayout.buttons.map((button) => button.id));
       for (const [id, visual] of toolbarVisuals) {
-        const hideHintButton = showTouchToolButtons && currentHint !== null && id === 'hint';
-        const buttonVisible = visible && !hideHintButton;
+        const buttonVisible = visible && visibleIds.has(id);
         visual.background.setVisible(buttonVisible);
         visual.hitArea.setVisible(buttonVisible);
         visual.icon?.setVisible(buttonVisible);
@@ -960,11 +994,13 @@ export class GameScene extends Phaser.Scene {
       }
       if (completionMode || hintConfirmOpen || onboardingOpen) return;
       if (currentHint !== null) {
+        positionStatusText();
         statusText
           .setText(currentHint.state === 'wall'
             ? copy.game.hintWall
             : copy.game.hintFloor)
-          .setColor('#d0b978')
+          .setColor('#f4ead7')
+          .setFontStyle('bold')
           .setVisible(true);
         return;
       }
@@ -1007,6 +1043,7 @@ export class GameScene extends Phaser.Scene {
       }
       currentHint = hint;
       board?.setHintCellTarget(hint);
+      recalculateToolbarLayout();
       if (showTouchToolButtons) {
         board?.setActiveTool(hint.state === 'wall' ? 'wall' : 'floor');
       }
@@ -1054,43 +1091,79 @@ export class GameScene extends Phaser.Scene {
       if (!hintConfirmOpen) return;
 
       const safeBottom = readSafeArea('--safe-area-inset-bottom');
-      const width = Math.min(360, this.scale.width - 24);
+      const width = Math.min(390, this.scale.width - 24);
       const gap = 10;
       const buttonWidth = Math.floor((width - gap) / 2);
-      const buttonHeight = 46;
-      const y = this.scale.height - safeBottom - 12 - buttonHeight / 2;
-      const container = this.add.container(this.scale.width / 2, y).setDepth(70);
+      const buttonHeight = this.scale.width < 700 ? 44 : 48;
+      const rankedWarning = rankedDaily ? copy.game.dailyHintOutsideRating : '';
+      const buttonLocalY = rankedWarning.length > 0 ? 34 : 12;
+      const containerY = this.scale.height - safeBottom - 12 - buttonHeight / 2 - buttonLocalY;
+      const container = this.add.container(this.scale.width / 2, containerY).setDepth(70);
       hintConfirmContainer = container;
+
+      statusText.setVisible(false);
+
+      const remaining = profileService?.getFreeHintsRemaining(Date.now()) ?? 0;
+      const rewardedMode = hintConfirmMode === 'rewarded';
+      const hintConfirmTitle = this.add.text(0, -54, rewardedMode
+        ? copy.game.rewardedHintConfirmTitle
+        : copy.game.hintConfirmTitle, {
+        fontFamily: 'monospace',
+        fontSize: this.scale.width < 700 ? '15px' : '18px',
+        color: '#f4ead7',
+        fontStyle: 'bold',
+        align: 'center',
+      }).setOrigin(0.5);
+      const hintConfirmMeta = this.add.text(0, -28, rewardedMode
+        ? copy.game.rewardedHintConfirmMeta
+        : copy.game.freeHintsRemaining(remaining), {
+        fontFamily: 'monospace',
+        fontSize: this.scale.width < 700 ? '11px' : '13px',
+        color: '#aebbd2',
+        fontStyle: 'bold',
+        align: 'center',
+      }).setOrigin(0.5);
+
+      const children: Phaser.GameObjects.GameObject[] = [hintConfirmTitle, hintConfirmMeta];
+      if (rankedWarning.length > 0) {
+        const warning = this.add.text(0, -4, rankedWarning, {
+          fontFamily: 'monospace',
+          fontSize: this.scale.width < 700 ? '10px' : '11px',
+          color: '#aebbd2',
+          align: 'center',
+          wordWrap: { width: width - 20 },
+        }).setOrigin(0.5);
+        children.push(warning);
+      }
 
       const cancelX = -buttonWidth / 2 - gap / 2;
       const showX = buttonWidth / 2 + gap / 2;
-      const cancel = this.add.rectangle(cancelX, 0, buttonWidth, buttonHeight, 0x2a3038, 1)
-        .setInteractive({ useHandCursor: true });
-      const confirm = this.add.rectangle(showX, 0, buttonWidth, buttonHeight, 0x714245, 1)
-        .setInteractive({ useHandCursor: true });
-      const cancelLabel = this.add.text(cancelX, 0, copy.common.cancel, {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#d8d1c4',
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-      const confirmLabel = this.add.text(
-        showX,
-        0,
-        hintConfirmMode === 'rewarded' ? copy.game.ad : copy.game.show,
-        {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#f5ded7',
-        fontStyle: 'bold',
-        },
-      ).setOrigin(0.5);
-
-      cancel.on('pointerup', closeHintConfirm);
-      confirm.on('pointerup', () => {
-        void deliverConfirmedHint();
+      const cancelButton = createCenteredTextMenuButton(this, {
+        x: cancelX,
+        y: buttonLocalY,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: copy.common.cancel,
+        labelColor: '#f4ead7',
+        compact: true,
+        onActivate: () => closeHintConfirm(),
       });
-      container.add([cancel, confirm, cancelLabel, confirmLabel]);
+      const confirmButton = createCenteredTextMenuButton(this, {
+        x: showX,
+        y: buttonLocalY,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: rewardedMode ? copy.game.ad : copy.game.show,
+        labelColor: '#f0d28a',
+        accentFrame: true,
+        compact: true,
+        onActivate: () => { void deliverConfirmedHint(); },
+      });
+      children.push(
+        cancelButton.fill, cancelButton.frame, cancelButton.label,
+        confirmButton.fill, confirmButton.frame, confirmButton.label,
+      );
+      container.add(children);
     };
 
     const showHintConfirm = (): void => {
@@ -1112,22 +1185,14 @@ export class GameScene extends Phaser.Scene {
       board?.setInputEnabled(false);
       pauseActiveTimer();
       setToolbarVisible(false);
-      const basePrompt = mode === 'rewarded'
-        ? copy.game.rewardedPrompt
-        : copy.game.freeHintPrompt(remaining);
-      statusText
-        .setText(rankedDaily ? `${copy.game.dailyHintOutsideRating}
-${basePrompt}` : basePrompt)
-        .setColor('#d0b978')
-        .setVisible(true);
+      statusText.setVisible(false);
       renderHintConfirm();
       syncToolbar();
     };
 
     const clearCompletionButtons = (): void => {
       for (const visual of completionButtons.splice(0)) {
-        visual.rectangle.destroy();
-        visual.label.destroy();
+        visual.destroy();
       }
     };
 
@@ -1163,19 +1228,21 @@ ${basePrompt}` : basePrompt)
 
       completionActions.forEach((definition, index) => {
         const x = startX + index * (buttonWidth + gap) + buttonWidth / 2;
-        const rectangle = this.add.rectangle(x, y, buttonWidth, buttonHeight, 0x2a3038, 1)
-          .setInteractive({ useHandCursor: true })
-          .setDepth(60);
-        const label = this.add.text(x, y, definition.label, {
-          fontFamily: 'monospace',
-          fontSize: count >= 3
-            ? (this.scale.width < 700 ? '12px' : '14px')
-            : (this.scale.width < 700 ? '14px' : '16px'),
-          color: '#f0d28a',
-          fontStyle: 'bold',
-        }).setOrigin(0.5).setDepth(61);
-        rectangle.on('pointerup', definition.action);
-        completionButtons.push({ rectangle, label });
+        const handle = createCenteredTextMenuButton(this, {
+          x,
+          y,
+          width: buttonWidth,
+          height: buttonHeight,
+          label: definition.label,
+          labelColor: '#f0d28a',
+          compact: count >= 3,
+          accentFrame: false,
+          onActivate: () => definition.action(),
+        });
+        handle.fill.setDepth(60);
+        handle.frame.setDepth(61);
+        handle.label.setDepth(62);
+        completionButtons.push(handle.fill, handle.frame, handle.label);
       });
     };
 
@@ -1287,6 +1354,7 @@ ${copy.game.featuresUnlocked}`
       currentHint = null;
       board?.setHintCellTarget(null);
       board?.setInputCellTargets(null);
+      board?.setTutorialCellTargets(null);
       relayoutOnboarding();
       if (this.scale.height < 520) {
         boardLayout = calculateSafeBoardLayout(40);
@@ -1512,6 +1580,9 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       onboardingBlocksInteraction = false;
       onboardingBlocksTimer = false;
       board?.setInputCellTargets(null);
+      board?.setTutorialCellTargets(null);
+      boardLayout = calculateSafeBoardLayout(completionMode && this.scale.height < 520 ? 40 : 0);
+      board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       if (!solved && !resetDialogOpen) {
         board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
@@ -1558,6 +1629,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       onboardingBlocksInteraction = true;
       onboardingBlocksTimer = true;
       pauseActiveTimer();
+      boardLayout = calculateSafeBoardLayout(getOnboardingBottomReserve());
+      board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       board?.setInputCellTargets(step.cells);
       board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
 
@@ -2003,21 +2076,15 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       const height = this.scale.height;
       const nextChrome = calculatePuzzleChromeLayout(width, height);
       const nextSafeTop = readSafeArea('--safe-area-inset-top');
-      const nextBoardLayout = calculateSafeBoardLayout(completionMode && height < 520 ? 40 : 0);
-      toolbarLayout = calculatePuzzleToolbarLayout(
-        width,
-        height,
-        readSafeArea('--safe-area-inset-bottom'),
-        showTouchToolButtons,
+      const nextBoardLayout = calculateSafeBoardLayout(
+        onboardingOpen
+          ? getOnboardingBottomReserve()
+          : completionMode && height < 520
+            ? 40
+            : 0,
       );
+      recalculateToolbarLayout(nextBoardLayout);
 
-      titleText
-        .setPosition(width / 2, nextChrome.titleY + nextSafeTop)
-        .setFontSize(nextChrome.titleFontSize)
-        .setText(getTitleLabel());
-      timerText
-        .setPosition(width / 2, nextChrome.titleY + nextSafeTop + (width < 700 ? 28 : 34))
-        .setFontSize(Math.max(12, nextChrome.statusFontSize));
       layoutTopActions(nextChrome, nextSafeTop);
 
       for (const buttonLayout of toolbarLayout.buttons) {
@@ -2033,12 +2100,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         );
       }
 
-      const toolbarTop = Math.min(
-        ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
-      );
-      statusText
-        .setPosition(width / 2, toolbarTop - 18)
-        .setFontSize(nextChrome.statusFontSize);
+      positionStatusText();
       if (completionMode || completedReview) {
         statusText.setWordWrapWidth(Math.max(120, width - 24), true).setAlign('center');
       }

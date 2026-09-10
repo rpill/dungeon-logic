@@ -27,9 +27,6 @@ export const WIREFRAME = {
   conflictWall: 0x8d4545,
   hoverTint: 0xf0e6d2,
   hoverAlpha: 0.10,
-  hintTint: 0xd0b978,
-  hintAlpha: 0.10,
-  hintPreviewAlpha: 0.58,
   gap: 2,
 } as const;
 
@@ -51,9 +48,8 @@ export class CellView {
   private readonly wall: Phaser.GameObjects.Image;
   private readonly floorMark: Phaser.GameObjects.Image;
   private readonly hoverOverlay: Phaser.GameObjects.Rectangle;
-  private readonly hintOverlay: Phaser.GameObjects.Rectangle;
-  private readonly hintWallPreview: Phaser.GameObjects.Rectangle;
-  private readonly hintFloorPreview: Phaser.GameObjects.Text;
+  private readonly guidanceWallGhost: Phaser.GameObjects.Image;
+  private readonly guidanceFloorGhost: Phaser.GameObjects.Image;
   private readonly fixedMarker: Phaser.GameObjects.Text;
   private readonly fixedSprite: Phaser.GameObjects.Image | null;
   private readonly fixedVisual: FixedCellVisual;
@@ -63,6 +59,9 @@ export class CellView {
   private conflict = false;
   private hovered = false;
   private hintState: typeof CellState.Wall | typeof CellState.Floor | null = null;
+  private tutorialTargetState: typeof CellState.Wall | typeof CellState.Floor | null = null;
+  private readonly guidancePulseTween: Phaser.Tweens.Tween;
+  private guidancePulseActive = false;
   private monsterAnimationEvent: Phaser.Time.TimerEvent | null = null;
   private monsterFrameIndex = 0;
   private solvedVisualState = false;
@@ -109,42 +108,28 @@ export class CellView {
       )
       .setVisible(false);
 
-    this.hintOverlay = scene.add
-      .rectangle(
-        centerX,
-        centerY,
-        visualSize,
-        visualSize,
-        WIREFRAME.hintTint,
-        WIREFRAME.hintAlpha,
-      )
+    this.guidanceWallGhost = scene.add
+      .image(centerX, centerY, wallTextureKey)
+      .setDisplaySize(visualSize, visualSize)
+      .setAlpha(0.32)
       .setVisible(false);
 
-    this.hintWallPreview = scene.add
-      .rectangle(
-        centerX,
-        centerY,
-        Math.max(10, visualSize * 0.64),
-        Math.max(10, visualSize * 0.64),
-        WIREFRAME.hintTint,
-        WIREFRAME.hintPreviewAlpha,
-      )
+    this.guidanceFloorGhost = scene.add
+      .image(centerX, centerY, BOARD_FLOOR_MARK_KEY)
+      .setDisplaySize(visualSize, visualSize)
+      .setAlpha(0.32)
+      .setTint(0xd54a42)
       .setVisible(false);
 
-    this.hintFloorPreview = scene.add
-      .text(
-        centerX,
-        centerY,
-        '◆',
-        {
-          fontFamily: 'monospace',
-          fontSize: `${this.getHintMarkerFontSize()}px`,
-          color: '#d0b978',
-          fontStyle: 'bold',
-        },
-      )
-      .setOrigin(0.5)
-      .setVisible(false);
+    this.guidancePulseTween = scene.tweens.add({
+      targets: [this.guidanceWallGhost, this.guidanceFloorGhost],
+      alpha: { from: 0.28, to: 0.72 },
+      duration: 680,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+      paused: true,
+    });
 
     this.fixedMarker = scene.add
       .text(
@@ -213,7 +198,12 @@ export class CellView {
 
   setHintTarget(state: typeof CellState.Wall | typeof CellState.Floor | null): void {
     this.hintState = state;
-    this.renderHint();
+    this.renderGuidanceTarget();
+  }
+
+  setTutorialTarget(state: typeof CellState.Wall | typeof CellState.Floor | null): void {
+    this.tutorialTargetState = state;
+    this.renderGuidanceTarget();
   }
 
   setSolvedVisualState(solved: boolean): void {
@@ -246,7 +236,7 @@ export class CellView {
     this.size = size;
     const visualSize = Math.max(1, size - WIREFRAME.gap);
 
-    for (const image of [this.floor, this.wall, this.floorMark]) {
+    for (const image of [this.floor, this.wall, this.floorMark, this.guidanceWallGhost, this.guidanceFloorGhost]) {
       image
         .setPosition(centerX, centerY)
         .setDisplaySize(visualSize, visualSize);
@@ -254,18 +244,9 @@ export class CellView {
 
     this.resizeFixedSprite(centerX, centerY, visualSize);
 
-    for (const rectangle of [this.hoverOverlay, this.hintOverlay]) {
-      rectangle
-        .setPosition(centerX, centerY)
-        .setDisplaySize(visualSize, visualSize);
-    }
-
-    this.hintWallPreview
+    this.hoverOverlay
       .setPosition(centerX, centerY)
-      .setDisplaySize(Math.max(10, visualSize * 0.64), Math.max(10, visualSize * 0.64));
-    this.hintFloorPreview
-      .setPosition(centerX, centerY)
-      .setFontSize(this.getHintMarkerFontSize());
+      .setDisplaySize(visualSize, visualSize);
     this.fixedMarker
       .setPosition(centerX, centerY)
       .setFontSize(this.getFixedMarkerFontSize());
@@ -288,9 +269,6 @@ export class CellView {
     return Math.max(18, Math.round(this.size * 0.46));
   }
 
-  private getHintMarkerFontSize(): number {
-    return Math.max(18, Math.round(this.size * 0.34));
-  }
 
   private render(): void {
     if (this.fixedVisual !== null) {
@@ -299,7 +277,7 @@ export class CellView {
       this.fixedMarker.setVisible(this.fixedVisual.kind === 'technical');
       this.fixedSprite?.setVisible(this.fixedVisual.kind === 'monster' || this.fixedVisual.kind === 'chest');
       this.renderHover();
-      this.renderHint();
+      this.renderGuidanceTarget();
       return;
     }
 
@@ -329,17 +307,31 @@ export class CellView {
     }
 
     this.renderHover();
-    this.renderHint();
+    this.renderGuidanceTarget();
   }
 
   private renderHover(): void {
     this.hoverOverlay.setVisible(this.fixedVisual === null && this.hovered);
   }
 
-  private renderHint(): void {
-    const visible = this.fixedVisual === null && this.hintState !== null;
-    this.hintOverlay.setVisible(visible);
-    this.hintWallPreview.setVisible(visible && this.hintState === CellState.Wall);
-    this.hintFloorPreview.setVisible(visible && this.hintState === CellState.Floor);
+  private renderGuidanceTarget(): void {
+    const guidanceState = this.tutorialTargetState ?? this.hintState;
+    const visible = this.fixedVisual === null
+      && guidanceState !== null
+      && this.state !== guidanceState;
+    const showWall = visible && guidanceState === CellState.Wall;
+    const showFloor = visible && guidanceState === CellState.Floor;
+    this.guidanceWallGhost.setVisible(showWall);
+    this.guidanceFloorGhost.setVisible(showFloor);
+
+    if (visible && !this.guidancePulseActive) {
+      this.guidancePulseActive = true;
+      this.guidancePulseTween.restart();
+    } else if (!visible && this.guidancePulseActive) {
+      this.guidancePulseActive = false;
+      this.guidancePulseTween.pause();
+      this.guidanceWallGhost.setAlpha(0.32);
+      this.guidanceFloorGhost.setAlpha(0.32);
+    }
   }
 }

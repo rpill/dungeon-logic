@@ -12,7 +12,10 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
+import { createSceneBackground } from '../runtime/SceneBackground';
 import {
   clampMetaScrollY,
   getMetaScrollMaxY,
@@ -22,6 +25,7 @@ import {
 export class HelpScene extends Phaser.Scene {
   private returnSceneKey: HelpReturnSceneKey = 'HomeScene';
   private contentBottom = 0;
+  private headerBottom = 0;
   private scrollMaxY = 0;
   private scrollPointerId: number | null = null;
   private scrollStartPointerY = 0;
@@ -41,6 +45,7 @@ export class HelpScene extends Phaser.Scene {
 
   create(): void {
     this.contentBottom = 0;
+    this.headerBottom = 0;
     this.scrollMaxY = 0;
     this.scrollPointerId = null;
     this.scrollGestureDragged = false;
@@ -51,43 +56,25 @@ export class HelpScene extends Phaser.Scene {
 
     const language = this.getProfileService().getProfile().settings.language;
     const copy = getUiCopy(language);
-    const narrow = this.scale.width < 700;
-    const headerBottom = narrow ? 86 : 96;
+    const header = calculateMetaPageHeaderMetrics(this.scale.width, this.scale.height);
+    const narrow = header.narrow;
+    this.headerBottom = header.headerHeight;
     const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 48), narrow ? 620 : 820);
     const cardGap = narrow ? 10 : 14;
-    let cursorY = headerBottom + (narrow ? 14 : 18);
+    let cursorY = this.headerBottom + (narrow ? 18 : 22);
 
-    this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      0x111318,
-      1,
-    ).setScrollFactor(0).setDepth(-1000);
+    const sceneBackground = createSceneBackground(this, 'meta');
+    sceneBackground.image.setScrollFactor(0);
 
-    this.add.rectangle(
-      this.scale.width / 2,
-      headerBottom / 2,
-      this.scale.width,
-      headerBottom,
-      0x111318,
-      1,
-    ).setScrollFactor(0).setDepth(1000);
 
-    const back = this.add.text(16, narrow ? 17 : 20, copy.common.back, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '14px' : '16px',
-      color: '#89929d',
-      fontStyle: 'bold',
-    }).setOrigin(0, 0).setScrollFactor(0).setDepth(1002).setInteractive({ useHandCursor: true });
-
-    this.add.text(this.scale.width / 2, narrow ? 54 : 60, copy.help.title, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '25px' : '31px',
-      color: '#f0e6d2',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
+    createMetaPageHeader(this, {
+      title: copy.help.title,
+      backLabel: copy.common.back,
+      onBack: (pointer) => {
+        if (!this.shouldActivatePointer(pointer)) return;
+        this.closeHelp();
+      },
+    });
 
     for (const rule of getHelpRules(language)) {
       cursorY = this.createRuleCard(rule, cursorY, contentWidth, narrow) + cardGap;
@@ -114,12 +101,8 @@ export class HelpScene extends Phaser.Scene {
 
     this.setupScroll();
 
-    back.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.shouldActivatePointer(pointer)) return;
-      this.closeHelp();
-    });
-
     const handleResize = (): void => {
+      sceneBackground.sync();
       if (!this.scene.isActive()) return;
       this.scene.restart({ returnSceneKey: this.returnSceneKey });
     };

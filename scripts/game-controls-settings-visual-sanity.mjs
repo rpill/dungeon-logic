@@ -22,7 +22,7 @@ assert(puzzleUi.includes("const buttonHeight = viewportClass === 'wide' ? 58 : 5
 assert(puzzleUi.includes('const gapY = 22;'), 'Touch tool selectors must sit above the lower action row.');
 assert(game.includes("wall: 'board-wall-01'"), 'Wall selector must use a real wall-tile icon.');
 assert(game.includes("floor: 'board-floor-mark'"), 'Floor selector must use the coral diamond icon.');
-assert(game.includes("const hideHintButton = showTouchToolButtons && currentHint !== null && buttonState.id === 'hint';"), 'Delivered touch hints must hide the Hint button until resolved.');
+assert(puzzleUi.includes('hideHintButton = false') && puzzleUi.includes("? ['undo', 'reset']"), 'Delivered touch hints must remove the Hint button from the touch layout until resolved.');
 assert(game.includes('const backHit = this.add.zone('), 'Back control must use one full-button hit area.');
 assert(game.includes('const menuHit = this.add.zone('), 'Menu control must use one full-button hit area.');
 assert(!game.includes("copy.game.exitDaily : copy.game.exitLevels"), 'Game menu must not duplicate contextual Back navigation.');

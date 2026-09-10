@@ -1,4 +1,5 @@
 import { classifyViewport, type ViewportClass } from '../scenes/GameBoardLayout';
+import { calculateMetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
 export interface ViewportSize {
   readonly width: number;
@@ -64,6 +65,7 @@ export function calculateLevelSelectLayout(
   }
 
   const viewportClass = classifyViewport(viewport.width);
+  const metaHeader = calculateMetaPageHeaderMetrics(viewport.width, viewport.height);
   const portraitNarrow = viewportClass === 'narrow' && viewport.height >= viewport.width;
 
   if (portraitNarrow) {
@@ -81,8 +83,9 @@ export function calculateLevelSelectLayout(
     const rowPitch = cardSize + numberGap + numberHeight + gapY;
     const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
     const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
-    const compactHeader = viewport.height < 620;
-    const headerBottom = compactHeader ? 126 : 138;
+    const continueHeight = viewport.height < 620 ? 42 : 46;
+    const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 26 : 32);
+    const headerBottom = continueY + continueHeight / 2 + 14;
     const gridTop = headerBottom + 12;
     const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
       const column = index % columns;
@@ -99,11 +102,11 @@ export function calculateLevelSelectLayout(
 
     return {
       viewportClass,
-      titleY: 32,
-      titleFontSize: 28,
-      continueY: 100,
+      titleY: metaHeader.titleY,
+      titleFontSize: metaHeader.titleFontSize,
+      continueY,
       continueWidth: Math.min(viewport.width - margin * 2, 260),
-      continueHeight: 46,
+      continueHeight,
       continueFontSize: 16,
       headerBottom,
       contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
@@ -120,7 +123,9 @@ export function calculateLevelSelectLayout(
   const columns = Math.min(8, Math.max(1, itemCount));
   const rows = columns === 0 ? 0 : Math.ceil(itemCount / columns);
   const shortViewport = viewport.height < 500;
-  const headerBottom = shortViewport ? 136 : 154;
+  const continueHeight = shortViewport ? 42 : 46;
+  const continueY = metaHeader.headerHeight + (shortViewport ? 24 : 25);
+  const headerBottom = continueY + continueHeight / 2 + 12;
   const gridTop = headerBottom + 8;
   const bottomPadding = 24;
   const numberGap = 2;
@@ -163,11 +168,11 @@ export function calculateLevelSelectLayout(
 
   return {
     viewportClass,
-    titleY: shortViewport ? 30 : 36,
-    titleFontSize: shortViewport ? 28 : 32,
-    continueY: shortViewport ? 88 : 102,
+    titleY: metaHeader.titleY,
+    titleFontSize: metaHeader.titleFontSize,
+    continueY,
     continueWidth: Math.min(shortViewport ? 240 : 260, viewport.width - margin * 2),
-    continueHeight: shortViewport ? 42 : 46,
+    continueHeight,
     continueFontSize: shortViewport ? 14 : 16,
     headerBottom,
     contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
@@ -189,11 +194,11 @@ export function calculatePuzzleChromeLayout(
 
   return {
     titleY: narrow ? 34 : 52,
-    titleFontSize: narrow ? 28 : 42,
-    actionInset: narrow ? 16 : 40,
-    actionFontSize: narrow ? 15 : 20,
+    titleFontSize: narrow ? 24 : 42,
+    actionInset: narrow ? 14 : 40,
+    actionFontSize: narrow ? 14 : 20,
     statusBottomInset: narrow ? 24 : 42,
-    statusFontSize: narrow ? 13 : 18,
+    statusFontSize: narrow ? 14 : 18,
     modalWidth: Math.min(narrow ? 420 : 760, viewport.width - margin * 2),
     modalTitleFontSize: narrow ? 20 : 24,
     modalCopyFontSize: narrow ? 14 : 17,

@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { TutorialLevelEntry } from '../content/tutorial/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -100,7 +99,7 @@ export class HomeScene extends Phaser.Scene {
         '#f0d28a',
         HOME_MENU_ICONS.primary.icon,
         () => {
-          if (entry !== undefined) void this.launchTutorial(tutorial, entry);
+          if (entry !== undefined) void this.launchTutorial(tutorial);
         },
       );
       if (entry !== undefined) {
@@ -188,7 +187,6 @@ export class HomeScene extends Phaser.Scene {
       );
     }
 
-    const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
     const lastMenuIndex = settingsVisible ? 4 : dailyVisible ? 3 : 1;
     const lastMenuY = mainY + secondaryStep * lastMenuIndex;
     const utilityGap = narrow ? 10 : 18;
@@ -213,8 +211,8 @@ export class HomeScene extends Phaser.Scene {
       icon: 'play',
       compact: true,
       onActivate: (pointer) => {
-        if (!this.pointerGate.canActivate(pointer.id) || tutorialEntry === undefined) return;
-        void this.launchTutorial(tutorial, tutorialEntry);
+        if (!this.pointerGate.canActivate(pointer.id) || tutorial.getLevels()[0] === undefined) return;
+        void this.launchTutorial(tutorial);
       },
     });
     createHomeMenuButton(this, {
@@ -354,19 +352,16 @@ export class HomeScene extends Phaser.Scene {
 
     }
 
-  private async launchTutorial(
-    service: TutorialService,
-    entry: TutorialLevelEntry,
-  ): Promise<void> {
-    if (this.launchPending || !service.canPlayLevel(entry.id)) return;
+  private async launchTutorial(service: TutorialService): Promise<void> {
+    if (this.launchPending) return;
     this.launchPending = true;
 
     try {
-      const started = await service.startLevel(entry.id);
+      const started = await service.startEntryLevel();
       this.scene.start('GameScene', createTutorialGameSceneData(started));
     } catch (error) {
       this.launchPending = false;
-      console.error(`[Dungeon Logic] Could not start ${entry.id} from Home.`, error);
+      console.error('[Dungeon Logic] Could not start Tutorial from Home.', error);
     }
   }
 

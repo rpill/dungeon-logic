@@ -1,4 +1,5 @@
 import { classifyViewport, type ViewportClass } from '../scenes/GameBoardLayout';
+import { calculateMetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
 export interface StatsSummaryCardLayout {
   readonly x: number;
@@ -7,22 +8,12 @@ export interface StatsSummaryCardLayout {
   readonly height: number;
 }
 
-export interface StatsCalendarLayout {
-  readonly centerX: number;
-  readonly titleY: number;
-  readonly weekdayY: number;
-  readonly gridTopY: number;
-  readonly cellSize: number;
-  readonly gap: number;
-}
-
 export interface StatsLayout {
   readonly viewportClass: ViewportClass;
   readonly mode: 'columns' | 'vertical';
   readonly titleY: number;
   readonly titleFontSize: number;
   readonly summaryCards: readonly StatsSummaryCardLayout[];
-  readonly calendar: StatsCalendarLayout;
   readonly contentBottom: number;
 }
 
@@ -35,46 +26,56 @@ function assertViewport(width: number, height: number): void {
 export function calculateStatsLayout(viewportWidth: number, viewportHeight: number): StatsLayout {
   assertViewport(viewportWidth, viewportHeight);
   const viewportClass = classifyViewport(viewportWidth);
+  const header = calculateMetaPageHeaderMetrics(viewportWidth, viewportHeight);
+  const compactLandscape = viewportHeight <= 460 && viewportWidth < 900;
 
-  if (viewportClass === 'wide') {
-    const gap = 24;
-    const maxCardWidth = 320;
-    const totalAvailable = viewportWidth - 80;
-    const cardWidth = Math.min(maxCardWidth, Math.floor((totalAvailable - gap * 2) / 3));
+  if (compactLandscape) {
+    const sideMargin = 18;
+    const gap = 12;
+    const cardWidth = Math.min(
+      252,
+      Math.floor((viewportWidth - sideMargin * 2 - gap * 2) / 3),
+    );
     const totalWidth = cardWidth * 3 + gap * 2;
     const startX = (viewportWidth - totalWidth) / 2 + cardWidth / 2;
+    const titleY = header.titleY;
+    const cardHeight = 164;
+    const cardY = 206;
     const summaryCards = Array.from({ length: 3 }, (_, index): StatsSummaryCardLayout => ({
       x: startX + index * (cardWidth + gap),
-      y: 190,
+      y: cardY,
       width: cardWidth,
-      height: 150,
+      height: cardHeight,
     }));
-    const calendar = {
-      centerX: viewportWidth / 2,
-      titleY: 326,
-      weekdayY: 372,
-      gridTopY: 400,
-      cellSize: 44,
-      gap: 6,
-    } as const;
-    const contentBottom = calendar.gridTopY + calendar.cellSize * 6 + calendar.gap * 5;
 
     return {
       viewportClass,
       mode: 'columns',
-      titleY: 62,
-      titleFontSize: 40,
+      titleY,
+      titleFontSize: header.titleFontSize,
       summaryCards,
-      calendar,
-      contentBottom,
+      contentBottom: cardY + cardHeight / 2 + 18,
     };
   }
 
   const sideMargin = viewportClass === 'narrow' ? 16 : 24;
-  const cardWidth = Math.min(viewportWidth - sideMargin * 2, 600);
-  const cardHeight = viewportClass === 'narrow' ? 96 : 104;
-  const cardGap = 12;
-  const firstCardY = viewportClass === 'narrow' ? 138 : 150;
+  const cardWidth = Math.min(
+    viewportWidth - sideMargin * 2,
+    viewportClass === 'narrow' ? 358 : 430,
+  );
+  const titleY = header.titleY;
+  const compactVertical = viewportHeight < 660;
+  const cardHeight = viewportClass === 'narrow'
+    ? (compactVertical ? 138 : 146)
+    : (compactVertical ? 150 : 170);
+  const cardGap = viewportClass === 'narrow'
+    ? (compactVertical ? 14 : 18)
+    : (compactVertical ? 20 : 26);
+  const firstCardY = header.headerHeight + (
+    viewportClass === 'narrow'
+      ? compactVertical ? 82 : 95
+      : compactVertical ? 90 : 105
+  );
   const summaryCards = Array.from({ length: 3 }, (_, index): StatsSummaryCardLayout => ({
     x: viewportWidth / 2,
     y: firstCardY + index * (cardHeight + cardGap),
@@ -82,28 +83,13 @@ export function calculateStatsLayout(viewportWidth: number, viewportHeight: numb
     height: cardHeight,
   }));
   const lastCard = summaryCards[summaryCards.length - 1];
-  const calendarTitleY = lastCard.y + lastCard.height / 2 + 48;
-  const calendarGap = 4;
-  const maxCalendarWidth = Math.min(cardWidth, 420);
-  const naturalCellSize = Math.floor((maxCalendarWidth - calendarGap * 6) / 7);
-  const cellSize = Math.max(34, Math.min(42, naturalCellSize));
-  const calendar = {
-    centerX: viewportWidth / 2,
-    titleY: calendarTitleY,
-    weekdayY: calendarTitleY + 34,
-    gridTopY: calendarTitleY + 54,
-    cellSize,
-    gap: calendarGap,
-  } as const;
-  const contentBottom = calendar.gridTopY + calendar.cellSize * 6 + calendar.gap * 5;
 
   return {
     viewportClass,
     mode: 'vertical',
-    titleY: viewportClass === 'narrow' ? 54 : 60,
-    titleFontSize: viewportClass === 'narrow' ? 30 : 34,
+    titleY,
+    titleFontSize: header.titleFontSize,
     summaryCards,
-    calendar,
-    contentBottom,
+    contentBottom: lastCard.y + lastCard.height / 2 + 20,
   };
 }
