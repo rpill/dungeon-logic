@@ -33,6 +33,7 @@ export interface UiCopy {
     readonly tutorialContinue: string;
     readonly tutorialReplay: string;
     readonly levelContext: (slot: number) => string;
+    readonly dailyLockedAfterLevel: string;
     readonly dailyUnavailable: string;
     readonly noDailyForTrustedDate: string;
     readonly dailySolved: string;
@@ -204,6 +205,7 @@ const RU: UiCopy = {
     tutorialContinue: 'ПРОДОЛЖИТЬ ОБУЧЕНИЕ',
     tutorialReplay: 'ПРОЙТИ ОБУЧЕНИЕ СНОВА',
     levelContext: (slot) => `Уровень ${String(slot).padStart(2, '0')}`,
+    dailyLockedAfterLevel: 'DAILY · ПОСЛЕ УРОВНЯ 5',
     dailyUnavailable: 'DAILY · НЕДОСТУПНО',
     noDailyForTrustedDate: 'Нет задания на доверенную дату',
     dailySolved: 'DAILY · РЕШЕНО',
@@ -322,7 +324,7 @@ const RU: UiCopy = {
     withoutHints: 'БЕЗ ПОДСКАЗОК',
     hintsCount: (count) => `ПОДСКАЗОК: ${count}`,
     newRecord: '  ·  НОВЫЙ РЕКОРД',
-    featuresUnlocked: 'ОТКРЫТО: DAILY И СТАТИСТИКА\nМожно открыть сейчас или продолжить кампанию.',
+    featuresUnlocked: 'ОТКРЫТО: DAILY\nМожно открыть сейчас или продолжить кампанию.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ РЕШЕНО  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     next: 'ДАЛЬШЕ',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY РЕШЁН  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
@@ -375,6 +377,7 @@ const EN: UiCopy = {
     tutorialContinue: 'CONTINUE TUTORIAL',
     tutorialReplay: 'REPLAY TUTORIAL',
     levelContext: (slot) => `Level ${String(slot).padStart(2, '0')}`,
+    dailyLockedAfterLevel: 'DAILY · AFTER LEVEL 5',
     dailyUnavailable: 'DAILY · UNAVAILABLE',
     noDailyForTrustedDate: 'No puzzle for the trusted date',
     dailySolved: 'DAILY · SOLVED',
@@ -493,7 +496,7 @@ const EN: UiCopy = {
     withoutHints: 'NO HINTS',
     hintsCount: (count) => `HINTS: ${count}`,
     newRecord: '  ·  NEW RECORD',
-    featuresUnlocked: 'UNLOCKED: DAILY AND STATISTICS\nOpen them now or continue the Campaign.',
+    featuresUnlocked: 'UNLOCKED: DAILY\nOpen it now or continue the Campaign.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     next: 'NEXT',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}`,

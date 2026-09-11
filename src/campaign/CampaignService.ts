@@ -163,7 +163,7 @@ export class CampaignService {
       progress,
       recommendedNextLevel: this.getRecommendedNextLevel(entry, progress),
       unlockedFeatures: !wasCompleted && id === 'campaign-005'
-        ? ['daily', 'statistics']
+        ? ['daily']
         : [],
       persisted,
     };

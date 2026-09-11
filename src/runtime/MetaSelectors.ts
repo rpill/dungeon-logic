@@ -21,7 +21,7 @@ export type HomeCampaignAction =
   | { readonly kind: 'choose-level' };
 
 export type HomeDailyAction =
-  | { readonly kind: 'hidden' }
+  | { readonly kind: 'locked' }
   | { readonly kind: 'unavailable' }
   | {
       readonly kind: 'new';
@@ -61,8 +61,18 @@ export function getHomeCampaignAction(
   return { kind: 'continue', levelId: continueLevel.id };
 }
 
-export function shouldShowDailyEntry(profile: PlayerProfileV4): boolean {
+export function shouldShowDailyEntry(_profile: PlayerProfileV4): boolean {
+  return true;
+}
+
+export function isDailyUnlocked(profile: PlayerProfileV4): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
+}
+
+export function shouldAutoStartTutorial(profile: PlayerProfileV4): boolean {
+  return !profile.tutorial.completed
+    && profile.tutorial.completedLevelIds.length === 0
+    && profile.tutorial.activePuzzle === null;
 }
 
 export function shouldShowSettingsEntry(_profile: PlayerProfileV4): boolean {
@@ -73,7 +83,7 @@ export function getHomeDailyAction(
   profile: PlayerProfileV4,
   today: DailyTodaySnapshot | null,
 ): HomeDailyAction {
-  if (!shouldShowDailyEntry(profile)) return { kind: 'hidden' };
+  if (!isDailyUnlocked(profile)) return { kind: 'locked' };
   if (today === null || today.entry === null) return { kind: 'unavailable' };
 
   if (today.solved && today.result !== null) {

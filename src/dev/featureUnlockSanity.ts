@@ -38,8 +38,8 @@ async function main(): Promise<void> {
 
   const firstFive = await campaign.completeLevel('campaign-005');
   assert(
-    firstFive.unlockedFeatures.join(',') === 'daily,statistics',
-    'First completion of campaign-005 announces Daily and Statistics together.',
+    firstFive.unlockedFeatures.join(',') === 'daily',
+    'First completion of campaign-005 announces Daily only.',
   );
 
   const replayFive = await campaign.completeLevel('campaign-005');
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   const six = await campaign.completeLevel('campaign-006');
   assert(six.unlockedFeatures.length === 0, 'Later campaign completions do not repeat the level-5 unlock announcement.');
 
-  console.info('[Dungeon Logic] Feature unlock sanity: level-5 Daily + Statistics announcement is one-shot passed');
+  console.info('[Dungeon Logic] Feature unlock sanity: level-5 Daily announcement is one-shot passed');
 }
 
 void main();

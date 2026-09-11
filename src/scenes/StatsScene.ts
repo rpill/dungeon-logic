@@ -9,7 +9,7 @@ import {
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
-import { HOME_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
+import { HOME_SCENE_KEY, STATS_SCENE_KEY, isDailyUnlocked } from '../runtime/MetaSelectors';
 import { calculateStatsLayout, type StatsLayout, type StatsSummaryCardLayout } from '../runtime/StatsLayout';
 import { getStatsViewModel, type StatsViewModel } from '../runtime/StatsSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
@@ -82,10 +82,10 @@ export class StatsScene extends Phaser.Scene {
 
     const profile = this.getProfileService().getProfile();
     const stats = getStatsViewModel(profile, todayDateKey, DAILY_RELEASE_DATE_KEYS);
-    this.renderSummaryCards(layout, stats);
+    this.renderSummaryCards(layout, stats, isDailyUnlocked(profile));
   }
 
-  private renderSummaryCards(layout: StatsLayout, stats: StatsViewModel): void {
+  private renderSummaryCards(layout: StatsLayout, stats: StatsViewModel, dailyUnlocked: boolean): void {
     const currentStreak = stats.daily.currentStreak === null ? '—' : String(stats.daily.currentStreak);
     const cards: readonly StatsCardContent[] = [
       {
@@ -104,7 +104,7 @@ export class StatsScene extends Phaser.Scene {
           this.copy.stats.streakBest(currentStreak, stats.daily.bestStreak),
           this.copy.stats.withoutHints(stats.daily.solvedWithoutHints),
         ],
-        action: () => this.scene.start(DAILY_SCENE_KEY),
+        action: dailyUnlocked ? () => this.scene.start(DAILY_SCENE_KEY) : undefined,
       },
       {
         title: this.copy.stats.overall,

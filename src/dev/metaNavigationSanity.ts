@@ -4,6 +4,7 @@ import {
   getHomeDailyAction,
   getHomeCampaignAction,
   LEVELS_SCENE_KEY,
+  shouldAutoStartTutorial,
   shouldShowDailyEntry,
   shouldShowSettingsEntry,
   type MetaCampaignPort,
@@ -90,7 +91,8 @@ assert(tutorial.kind === 'tutorial', 'Fresh profile must enter Tutorial before C
 const tutorialCompleteFresh = profile([]);
 const start = getHomeCampaignAction(fakeCampaign(1), tutorialCompleteFresh);
 assert(start.kind === 'start' && start.levelId === 'campaign-001', 'Tutorial-complete fresh campaign starts campaign-001.');
-assert(!shouldShowDailyEntry(fresh), 'Daily stays hidden before onboarding level 005 is complete.');
+assert(shouldAutoStartTutorial(fresh), 'Truly fresh profile auto-starts Tutorial before Home.');
+assert(shouldShowDailyEntry(fresh), 'Daily is visible from the first Home visit.');
 
 const availableDaily = {
   dateKey: '2099-01-01',
@@ -105,7 +107,18 @@ const availableDaily = {
   solved: false,
   result: null,
 } as const;
-assert(getHomeDailyAction(fresh, availableDaily).kind === 'hidden', 'Daily Home action stays hidden before campaign-005.');
+assert(getHomeDailyAction(fresh, availableDaily).kind === 'locked', 'Daily stays visible but locked before campaign-005.');
+const tutorialStarted = profile([], null, false);
+(tutorialStarted.tutorial as { activePuzzle: any }).activePuzzle = {
+  mode: 'tutorial',
+  puzzleId: 'tutorial-001',
+  cells: [['unknown']],
+  activePlayMs: 0,
+  hintsUsed: 0,
+  startedAtMs: 1,
+};
+assert(!shouldAutoStartTutorial(tutorialStarted), 'Existing Tutorial session returns to Home instead of force-launching again.');
+
 assert(shouldShowSettingsEntry(fresh), 'Settings is visible on a fresh profile before campaign-005.');
 
 const mid = profile(['campaign-001', 'campaign-002'], 'campaign-003');
@@ -113,7 +126,7 @@ const continued = getHomeCampaignAction(fakeCampaign(3), mid);
 assert(continued.kind === 'continue' && continued.levelId === 'campaign-003', 'Started campaign exposes Continue to current playable level.');
 
 const afterFive = profile(['campaign-001', 'campaign-002', 'campaign-003', 'campaign-004', 'campaign-005']);
-assert(shouldShowDailyEntry(afterFive), 'Completing campaign-005 unlocks Daily visibility.');
+assert(shouldShowDailyEntry(afterFive), 'Daily remains visible after campaign-005.');
 assert(getHomeDailyAction(afterFive, null).kind === 'unavailable', 'Unlocked Daily exposes unavailable state without trusted date.');
 const newDaily = getHomeDailyAction(afterFive, availableDaily);
 assert(newDaily.kind === 'new' && newDaily.entry.id === availableDaily.entry.id, 'Unsolved Daily exposes a playable New action.');

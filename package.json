@@ -83,7 +83,10 @@
     "sanity:audio-v6": "node scripts/audio-v6-click-win-sanity.mjs",
     "sanity:audio-v7": "node scripts/audio-v7-user-samples-sanity.mjs",
     "sanity:music-vibration": "node scripts/music-vibration-sanity.mjs",
-    "sanity:vibration-scope": "node scripts/vibration-scope-sanity.mjs"
+    "sanity:vibration-scope": "node scripts/vibration-scope-sanity.mjs",
+    "sanity:first-run-home": "node scripts/first-run-home-sanity.mjs",
+    "sanity:tutorial-board-stability": "node scripts/tutorial-board-stability-sanity.mjs",
+    "sanity:tutorial-text-above-board": "node scripts/tutorial-text-above-board-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

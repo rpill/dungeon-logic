@@ -23,7 +23,6 @@ import {
   STATS_SCENE_KEY,
   getHomeCampaignAction,
   getHomeDailyAction,
-  shouldShowDailyEntry,
   shouldShowSettingsEntry,
 } from '../runtime/MetaSelectors';
 import { classifyViewport } from './GameBoardLayout';
@@ -80,11 +79,8 @@ export class HomeScene extends Phaser.Scene {
     const buttonWidth = Math.min(narrow ? this.scale.width - 32 : 360, 420);
     const mainY = narrow ? 215 : 250;
     const mainHeight = narrow ? 58 : 62;
-    const dailyVisible = shouldShowDailyEntry(profile);
     const settingsVisible = shouldShowSettingsEntry(profile);
-    const secondaryStep = dailyVisible || settingsVisible
-      ? (narrow ? 88 : 96)
-      : (narrow ? 105 : 118);
+    const secondaryStep = narrow ? 88 : 96;
 
     if (action.kind === 'tutorial') {
       const entry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
@@ -105,7 +101,7 @@ export class HomeScene extends Phaser.Scene {
       if (entry !== undefined) {
         this.add.text(
           this.scale.width / 2,
-          mainY + mainHeight / 2 + 23,
+          mainY + mainHeight / 2 + 10,
           copy.game.tutorialTitle(entry.slot, tutorial.getLevels().length),
           {
             fontFamily: 'monospace',
@@ -145,7 +141,7 @@ export class HomeScene extends Phaser.Scene {
 
     this.createButton(
       this.scale.width / 2,
-      mainY + secondaryStep * (dailyVisible ? 2 : 1),
+      mainY + secondaryStep * 2,
       buttonWidth,
       narrow ? 52 : 56,
       copy.common.levels,
@@ -154,25 +150,23 @@ export class HomeScene extends Phaser.Scene {
       () => this.scene.start(LEVELS_SCENE_KEY),
     );
 
-    if (dailyVisible) {
-      this.createButton(
-        this.scale.width / 2,
-        mainY + secondaryStep * 3,
-        buttonWidth,
-        narrow ? 52 : 56,
-        copy.common.statistics,
-        '#aeb4bc',
-        HOME_MENU_ICONS.statistics.icon,
-        () => this.scene.start(STATS_SCENE_KEY),
-      );
-      void this.renderDailyEntry(
-        profileService,
-        mainY + secondaryStep,
-        buttonWidth,
-        narrow ? 52 : 56,
-        createVersion,
-      );
-    }
+    this.createButton(
+      this.scale.width / 2,
+      mainY + secondaryStep * 3,
+      buttonWidth,
+      narrow ? 52 : 56,
+      copy.common.statistics,
+      '#aeb4bc',
+      HOME_MENU_ICONS.statistics.icon,
+      () => this.scene.start(STATS_SCENE_KEY),
+    );
+    void this.renderDailyEntry(
+      profileService,
+      mainY + secondaryStep,
+      buttonWidth,
+      narrow ? 52 : 56,
+      createVersion,
+    );
 
     if (settingsVisible) {
       this.createButton(
@@ -187,7 +181,7 @@ export class HomeScene extends Phaser.Scene {
       );
     }
 
-    const lastMenuIndex = settingsVisible ? 4 : dailyVisible ? 3 : 1;
+    const lastMenuIndex = settingsVisible ? 4 : 3;
     const lastMenuY = mainY + secondaryStep * lastMenuIndex;
     const utilityGap = narrow ? 10 : 18;
     const utilityMargin = narrow ? 12 : 22;
@@ -310,6 +304,24 @@ export class HomeScene extends Phaser.Scene {
     height: number,
     createVersion: number,
   ): Promise<void> {
+    const initialProfile = profileService.getProfile();
+    const initialCopy = getUiCopy(initialProfile.settings.language);
+    const initialAction = getHomeDailyAction(initialProfile, null);
+    if (initialAction.kind === 'locked') {
+      this.createButton(
+        this.scale.width / 2,
+        y,
+        width,
+        height,
+        initialCopy.home.dailyLockedAfterLevel,
+        '#7f8ba2',
+        HOME_MENU_ICONS.daily.icon,
+        () => {},
+        false,
+      );
+      return;
+    }
+
     let today = null;
     try {
       today = await this.getDailyService().getToday();
@@ -321,7 +333,20 @@ export class HomeScene extends Phaser.Scene {
     const profile = profileService.getProfile();
     const copy = getUiCopy(profile.settings.language);
     const action = getHomeDailyAction(profile, today);
-    if (action.kind === 'hidden') return;
+    if (action.kind === 'locked') {
+      this.createButton(
+        this.scale.width / 2,
+        y,
+        width,
+        height,
+        copy.home.dailyLockedAfterLevel,
+        '#7f8ba2',
+        HOME_MENU_ICONS.daily.icon,
+        () => {},
+        false,
+      );
+      return;
+    }
 
     if (action.kind === 'unavailable') {
       this.createButton(

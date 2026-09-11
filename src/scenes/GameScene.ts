@@ -144,6 +144,53 @@ export class GameScene extends Phaser.Scene {
     const tutorialContext = launchData.context.mode === 'tutorial'
       ? launchData.context
       : null;
+    const usesPersistentTutorialLayoutReserve = tutorialContext !== null
+      && launchData.contextualOnboarding;
+    const getTutorialLayoutBottomReserve = (): number => (
+      usesPersistentTutorialLayoutReserve
+        ? (this.scale.width < 700 ? 92 : 86)
+        : 0
+    );
+    const applyTutorialBoardTopClearance = (
+      layout: ReturnType<typeof calculateSafeBoardLayout>,
+      chromeLayout: ReturnType<typeof calculatePuzzleChromeLayout>,
+      safeTopInset: number,
+    ): ReturnType<typeof calculateSafeBoardLayout> => {
+      if (!usesPersistentTutorialLayoutReserve) return layout;
+
+      const compactTutorial = this.scale.width < 700 || this.scale.height < 520;
+      const reservedPanelHeight = compactTutorial ? 58 : 74;
+      const panelGap = compactTutorial ? 10 : 16;
+      const clueFontSize = Math.max(16, Math.round(layout.cellSize * 0.5));
+      const clueCenterY = layout.originY - layout.cellSize * 0.3;
+      const clueTopY = clueCenterY - clueFontSize * 0.65;
+      const timerCenterY = safeTopInset
+        + chromeLayout.titleY
+        + (this.scale.width < 700 ? 28 : 34);
+      const timerFontSize = Math.max(12, chromeLayout.statusFontSize);
+      const minimumPanelTop = timerCenterY
+        + timerFontSize * 0.75
+        + (compactTutorial ? 8 : 12);
+      const preferredPanelTop = clueTopY - panelGap - reservedPanelHeight;
+      const availableShift = Math.max(0, getTutorialLayoutBottomReserve() - 12);
+      const boardShift = Math.min(
+        availableShift,
+        Math.max(0, minimumPanelTop - preferredPanelTop),
+      );
+
+      return boardShift === 0
+        ? layout
+        : { ...layout, originY: layout.originY + boardShift };
+    };
+    const calculateStableBoardLayout = (
+      extraBottomReserve = 0,
+      chromeLayout = calculatePuzzleChromeLayout(this.scale.width, this.scale.height),
+      safeTopInset = readSafeArea('--safe-area-inset-top'),
+    ) => applyTutorialBoardTopClearance(
+      calculateSafeBoardLayout(extraBottomReserve),
+      chromeLayout,
+      safeTopInset,
+    );
     const dailyContext = launchData.context.mode === 'daily'
       ? launchData.context
       : null;
@@ -365,7 +412,7 @@ export class GameScene extends Phaser.Scene {
       : puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
     puzzleSession?.saveNow();
     const interaction = new PuzzleInteractionSession(puzzle);
-    let boardLayout = calculateSafeBoardLayout();
+    let boardLayout = calculateStableBoardLayout(getTutorialLayoutBottomReserve(), chrome, safeTop);
 
     let board: BoardView | null = null;
     let solved = completedReview;
@@ -380,6 +427,11 @@ export class GameScene extends Phaser.Scene {
     let hintConfirmContainer: Phaser.GameObjects.Container | null = null;
     let currentHint: PuzzleHint | null = null;
     let completionMode = false;
+    const getCurrentBoardBottomReserve = (): number => {
+      const tutorialReserve = getTutorialLayoutBottomReserve();
+      if (tutorialReserve > 0) return tutorialReserve;
+      return completionMode && this.scale.height < 520 ? 40 : 0;
+    };
     let completionTransitionPending = false;
     const completionButtons: Phaser.GameObjects.GameObject[] = [];
     const initialTimerMs = completedReview
@@ -660,8 +712,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(50);
     const onboardingText = this.add.text(0, 0, '', {
       fontFamily: 'monospace',
-      fontSize: '14px',
+      fontSize: '18px',
       color: '#f4ead7',
+      fontStyle: 'bold',
       align: 'center',
       wordWrap: { width: 420 },
     })
@@ -672,11 +725,6 @@ export class GameScene extends Phaser.Scene {
       onboardingIndex >= 0 ? onboardingSteps[onboardingIndex] ?? null : null
     );
 
-    const getOnboardingBottomReserve = (): number => {
-      if (!onboardingOpen) return 0;
-      return this.scale.width < 700 ? 92 : 86;
-    };
-
     const relayoutOnboarding = (): void => {
       const step = currentOnboardingStep();
       if (!onboardingOpen || step === null) {
@@ -686,39 +734,33 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      const toolbarTop = Math.min(
-        ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
-      );
-      const toolButtons = toolbarLayout.buttons.filter((button) => button.id === 'wall' || button.id === 'floor');
-      const actionButtons = toolbarLayout.buttons.filter((button) => button.id !== 'wall' && button.id !== 'floor');
-      const narrowScreen = this.scale.width < 700;
+      const narrowScreen = this.scale.width < 700 || this.scale.height < 520;
       const panelWidth = Math.min(
         this.scale.width - (narrowScreen ? 28 : 56),
-        narrowScreen ? 344 : 500,
+        Math.max(
+          narrowScreen ? 300 : 420,
+          boardLayout.boardWidth + boardLayout.cellSize * 1.6,
+        ),
+        narrowScreen ? 360 : 520,
       );
-      const panelX = this.scale.width / 2;
+      const panelX = boardLayout.originX + boardLayout.boardWidth / 2;
 
       onboardingText
         .setWordWrapWidth(Math.max(120, panelWidth - 36), true)
-        .setFontSize(narrowScreen ? 14 : 16)
+        .setFontSize(narrowScreen ? 15 : 18)
         .setText(step.message);
 
-      const verticalPadding = narrowScreen ? 14 : 16;
+      const verticalPadding = narrowScreen ? 12 : 15;
       const panelHeight = Math.max(
-        narrowScreen ? 64 : 70,
+        narrowScreen ? 56 : 68,
         onboardingText.height + verticalPadding * 2,
       );
-      const panelBottomGap = narrowScreen ? 14 : 18;
-      let panelY = toolbarTop - panelBottomGap - panelHeight / 2;
-      if (showTouchToolButtons && toolButtons.length > 0 && actionButtons.length > 0) {
-        const toolBottom = Math.max(...toolButtons.map((button) => button.y + button.height / 2));
-        const actionTop = Math.min(...actionButtons.map((button) => button.y - button.height / 2));
-        const gapTop = toolBottom + 10;
-        const gapBottom = actionTop - 10;
-        if (gapBottom - gapTop >= panelHeight) {
-          panelY = (gapTop + gapBottom) / 2;
-        }
-      }
+      const clueFontSize = Math.max(16, Math.round(boardLayout.cellSize * 0.5));
+      const tutorialClueTopY = boardLayout.originY
+        - boardLayout.cellSize * 0.3
+        - clueFontSize * 0.65;
+      const panelBottomGap = narrowScreen ? 10 : 16;
+      const panelY = tutorialClueTopY - panelBottomGap - panelHeight / 2;
 
       const panelLeft = panelX - panelWidth / 2;
       const panelTop = panelY - panelHeight / 2;
@@ -727,7 +769,7 @@ export class GameScene extends Phaser.Scene {
         .clear()
         .fillStyle(0x111b2f, 0.98)
         .fillRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, panelRadius)
-        .lineStyle(1, 0x516b92, 0.9)
+        .lineStyle(narrowScreen ? 1 : 2, 0x6482ad, 0.95)
         .strokeRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, panelRadius)
         .setVisible(true);
       onboardingText
@@ -1274,7 +1316,7 @@ export class GameScene extends Phaser.Scene {
       currentHint = null;
       board?.setHintCellTarget(null);
       if (this.scale.height < 520) {
-        boardLayout = calculateSafeBoardLayout(40);
+        boardLayout = calculateStableBoardLayout(40);
         board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       }
       setToolbarVisible(false);
@@ -1368,10 +1410,6 @@ ${copy.game.featuresUnlocked}`
       board?.setInputCellTargets(null);
       board?.setTutorialCellTargets(null);
       relayoutOnboarding();
-      if (this.scale.height < 520) {
-        boardLayout = calculateSafeBoardLayout(40);
-        board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
-      }
       setToolbarVisible(false);
 
       statusText
@@ -1443,7 +1481,7 @@ ${copy.game.featuresUnlocked}`
       currentHint = null;
       board?.setHintCellTarget(null);
       if (this.scale.height < 520) {
-        boardLayout = calculateSafeBoardLayout(40);
+        boardLayout = calculateStableBoardLayout(40);
         board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       }
       setToolbarVisible(false);
@@ -1593,7 +1631,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       onboardingBlocksTimer = false;
       board?.setInputCellTargets(null);
       board?.setTutorialCellTargets(null);
-      boardLayout = calculateSafeBoardLayout(completionMode && this.scale.height < 520 ? 40 : 0);
+      boardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve());
       board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       if (!solved && !resetDialogOpen) {
         board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
@@ -1641,7 +1679,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       onboardingBlocksInteraction = true;
       onboardingBlocksTimer = true;
       pauseActiveTimer();
-      boardLayout = calculateSafeBoardLayout(getOnboardingBottomReserve());
+      boardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve());
       board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       board?.setInputCellTargets(step.cells);
       board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
@@ -2153,13 +2191,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       const height = this.scale.height;
       const nextChrome = calculatePuzzleChromeLayout(width, height);
       const nextSafeTop = readSafeArea('--safe-area-inset-top');
-      const nextBoardLayout = calculateSafeBoardLayout(
-        onboardingOpen
-          ? getOnboardingBottomReserve()
-          : completionMode && height < 520
-            ? 40
-            : 0,
-      );
+      const nextBoardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve(), nextChrome, nextSafeTop);
       recalculateToolbarLayout(nextBoardLayout);
 
       layoutTopActions(nextChrome, nextSafeTop);

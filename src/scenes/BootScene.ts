@@ -23,7 +23,8 @@ import {
 } from '../platform/PlatformRegistry';
 import { createYandexPlatformServices } from '../platform/yandex';
 import { resolveSupportedLanguage } from '../i18n/Language';
-import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
+import { HOME_SCENE_KEY, shouldAutoStartTutorial } from '../runtime/MetaSelectors';
+import { createTutorialGameSceneData } from '../runtime/GameLaunch';
 import { preloadSceneBackgrounds } from '../runtime/SceneBackground';
 import { preloadHomeMenuAssets } from '../runtime/HomeMenuButton';
 import { preloadCommonUiIcons } from '../runtime/UiIcons';
@@ -107,6 +108,16 @@ export class BootScene extends Phaser.Scene {
     if (devLaunch !== null) {
       this.scene.start('GameScene', devLaunch);
       return;
+    }
+
+    if (shouldAutoStartTutorial(profileService.getProfile())) {
+      try {
+        const started = await tutorialService.startEntryLevel();
+        this.scene.start('GameScene', createTutorialGameSceneData(started));
+        return;
+      } catch (error) {
+        console.warn('[Dungeon Logic] Could not auto-start first Tutorial; falling back to Home.', error);
+      }
     }
 
     this.scene.start(HOME_SCENE_KEY);
