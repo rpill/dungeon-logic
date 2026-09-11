@@ -36,6 +36,7 @@ type CellPointerHandler = (
   pointer: Phaser.Input.Pointer,
 ) => void;
 
+
 export type FixedCellVisual =
   | { readonly kind: 'monster'; readonly monsterFrameKeys: readonly string[] }
   | { readonly kind: 'chest' }
@@ -207,9 +208,14 @@ export class CellView {
   }
 
   setSolvedVisualState(solved: boolean): void {
-    if (this.fixedVisual === null || this.fixedVisual.kind === 'technical') return;
     if (this.solvedVisualState === solved) return;
     this.solvedVisualState = solved;
+
+    if (this.fixedVisual === null) {
+      this.render();
+      return;
+    }
+    if (this.fixedVisual.kind === 'technical') return;
 
     if (this.fixedVisual.kind === 'chest') {
       this.fixedSprite?.setTexture(solved ? CHEST_OPEN_TEXTURE_KEY : CHEST_CLOSED_TEXTURE_KEY);
@@ -302,7 +308,7 @@ export class CellView {
 
       case CellState.Floor:
         this.wall.setVisible(false).clearTint();
-        this.floorMark.setVisible(true);
+        this.floorMark.setVisible(!this.solvedVisualState);
         break;
     }
 
@@ -311,7 +317,7 @@ export class CellView {
   }
 
   private renderHover(): void {
-    this.hoverOverlay.setVisible(this.fixedVisual === null && this.hovered);
+    this.hoverOverlay.setVisible(this.fixedVisual === null && this.hovered && !this.solvedVisualState);
   }
 
   private renderGuidanceTarget(): void {

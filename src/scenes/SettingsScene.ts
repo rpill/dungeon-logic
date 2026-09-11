@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { getUiCopy } from '../i18n/UiCopy';
 import {
@@ -184,7 +185,10 @@ export class SettingsScene extends Phaser.Scene {
 
     hitArea
       .on('pointerover', () => {
-        if (!this.mutationPending && !this.resetDialogOpen) redraw(hoverFill);
+        if (!this.mutationPending && !this.resetDialogOpen) {
+          redraw(hoverFill);
+          getAudioFeedback(this).play('ui-hover');
+        }
       })
       .on('pointerout', () => redraw(normalFill))
       .on('pointerdown', () => {
@@ -193,6 +197,7 @@ export class SettingsScene extends Phaser.Scene {
       .on('pointerup', (pointer: Phaser.Input.Pointer) => {
         redraw(hoverFill);
         if (!this.canActivate(pointer)) return;
+        getAudioFeedback(this).play('ui-click');
         void this.activateRow(id, service);
       });
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 export type HomeMenuIcon = 'play' | 'daily' | 'levels' | 'statistics' | 'settings' | 'info' | 'back';
 
 type HomeMenuButtonState = 'normal' | 'hover' | 'pressed';
@@ -160,11 +161,15 @@ export function createHomeMenuButton(
 
   if (enabled) {
     fill.setInteractive({ useHandCursor: true });
-    fill.on('pointerover', () => setState('hover'));
+    fill.on('pointerover', () => {
+      setState('hover');
+      getAudioFeedback(scene).play('ui-hover');
+    });
     fill.on('pointerout', () => setState(restingFrameState));
     fill.on('pointerdown', () => setState('pressed'));
     fill.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       setState('hover');
+      getAudioFeedback(scene).play('ui-click');
       options.onActivate(pointer);
     });
   } else {
@@ -256,11 +261,15 @@ export function createCenteredTextMenuButton(
   setState(restingFrameState);
 
   fill.setInteractive({ useHandCursor: true });
-  fill.on('pointerover', () => setState('hover'));
+  fill.on('pointerover', () => {
+    setState('hover');
+    getAudioFeedback(scene).play('ui-hover');
+  });
   fill.on('pointerout', () => setState(restingFrameState));
   fill.on('pointerdown', () => setState('pressed'));
   fill.on('pointerup', (pointer: Phaser.Input.Pointer) => {
     setState('hover');
+    getAudioFeedback(scene).play('ui-click');
     options.onActivate(pointer);
   });
 

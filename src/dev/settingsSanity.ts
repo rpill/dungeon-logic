@@ -59,8 +59,19 @@ async function main(): Promise<void> {
 
   assert(settings.getSettings().language === 'ru', 'SettingsService exposes fresh profile settings.');
   assert(settings.isVibrationSupported(), 'Injected vibration capability is exposed.');
-  assert(detectVibrationSupport({ vibrate: () => true }), 'Navigator-like vibrate function enables vibration capability.');
-  assert(!detectVibrationSupport({}), 'Missing vibrate function disables vibration capability.');
+  assert(
+    detectVibrationSupport({ vibrate: () => true, maxTouchPoints: 1 }, true),
+    'Touch device with vibrate and a coarse primary pointer enables vibration capability.',
+  );
+  assert(
+    !detectVibrationSupport({ vibrate: () => true, maxTouchPoints: 0 }, false),
+    'Desktop-like device hides vibration even when navigator.vibrate exists.',
+  );
+  assert(
+    !detectVibrationSupport({ vibrate: () => true, maxTouchPoints: 5 }, false),
+    'Fine-pointer desktop UI hides vibration even on hybrid touch hardware.',
+  );
+  assert(!detectVibrationSupport({}, true), 'Missing vibrate function disables vibration capability.');
   const supportedRows = getSettingsRows(settings.getSettings(), true);
   assert(supportedRows.map((row) => row.id).join(',') === 'music,sound,vibration,language,help,reset', 'Supported devices render the v1 settings rows in order.');
   const unsupportedRows = getSettingsRows(settings.getSettings(), false);

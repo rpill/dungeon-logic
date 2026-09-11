@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { BoardView } from '../board/BoardView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type {
@@ -24,6 +25,7 @@ import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { LeaderboardPlayerView, PlatformServices } from '../platform/services';
 import { PuzzleState } from '../puzzle/PuzzleState';
+import { CellState, type CellState as CellStateValue } from '../puzzle/types';
 import {
   createOnboardingFlow,
   isOnboardingStepSatisfied,
@@ -134,6 +136,7 @@ export class GameScene extends Phaser.Scene {
       : this.getPlayerProfileService();
     let language = this.getPlayerProfileService().getProfile().settings.language;
     let copy = getUiCopy(language);
+    const feedback = getAudioFeedback(this);
     const campaignContext = launchData.context.mode === 'campaign'
       ? launchData.context
       : null;
@@ -296,10 +299,18 @@ export class GameScene extends Phaser.Scene {
     };
 
     backHit
-      .on('pointerover', () => { backHovered = true; redrawTopActions(); })
+      .on('pointerover', () => {
+        backHovered = true;
+        redrawTopActions();
+        feedback.play('ui-hover');
+      })
       .on('pointerout', () => { backHovered = false; redrawTopActions(); });
     menuHit
-      .on('pointerover', () => { menuHovered = true; redrawTopActions(); })
+      .on('pointerover', () => {
+        menuHovered = true;
+        redrawTopActions();
+        feedback.play('ui-hover');
+      })
       .on('pointerout', () => { menuHovered = false; redrawTopActions(); });
     layoutTopActions();
 
@@ -1042,6 +1053,7 @@ export class GameScene extends Phaser.Scene {
         transientHintsUsed += 1;
       }
       currentHint = hint;
+      feedback.play('hint');
       board?.setHintCellTarget(hint);
       recalculateToolbarLayout();
       if (showTouchToolButtons) {
@@ -1643,6 +1655,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       if (onboardingOpen && !onboardingAllowsTool(tool)) return;
 
       board?.setActiveTool(tool);
+      feedback.play('ui-click');
       syncToolbar();
     };
 
@@ -1688,64 +1701,98 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       syncToolbar();
 
       const modalChrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
-      const width = Math.min(380, modalChrome.modalWidth);
-      const height = 180;
-      const container = this.add.container(this.scale.width / 2, this.scale.height / 2);
+      const width = Math.min(390, modalChrome.modalWidth);
+      const height = 194;
+      const container = this.add.container(this.scale.width / 2, this.scale.height / 2).setDepth(80);
       resetDialog = container;
 
-      const panel = this.add.rectangle(0, 0, width, height, 0x15191f, 0.98)
-        .setStrokeStyle(2, 0x6b7077);
-      const title = this.add.text(0, -52, copy.game.resetTitle, {
+      const shadow = this.add.graphics();
+      shadow.fillStyle(0x050a13, 0.42);
+      shadow.fillRoundedRect(-width / 2 + 4, -height / 2 + 7, width, height, 12);
+
+      const panel = this.add.graphics();
+      panel.fillStyle(0x1f2c4a, 0.98);
+      panel.fillRoundedRect(-width / 2, -height / 2, width, height, 12);
+      panel.lineStyle(1, 0x4b6386, 0.92);
+      panel.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
+
+      const title = this.add.text(0, -66, copy.game.resetTitle, {
         fontFamily: 'monospace',
         fontSize: `${modalChrome.modalTitleFontSize}px`,
-        color: '#f0e6d2',
+        color: '#f0bd63',
         fontStyle: 'bold',
+        align: 'center',
       }).setOrigin(0.5);
-      const dialogCopy = this.add.text(0, -14, copy.game.resetBody, {
+
+      const titleAccent = this.add.graphics();
+      const titleGap = title.width / 2 + 16;
+      const diamondOffset = titleGap + 10;
+      titleAccent.lineStyle(1, 0xf0b14f, 0.45);
+      titleAccent.lineBetween(-width / 2 + 28, -66, -diamondOffset - 6, -66);
+      titleAccent.lineBetween(diamondOffset + 6, -66, width / 2 - 28, -66);
+      titleAccent.fillStyle(0xf0b14f, 0.85);
+      for (const x of [-diamondOffset, diamondOffset]) {
+        titleAccent.beginPath();
+        titleAccent.moveTo(x, -70);
+        titleAccent.lineTo(x + 4, -66);
+        titleAccent.lineTo(x, -62);
+        titleAccent.lineTo(x - 4, -66);
+        titleAccent.closePath();
+        titleAccent.fillPath();
+      }
+      const dialogCopy = this.add.text(0, -20, copy.game.resetBody, {
         fontFamily: 'monospace',
         fontSize: `${modalChrome.modalCopyFontSize}px`,
-        color: '#aeb4bc',
+        color: '#e7e1d6',
         align: 'center',
-        wordWrap: { width: width - 36 },
+        lineSpacing: 3,
+        wordWrap: { width: width - 48 },
       }).setOrigin(0.5);
 
-      const buttonWidth = Math.floor((width - 54) / 2);
-      const cancelX = -buttonWidth / 2 - 6;
-      const resetX = buttonWidth / 2 + 6;
-      const buttonY = 48;
-      const cancel = this.add.rectangle(cancelX, buttonY, buttonWidth, 46, 0x2a3038, 1)
-        .setInteractive({ useHandCursor: true });
-      const confirm = this.add.rectangle(resetX, buttonY, buttonWidth, 46, 0x63383b, 1)
-        .setInteractive({ useHandCursor: true });
-      const cancelLabel = this.add.text(cancelX, buttonY, copy.common.cancel, {
-        fontFamily: 'monospace',
-        fontSize: '15px',
-        color: '#d8d1c4',
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
-      const confirmLabel = this.add.text(resetX, buttonY, copy.common.reset, {
-        fontFamily: 'monospace',
-        fontSize: '15px',
-        color: '#f0d8d2',
-        fontStyle: 'bold',
-      }).setOrigin(0.5);
+      const gap = 10;
+      const buttonWidth = Math.floor((width - 44 - gap) / 2);
+      const cancelX = -buttonWidth / 2 - gap / 2;
+      const resetX = buttonWidth / 2 + gap / 2;
+      const buttonY = 54;
+      const buttonHeight = 48;
 
-      cancel.on('pointerdown', () => {
-        closeResetDialog();
+      const cancelButton = createCenteredTextMenuButton(this, {
+        x: cancelX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: copy.common.cancel,
+        labelColor: '#f4ead7',
+        compact: true,
+        onActivate: () => closeResetDialog(),
       });
-      confirm.on('pointerdown', () => {
-        if (completedReview) {
-          resetDialog?.destroy(true);
-          resetDialog = null;
-          resetDialogOpen = false;
-          void startFreshCampaignReplay();
-          return;
-        }
-        board?.reset();
-        closeResetDialog();
+      const confirmButton = createCenteredTextMenuButton(this, {
+        x: resetX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: copy.common.reset,
+        labelColor: '#f4ead7',
+        compact: true,
+        onActivate: () => {
+          if (completedReview) {
+            resetDialog?.destroy(true);
+            resetDialog = null;
+            resetDialogOpen = false;
+            void startFreshCampaignReplay();
+            return;
+          }
+          if (board?.reset()) feedback.play('reset');
+          closeResetDialog();
+        },
       });
+      confirmButton.fill.setTint(0x8b5661);
 
-      container.add([panel, title, dialogCopy, cancel, confirm, cancelLabel, confirmLabel]);
+      container.add([
+        shadow, panel, titleAccent, title, dialogCopy,
+        cancelButton.fill, cancelButton.frame, cancelButton.label,
+        confirmButton.fill, confirmButton.frame, confirmButton.label,
+      ]);
     };
 
     const requestReset = (): void => {
@@ -1759,7 +1806,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         showResetDialog();
         return;
       }
-      board?.reset();
+      if (board?.reset()) feedback.play('reset');
       syncToolbar();
     };
 
@@ -1769,6 +1816,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       if (!validatePuzzle(puzzle).isSolved) return;
 
       solved = true;
+      feedback.play('complete');
       board?.setSolvedVisualState(true);
       board?.setInputEnabled(false);
       pauseActiveTimer();
@@ -1880,6 +1928,31 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       });
     };
 
+    const handleCellEdited = (
+      x: number,
+      y: number,
+      previousState: CellStateValue,
+      state: CellStateValue,
+    ): void => {
+      if (validatePuzzle(puzzle).isSolved) return;
+      if (previousState === CellState.Wall && state === CellState.Unknown) {
+        feedback.play('wall-remove');
+        return;
+      }
+      if (
+        (previousState === CellState.Unknown && state === CellState.Floor)
+        || (previousState === CellState.Floor && state === CellState.Unknown)
+      ) {
+        feedback.play('marker-toggle');
+        return;
+      }
+      if (state === CellState.Wall) {
+        const overfilled = puzzle.getRowWallCount(y) > launchData.level.rowClues[y]
+          || puzzle.getColumnWallCount(x) > launchData.level.columnClues[x];
+        feedback.play(overfilled ? 'error' : 'wall-place');
+      }
+    };
+
     const handleEditCommitted = (): void => {
       savePuzzleSession();
       if (
@@ -1910,6 +1983,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       boardLayout.cellSize,
       handlePuzzleChanged,
       handleEditCommitted,
+      handleCellEdited,
     );
 
     const toolbarActions: Record<PuzzleToolbarButtonId, () => void> = {
@@ -1917,7 +1991,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       floor: () => setActiveTool('floor'),
       undo: () => {
         if (controlsLocked()) return;
-        board?.undo();
+        if (board?.undo()) feedback.play('undo');
         syncToolbar();
       },
       reset: requestReset,
@@ -1973,6 +2047,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         .on('pointerover', () => {
           visual.hovered = true;
           redrawToolbarBackground(visual);
+          if (!visual.disabled) feedback.play('ui-hover');
         })
         .on('pointerout', () => {
           visual.hovered = false;
@@ -2001,6 +2076,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     }
 
     const handleBackAction = (): void => {
+      feedback.play('ui-click');
       if (gameMenuOpen) {
         closeGameMenu();
         return;
@@ -2033,6 +2109,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     backHit.on('pointerup', handleBackAction);
 
     const handleMenuAction = (): void => {
+      feedback.play('ui-click');
       openGameMenu();
     };
     menuHit.on('pointerup', handleMenuAction);
@@ -2053,7 +2130,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         case 'KeyZ':
           if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
-            board?.undo();
+            if (board?.undo()) feedback.play('undo');
             syncToolbar();
           }
           break;

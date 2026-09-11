@@ -1,3 +1,4 @@
+import { setBackgroundMusicEnabled } from '../audio/MusicService';
 import type { SupportedLanguage } from '../i18n/Language';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
@@ -7,10 +8,21 @@ export type { SupportedLanguage } from '../i18n/Language';
 
 export interface VibrationNavigatorLike {
   readonly vibrate?: unknown;
+  readonly maxTouchPoints?: number;
 }
 
-export function detectVibrationSupport(value: VibrationNavigatorLike | null | undefined): boolean {
-  return typeof value?.vibrate === 'function';
+function detectCoarsePrimaryPointer(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(pointer: coarse)').matches;
+}
+
+export function detectVibrationSupport(
+  value: VibrationNavigatorLike | null | undefined,
+  coarsePointer = detectCoarsePrimaryPointer(),
+): boolean {
+  return typeof value?.vibrate === 'function'
+    && (value.maxTouchPoints ?? 0) > 0
+    && coarsePointer;
 }
 
 export interface SettingsServiceOptions {
@@ -38,6 +50,7 @@ export class SettingsService {
   }
 
   async setMusicEnabled(enabled: boolean): Promise<void> {
+    setBackgroundMusicEnabled(enabled);
     await this.updateSettings({ musicEnabled: enabled });
   }
 

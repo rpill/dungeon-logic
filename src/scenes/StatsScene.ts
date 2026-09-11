@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import { getUiCopy } from '../i18n/UiCopy';
@@ -147,11 +148,15 @@ export class StatsScene extends Phaser.Scene {
     );
     if (content.action !== undefined) {
       hoverOverlay.setInteractive({ useHandCursor: true })
-        .on('pointerover', () => hoverOverlay.setFillStyle(0x5b7eb1, 0.12))
+        .on('pointerover', () => {
+          hoverOverlay.setFillStyle(0x5b7eb1, 0.12);
+          getAudioFeedback(this).play('ui-hover');
+        })
         .on('pointerout', () => hoverOverlay.setFillStyle(0x5b7eb1, 0))
         .on('pointerdown', () => hoverOverlay.setFillStyle(0x5b7eb1, 0.2))
         .on('pointerup', () => {
           hoverOverlay.setFillStyle(0x5b7eb1, 0.12);
+          getAudioFeedback(this).play('ui-click');
           content.action?.();
         });
     }

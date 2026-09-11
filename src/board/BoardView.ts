@@ -3,7 +3,7 @@ import type Phaser from 'phaser';
 import { PuzzleInteractionSession, type PuzzleTool } from '../gameplay/PuzzleInteractionSession';
 import { resolvePointerTool } from '../gameplay/PuzzlePointerPolicy';
 import { PuzzleState } from '../puzzle/PuzzleState';
-import { CellState } from '../puzzle/types';
+import { CellState, type CellState as CellStateValue } from '../puzzle/types';
 import { monsterFrameKeys } from '../view/FixedObjectAssets';
 import { resolveMonsterSkin } from '../view/MonsterVisuals';
 import { CellView, WIREFRAME, type FixedCellVisual } from './CellView';
@@ -11,6 +11,12 @@ import { resolveFloorTextureKey, resolveWallTextureKey } from '../view/BoardThem
 
 type PuzzleChangedHandler = () => void;
 type PuzzleEditCommittedHandler = () => void;
+type PuzzleCellEditedHandler = (
+  x: number,
+  y: number,
+  previousState: CellStateValue,
+  nextState: CellStateValue,
+) => void;
 
 const CLUE_FONT_RATIO = 0.5;
 const CLUE_GAP_RATIO = 0.3;
@@ -24,6 +30,7 @@ export class BoardView {
   private cellSize: number;
   private readonly onPuzzleChanged: PuzzleChangedHandler;
   private readonly onEditCommitted: PuzzleEditCommittedHandler;
+  private readonly onCellEdited: PuzzleCellEditedHandler;
 
   private inputEnabled = true;
   private gestureActive = false;
@@ -42,6 +49,7 @@ export class BoardView {
     cellSize: number,
     onPuzzleChanged: PuzzleChangedHandler,
     onEditCommitted: PuzzleEditCommittedHandler = () => {},
+    onCellEdited: PuzzleCellEditedHandler = () => {},
   ) {
     this.scene = scene;
     this.puzzle = puzzle;
@@ -51,6 +59,7 @@ export class BoardView {
     this.cellSize = cellSize;
     this.onPuzzleChanged = onPuzzleChanged;
     this.onEditCommitted = onEditCommitted;
+    this.onCellEdited = onCellEdited;
 
     this.createClues();
     this.createCells();
@@ -336,12 +345,15 @@ export class BoardView {
   }
 
   private visitGestureCell(x: number, y: number): void {
+    const previousState = this.puzzle.getCellState(x, y);
     if (!this.session.visitGestureCell(x, y)) {
       return;
     }
 
-    this.cells[y][x].setState(this.puzzle.getCellState(x, y));
+    const state = this.puzzle.getCellState(x, y);
+    this.cells[y][x].setState(state);
     this.updateConstraintFeedback();
+    this.onCellEdited(x, y, previousState, state);
     this.onPuzzleChanged();
   }
 

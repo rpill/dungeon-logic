@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { calculateMetaPageHeaderMetrics, type MetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
 export interface MetaPageHeaderOptions {
@@ -62,7 +63,13 @@ export function createMetaPageHeader(
     backWidth,
     Math.max(42, metrics.backIconSize + 10),
   ).setDepth(depthBase + 3).setInteractive({ useHandCursor: true });
-  backHit.on('pointerup', options.onBack);
+  backHit.on('pointerover', () => {
+    getAudioFeedback(scene).play('ui-hover');
+  });
+  backHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    getAudioFeedback(scene).play('ui-click');
+    options.onBack(pointer);
+  });
 
   const title = scene.add.text(scene.scale.width / 2, metrics.titleY, options.title, {
     fontFamily: 'monospace',

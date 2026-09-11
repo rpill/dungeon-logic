@@ -1,12 +1,8 @@
-Dungeon Logic — Task 43 build hotfix
+Loop-ready music candidates for Dungeon Logic
 
-This patch performs exactly two changes:
-1) Removes src/dev/campaignThemeSanity.ts (obsolete chapter/theme sanity).
-2) Removes the obsolete onboarding property from src/dev/campaignSanity.ts.
+inner-peace-loop: 53.834 s
+love-serenade-loop: 55.050 s
 
-Apply from the repository root:
-
-  git apply task43-hotfix.patch
-  npm run build
-
-The patch was verified with `git apply --check` against a representative copy of the current Task 43 tree with the legacy campaignThemeSanity.ts leftover present.
+OGG: 96 kbps, preferred compact loop asset for Chromium/Yandex Games.
+MP3: 96 kbps fallback/reference.
+Both loops were cut from harmonically similar internal points and joined with a 2.5 s equal-power crossfade.

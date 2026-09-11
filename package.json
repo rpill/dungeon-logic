@@ -75,7 +75,15 @@
     "sanity:game-ui-visual": "node scripts/game-controls-settings-visual-sanity.mjs",
     "sanity:game-board-assets": "node scripts/game-board-assets-sanity.mjs",
     "sanity:tutorial-hud": "tsx src/dev/tutorialHudSanity.ts",
-    "sanity:icon-rendering": "node scripts/icon-rendering-sanity.mjs"
+    "sanity:icon-rendering": "node scripts/icon-rendering-sanity.mjs",
+    "sanity:audio-v5": "node scripts/audio-v5-polish-sanity.mjs",
+    "sanity:audio-feedback": "node scripts/audio-feedback-sanity.mjs",
+    "sanity:audio-v2": "node scripts/audio-v2-reset-modal-sanity.mjs",
+    "sanity:audio-v3": "node scripts/audio-v3-completion-cleanup-sanity.mjs",
+    "sanity:audio-v6": "node scripts/audio-v6-click-win-sanity.mjs",
+    "sanity:audio-v7": "node scripts/audio-v7-user-samples-sanity.mjs",
+    "sanity:music-vibration": "node scripts/music-vibration-sanity.mjs",
+    "sanity:vibration-scope": "node scripts/vibration-scope-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

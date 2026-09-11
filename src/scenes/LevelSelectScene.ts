@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { getUiCopy } from '../i18n/UiCopy';
 
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
@@ -177,6 +178,7 @@ export class LevelSelectScene extends Phaser.Scene {
         card.setInteractive({ useHandCursor: true })
           .on('pointerover', () => {
             hoverOverlay.setAlpha(0.16).setVisible(true);
+            getAudioFeedback(this).play('ui-hover');
           })
           .on('pointerout', () => {
             hoverOverlay.setVisible(false);
@@ -187,6 +189,7 @@ export class LevelSelectScene extends Phaser.Scene {
           .on('pointerup', (pointer: Phaser.Input.Pointer) => {
             hoverOverlay.setAlpha(0.16).setVisible(true);
             if (!this.shouldActivatePointer(pointer)) return;
+            getAudioFeedback(this).play('ui-click');
             void this.launchLevel(service, item.entry);
           });
       }

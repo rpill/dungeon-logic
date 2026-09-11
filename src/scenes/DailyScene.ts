@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
 import type { DailyEntry } from '../content/daily/types';
 import {
@@ -301,10 +302,14 @@ export class DailyScene extends Phaser.Scene {
         }).setOrigin(0.5);
         if (enabled) {
           arrow.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => arrow.setColor('#f0bd63'))
+            .on('pointerover', () => {
+              arrow.setColor('#f0bd63');
+              getAudioFeedback(this).play('ui-hover');
+            })
             .on('pointerout', () => arrow.setColor(restingColor))
             .on('pointerup', (pointer: Phaser.Input.Pointer) => {
               if (!this.shouldActivatePointer(pointer)) return;
+              getAudioFeedback(this).play('ui-click');
               selectedMonth = shiftDailyHubCalendarMonth(
                 DAILY_RELEASE_ENTRIES,
                 today.dateKey,
@@ -421,6 +426,7 @@ export class DailyScene extends Phaser.Scene {
             .on('pointerover', () => {
               hoverOverlay.setAlpha(0.22);
               hoverOverlay.setVisible(true);
+              getAudioFeedback(this).play('ui-hover');
             })
             .on('pointerout', () => {
               hoverOverlay.setVisible(false);
@@ -433,6 +439,7 @@ export class DailyScene extends Phaser.Scene {
               hoverOverlay.setAlpha(0.22);
               hoverOverlay.setVisible(true);
               if (!this.shouldActivatePointer(pointer)) return;
+              getAudioFeedback(this).play('ui-click');
               void this.launchDaily(day.entry!);
             });
         }

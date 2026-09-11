@@ -334,7 +334,7 @@ const RU: UiCopy = {
     dailyArchiveFirstResult: (time) => `ПЕРВОЕ ВРЕМЯ · ${time}`,
     streakRecent: (streak, recent) => `СЕРИЯ: ${streak}  ·  7 ДНЕЙ: ${recent}`,
     home: 'ГЛАВНАЯ',
-    resetTitle: 'Сбросить задачу?',
+    resetTitle: 'СБРОСИТЬ ЗАДАЧУ?',
     resetBody: 'Все отметки на этом поле будут удалены.',
   },
 };
@@ -505,7 +505,7 @@ const EN: UiCopy = {
     dailyArchiveFirstResult: (time) => `FIRST TIME · ${time}`,
     streakRecent: (streak, recent) => `STREAK: ${streak}  ·  7 DAYS: ${recent}`,
     home: 'HOME',
-    resetTitle: 'Reset puzzle?',
+    resetTitle: 'RESET PUZZLE?',
     resetBody: 'All marks on this board will be cleared.',
   },
 };

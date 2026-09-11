@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { preloadAudioFeedbackAssets } from '../audio/AudioAssets';
+import { initializeBackgroundMusic } from '../audio/MusicService';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
 import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
@@ -40,6 +42,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     preloadSceneBackgrounds(this);
+    preloadAudioFeedbackAssets(this);
     preloadHomeMenuAssets(this);
     preloadCommonUiIcons(this);
     preloadBoardThemeAssets(this);
@@ -86,6 +89,7 @@ export class BootScene extends Phaser.Scene {
     this.registry.set(TUTORIAL_SERVICE_REGISTRY_KEY, tutorialService);
     this.registry.set(CAMPAIGN_SERVICE_REGISTRY_KEY, campaignService);
     this.registry.set(DAILY_SERVICE_REGISTRY_KEY, dailyService);
+    initializeBackgroundMusic(this, profileService.getProfile().settings.musicEnabled);
 
     let devLaunch = null;
     try {
