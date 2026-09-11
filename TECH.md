@@ -380,3 +380,26 @@ Not part of initial architecture unless actually needed:
 * SaveService.
 
 Build them when the prototype justifies them.
+
+---
+
+## Analytics / Yandex Metrica
+
+- All custom gameplay/product events go through `src/analytics/AnalyticsService.ts`.
+- Only `src/analytics/YandexMetricaTransport.ts` may call `ym` / `reachGoal`.
+- `VITE_YANDEX_METRICA_ID=0` disables custom analytics safely.
+- Real sends require all of: production build, a positive numeric counter id, a real Yandex Games runtime exposing `YaGames.init`, and a working Metrica bootstrap.
+- Webvisor and clickmap are disabled. Session replay is not used.
+- Stable v1 goals are: `game_ready`, `screen_view`, `puzzle_start`, `puzzle_complete`, `puzzle_reset`, `hint_used`, `tutorial_complete`, `ad_interstitial_result`, `ad_rewarded_result`, `tech_error`.
+- Payloads may contain only primitive gameplay context. Never send player ids/names, avatar URLs, profile JSON, leaderboard `extraData`, error messages, stack traces, or raw URLs/query strings.
+- Recoverable technical failures use stable error codes only; provider failures never block gameplay and Metrica failures are console-only.
+
+### Production setup
+
+1. Create a Yandex Metrica counter for Dungeon Logic.
+2. Keep Webvisor disabled and do not restrict the counter to a single non-Yandex host; Yandex Games hosting must be accepted.
+3. Set `VITE_YANDEX_METRICA_ID=<positive numeric counter id>` for the production build. Keep it at `0` when custom telemetry must be disabled.
+4. Build and upload the game to the Yandex Games test environment.
+5. Verify that `game_ready`, `screen_view`, `puzzle_start`, `puzzle_complete`, `hint_used`, and at least one real ad-result goal arrive with the expected parameters.
+6. Verify a plain/local preview does not send production Metrica goals because the real `YaGames.init` runtime gate is absent.
+

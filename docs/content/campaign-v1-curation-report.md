@@ -6,7 +6,7 @@
 ## Release model
 
 - The player-facing campaign is one flat `УРОВНИ` list with 64 stable IDs; there are no campaign chapters or manuscripts.
-- `campaign-001` … `campaign-030` are preserved unchanged from the previous build.
+- The shipped puzzle corpus is unchanged, but opening slots 002–006 were reordered for a smoother difficulty/mechanics ramp.
 - `campaign-031` … `campaign-064` were added from the deterministic offline release reservoir.
 - Runtime generation: **none**. Shipped Campaign puzzles are static source snapshots.
 - All 64 wall-layout fingerprints are unique under rotation/reflection.
@@ -25,11 +25,11 @@
 | Slot | Archetype | Difficulty | Score | Human Solver | Source candidate |
 |---:|---|---|---:|---|---|
 | 001 | `monster-only` | easy | 4 | `solved-direct` | `generated-monster-only-6-2398889868` |
-| 002 | `chest-one-room` | easy | 10 | `solved-direct` | `generated-chest-one-room-7-3193369624` |
-| 003 | `monster-only` | easy | 6 | `solved-direct` | `generated-monster-only-6-2057422507` |
-| 004 | `mixed-one-room` | easy | 6 | `solved-direct` | `generated-mixed-one-room-6-3782245294` |
-| 005 | `chest-one-room` | easy | 11 | `solved-direct` | `generated-chest-one-room-7-2320` |
-| 006 | `mixed-one-room` | easy | 14 | `solved-direct` | `generated-mixed-one-room-7-1202807671` |
+| 002 | `monster-only` | easy | 6 | `solved-direct` | `generated-monster-only-6-2057422507` |
+| 003 | `mixed-one-room` | easy | 6 | `solved-direct` | `generated-mixed-one-room-6-3782245294` |
+| 004 | `chest-one-room` | easy | 11 | `solved-direct` | `generated-chest-one-room-7-2320` |
+| 005 | `mixed-one-room` | easy | 14 | `solved-direct` | `generated-mixed-one-room-7-1202807671` |
+| 006 | `chest-one-room` | easy | 10 | `solved-direct` | `generated-chest-one-room-7-3193369624` |
 | 007 | `monster-only` | easy | 15 | `solved-direct` | `generated-monster-only-7-108316283` |
 | 008 | `monster-only` | medium | 30 | `solved-with-contradiction` | `generated-monster-only-7-3789115606` |
 | 009 | `monster-only` | medium | 32 | `solved-with-contradiction` | `generated-monster-only-7-754018346` |

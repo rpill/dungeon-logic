@@ -1,4 +1,4 @@
-import { chooseHint } from '../gameplay/HintService';
+import { chooseHint, requestHint } from '../gameplay/HintService';
 import { level as campaign003 } from '../content/campaign/levels/campaign003';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
@@ -46,6 +46,38 @@ for (let y = 0; y < level.height; y += 1) {
 }
 assert(chooseHint(puzzle) === null, 'Fully correct editable board has no hint target.');
 
+
+
+
+const freeSources: Array<'free' | 'rewarded'> = [];
+await requestHint({
+  puzzle: new PuzzleState(level),
+  consumeFreeHint: () => true,
+  requestRewarded: null,
+  recordRewardedHintUsed: () => {},
+  deliverHint: (_hint, source) => { freeSources.push(source); },
+});
+assert(freeSources[0] === 'free', 'Free hint delivery identifies its source.');
+
+const rewardedSources: Array<'free' | 'rewarded'> = [];
+await requestHint({
+  puzzle: new PuzzleState(level),
+  consumeFreeHint: () => false,
+  requestRewarded: async () => 'rewarded',
+  recordRewardedHintUsed: () => {},
+  deliverHint: (_hint, source) => { rewardedSources.push(source); },
+});
+assert(rewardedSources[0] === 'rewarded', 'Rewarded hint delivery identifies its source.');
+
+let cancelledDelivery = false;
+await requestHint({
+  puzzle: new PuzzleState(level),
+  consumeFreeHint: () => false,
+  requestRewarded: async () => 'closed',
+  recordRewardedHintUsed: () => {},
+  deliverHint: () => { cancelledDelivery = true; },
+});
+assert(!cancelledDelivery, 'Closed rewarded ad delivers no hint.');
 
 const campaign003Puzzle = new PuzzleState(campaign003);
 for (let x = 1; x < campaign003.width; x += 1) {

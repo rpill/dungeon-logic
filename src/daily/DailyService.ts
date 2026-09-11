@@ -1,3 +1,4 @@
+import type { GameAnalyticsAttempt } from '../campaign/types';
 import type { DailyEntry } from '../content/daily/types';
 import { PuzzleSessionState, isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import type { TrustedClock } from '../platform/services';
@@ -70,6 +71,7 @@ export interface DailyAttemptLaunch {
   readonly ranked: boolean;
   readonly archive: boolean;
   readonly elapsedMsAtLaunch: number;
+  readonly attempt: GameAnalyticsAttempt;
 }
 
 export interface DailyCompletionResult {
@@ -191,6 +193,7 @@ export class DailyService {
         ranked: false,
         archive,
         elapsedMsAtLaunch: 0,
+        attempt: 'replay',
       };
     }
 
@@ -201,6 +204,7 @@ export class DailyService {
       entry.id,
       saved,
     );
+    const attempt: GameAnalyticsAttempt = compatible ? 'resume' : 'new';
     const snapshot = compatible && saved !== undefined
       ? saved
       : PuzzleSessionState.create(entry.level, 'daily', entry.id, undefined, nowMs).snapshot();
@@ -227,6 +231,7 @@ export class DailyService {
       elapsedMsAtLaunch: archive
         ? snapshot.activePlayMs
         : Math.max(0, nowMs - snapshot.startedAtMs),
+      attempt,
     };
   }
 

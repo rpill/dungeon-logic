@@ -17,6 +17,9 @@ const responsiveSanity = source('src/dev/responsiveShellSanity.ts');
 const currentState = source('CURRENT_STATE.md');
 const tech = source('TECH.md');
 const campaignReport = source('docs/content/campaign-v1-curation-report.md');
+const openingCampaignLevels = Array.from({ length: 6 }, (_, index) =>
+  source(`src/content/campaign/levels/campaign${String(index + 1).padStart(3, '0')}.ts`),
+);
 const dailyCalendarReport = source('docs/release/daily-calendar-v1.md');
 const dailyCorpusReport = source('docs/release/daily-corpus-v1.md');
 const pkg = JSON.parse(source('package.json'));
@@ -39,6 +42,35 @@ assert(!currentState.includes('campaign-001`–`campaign-030'), 'CURRENT_STATE m
 assert(!currentState.includes('Campaign Chapter I'), 'CURRENT_STATE must not send Tutorial completion to Chapter I.');
 assert(!tech.includes('campaign-001`–`campaign-030'), 'TECH must document campaign IDs through 064.');
 assert(campaignReport.includes('Campaign 001–064'), 'Campaign curation report must document the 64-level shipped corpus.');
+
+const expectedOpeningCandidateIds = [
+  'generated-monster-only-6-2398889868',
+  'generated-monster-only-6-2057422507',
+  'generated-mixed-one-room-6-3782245294',
+  'generated-chest-one-room-7-2320',
+  'generated-mixed-one-room-7-1202807671',
+  'generated-chest-one-room-7-3193369624',
+];
+for (let index = 0; index < expectedOpeningCandidateIds.length; index += 1) {
+  const slot = index + 1;
+  const levelSource = openingCampaignLevels[index];
+  assert(
+    levelSource.includes(`\"id\": \"campaign-${String(slot).padStart(3, '0')}\"`),
+    `Campaign slot ${slot} must keep its stable campaign id.`,
+  );
+  assert(
+    levelSource.includes(`\"sourceCandidateId\": \"${expectedOpeningCandidateIds[index]}\"`),
+    `Campaign slot ${slot} must use the approved opening-order puzzle.`,
+  );
+}
+assert(
+  campaignReport.includes('| 002 | `monster-only` | easy | 6 | `solved-direct` | `generated-monster-only-6-2057422507` |'),
+  'Campaign curation report must reflect the reordered opening sequence.',
+);
+assert(
+  campaignReport.includes('| 006 | `chest-one-room` | easy | 10 | `solved-direct` | `generated-chest-one-room-7-3193369624` |'),
+  'Campaign curation report must place the former level 2 puzzle at slot 006.',
+);
 assert(dailyCalendarReport.includes('Entries: 365 consecutive days'), 'Daily calendar report must document all 365 release dates.');
 assert(dailyCalendarReport.includes('`daily-365` | `2027-09-08`'), 'Daily calendar report must include the final bound Daily.');
 assert(dailyCorpusReport.includes('Selected snapshots: **365**'), 'Daily corpus report must document the 365-snapshot shipped corpus.');

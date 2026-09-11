@@ -23,6 +23,7 @@ export interface CampaignProgressSnapshot {
 export type CampaignLevelState = 'completed' | 'current' | 'unlocked' | 'locked';
 
 export type FeatureUnlockId = 'daily' | 'statistics';
+export type GameAnalyticsAttempt = 'new' | 'resume' | 'replay';
 
 export interface CampaignCompletionResult {
   readonly progress: CampaignProgressSnapshot;
@@ -34,9 +35,9 @@ export interface CampaignCompletionResult {
 export type CampaignCompletionMetadata = CampaignLevelResult;
 
 export type GameLaunchContext =
-  | { readonly mode: 'campaign'; readonly campaignLevelId: string }
-  | { readonly mode: 'tutorial'; readonly tutorialLevelId: TutorialLevelId }
-  | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string; readonly ranked: boolean; readonly archive: boolean; readonly elapsedMsAtLaunch: number }
+  | { readonly mode: 'campaign'; readonly campaignLevelId: string; readonly analyticsAttempt?: GameAnalyticsAttempt }
+  | { readonly mode: 'tutorial'; readonly tutorialLevelId: TutorialLevelId; readonly analyticsAttempt?: GameAnalyticsAttempt }
+  | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string; readonly ranked: boolean; readonly archive: boolean; readonly elapsedMsAtLaunch: number; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'dev' };
 
 export interface GameSceneData {

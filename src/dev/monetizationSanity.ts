@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { CampaignService } from '../campaign/CampaignService';
+import { AnalyticsService, type AnalyticsPuzzleContext } from '../analytics/AnalyticsService';
+import type { AnalyticsGoalName, AnalyticsParams, AnalyticsTransport } from '../analytics/AnalyticsTransport';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { TUTORIAL_MANIFEST } from '../content/tutorial/manifest';
 import {
@@ -15,6 +17,20 @@ import type { AdsPort, InterstitialResult, RewardedResult } from '../platform/se
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
 }
+
+
+class RecordingTransport implements AnalyticsTransport {
+  readonly events: Array<{ name: AnalyticsGoalName; params: AnalyticsParams }> = [];
+  sendGoal(name: AnalyticsGoalName, params: AnalyticsParams): void {
+    this.events.push({ name, params });
+  }
+}
+
+const REWARDED_CONTEXT: AnalyticsPuzzleContext = {
+  mode: 'campaign',
+  puzzleId: 'campaign-008',
+  slot: 8,
+};
 
 function eligible(input: {
   completedSlot: number;
@@ -72,6 +88,7 @@ class FakeAds implements AdsPort {
   private interstitialResult: InterstitialResult;
   private rewardedResult: RewardedResult;
   private rejectRewarded = false;
+  private rejectInterstitial = false;
 
   constructor(
     interstitialResult: InterstitialResult,
@@ -85,8 +102,16 @@ class FakeAds implements AdsPort {
     this.interstitialResult = result;
   }
 
+  rejectNextInterstitial(): void {
+    this.rejectInterstitial = true;
+  }
+
   async showInterstitial(): Promise<InterstitialResult> {
     this.interstitialCalls += 1;
+    if (this.rejectInterstitial) {
+      this.rejectInterstitial = false;
+      throw new Error('interstitial failed');
+    }
     return this.interstitialResult;
   }
 
@@ -181,9 +206,13 @@ async function main(): Promise<void> {
   );
 
   const nowMs = 5_000_000;
+  const transport = new RecordingTransport();
+  const analytics = new AnalyticsService(transport);
   const ads = new FakeAds('shown');
-  const monetization = MonetizationService.create(profileService, ads, () => nowMs);
+  const monetization = MonetizationService.create(profileService, ads, analytics, () => nowMs);
   await monetization.maybeShowCampaignInterstitial(7);
+  assert(transport.events.filter((event) => event.name === 'ad_interstitial_result').length === 1, 'Eligible shown interstitial emits one ad result.');
+  assert(transport.events.at(-1)?.params.result === 'shown' && transport.events.at(-1)?.params.completed_slot === 7, 'Shown interstitial event carries result and slot.');
   assert(ads.interstitialCalls === 1, 'Eligible campaign Next requests exactly one interstitial.');
   assert(
     profileService.getProfile().ads.campaignCompletionsSinceOpportunity === 0,
@@ -195,7 +224,9 @@ async function main(): Promise<void> {
   );
 
   profileService.recordCampaignCompletionForInterstitial(8);
+  const adEventsBeforeRejected = transport.events.filter((event) => event.name === 'ad_interstitial_result').length;
   await monetization.maybeShowCampaignInterstitial(8);
+  assert(transport.events.filter((event) => event.name === 'ad_interstitial_result').length === adEventsBeforeRejected, 'Policy-rejected interstitial emits no ad event.');
   assert(ads.interstitialCalls === 1, 'Ineligible campaign Next does not call the ad port.');
   assert(
     profileService.getProfile().ads.campaignCompletionsSinceOpportunity === 1,
@@ -205,8 +236,9 @@ async function main(): Promise<void> {
   profileService.recordCampaignCompletionForInterstitial(8);
   const afterCooldownMs = nowMs + INTERSTITIAL_COOLDOWN_MS;
   ads.setInterstitialResult('skipped');
-  const skippedMonetization = MonetizationService.create(profileService, ads, () => afterCooldownMs);
+  const skippedMonetization = MonetizationService.create(profileService, ads, analytics, () => afterCooldownMs);
   await skippedMonetization.maybeShowCampaignInterstitial(8);
+  assert(transport.events.filter((event) => event.name === 'ad_interstitial_result' && event.params.result === 'skipped').length === 1, 'Skipped interstitial emits one skipped result.');
   assert(ads.interstitialCalls === 2, 'Eligible skipped opportunity still calls the ad port once.');
   assert(
     profileService.getProfile().ads.campaignCompletionsSinceOpportunity === 0,
@@ -223,9 +255,11 @@ async function main(): Promise<void> {
   const unavailableMonetization = MonetizationService.create(
     profileService,
     ads,
+    analytics,
     () => afterCooldownMs + INTERSTITIAL_COOLDOWN_MS,
   );
   await unavailableMonetization.maybeShowCampaignInterstitial(8);
+  assert(transport.events.filter((event) => event.name === 'ad_interstitial_result' && event.params.result === 'unavailable').length === 1, 'Unavailable interstitial emits one unavailable result.');
   assert(ads.interstitialCalls === 3, 'Unavailable ad port resolves the opportunity without trapping the caller.');
   assert(
     profileService.getProfile().ads.campaignCompletionsSinceOpportunity === 0,
@@ -236,12 +270,30 @@ async function main(): Promise<void> {
     'Unavailable opportunity does not update the successful display timestamp.',
   );
 
+  profileService.recordCampaignCompletionForInterstitial(8);
+  profileService.recordCampaignCompletionForInterstitial(8);
+  ads.rejectNextInterstitial();
+  const rejectedInterstitial = MonetizationService.create(
+    profileService,
+    ads,
+    analytics,
+    () => afterCooldownMs + INTERSTITIAL_COOLDOWN_MS * 2,
+  );
+  const warnInterstitial = console.warn;
+  console.warn = () => {};
+  try {
+    await rejectedInterstitial.maybeShowCampaignInterstitial(8);
+  } finally {
+    console.warn = warnInterstitial;
+  }
+  assert(transport.events.filter((event) => event.name === 'tech_error' && event.params.code === 'interstitial_request_failed').length === 1, 'Rejected interstitial emits one technical error.');
+
   const hangingProfileService = await createProfileService(new HangingProfileStorage());
   hangingProfileService.recordCampaignCompletionForInterstitial(6);
   hangingProfileService.recordCampaignCompletionForInterstitial(7);
   const immediateAds = new FakeAds('shown');
   let transitionResolved = false;
-  void MonetizationService.create(hangingProfileService, immediateAds, () => 9_000_000)
+  void MonetizationService.create(hangingProfileService, immediateAds, analytics, () => 9_000_000)
     .maybeShowCampaignInterstitial(7)
     .then(() => {
       transitionResolved = true;
@@ -264,11 +316,11 @@ async function main(): Promise<void> {
   rewardedProfile.consumeFreeHint();
   rewardedProfile.consumeFreeHint();
   const rewardedAds = new FakeAds('unavailable', 'rewarded');
-  const rewardedMonetization = MonetizationService.create(rewardedProfile, rewardedAds);
+  const rewardedMonetization = MonetizationService.create(rewardedProfile, rewardedAds, analytics);
   const freeBeforeRewarded = rewardedProfile.getFreeHintsRemaining();
   const totalUsedBeforeRewarded = rewardedProfile.getProfile().hints.totalUsed;
   assert(
-    await rewardedMonetization.requestRewardedHint() === 'rewarded',
+    await rewardedMonetization.requestRewardedHint(REWARDED_CONTEXT) === 'rewarded',
     'Rewarded ad result is preserved for hint policy.',
   );
   assert(rewardedAds.rewardedCalls === 1, 'Explicit rewarded request calls AdsPort exactly once.');
@@ -292,12 +344,12 @@ async function main(): Promise<void> {
 
   rewardedAds.setRewardedResult('closed');
   assert(
-    await rewardedMonetization.requestRewardedHint() === 'closed',
+    await rewardedMonetization.requestRewardedHint(REWARDED_CONTEXT) === 'closed',
     'Closing rewarded video preserves the closed result.',
   );
   rewardedAds.setRewardedResult('unavailable');
   assert(
-    await rewardedMonetization.requestRewardedHint() === 'unavailable',
+    await rewardedMonetization.requestRewardedHint(REWARDED_CONTEXT) === 'unavailable',
     'Unavailable rewarded video preserves the unavailable result.',
   );
   rewardedAds.rejectNextRewarded();
@@ -305,12 +357,17 @@ async function main(): Promise<void> {
   console.warn = () => {};
   try {
     assert(
-      await rewardedMonetization.requestRewardedHint() === 'unavailable',
+      await rewardedMonetization.requestRewardedHint(REWARDED_CONTEXT) === 'unavailable',
       'Rejected rewarded ad promise maps to unavailable.',
     );
   } finally {
     console.warn = warn;
   }
+  const rewardedEvents = transport.events.filter((event) => event.name === 'ad_rewarded_result');
+  assert(rewardedEvents.some((event) => event.params.result === 'rewarded'), 'Rewarded ad emits rewarded result.');
+  assert(rewardedEvents.some((event) => event.params.result === 'closed'), 'Closed rewarded ad emits closed result.');
+  assert(rewardedEvents.filter((event) => event.params.result === 'unavailable').length >= 2, 'Unavailable and rejected rewarded requests both emit unavailable results.');
+  assert(transport.events.filter((event) => event.name === 'tech_error' && event.params.code === 'rewarded_request_failed').length === 1, 'Rejected rewarded request emits one deduplicated technical error.');
 
   await rewardedProfile.flush();
 
@@ -349,7 +406,7 @@ async function main(): Promise<void> {
     'GameScene has exactly one explicit rewarded-hint request path.',
   );
   assert(
-    gameSceneSource.includes('copy.game.rewardedPrompt'),
+    gameSceneSource.includes('copy.game.rewardedHintConfirmMeta'),
     'Rewarded hint path requires localized explicit confirmation copy before requesting the ad.',
   );
   assert(

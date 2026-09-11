@@ -1,3 +1,4 @@
+import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import {
   createFreshPlayerProfile,
@@ -5,6 +6,7 @@ import {
   normalizePlayerProfile,
 } from '../profile/PlayerProfile';
 import { LocalPlayerProfileStorage, PLAYER_PROFILE_STORAGE_KEY } from '../profile/LocalPlayerProfileStorage';
+import { PlatformPlayerProfileStorage } from '../profile/PlatformPlayerProfileStorage';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileV4 } from '../profile/types';
@@ -31,6 +33,80 @@ function entry(slot: number): CampaignLevelEntry {
       solution: ['.'],
     },
   };
+}
+
+
+
+async function runTechnicalErrorReportingChecks(manifest: readonly CampaignLevelEntry[]): Promise<void> {
+  const codes: string[] = [];
+  const report: TechnicalErrorReporter = (code) => codes.push(code);
+  const fallbackProfile = createFreshPlayerProfile(manifest);
+  const platformStorage = {
+    async load(): Promise<unknown | null> { throw new Error('platform load failed'); },
+    async save(): Promise<void> { throw new Error('platform save failed'); },
+  };
+  const localMigrationStorage: PlayerProfileStorage = {
+    async load() { return fallbackProfile; },
+    async save() {},
+    async loadLegacyCampaignProgress() { return null; },
+  };
+  const storage = new PlatformPlayerProfileStorage(platformStorage, localMigrationStorage, report);
+
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const loaded = await storage.load();
+    assert(loaded !== null, 'Profile storage preserves local fallback when platform load/promotion fail.');
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert(codes.includes('profile_load_failed'), 'Platform profile load failure is reported.');
+  assert(codes.includes('profile_save_failed'), 'Platform profile promotion save failure is reported.');
+
+  class RejectingStorage implements PlayerProfileStorage {
+    async load(): Promise<unknown | null> { throw new Error('load failed'); }
+    async loadLegacyCampaignProgress(): Promise<unknown | null> { throw new Error('legacy load failed'); }
+    async save(): Promise<void> { throw new Error('save failed'); }
+  }
+
+  const serviceCodes: string[] = [];
+  const serviceReport: TechnicalErrorReporter = (code) => serviceCodes.push(code);
+  console.warn = () => {};
+  try {
+    const service = await PlayerProfileService.create(manifest, new RejectingStorage(), {
+      saveDelayMs: 5,
+      reportTechnicalError: serviceReport,
+    });
+    service.update((profile) => ({
+      ...profile,
+      hints: { ...profile.hints, totalUsed: profile.hints.totalUsed + 1 },
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert(serviceCodes.includes('profile_load_failed'), 'PlayerProfileService load failure is reported.');
+  assert(serviceCodes.includes('profile_save_failed'), 'Delayed PlayerProfileService save failure is reported.');
+
+  class MigrationSaveRejectingStorage implements PlayerProfileStorage {
+    async load(): Promise<unknown | null> { return null; }
+    async loadLegacyCampaignProgress(): Promise<unknown | null> {
+      return { schemaVersion: 1, completedLevelIds: ['campaign-001'], lastPlayedLevelId: 'campaign-001' };
+    }
+    async save(): Promise<void> { throw new Error('migration save failed'); }
+  }
+  const migrationCodes: string[] = [];
+  console.warn = () => {};
+  try {
+    const migrationService = await PlayerProfileService.create(manifest, new MigrationSaveRejectingStorage(), {
+      saveDelayMs: 60_000,
+      reportTechnicalError: (code) => migrationCodes.push(code),
+    });
+    await migrationService.flush().catch(() => {});
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert(migrationCodes.includes('profile_save_failed'), 'Immediate migrated-profile save failure is reported.');
 }
 
 async function main(): Promise<void> {
@@ -259,6 +335,8 @@ async function main(): Promise<void> {
   assert(counting.saves.at(-1)?.hints.totalUsed === 9, 'Platform merge replacement becomes persistable state.');
 
   assert(kv.getItem(PLAYER_PROFILE_STORAGE_KEY) === null, 'Direct local storage object does not invent a new profile before service migration persists it.');
+
+  await runTechnicalErrorReportingChecks(manifest);
 
   console.info('[Dungeon Logic] Player profile sanity: defaults + normalization + legacy migration + coalesced persistence passed');
 }

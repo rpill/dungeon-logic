@@ -16,7 +16,7 @@ export const CAMPAIGN_RELEASE_SCAN_PLAN = [
 ] as const satisfies readonly CampaignReleaseScanPlanEntry[];
 
 export const CAMPAIGN_RELEASE_TARGET_SCORES: Readonly<Record<number, number>> = {
-  6: 14,
+  5: 14,
   7: 15,
   8: 30,
   9: 31,
@@ -99,7 +99,7 @@ const CAMPAIGN_RELEASE_DIVERSITY_WEIGHT = 24;
 
 export function selectCampaignReleaseSlots(
   reservoir: readonly AcceptedCandidate[],
-  slots: readonly number[] = Array.from({ length: 59 }, (_, index) => index + 6),
+  slots: readonly number[] = [5, ...Array.from({ length: 58 }, (_, index) => index + 7)],
 ): readonly CampaignReleaseSelectionEntry[] {
   const orderedSlots = [...slots];
   const seenSlots = new Set<number>();
@@ -108,8 +108,8 @@ export function selectCampaignReleaseSlots(
   const selected: CampaignReleaseSelectionEntry[] = [];
 
   for (const slot of orderedSlots) {
-    if (!Number.isInteger(slot) || slot < 6 || slot > 64) {
-      throw new RangeError(`Campaign release slot must be an integer from 6 to 64; got ${slot}.`);
+    if (!Number.isInteger(slot) || slot < 5 || slot > 64 || slot === 6) {
+      throw new RangeError(`Campaign release slot must be 5 or an integer from 7 to 64; got ${slot}.`);
     }
     if (seenSlots.has(slot)) {
       throw new Error(`Duplicate campaign release slot: ${slot}.`);

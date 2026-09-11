@@ -39,7 +39,7 @@ export interface HintRequestOptions {
   readonly consumeFreeHint: () => boolean;
   readonly requestRewarded: (() => Promise<RewardedResult>) | null;
   readonly recordRewardedHintUsed: () => void;
-  readonly deliverHint: (hint: PuzzleHint) => void;
+  readonly deliverHint: (hint: PuzzleHint, source: 'free' | 'rewarded') => void;
 }
 
 export async function requestHint(
@@ -49,7 +49,7 @@ export async function requestHint(
   if (hint === null) return 'none';
 
   if (options.consumeFreeHint()) {
-    options.deliverHint(hint);
+    options.deliverHint(hint, 'free');
     return 'delivered';
   }
 
@@ -59,7 +59,7 @@ export async function requestHint(
   if (rewardedResult === 'closed') return 'cancelled';
   if (rewardedResult !== 'rewarded') return 'unavailable';
 
-  options.deliverHint(hint);
+  options.deliverHint(hint, 'rewarded');
   options.recordRewardedHintUsed();
   return 'delivered';
 }

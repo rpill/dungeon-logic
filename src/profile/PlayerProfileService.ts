@@ -1,3 +1,4 @@
+import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { SupportedLanguage } from '../i18n/Language';
 import { calculateHintRecharge, MAX_FREE_HINTS, type HintRechargeStatus } from '../gameplay/HintEconomy';
@@ -14,6 +15,7 @@ export const PLAYER_PROFILE_SERVICE_REGISTRY_KEY = 'player-profile-service';
 export interface PlayerProfileServiceOptions {
   readonly saveDelayMs?: number;
   readonly defaultLanguage?: SupportedLanguage;
+  readonly reportTechnicalError?: TechnicalErrorReporter;
 }
 
 export class PlayerProfileService {
@@ -21,6 +23,7 @@ export class PlayerProfileService {
   private readonly storage: PlayerProfileStorage;
   private readonly saveDelayMs: number;
   private readonly defaultLanguage: SupportedLanguage;
+  private readonly reportTechnicalError: TechnicalErrorReporter;
 
   private profile: PlayerProfileV4;
   private dirty = false;
@@ -33,12 +36,14 @@ export class PlayerProfileService {
     profile: PlayerProfileV4,
     saveDelayMs: number,
     defaultLanguage: SupportedLanguage,
+    reportTechnicalError: TechnicalErrorReporter,
   ) {
     this.manifest = manifest;
     this.storage = storage;
     this.profile = profile;
     this.saveDelayMs = saveDelayMs;
     this.defaultLanguage = defaultLanguage;
+    this.reportTechnicalError = reportTechnicalError;
   }
 
   static async create(
@@ -48,11 +53,13 @@ export class PlayerProfileService {
   ): Promise<PlayerProfileService> {
     const saveDelayMs = Math.max(0, options.saveDelayMs ?? 5000);
     const defaultLanguage = options.defaultLanguage ?? 'ru';
+    const reportTechnicalError = options.reportTechnicalError ?? (() => {});
 
     let loaded: unknown | null = null;
     try {
       loaded = await storage.load();
     } catch (error) {
+      reportTechnicalError('profile_load_failed', 'profile');
       console.warn('[Dungeon Logic] Could not load player profile; checking legacy progress.', error);
     }
 
@@ -63,6 +70,7 @@ export class PlayerProfileService {
         normalizePlayerProfile(loaded, manifest, defaultLanguage),
         saveDelayMs,
         defaultLanguage,
+        reportTechnicalError,
       );
     }
 
@@ -71,6 +79,7 @@ export class PlayerProfileService {
       try {
         legacy = await storage.loadLegacyCampaignProgress();
       } catch (error) {
+        reportTechnicalError('profile_load_failed', 'profile');
         console.warn('[Dungeon Logic] Could not load legacy campaign progress; starting fresh.', error);
       }
     }
@@ -78,12 +87,20 @@ export class PlayerProfileService {
     const profile = legacy === null
       ? createFreshPlayerProfile(manifest, defaultLanguage)
       : migrateLegacyCampaignProgress(legacy, manifest, defaultLanguage);
-    const service = new PlayerProfileService(manifest, storage, profile, saveDelayMs, defaultLanguage);
+    const service = new PlayerProfileService(
+      manifest,
+      storage,
+      profile,
+      saveDelayMs,
+      defaultLanguage,
+      reportTechnicalError,
+    );
 
     if (legacy !== null) {
       try {
         await storage.save(profile);
       } catch (error) {
+        reportTechnicalError('profile_save_failed', 'profile');
         service.dirty = true;
         service.scheduleSave();
         console.warn('[Dungeon Logic] Could not persist migrated player profile immediately; retry scheduled.', error);
@@ -236,6 +253,7 @@ export class PlayerProfileService {
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
       void this.flush().catch((error) => {
+        this.reportTechnicalError('profile_save_failed', 'profile');
         console.warn('[Dungeon Logic] Could not persist player profile; keeping dirty in-memory state.', error);
       });
     }, this.saveDelayMs);
@@ -249,6 +267,7 @@ export class PlayerProfileService {
         await this.storage.save(snapshot);
       } catch (error) {
         this.dirty = true;
+        this.reportTechnicalError('profile_save_failed', 'profile');
         throw error;
       }
     }

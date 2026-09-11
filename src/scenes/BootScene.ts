@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 
 import { preloadAudioFeedbackAssets } from '../audio/AudioAssets';
+import { ANALYTICS_SERVICE_REGISTRY_KEY, AnalyticsService } from '../analytics/AnalyticsService';
+import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
+import { createYandexMetricaTransport } from '../analytics/YandexMetricaTransport';
 import { initializeBackgroundMusic } from '../audio/MusicService';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
@@ -22,6 +25,7 @@ import {
   resolvePlatformServices,
 } from '../platform/PlatformRegistry';
 import { createYandexPlatformServices } from '../platform/yandex';
+import type { YandexGlobalScopeLike } from '../platform/yandex';
 import { resolveSupportedLanguage } from '../i18n/Language';
 import { HOME_SCENE_KEY, shouldAutoStartTutorial } from '../runtime/MetaSelectors';
 import { createTutorialGameSceneData } from '../runtime/GameLaunch';
@@ -65,9 +69,24 @@ export class BootScene extends Phaser.Scene {
   }
 
   private async routeLaunch(): Promise<void> {
+    const analytics = new AnalyticsService(createYandexMetricaTransport({
+      prod: import.meta.env.PROD,
+      counterId: import.meta.env.VITE_YANDEX_METRICA_ID,
+      globals: globalThis,
+      document: typeof document === 'undefined' ? null : document,
+    }));
+    this.registry.set(ANALYTICS_SERVICE_REGISTRY_KEY, analytics);
+    const reportTechnicalError: TechnicalErrorReporter = (code, area, context) => {
+      analytics.techError(code, area, context);
+    };
+
     const platformServices = await resolvePlatformServices(
-      () => createYandexPlatformServices(),
+      () => createYandexPlatformServices(
+        globalThis as unknown as YandexGlobalScopeLike,
+        reportTechnicalError,
+      ),
       () => createLocalPlatformServices(),
+      reportTechnicalError,
     );
     this.registry.set(PLATFORM_SERVICES_REGISTRY_KEY, platformServices);
     console.info(`[Dungeon Logic] Platform services: ${platformServices.kind}`);
@@ -75,9 +94,11 @@ export class BootScene extends Phaser.Scene {
     const profileStorage = new PlatformPlayerProfileStorage(
       platformServices.storage,
       new LocalPlayerProfileStorage(),
+      reportTechnicalError,
     );
     const profileService = await PlayerProfileService.create(campaignManifest, profileStorage, {
       defaultLanguage: resolveSupportedLanguage(platformServices.environment.language),
+      reportTechnicalError,
     });
     const tutorialService = TutorialService.create(TUTORIAL_MANIFEST, profileService);
     const campaignService = CampaignService.create(campaignManifest, profileService);
@@ -90,7 +111,14 @@ export class BootScene extends Phaser.Scene {
     this.registry.set(TUTORIAL_SERVICE_REGISTRY_KEY, tutorialService);
     this.registry.set(CAMPAIGN_SERVICE_REGISTRY_KEY, campaignService);
     this.registry.set(DAILY_SERVICE_REGISTRY_KEY, dailyService);
-    initializeBackgroundMusic(this, profileService.getProfile().settings.musicEnabled);
+    const profile = profileService.getProfile();
+    analytics.gameReady({
+      platform: platformServices.kind,
+      language: profile.settings.language,
+      tutorialCompleted: profile.tutorial.completed,
+      campaignCompletedCount: profile.campaign.completedLevelIds.length,
+    });
+    initializeBackgroundMusic(this, profile.settings.musicEnabled);
 
     let devLaunch = null;
     try {

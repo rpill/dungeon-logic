@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import {
+  ANALYTICS_SERVICE_REGISTRY_KEY,
+  type AnalyticsPuzzleContext,
+  AnalyticsService,
+} from '../analytics/AnalyticsService';
+import { PuzzleAnalyticsSession, classifyPuzzleAttempt } from '../analytics/PuzzleAnalyticsSession';
+import { NOOP_ANALYTICS_TRANSPORT } from '../analytics/AnalyticsTransport';
 import { BoardView } from '../board/BoardView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type {
@@ -21,6 +28,7 @@ import { MonetizationService } from '../monetization/MonetizationService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
+import { isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import { validatePuzzle } from '../puzzle/LevelValidator';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { LeaderboardPlayerView, PlatformServices } from '../platform/services';
@@ -41,6 +49,7 @@ import {
   completeDailyGameLaunch,
   completeGameLaunch,
   createCampaignGameSceneData,
+  createCampaignReplayGameSceneData,
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
@@ -91,7 +100,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createGame(launchData: GameSceneData, createVersion: number): void {
-    const sceneBackground = createSceneBackground(this, 'gameplay');
+    const sceneBackground = createSceneBackground(this, 'meta');
 
     const readSafeArea = (name: '--safe-area-inset-top' | '--safe-area-inset-bottom'): number => {
       if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
@@ -134,6 +143,7 @@ export class GameScene extends Phaser.Scene {
     const profileService = launchData.context.mode === 'dev'
       ? null
       : this.getPlayerProfileService();
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     let language = this.getPlayerProfileService().getProfile().settings.language;
     let copy = getUiCopy(language);
     const feedback = getAudioFeedback(this);
@@ -211,6 +221,49 @@ export class GameScene extends Phaser.Scene {
       ? resolveCampaignPlayState(launchData.level, profileService.getProfile().campaign)
       : null;
     const completedReview = campaignPlayState?.mode === 'completed-review';
+    const profileAtStart = profileService?.getProfile() ?? null;
+    const alreadySolvedAtStart = campaignContext !== null
+      ? profileAtStart?.campaign.completedLevelIds.includes(campaignContext.campaignLevelId) === true
+      : tutorialContext !== null
+        ? profileAtStart?.tutorial.completedLevelIds.includes(tutorialContext.tutorialLevelId) === true
+        : dailyContext !== null
+          ? dailyAlreadySolved
+          : false;
+    const tutorialWasCompleteAtStart = profileAtStart?.tutorial.completed === true;
+    const analyticsContext: AnalyticsPuzzleContext | null = campaignEntry !== null
+      ? { mode: 'campaign', puzzleId: campaignEntry.id, slot: campaignEntry.slot }
+      : tutorialEntry !== null
+        ? { mode: 'tutorial', puzzleId: tutorialEntry.id }
+        : dailyContext !== null
+          ? {
+              mode: 'daily',
+              puzzleId: dailyContext.dailyId,
+              dateKey: dailyContext.dateKey,
+              ranked: dailyContext.ranked,
+              archive: dailyContext.archive,
+            }
+          : null;
+    const hasCompatibleDraft = campaignContext !== null
+      ? campaignPlayState?.mode === 'active' && campaignPlayState.savedPuzzle !== undefined
+      : tutorialContext !== null && profileAtStart !== null
+        ? isCompatiblePuzzleSnapshot(
+            launchData.level,
+            'tutorial',
+            launchData.level.id,
+            profileAtStart.tutorial.activePuzzle ?? undefined,
+          )
+        : false;
+    const analyticsAttempt = dailyContext?.analyticsAttempt
+      ?? classifyPuzzleAttempt({
+        explicitReplay: launchData.context.mode !== 'dev'
+          && launchData.context.analyticsAttempt === 'replay',
+        hasCompatibleDraft,
+        alreadySolved: alreadySolvedAtStart,
+      });
+    const puzzleAnalytics = analytics !== undefined && analyticsContext !== null && !completedReview
+      ? new PuzzleAnalyticsSession(analytics, analyticsContext, analyticsAttempt)
+      : null;
+    puzzleAnalytics?.start();
 
     if (
       completedReview
@@ -363,7 +416,11 @@ export class GameScene extends Phaser.Scene {
 
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
     const monetizationService = profileService !== null && platformServices != null
-      ? MonetizationService.create(profileService, platformServices.ads)
+      ? MonetizationService.create(
+          profileService,
+          platformServices.ads,
+          analytics ?? new AnalyticsService(NOOP_ANALYTICS_TRANSPORT),
+        )
       : null;
     const rewardedHintAvailable = platformServices?.kind === 'yandex'
       && monetizationService !== null;
@@ -1086,7 +1143,7 @@ export class GameScene extends Phaser.Scene {
       syncToolbar();
     };
 
-    const applyDeliveredHint = (hint: PuzzleHint): void => {
+    const applyDeliveredHint = (hint: PuzzleHint, source: 'free' | 'rewarded'): void => {
       if (profileService === null) return;
 
       if (puzzleSession !== null) {
@@ -1094,6 +1151,8 @@ export class GameScene extends Phaser.Scene {
       } else if (launchData.context.mode === 'daily') {
         transientHintsUsed += 1;
       }
+      const hintsUsedInAttempt = puzzleSession?.getHintsUsed() ?? transientHintsUsed;
+      puzzleAnalytics?.hintGranted(source, hintsUsedInAttempt);
       currentHint = hint;
       feedback.play('hint');
       board?.setHintCellTarget(hint);
@@ -1127,9 +1186,9 @@ export class GameScene extends Phaser.Scene {
       await requestHint({
         puzzle,
         consumeFreeHint: () => profileService.consumeFreeHint(Date.now()),
-        requestRewarded: monetizationService === null
+        requestRewarded: monetizationService === null || analyticsContext === null
           ? null
-          : () => monetizationService.requestRewardedHint(),
+          : () => monetizationService.requestRewardedHint(analyticsContext),
         recordRewardedHintUsed: () => profileService.recordRewardedHintUsed(),
         deliverHint: applyDeliveredHint,
       });
@@ -1712,7 +1771,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         console.warn('[Dungeon Logic] Could not persist fresh campaign replay before restart; using in-memory state.', error);
       }
       if (createVersion !== this.createVersion || !this.scene.isActive()) return;
-      this.scene.restart(launchData);
+      this.scene.restart(createCampaignReplayGameSceneData(launchData));
     };
 
     const closeResetDialog = (): void => {
@@ -1729,6 +1788,16 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     const relayoutResetDialog = (): void => {
       if (resetDialog === null) return;
       resetDialog.setPosition(this.scale.width / 2, this.scale.height / 2);
+    };
+
+    const performPlayableReset = (): boolean => {
+      const editsBeforeReset = interaction.getEditCount();
+      const elapsedMs = getDisplayedElapsedMs();
+      const changed = board?.reset() === true;
+      if (!changed) return false;
+      feedback.play('reset');
+      puzzleAnalytics?.reset(elapsedMs, editsBeforeReset);
+      return true;
     };
 
     const showResetDialog = (): void => {
@@ -1820,7 +1889,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
             void startFreshCampaignReplay();
             return;
           }
-          if (board?.reset()) feedback.play('reset');
+          performPlayableReset();
           closeResetDialog();
         },
       });
@@ -1844,7 +1913,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         showResetDialog();
         return;
       }
-      if (board?.reset()) feedback.play('reset');
+      performPlayableReset();
       syncToolbar();
     };
 
@@ -1894,6 +1963,15 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           puzzleSession,
         ).then((result) => {
           if (result === null || createVersion !== this.createVersion) return;
+          puzzleAnalytics?.complete({
+            elapsedMs: metadata.bestTimeMs,
+            hintsUsed: metadata.minHintsUsed,
+            firstClear: !alreadySolvedAtStart,
+            persisted: result.persisted,
+          });
+          if (!tutorialWasCompleteAtStart && result.tutorialCompleted) {
+            analytics?.tutorialComplete();
+          }
           showTutorialCompletionState(result);
         });
         return;
@@ -1907,6 +1985,12 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           metadata,
         ).then((result) => {
           if (result === null || createVersion !== this.createVersion) return;
+          puzzleAnalytics?.complete({
+            elapsedMs: metadata.bestTimeMs,
+            hintsUsed: metadata.minHintsUsed,
+            firstClear: result.wasFirstSolve,
+            persisted: result.persisted,
+          });
 
           if (!result.wasFirstSolve) {
             this.time.delayedCall(350, () => {
@@ -1959,6 +2043,12 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         metadata,
       ).then((result) => {
         if (result === null || createVersion !== this.createVersion) return;
+        puzzleAnalytics?.complete({
+          elapsedMs: metadata.bestTimeMs,
+          hintsUsed: metadata.minHintsUsed,
+          firstClear: !alreadySolvedAtStart,
+          persisted: result.persisted,
+        });
         this.time.delayedCall(500, () => {
           if (createVersion !== this.createVersion) return;
           showCompletionState(result, metadata, newBestTime);

@@ -23,11 +23,11 @@ function rule(
  */
 export const campaignCurationPlan = [
   rule(1, [GeneratorArchetype.MonsterOnly], ['easy'], [6]),
-  rule(2, [GeneratorArchetype.ChestOneRoom], ['easy'], [7]),
-  rule(3, [GeneratorArchetype.MonsterOnly], ['easy'], [6]),
-  rule(4, [GeneratorArchetype.MixedOneRoom], ['easy'], [6]),
-  rule(5, [GeneratorArchetype.ChestOneRoom], ['easy'], [6, 7]),
-  rule(6, [GeneratorArchetype.MixedOneRoom], ['easy', 'medium'], [7]),
+  rule(2, [GeneratorArchetype.MonsterOnly], ['easy'], [6]),
+  rule(3, [GeneratorArchetype.MixedOneRoom], ['easy'], [6]),
+  rule(4, [GeneratorArchetype.ChestOneRoom], ['easy'], [6, 7]),
+  rule(5, [GeneratorArchetype.MixedOneRoom], ['easy', 'medium'], [7]),
+  rule(6, [GeneratorArchetype.ChestOneRoom], ['easy'], [7]),
   rule(7, [GeneratorArchetype.MonsterOnly], ['easy', 'medium'], [7]),
   rule(8, [GeneratorArchetype.MonsterOnly], ['easy', 'medium'], [7]),
   rule(9, [GeneratorArchetype.MonsterOnly], ['medium'], [7]),

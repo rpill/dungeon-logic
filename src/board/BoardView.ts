@@ -5,7 +5,7 @@ import { resolvePointerTool } from '../gameplay/PuzzlePointerPolicy';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { CellState, type CellState as CellStateValue } from '../puzzle/types';
 import { monsterFrameKeys } from '../view/FixedObjectAssets';
-import { resolveMonsterSkin } from '../view/MonsterVisuals';
+import { resolveMonsterSkinForLevel } from '../view/MonsterVisuals';
 import { CellView, WIREFRAME, type FixedCellVisual } from './CellView';
 import { resolveFloorTextureKey, resolveWallTextureKey } from '../view/BoardThemeAssets';
 
@@ -268,7 +268,15 @@ export class BoardView {
 
   private resolveFixedVisual(x: number, y: number): FixedCellVisual {
     if (this.puzzle.isMonster(x, y)) {
-      const skin = resolveMonsterSkin(this.puzzle.level.id, x, y);
+      const monsters = this.puzzle.level.monsters;
+      const monsterIndex = monsters.findIndex((monster) => monster.x === x && monster.y === y);
+      const skin = resolveMonsterSkinForLevel(
+        this.puzzle.level.id,
+        x,
+        y,
+        monsterIndex,
+        monsters.length,
+      );
       return {
         kind: 'monster',
         monsterFrameKeys: monsterFrameKeys(skin),

@@ -3,51 +3,60 @@ import type { LevelDefinition } from '../../../puzzle/types';
 
 export const level: LevelDefinition = {
   "id": "campaign-002",
-  "width": 7,
-  "height": 7,
+  "width": 6,
+  "height": 6,
   "rowClues": [
-    4,
+    5,
+    3,
+    3,
     2,
-    2,
-    2,
-    4,
-    2,
-    4
+    1,
+    2
   ],
   "columnClues": [
     0,
-    5,
-    0,
-    6,
     3,
+    1,
+    5,
     2,
-    4
+    5
   ],
-  "monsters": [],
-  "chests": [
+  "monsters": [
     {
-      "x": 6,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "x": 4,
       "y": 2
+    },
+    {
+      "x": 5,
+      "y": 4
+    },
+    {
+      "x": 4,
+      "y": 5
     }
   ],
+  "chests": [],
   "blockers": [],
   "doors": [],
   "solution": [
-    "...####",
-    ".#.#...",
-    ".#.#...",
-    ".#.#...",
-    ".#.##.#",
-    ".#....#",
-    "...####"
+    ".#####",
+    "...###",
+    ".#.#.#",
+    "...#.#",
+    ".#....",
+    "...#.#"
   ]
 };
 
 export const provenance: CampaignLevelProvenance = {
-  "sourceSeed": 123456,
-  "sourceCandidateId": "generated-chest-one-room-7-3193369624",
-  "sourceArchetype": "chest-one-room",
+  "sourceSeed": 654321,
+  "sourceCandidateId": "generated-monster-only-6-2057422507",
+  "sourceArchetype": "monster-only",
   "difficulty": "easy",
-  "difficultyScore": 10,
+  "difficultyScore": 6,
   "humanStatus": "solved-direct"
 };

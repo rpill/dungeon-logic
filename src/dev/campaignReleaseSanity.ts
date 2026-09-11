@@ -94,8 +94,10 @@ assert(CAMPAIGN_RELEASE_MASTER_SEED === 20260908, 'Release corpus master seed mu
 assert(CAMPAIGN_RELEASE_MIN_NEIGHBOR_DISTANCE === 0.28, 'Neighbor diversity gate drifted.');
 assert(CAMPAIGN_RELEASE_SCAN_PLAN.length === 3, 'Release scan must stay V1-only and compact.');
 assert(CAMPAIGN_RELEASE_SCAN_PLAN.every((entry) => entry.size === 7), 'Campaign v1 release corpus should use 7x7 scans.');
-assert(Object.keys(CAMPAIGN_RELEASE_TARGET_SCORES).length === 59, 'Slots 006-064 need target scores.');
-for (let slot = 6; slot <= 64; slot += 1) {
+assert(Object.keys(CAMPAIGN_RELEASE_TARGET_SCORES).length === 59, 'Release-promoted slots need target scores.');
+assert(CAMPAIGN_RELEASE_TARGET_SCORES[5] === 14, 'Reordered release puzzle keeps its target score at slot 005.');
+assert(CAMPAIGN_RELEASE_TARGET_SCORES[6] === undefined, 'Pilot puzzle at slot 006 is not part of release-corpus selection.');
+for (let slot = 7; slot <= 64; slot += 1) {
   assert(CAMPAIGN_RELEASE_TARGET_SCORES[slot] !== undefined, `Missing target score for slot ${slot}.`);
 }
 
@@ -109,11 +111,11 @@ const fixture = [
   fakeAccepted('mixed-medium-30', GeneratorArchetype.MixedOneRoom, 'medium', 30, 7),
 ];
 
-const forward = selectCampaignReleaseSlots(fixture, [6, 7, 8, 9, 10]);
-const reverse = selectCampaignReleaseSlots([...fixture].reverse(), [6, 7, 8, 9, 10]);
+const forward = selectCampaignReleaseSlots(fixture, [5, 7, 8, 9, 10]);
+const reverse = selectCampaignReleaseSlots([...fixture].reverse(), [5, 7, 8, 9, 10]);
 assert(forward.map((entry) => entry.candidate.candidate.id).join('|') === reverse.map((entry) => entry.candidate.candidate.id).join('|'), 'Selection must not depend on reservoir input order.');
 assert(new Set(forward.map((entry) => entry.candidate.candidate.id)).size === forward.length, 'A release candidate must not be reused across campaign slots.');
-assert(forward[0].candidate.difficulty.score === 14, 'Slot 006 should prefer its target score when quality is equivalent.');
+assert(forward[0].candidate.difficulty.score === 14, 'Slot 005 should prefer its target score when quality is equivalent.');
 assert(forward[1].candidate.difficulty.score === 15, 'Slot 007 should prefer its target score when quality is equivalent.');
 assert(forward[2].candidate.difficulty.score === 30, 'Slot 008 should prefer its target score.');
 assert(forward[3].candidate.difficulty.score === 31, 'Slot 009 should prefer its target score.');
@@ -144,7 +146,10 @@ import type { GeneratedCandidate } from '../puzzle/generator/types';
 
 assert(promotedCampaignLevels.length === 64, 'Campaign release must contain exactly 64 promoted levels.');
 const releaseFingerprints = new Set<string>();
-for (let slot = 6; slot <= 64; slot += 1) {
+// Opening reorder moved the original release slot 006 puzzle to player-facing slot 005,
+// while the former pilot slot 002 puzzle moved to player-facing slot 006.
+const releasePromotedSlots = [5, ...Array.from({ length: 58 }, (_, index) => index + 7)];
+for (const slot of releasePromotedSlots) {
   const source = promotedCampaignLevels.find((entry) => entry.slot === slot);
   assert(source !== undefined, `Missing promoted campaign slot ${slot}.`);
   assert(source.provenance.sourceSeed === CAMPAIGN_RELEASE_MASTER_SEED, `Slot ${slot} must preserve the release corpus master seed.`);
@@ -172,4 +177,4 @@ for (let slot = 6; slot <= 64; slot += 1) {
   assert(Math.abs(revalidated.difficultyScore - CAMPAIGN_RELEASE_TARGET_SCORES[slot]) <= 2, `Slot ${slot} is too far from its release target score.`);
 }
 
-console.info('[Dungeon Logic] Campaign release sanity: promoted 006-064 revalidation + structural uniqueness passed');
+console.info('[Dungeon Logic] Campaign release sanity: reordered release-promoted corpus revalidation + structural uniqueness passed');

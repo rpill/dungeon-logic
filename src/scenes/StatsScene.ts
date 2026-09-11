@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
+
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
@@ -36,12 +38,16 @@ export class StatsScene extends Phaser.Scene {
 
     const sceneBackground = createSceneBackground(this, 'meta');
     this.copy = getUiCopy(this.getProfileService().getProfile().settings.language);
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
+    analytics?.screenView('statistics');
     const layout = calculateStatsLayout(this.scale.width, this.scale.height);
     const narrow = layout.viewportClass === 'narrow';
 
     createMetaPageHeader(this, {
       title: this.copy.stats.title,
       backLabel: this.copy.common.backHome,
+      backButton: true,
+      fixedBack: true,
       onBack: () => this.scene.start(HOME_SCENE_KEY),
     });
 

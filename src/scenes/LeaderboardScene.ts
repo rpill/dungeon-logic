@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
+
 import {
   decodeDailyLeaderboardScore,
   encodeDailyLeaderboardScore,
@@ -65,6 +67,8 @@ export class LeaderboardScene extends Phaser.Scene {
     const sceneBackground = createSceneBackground(this, 'meta');
     const profileService = this.getProfileService();
     const copy = getUiCopy(profileService.getProfile().settings.language);
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
+    analytics?.screenView('leaderboard');
     const layout = this.calculateLayout();
 
     createMetaPageHeader(this, {

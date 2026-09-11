@@ -1,3 +1,5 @@
+import type { AnalyticsPuzzleContext } from '../analytics/AnalyticsService';
+import { AnalyticsService } from '../analytics/AnalyticsService';
 import type { AdsPort, RewardedResult } from '../platform/services';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import { isInterstitialEligible } from './InterstitialPolicy';
@@ -7,31 +9,42 @@ export type MonetizationNow = () => number;
 export class MonetizationService {
   private readonly profileService: PlayerProfileService;
   private readonly ads: AdsPort;
+  private readonly analytics: AnalyticsService;
   private readonly now: MonetizationNow;
 
   private constructor(
     profileService: PlayerProfileService,
     ads: AdsPort,
+    analytics: AnalyticsService,
     now: MonetizationNow,
   ) {
     this.profileService = profileService;
     this.ads = ads;
+    this.analytics = analytics;
     this.now = now;
   }
 
   static create(
     profileService: PlayerProfileService,
     ads: AdsPort,
+    analytics: AnalyticsService,
     now: MonetizationNow = () => Date.now(),
   ): MonetizationService {
-    return new MonetizationService(profileService, ads, now);
+    return new MonetizationService(profileService, ads, analytics, now);
   }
 
-  async requestRewardedHint(): Promise<RewardedResult> {
+  async requestRewardedHint(context: AnalyticsPuzzleContext): Promise<RewardedResult> {
     try {
-      return await this.ads.showRewarded();
+      const result = await this.ads.showRewarded();
+      this.analytics.rewardedResult(result, context);
+      return result;
     } catch (error) {
       console.warn('[Dungeon Logic] Rewarded hint request failed; no hint granted.', error);
+      this.analytics.rewardedResult('unavailable', context);
+      this.analytics.techError('rewarded_request_failed', 'ads', {
+        mode: context.mode,
+        puzzleId: context.puzzleId,
+      });
       return 'unavailable';
     }
   }
@@ -46,8 +59,11 @@ export class MonetizationService {
     let result: Awaited<ReturnType<AdsPort['showInterstitial']>>;
     try {
       result = await this.ads.showInterstitial();
+      this.analytics.interstitialResult(result, completedSlot);
     } catch (error) {
       console.warn('[Dungeon Logic] Interstitial request failed; continuing campaign navigation.', error);
+      this.analytics.interstitialResult('unavailable', completedSlot);
+      this.analytics.techError('interstitial_request_failed', 'ads');
       this.flushSoon('after failed campaign interstitial request');
       return;
     }

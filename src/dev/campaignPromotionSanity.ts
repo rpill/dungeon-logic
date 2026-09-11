@@ -100,6 +100,7 @@ async function main(): Promise<void> {
   const monster6 = findAccepted(report, GeneratorArchetype.MonsterOnly, 6);
   const chest7 = findAccepted(report, GeneratorArchetype.ChestOneRoom, 7);
   const mixed6 = findAccepted(report, GeneratorArchetype.MixedOneRoom, 6);
+  const mixed7 = findAccepted(report, GeneratorArchetype.MixedOneRoom, 7);
 
   assert(findGeneratedCandidate(report, monster6.id)?.id === monster6.id, 'Exact accepted candidate lookup works.');
   assert(findGeneratedCandidate(report, `${monster6.id}-suffix`) === null, 'Candidate lookup never uses partial ids.');
@@ -137,15 +138,24 @@ async function main(): Promise<void> {
   assert(slot1.level.id === 'campaign-001', 'Slot 1 creates stable campaign id.');
   const slot1Source = provenanceSource(1, slot1.level, monster6);
 
-  expectThrow(() => analyzeCampaignPromotion(monster6, 2, [slot1Source]), 'Slot 2 rejects monster-only.');
-  const slot2 = analyzeCampaignPromotion(chest7, 2, [slot1Source]);
-  assert(slot2.level.id === 'campaign-002', 'Slot 2 accepts easy 7x7 chest-one-room.');
-  const slot2Source = provenanceSource(2, slot2.level, chest7);
+  const slot2 = analyzeCampaignPromotion(monster6, 2, [slot1Source]);
+  assert(slot2.level.id === 'campaign-002', 'Slot 2 accepts easy 6x6 monster-only.');
+  const slot2Source = provenanceSource(2, slot2.level, monster6);
 
-  const slot3 = analyzeCampaignPromotion(monster6, 3, [slot1Source, slot2Source]);
-  const slot3Source = provenanceSource(3, slot3.level, monster6);
-  const slot4 = analyzeCampaignPromotion(mixed6, 4, [slot1Source, slot2Source, slot3Source]);
-  assert(slot4.level.id === 'campaign-004', 'Slot 4 accepts easy 6x6 mixed-one-room.');
+  const slot3 = analyzeCampaignPromotion(mixed6, 3, [slot1Source, slot2Source]);
+  assert(slot3.level.id === 'campaign-003', 'Slot 3 accepts easy 6x6 mixed-one-room.');
+  const slot3Source = provenanceSource(3, slot3.level, mixed6);
+
+  const slot4 = analyzeCampaignPromotion(chest7, 4, [slot1Source, slot2Source, slot3Source]);
+  assert(slot4.level.id === 'campaign-004', 'Slot 4 accepts easy 7x7 chest-one-room.');
+  const slot4Source = provenanceSource(4, slot4.level, chest7);
+
+  const slot5 = analyzeCampaignPromotion(mixed7, 5, [slot1Source, slot2Source, slot3Source, slot4Source]);
+  assert(slot5.level.id === 'campaign-005', 'Slot 5 accepts easy 7x7 mixed-one-room.');
+  const slot5Source = provenanceSource(5, slot5.level, mixed7);
+
+  const slot6 = analyzeCampaignPromotion(chest7, 6, [slot1Source, slot2Source, slot3Source, slot4Source, slot5Source]);
+  assert(slot6.level.id === 'campaign-006', 'Slot 6 accepts easy 7x7 chest-one-room.');
 
   const invalidCandidate = wrapGeneratedFixture({
     id: 'promotion-invalid-open-4x4',

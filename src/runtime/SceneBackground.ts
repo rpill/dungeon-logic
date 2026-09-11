@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-export type SceneBackgroundKind = 'meta' | 'gameplay';
+export type SceneBackgroundKind = 'meta';
 
 type BackgroundVariant = 'desktop' | 'mobile';
 
@@ -18,16 +18,6 @@ const SCENE_BACKGROUND_ASSETS: Record<SceneBackgroundKind, Record<BackgroundVari
     mobile: {
       key: 'background-meta-mobile',
       path: '/assets/backgrounds/meta/bg_meta_mobile.png',
-    },
-  },
-  gameplay: {
-    desktop: {
-      key: 'background-gameplay-desktop',
-      path: '/assets/backgrounds/gameplay/bg_gameplay_desktop.png',
-    },
-    mobile: {
-      key: 'background-gameplay-mobile',
-      path: '/assets/backgrounds/gameplay/bg_gameplay_mobile.png',
     },
   },
 };

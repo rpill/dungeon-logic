@@ -117,11 +117,13 @@ async function runServiceChecks(): Promise<void> {
   clock.value = new Date('2026-09-09T12:00:00.000Z');
   const firstAttempt = await service.beginDaily('2026-09-09', 'daily-001');
   assert(firstAttempt?.ranked === true, 'Unsolved Daily must begin a ranked attempt.');
+  assert(firstAttempt?.attempt === 'new', 'First Daily launch is new before its fresh draft is created.');
   assert(service.getHistory().drafts['2026-09-09']?.puzzleId === 'daily-001', 'Ranked Daily attempt must persist its per-date draft immediately.');
   assert(service.getHistory().drafts['2026-09-09']?.startedAtMs === Date.parse('2026-09-09T12:00:00.000Z'), 'Ranked Daily attempt must use trusted start time.');
   clock.value = new Date('2026-09-09T12:01:00.000Z');
   const resumedAttempt = await service.beginDaily('2026-09-09', 'daily-001');
   assert(resumedAttempt?.ranked === true, 'Leaving and reopening an unsolved Daily must resume the ranked attempt.');
+  assert(resumedAttempt?.attempt === 'resume', 'Compatible unfinished Daily draft resumes.');
   assert(resumedAttempt.elapsedMsAtLaunch === 60_000, 'Resumed ranked Daily must include elapsed trusted time since the original start.');
   assert(service.getHistory().drafts['2026-09-09']?.startedAtMs === Date.parse('2026-09-09T12:00:00.000Z'), 'Resuming Daily must preserve the original ranked start timestamp.');
   clock.value = new Date('2026-09-09T12:02:00.000Z');
@@ -178,6 +180,7 @@ async function runServiceChecks(): Promise<void> {
 
   const practice = await service.beginDaily('2026-09-12', 'daily-004');
   assert(practice?.ranked === false, 'Solved Daily must relaunch only as practice outside the ranking.');
+  assert(practice?.attempt === 'replay', 'Solved Daily launches as replay practice.');
   assert(practice?.archive === false, 'Solved current Daily practice is not an archive launch.');
   assert(service.getHistory().drafts['2026-09-12'] === undefined, 'Solved Daily practice must not recreate a saved Daily draft.');
 

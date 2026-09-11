@@ -1,3 +1,4 @@
+import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import { PlatformPlayerProfileStorage } from '../profile/PlatformPlayerProfileStorage';
 import { createLocalPlatformServices } from '../platform/local';
 import { resolvePlatformServices } from '../platform/PlatformRegistry';
@@ -236,11 +237,134 @@ async function runProfileMigrationChecks(): Promise<void> {
   assertDeepEqual(await storage.loadLegacyCampaignProgress(), { completedLevelIds: ['campaign-001'] }, 'Legacy campaign migration remains available.');
 }
 
+
+async function runTechnicalErrorReportingChecks(): Promise<void> {
+  const technicalErrors: string[] = [];
+  const report: TechnicalErrorReporter = (code) => technicalErrors.push(code);
+  const local = createLocalPlatformServices(new FakeKeyValueStorage());
+
+  const resolvedAfterFailure = await resolvePlatformServices(
+    async () => { throw new Error('init failed'); },
+    () => local,
+    report,
+  );
+  assert(resolvedAfterFailure.kind === 'local', 'Reporter-enabled resolver still falls back to local platform.');
+  assert(
+    technicalErrors.filter((code) => code === 'platform_init_failed').length === 1,
+    'Platform resolver reports a thrown Yandex factory exactly once.',
+  );
+
+  const failingPlayer = {
+    async getData() { return {}; },
+    async setData() {},
+    isAuthorized() { return true; },
+  };
+  const failingSdk = {
+    async getPlayer() { return failingPlayer; },
+    async isAvailableMethod() { return true; },
+    features: {
+      LoadingAPI: { async ready() { throw new Error('ready failed'); } },
+      GameplayAPI: {
+        async start() { throw new Error('gameplay start failed'); },
+        async stop() { throw new Error('gameplay stop failed'); },
+      },
+    },
+    adv: {
+      showFullscreenAdv() { throw new Error('interstitial failed'); },
+      showRewardedVideo() { throw new Error('rewarded failed'); },
+    },
+    leaderboards: {
+      async setScore() { throw new Error('submit failed'); },
+      async getPlayerEntry() { throw new Error('player entry failed'); },
+      async getEntries() { throw new Error('entries failed'); },
+    },
+  };
+  const failingGlobals = {
+    YaGames: { async init() { return failingSdk; } },
+  };
+  const services = await createYandexPlatformServices(failingGlobals, report);
+  assert(services !== null, 'Yandex services still construct when optional operations fail later.');
+
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    await services.readiness.ready();
+    await services.gameplay.start();
+    await services.gameplay.stop();
+    assert(await services.ads.showInterstitial() === 'unavailable', 'Thrown interstitial SDK call stays unavailable.');
+    assert(await services.ads.showRewarded() === 'unavailable', 'Thrown rewarded SDK call stays unavailable.');
+    assert(await services.leaderboards.submitScore('daily', 1) === 'unavailable', 'Thrown leaderboard submit stays unavailable.');
+    assert(await services.leaderboards.getPlayerEntry('daily') === null, 'Thrown leaderboard player load stays null.');
+    assert(await services.leaderboards.getEntries('daily') === null, 'Thrown leaderboard entries load stays null.');
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  for (const code of [
+    'readiness_failed',
+    'gameplay_api_failed',
+    'interstitial_request_failed',
+    'rewarded_request_failed',
+    'leaderboard_submit_failed',
+    'leaderboard_load_failed',
+  ]) {
+    assert(technicalErrors.includes(code), `Caught platform failure reports ${code}.`);
+  }
+
+  const absentErrors: string[] = [];
+  const minimalServices = await createYandexPlatformServices({
+    YaGames: {
+      async init() {
+        return { async getPlayer() { return failingPlayer; } };
+      },
+    },
+  }, (code) => absentErrors.push(code));
+  assert(minimalServices !== null, 'Minimal Yandex SDK still creates services.');
+  await minimalServices.readiness.ready();
+  await minimalServices.gameplay.start();
+  await minimalServices.gameplay.stop();
+  await minimalServices.ads.showInterstitial();
+  await minimalServices.ads.showRewarded();
+  assert(absentErrors.length === 0, 'Missing optional Yandex methods are not reported as technical failures.');
+
+  const callbackErrors: string[] = [];
+  const callbackServices = await createYandexPlatformServices({
+    YaGames: {
+      async init() {
+        return {
+          async getPlayer() { return failingPlayer; },
+          adv: {
+            showFullscreenAdv(options?: { callbacks?: { onError?: (error: unknown) => void } }) {
+              options?.callbacks?.onError?.(new Error('interstitial callback failed'));
+            },
+            showRewardedVideo(options?: { callbacks?: { onError?: (error: unknown) => void } }) {
+              options?.callbacks?.onError?.(new Error('rewarded callback failed'));
+            },
+          },
+        };
+      },
+    },
+  }, (code) => callbackErrors.push(code));
+  assert(callbackServices !== null, 'Yandex callback-error fixture creates services.');
+  assert(await callbackServices.ads.showInterstitial() === 'unavailable', 'Interstitial onError callback stays unavailable.');
+  assert(await callbackServices.ads.showRewarded() === 'unavailable', 'Rewarded onError callback stays unavailable.');
+  assert(callbackErrors.includes('interstitial_request_failed'), 'Interstitial onError callback reports stable technical code.');
+  assert(callbackErrors.includes('rewarded_request_failed'), 'Rewarded onError callback reports stable technical code.');
+
+  const initErrors: string[] = [];
+  const failedInit = await createYandexPlatformServices({
+    YaGames: { async init() { throw new Error('sdk init failed'); } },
+  }, (code) => initErrors.push(code));
+  assert(failedInit === null, 'Failed Yandex init still returns null for local fallback.');
+  assert(initErrors.join(',') === 'platform_init_failed', 'Failed Yandex SDK init reports platform_init_failed once.');
+}
+
 async function main(): Promise<void> {
   await runLocalChecks();
   await runYandexChecks();
   await runResolutionChecks();
   await runProfileMigrationChecks();
+  await runTechnicalErrorReportingChecks();
   console.info('[Dungeon Logic] Platform sanity: readiness + i18n + gameplay/lifecycle + cloud fallback passed');
 }
 

@@ -1,3 +1,4 @@
+import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type {
   AdsPort,
   GameLifecycleHandlers,
@@ -124,6 +125,7 @@ function createYandexPlayerProvider(
 
 function createYandexReadiness(
   sdk: YandexSdkLike,
+  reportTechnicalError: TechnicalErrorReporter,
 ): PlatformReadinessPort {
   let attempted = false;
 
@@ -139,6 +141,7 @@ function createYandexReadiness(
       try {
         await ready.call(loadingApi);
       } catch (error) {
+        reportTechnicalError('readiness_failed', 'lifecycle');
         console.warn('[Dungeon Logic] Yandex Game Ready signal failed; continuing gameplay.', error);
       }
     },
@@ -147,6 +150,7 @@ function createYandexReadiness(
 
 function createYandexGameplay(
   sdk: YandexSdkLike,
+  reportTechnicalError: TechnicalErrorReporter,
 ): GameplayMarkupPort {
   let active = false;
 
@@ -162,6 +166,7 @@ function createYandexGameplay(
       await method.call(gameplayApi);
     } catch (error) {
       if (active === nextActive) active = !nextActive;
+      reportTechnicalError('gameplay_api_failed', 'lifecycle');
       console.warn(`[Dungeon Logic] Yandex GameplayAPI.${nextActive ? 'start' : 'stop'} failed; continuing gameplay.`, error);
     }
   };
@@ -214,6 +219,7 @@ function createYandexClock(
 
 function createYandexAds(
   sdkPromise: Promise<YandexSdkLike>,
+  reportTechnicalError: TechnicalErrorReporter,
 ): AdsPort {
   return {
     async showInterstitial(): Promise<InterstitialResult> {
@@ -221,6 +227,7 @@ function createYandexAds(
       try {
         sdk = await sdkPromise;
       } catch {
+        reportTechnicalError('interstitial_request_failed', 'ads');
         return 'unavailable';
       }
 
@@ -240,10 +247,14 @@ function createYandexAds(
           showFullscreenAdv.call(adv, {
             callbacks: {
               onClose: (wasShown) => finish(wasShown ? 'shown' : 'skipped'),
-              onError: () => finish('unavailable'),
+              onError: () => {
+                reportTechnicalError('interstitial_request_failed', 'ads');
+                finish('unavailable');
+              },
             },
           });
         } catch {
+          reportTechnicalError('interstitial_request_failed', 'ads');
           finish('unavailable');
         }
       });
@@ -254,6 +265,7 @@ function createYandexAds(
       try {
         sdk = await sdkPromise;
       } catch {
+        reportTechnicalError('rewarded_request_failed', 'ads');
         return 'unavailable';
       }
 
@@ -277,10 +289,14 @@ function createYandexAds(
                 rewarded = true;
               },
               onClose: () => finish(rewarded ? 'rewarded' : 'closed'),
-              onError: () => finish('unavailable'),
+              onError: () => {
+                reportTechnicalError('rewarded_request_failed', 'ads');
+                finish('unavailable');
+              },
             },
           });
         } catch {
+          reportTechnicalError('rewarded_request_failed', 'ads');
           finish('unavailable');
         }
       });
@@ -306,6 +322,7 @@ function normalizeLeaderboardEntry(
 function createYandexLeaderboards(
   sdkPromise: Promise<YandexSdkLike>,
   playerProvider: YandexPlayerProvider,
+  reportTechnicalError: TechnicalErrorReporter,
 ): LeaderboardsPort {
   const authorized = async (): Promise<boolean> => {
     try {
@@ -360,6 +377,7 @@ function createYandexLeaderboards(
         await setScore.call(sdk.leaderboards, name, score, extraData);
         return 'submitted';
       } catch (error) {
+        reportTechnicalError('leaderboard_submit_failed', 'leaderboard');
         console.warn('[Dungeon Logic] Could not submit leaderboard score.', error);
         return 'unavailable';
       }
@@ -375,6 +393,7 @@ function createYandexLeaderboards(
         const raw = await getPlayerEntry.call(sdk.leaderboards, name);
         return normalizeLeaderboardEntry(raw, currentUniqueIdFrom(raw));
       } catch {
+        reportTechnicalError('leaderboard_load_failed', 'leaderboard');
         return null;
       }
     },
@@ -392,7 +411,10 @@ function createYandexLeaderboards(
           quantityTop: options?.quantityTop,
         });
         const currentRaw = includeUser && typeof sdk.leaderboards?.getPlayerEntry === 'function'
-          ? await sdk.leaderboards.getPlayerEntry(name).catch(() => null)
+          ? await sdk.leaderboards.getPlayerEntry(name).catch(() => {
+              reportTechnicalError('leaderboard_load_failed', 'leaderboard');
+              return null;
+            })
           : null;
         const currentUniqueId = currentUniqueIdFrom(currentRaw);
         const entries = (raw.entries ?? []).map((entry) => normalizeLeaderboardEntry(entry, currentUniqueId));
@@ -401,6 +423,7 @@ function createYandexLeaderboards(
           : normalizeLeaderboardEntry(currentRaw, currentUniqueId);
         return { entries, currentPlayer };
       } catch (error) {
+        reportTechnicalError('leaderboard_load_failed', 'leaderboard');
         console.warn('[Dungeon Logic] Could not load leaderboard entries.', error);
         return null;
       }
@@ -443,6 +466,7 @@ function createYandexLifecycle(
 
 export async function createYandexPlatformServices(
   globals: YandexGlobalScopeLike = globalThis as unknown as YandexGlobalScopeLike,
+  reportTechnicalError: TechnicalErrorReporter = () => {},
 ): Promise<PlatformServices | null> {
   const init = globals.YaGames?.init;
   if (typeof init !== 'function') return null;
@@ -453,6 +477,7 @@ export async function createYandexPlatformServices(
   try {
     sdk = await sdkPromise;
   } catch (error) {
+    reportTechnicalError('platform_init_failed', 'platform');
     console.warn('[Dungeon Logic] Yandex Games SDK initialization failed; using local platform fallback.', error);
     return null;
   }
@@ -463,11 +488,11 @@ export async function createYandexPlatformServices(
     kind: 'yandex',
     storage: createYandexStorage(playerProvider),
     clock: createYandexClock(sdkPromise),
-    ads: createYandexAds(sdkPromise),
-    readiness: createYandexReadiness(sdk),
+    ads: createYandexAds(sdkPromise, reportTechnicalError),
+    readiness: createYandexReadiness(sdk, reportTechnicalError),
     environment: { language: readYandexLanguage(sdk) },
-    gameplay: createYandexGameplay(sdk),
+    gameplay: createYandexGameplay(sdk, reportTechnicalError),
     lifecycle: createYandexLifecycle(sdk),
-    leaderboards: createYandexLeaderboards(sdkPromise, playerProvider),
+    leaderboards: createYandexLeaderboards(sdkPromise, playerProvider, reportTechnicalError),
   };
 }

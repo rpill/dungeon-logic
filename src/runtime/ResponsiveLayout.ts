@@ -22,6 +22,11 @@ export interface LevelSelectLayout {
   readonly continueWidth: number;
   readonly continueHeight: number;
   readonly continueFontSize: number;
+  readonly progressLabelY: number;
+  readonly progressLabelFontSize: number;
+  readonly progressBarY: number;
+  readonly progressBarWidth: number;
+  readonly progressBarHeight: number;
   readonly headerBottom: number;
   readonly contentBottom: number;
   readonly columns: number;
@@ -70,9 +75,11 @@ export function calculateLevelSelectLayout(
 
   if (portraitNarrow) {
     const margin = 16;
-    const gapX = 8;
-    const gapY = 8;
+    const gapX = 16;
+    const gapY = 14;
     const columns = Math.min(4, Math.max(1, itemCount));
+    const rowsPerBlock = Math.max(1, Math.ceil(8 / columns));
+    const blockGap = viewport.height < 620 ? 26 : 32;
     const maxCardWidth = Math.floor(
       (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
     );
@@ -85,12 +92,17 @@ export function calculateLevelSelectLayout(
     const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
     const continueHeight = viewport.height < 620 ? 42 : 46;
     const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 26 : 32);
-    const headerBottom = continueY + continueHeight / 2 + 14;
-    const gridTop = headerBottom + 12;
+    const progressLabelY = continueY + continueHeight / 2 + (viewport.height < 620 ? 16 : 18);
+    const progressBarY = progressLabelY + 18;
+    const progressBarWidth = Math.min(viewport.width - margin * 2 - 52, 196);
+    const progressBarHeight = 6;
+    const headerBottom = progressBarY + progressBarHeight / 2 + 22;
+    const gridTop = headerBottom + 16;
     const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
       const column = index % columns;
       const row = Math.floor(index / columns);
-      const y = gridTop + cardSize / 2 + row * rowPitch;
+      const blockBreaksBeforeRow = Math.floor(row / rowsPerBlock);
+      const y = gridTop + cardSize / 2 + row * rowPitch + blockBreaksBeforeRow * blockGap;
       return {
         x: startX + column * (cardSize + gapX),
         y,
@@ -108,6 +120,11 @@ export function calculateLevelSelectLayout(
       continueWidth: Math.min(viewport.width - margin * 2, 260),
       continueHeight,
       continueFontSize: 16,
+      progressLabelY,
+      progressLabelFontSize: 12,
+      progressBarY,
+      progressBarWidth,
+      progressBarHeight,
       headerBottom,
       contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
       columns,
@@ -118,16 +135,22 @@ export function calculateLevelSelectLayout(
   }
 
   const margin = viewportClass === 'wide' ? 28 : 18;
-  const gapX = viewportClass === 'wide' ? 10 : 8;
+  const gapX = viewportClass === 'wide' ? 16 : 14;
   const gapY = viewportClass === 'wide' ? 4 : 5;
   const columns = Math.min(8, Math.max(1, itemCount));
   const rows = columns === 0 ? 0 : Math.ceil(itemCount / columns);
+  const rowsPerBlock = Math.max(1, Math.ceil(8 / columns));
+  const blockBreakCount = Math.max(0, Math.ceil(rows / rowsPerBlock) - 1);
   const shortViewport = viewport.height < 500;
+  const blockGap = shortViewport ? 14 : viewport.height >= 860 ? 34 : viewport.height >= 760 ? 28 : 20;
   const continueHeight = shortViewport ? 42 : 46;
   const continueY = metaHeader.headerHeight + (shortViewport ? 24 : 25);
-  const headerBottom = continueY + continueHeight / 2 + 12;
-  const gridTop = headerBottom + 8;
-  const bottomPadding = 24;
+  const progressLabelY = continueY + continueHeight / 2 + (shortViewport ? 14 : 16);
+  const progressBarY = progressLabelY + 16;
+  const progressBarWidth = Math.min(shortViewport ? 208 : 244, viewport.width - margin * 2 - 48);
+  const progressBarHeight = shortViewport ? 5 : 6;
+  const headerBottom = progressBarY + progressBarHeight / 2 + (shortViewport ? 16 : 22);
+  const gridTop = headerBottom + 10;
   const numberGap = 2;
   const numberFontSize = shortViewport ? 10 : 11;
   const numberHeight = numberFontSize + 2;
@@ -140,12 +163,12 @@ export function calculateLevelSelectLayout(
         (
           viewport.height
           - gridTop
-          - bottomPadding
           - rows * (numberGap + numberHeight)
           - gapY * Math.max(0, rows - 1)
+          - blockGap * blockBreakCount
         ) / rows,
       );
-  const minimumReadableCard = shortViewport ? 46 : 48;
+  const minimumReadableCard = shortViewport ? 46 : viewport.height < 760 ? 39 : 48;
   const cardSize = Math.max(
     minimumReadableCard,
     Math.min(72, maxCardFromWidth, maxCardFromHeight),
@@ -156,7 +179,8 @@ export function calculateLevelSelectLayout(
   const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
     const column = index % columns;
     const row = Math.floor(index / columns);
-    const y = gridTop + cardSize / 2 + row * rowPitch;
+    const blockBreaksBeforeRow = Math.floor(row / rowsPerBlock);
+    const y = gridTop + cardSize / 2 + row * rowPitch + blockBreaksBeforeRow * blockGap;
     return {
       x: startX + column * (cardSize + gapX),
       y,
@@ -174,6 +198,11 @@ export function calculateLevelSelectLayout(
     continueWidth: Math.min(shortViewport ? 240 : 260, viewport.width - margin * 2),
     continueHeight,
     continueFontSize: shortViewport ? 14 : 16,
+    progressLabelY,
+    progressLabelFontSize: shortViewport ? 11 : 12,
+    progressBarY,
+    progressBarWidth,
+    progressBarHeight,
     headerBottom,
     contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
     columns,

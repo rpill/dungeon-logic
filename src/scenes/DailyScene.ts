@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
+
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
 import type { DailyEntry } from '../content/daily/types';
@@ -83,6 +85,8 @@ export class DailyScene extends Phaser.Scene {
 
     const profile = this.getProfileService().getProfile();
     const copy = getUiCopy(profile.settings.language);
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
+    analytics?.screenView('daily');
     const shellLayout = calculateDailyHubLayout(this.scale.width, this.scale.height, 6);
     const { narrow } = shellLayout;
 
@@ -90,6 +94,8 @@ export class DailyScene extends Phaser.Scene {
     createMetaPageHeader(this, {
       title: copy.dailyHub.title,
       backLabel: copy.common.backHome,
+      backButton: true,
+      fixedBack: true,
       onBack: (pointer) => {
         if (!this.shouldActivatePointer(pointer)) return;
         this.scene.start(HOME_SCENE_KEY);

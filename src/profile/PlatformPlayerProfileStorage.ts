@@ -1,3 +1,4 @@
+import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type { PlayerStorage } from '../platform/services';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
 import type { PlayerProfileV4 } from './types';
@@ -5,13 +6,16 @@ import type { PlayerProfileV4 } from './types';
 export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
   private readonly platformStorage: PlayerStorage;
   private readonly localMigrationStorage: PlayerProfileStorage | undefined;
+  private readonly reportTechnicalError: TechnicalErrorReporter;
 
   constructor(
     platformStorage: PlayerStorage,
     localMigrationStorage?: PlayerProfileStorage,
+    reportTechnicalError: TechnicalErrorReporter = () => {},
   ) {
     this.platformStorage = platformStorage;
     this.localMigrationStorage = localMigrationStorage;
+    this.reportTechnicalError = reportTechnicalError;
   }
 
   async load(): Promise<unknown | null> {
@@ -19,6 +23,7 @@ export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
     try {
       platformValue = await this.platformStorage.load();
     } catch (error) {
+      this.reportTechnicalError('profile_load_failed', 'profile');
       console.warn('[Dungeon Logic] Could not load platform player profile; checking local migration data.', error);
     }
     if (platformValue !== null) return platformValue;
@@ -30,6 +35,7 @@ export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
     try {
       await this.platformStorage.save(localValue);
     } catch (error) {
+      this.reportTechnicalError('profile_save_failed', 'profile');
       console.warn('[Dungeon Logic] Could not promote local player profile into platform storage yet.', error);
     }
     return localValue;

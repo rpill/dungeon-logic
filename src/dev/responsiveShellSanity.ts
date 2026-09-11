@@ -31,7 +31,15 @@ const desktop = calculateLevelSelectLayout(1280, 720, 64);
 assert(desktop.viewportClass === 'wide', '1280px viewport uses wide Level Select layout.');
 assert(desktop.columns === 8, 'Wide Level Select uses eight columns.');
 assert(desktop.cards.length === 64, 'Wide Level Select positions all 64 release cards.');
-assert(getMetaScrollMaxY(720, desktop.contentBottom) === 0, 'The 8x8 desktop grid with numbers below previews fits without vertical scrolling at 1280x720.');
+const desktopHorizontalGap = desktop.cards[1].x - desktop.cards[0].x - desktop.cards[0].width;
+assert(desktopHorizontalGap >= 16, 'Wide Level Select leaves generous horizontal air between cards.');
+const desktopFirstBlockBottom = desktop.cards[7].numberY + desktop.cardTitleFontSize / 2;
+const desktopSecondBlockTop = desktop.cards[8].y - desktop.cards[8].height / 2;
+assert(desktopSecondBlockTop - desktopFirstBlockBottom >= 24, 'Wide Level Select reserves a real vertical block gap around the divider.');
+assert(getMetaScrollMaxY(720, desktop.contentBottom) > 0, 'A 720p desktop may scroll so spacing is never compressed to force the whole 8x8 grid onscreen.');
+const desktopLast = desktop.cards.at(-1)!;
+const desktopScrollMax = getMetaScrollMaxY(720, desktop.contentBottom);
+assert(desktopLast.y + desktopLast.height / 2 - desktopScrollMax <= 720 - 16, 'Maximum desktop scroll exposes the final level card.');
 assert(desktop.cards.every((card) => card.numberY > card.y + card.height / 2), 'Desktop level numbers sit below every preview square.');
 
 const chrome = calculatePuzzleChromeLayout(390, 844);

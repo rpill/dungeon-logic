@@ -86,7 +86,11 @@
     "sanity:vibration-scope": "node scripts/vibration-scope-sanity.mjs",
     "sanity:first-run-home": "node scripts/first-run-home-sanity.mjs",
     "sanity:tutorial-board-stability": "node scripts/tutorial-board-stability-sanity.mjs",
-    "sanity:tutorial-text-above-board": "node scripts/tutorial-text-above-board-sanity.mjs"
+    "sanity:tutorial-text-above-board": "node scripts/tutorial-text-above-board-sanity.mjs",
+    "sanity:slime-monster": "node scripts/slime-monster-sanity.mjs",
+    "sanity:monster-composition": "node scripts/monster-composition-sanity.mjs",
+    "sanity:analytics": "tsx src/dev/analyticsSanity.ts",
+    "sanity:analytics-erasable-syntax": "node scripts/analytics-erasable-syntax-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

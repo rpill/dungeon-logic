@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
+
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
@@ -66,6 +68,8 @@ export class HomeScene extends Phaser.Scene {
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
     const copy = getUiCopy(profile.settings.language);
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
+    analytics?.screenView('home');
     const action = getHomeCampaignAction(campaign, profile);
     const viewportClass = classifyViewport(this.scale.width);
     const narrow = viewportClass === 'narrow';

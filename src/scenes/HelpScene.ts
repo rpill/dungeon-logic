@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
+
 import { renderHelpIllustration } from '../help/HelpIllustrations';
 import { HELP_SCENE_KEY, type HelpReturnSceneKey, type HelpSceneData } from '../help/HelpNavigation';
 import {
@@ -56,6 +58,8 @@ export class HelpScene extends Phaser.Scene {
 
     const language = this.getProfileService().getProfile().settings.language;
     const copy = getUiCopy(language);
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
+    analytics?.screenView('help');
     const header = calculateMetaPageHeaderMetrics(this.scale.width, this.scale.height);
     const narrow = header.narrow;
     const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 48), narrow ? 620 : 760);

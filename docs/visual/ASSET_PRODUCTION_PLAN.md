@@ -171,13 +171,14 @@ Possible explicit states:
 - [ ] `assets/ui/icons/icon_lock.png`
 - [ ] `assets/ui/icons/icon_question.png`
 
-### A7. Gameplay background
+### A7. Shared scene background
 
-First implementation should stay deliberately small.
+Gameplay and meta screens use the same background family. Do not create a separate gameplay background.
 
 Required first pass:
 
-- [ ] `assets/backgrounds/gameplay/bg_gameplay_full.png`
+- [ ] `assets/backgrounds/meta/bg_meta_desktop.png`
+- [ ] `assets/backgrounds/meta/bg_meta_mobile.png`
 
 Optional modular decoration after the first in-game review:
 
@@ -264,11 +265,14 @@ The calendar preview itself is runtime-rendered using the shared miniature rende
 - [ ] `assets/ui/icons/icon_chest.png`
 - [ ] `assets/ui/icons/icon_skull.png`
 
-### B5. Meta background
+### B5. Shared meta background
+
+The same meta background is used on gameplay screens as well.
 
 First pass:
 
-- [ ] `assets/backgrounds/meta/bg_meta_main.png`
+- [ ] `assets/backgrounds/meta/bg_meta_desktop.png`
+- [ ] `assets/backgrounds/meta/bg_meta_mobile.png`
 
 Optional modular pieces:
 
@@ -436,7 +440,8 @@ Produce these assets before anything else:
 
 ### Background
 
-- [ ] `bg_gameplay_full.png`
+- [ ] `bg_meta_desktop.png`
+- [ ] `bg_meta_mobile.png`
 
 ### First Batch done when
 
@@ -467,7 +472,7 @@ Recommended family order for the First Batch:
 3. chest
 4. buttons
 5. core icons
-6. gameplay background
+6. shared meta background
 7. in-game integration
 8. corrections
 ```

@@ -80,7 +80,7 @@ export function createTutorialGameSceneData(entry: TutorialLevelEntry): GameScen
 
 export function createDailyGameSceneData(
   entry: DailyEntry,
-  attempt?: Pick<DailyAttemptLaunch, 'ranked' | 'archive' | 'elapsedMsAtLaunch'>,
+  attempt?: Pick<DailyAttemptLaunch, 'ranked' | 'archive' | 'elapsedMsAtLaunch' | 'attempt'>,
 ): GameSceneData {
   return {
     level: entry.level,
@@ -91,6 +91,7 @@ export function createDailyGameSceneData(
       ranked: attempt?.ranked ?? true,
       archive: attempt?.archive ?? false,
       elapsedMsAtLaunch: attempt?.elapsedMsAtLaunch ?? 0,
+      analyticsAttempt: attempt?.attempt,
     },
     onboarding: [],
     contextualOnboarding: false,
@@ -141,6 +142,18 @@ export function createLevelSelectItems(
 
 export function createRestartGameSceneData(data: GameSceneData): GameSceneData {
   return data;
+}
+
+
+export function createCampaignReplayGameSceneData(data: GameSceneData): GameSceneData {
+  if (data.context.mode !== 'campaign') return data;
+  return {
+    ...data,
+    context: {
+      ...data.context,
+      analyticsAttempt: 'replay',
+    },
+  };
 }
 
 export function createOnboardingMessages(

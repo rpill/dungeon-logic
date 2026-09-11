@@ -22,6 +22,7 @@ export interface UiCopy {
   readonly levelSelect: {
     readonly continueLevel: (slot: number) => string;
     readonly level: (slot: number) => string;
+    readonly progress: (completed: number, total: number) => string;
     readonly state: Readonly<Record<LevelSelectState, string>>;
   };
   readonly home: {
@@ -189,6 +190,7 @@ const RU: UiCopy = {
   levelSelect: {
     continueLevel: (slot) => `ПРОДОЛЖИТЬ · УРОВЕНЬ ${slot}`,
     level: (slot) => `Уровень ${slot}`,
+    progress: (completed, total) => `Пройдено: ${completed} / ${total}`,
     state: {
       completed: 'РЕШЁН',
       current: 'ТЕКУЩИЙ',
@@ -361,6 +363,7 @@ const EN: UiCopy = {
   levelSelect: {
     continueLevel: (slot) => `CONTINUE · LEVEL ${slot}`,
     level: (slot) => `Level ${slot}`,
+    progress: (completed, total) => `Completed: ${completed} / ${total}`,
     state: {
       completed: 'COMPLETED',
       current: 'CURRENT',

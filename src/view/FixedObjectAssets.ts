@@ -15,6 +15,12 @@ const MONSTER_ASSETS = {
     { key: 'monster-ghost-03', path: '/assets/monsters/ghost_03.png' },
     { key: 'monster-ghost-04', path: '/assets/monsters/ghost_04.png' },
   ],
+  slime: [
+    { key: 'monster-slime-01', path: '/assets/monsters/slime_01.png' },
+    { key: 'monster-slime-02', path: '/assets/monsters/slime_02.png' },
+    { key: 'monster-slime-03', path: '/assets/monsters/slime_03.png' },
+    { key: 'monster-slime-04', path: '/assets/monsters/slime_04.png' },
+  ],
 } as const satisfies Record<MonsterSkinId, readonly { key: string; path: string }[]>;
 
 export const CHEST_CLOSED_TEXTURE_KEY = 'board-chest-01';

@@ -1,4 +1,6 @@
 import { requestHint } from '../gameplay/HintService';
+import { AnalyticsService, type AnalyticsPuzzleContext } from '../analytics/AnalyticsService';
+import { NOOP_ANALYTICS_TRANSPORT } from '../analytics/AnalyticsTransport';
 import { MonetizationService } from '../monetization/MonetizationService';
 import type { AdsPort, InterstitialResult, RewardedResult } from '../platform/services';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
@@ -150,11 +152,13 @@ async function main(): Promise<void> {
   assert(noneResult === 'none', 'Puzzle with no unresolved cell returns none.');
 
   const ads = new FakeAds();
-  const monetization = MonetizationService.create(profile, ads);
+  const analytics = new AnalyticsService(NOOP_ANALYTICS_TRANSPORT);
+  const rewardedContext: AnalyticsPuzzleContext = { mode: 'campaign', puzzleId: 'campaign-001', slot: 1 };
+  const monetization = MonetizationService.create(profile, ads, analytics);
   const totalBefore = profile.getProfile().hints.totalUsed;
 
   ads.result = 'rewarded';
-  assert(await monetization.requestRewardedHint() === 'rewarded', 'rewarded result is preserved.');
+  assert(await monetization.requestRewardedHint(rewardedContext) === 'rewarded', 'rewarded result is preserved.');
   assert(ads.rewardedCalls === 1, 'Explicit request calls rewarded ads exactly once.');
   assert(profile.getFreeHintsRemaining() === 0, 'Rewarded permission does not refill free hints.');
   assert(profile.getProfile().hints.totalUsed === totalBefore, 'Ad completion alone is not a delivered hint.');
@@ -164,14 +168,14 @@ async function main(): Promise<void> {
   assert(profile.getFreeHintsRemaining() === 0, 'Delivered rewarded hint still does not refill free hints.');
 
   ads.result = 'closed';
-  assert(await monetization.requestRewardedHint() === 'closed', 'closed result is preserved.');
+  assert(await monetization.requestRewardedHint(rewardedContext) === 'closed', 'closed result is preserved.');
   ads.result = 'unavailable';
-  assert(await monetization.requestRewardedHint() === 'unavailable', 'unavailable result is preserved.');
+  assert(await monetization.requestRewardedHint(rewardedContext) === 'unavailable', 'unavailable result is preserved.');
   ads.rejectNext = true;
   const warn = console.warn;
   console.warn = () => {};
   try {
-    assert(await monetization.requestRewardedHint() === 'unavailable', 'rejected ad promise maps to unavailable.');
+    assert(await monetization.requestRewardedHint(rewardedContext) === 'unavailable', 'rejected ad promise maps to unavailable.');
   } finally {
     console.warn = warn;
   }

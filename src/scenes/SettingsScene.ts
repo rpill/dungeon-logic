@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
+
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { getUiCopy } from '../i18n/UiCopy';
@@ -64,11 +66,15 @@ export class SettingsScene extends Phaser.Scene {
     const settingsService = new SettingsService(profileService, { vibrationSupported });
     const settings = settingsService.getSettings();
     const copy = getUiCopy(settings.language);
+    const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
+    analytics?.screenView('settings');
     const header = calculateMetaPageHeaderMetrics(this.scale.width, this.scale.height);
     const narrow = header.narrow;
     createMetaPageHeader(this, {
       title: copy.settings.title,
       backLabel: this.returnSceneKey === 'GameScene' ? copy.common.back : copy.common.backHome,
+      backButton: this.returnSceneKey !== 'GameScene',
+      fixedBack: this.returnSceneKey !== 'GameScene',
       onBack: (pointer) => {
         if (!this.canActivate(pointer)) return;
         if (this.returnSceneKey === 'GameScene') {
