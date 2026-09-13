@@ -70,6 +70,7 @@
     "sanity:levels-content-cleanup": "node scripts/levels-content-cleanup-sanity.mjs",
     "sanity:campaign-preview": "tsx src/dev/campaignLevelPreviewSanity.ts",
     "sanity:background-presentation": "node scripts/background-presentation-sanity.mjs",
+    "sanity:boot-loading": "node scripts/boot-loading-hardening-sanity.mjs",
     "sanity:home-menu-buttons": "node scripts/home-menu-button-sanity.mjs",
     "sanity:home-logo": "node scripts/home-logo-sanity.mjs",
     "sanity:game-ui-visual": "node scripts/game-controls-settings-visual-sanity.mjs",
@@ -90,7 +91,11 @@
     "sanity:slime-monster": "node scripts/slime-monster-sanity.mjs",
     "sanity:monster-composition": "node scripts/monster-composition-sanity.mjs",
     "sanity:analytics": "tsx src/dev/analyticsSanity.ts",
-    "sanity:analytics-erasable-syntax": "node scripts/analytics-erasable-syntax-sanity.mjs"
+    "sanity:analytics-erasable-syntax": "node scripts/analytics-erasable-syntax-sanity.mjs",
+    "sanity:raster-assets": "node scripts/raster-asset-optimization-sanity.mjs",
+    "sanity:yandex-paths": "node scripts/yandex-relative-paths-sanity.mjs",
+    "sanity:hidpi": "node scripts/hidpi-rendering-sanity.mjs",
+    "sanity:level-select-touch": "node scripts/level-select-touch-inertia-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

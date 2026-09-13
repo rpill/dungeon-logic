@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { auditReleaseDirectory, RELEASE_MAX_UNCOMPRESSED_BYTES } from './release-audit-lib.mjs';
 
 export const RELEASE_SANITY_SCRIPTS = Object.freeze([
+  'sanity:yandex-paths',
   'sanity:release-audit',
   'sanity:platform',
   'sanity:platform-gameplay',

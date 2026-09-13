@@ -11,6 +11,7 @@ import { StatsScene } from './scenes/StatsScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { DailyScene } from './scenes/DailyScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { installHiDpiRendering } from './runtime/HiDpiRendering';
 import { getInitialViewportSize } from './runtime/ResponsiveLayout';
 
 const initialViewport = getInitialViewportSize(window.innerWidth, window.innerHeight);
@@ -49,4 +50,5 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+installHiDpiRendering(game);

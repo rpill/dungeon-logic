@@ -76,7 +76,7 @@ export function calculateLevelSelectLayout(
   if (portraitNarrow) {
     const margin = 16;
     const gapX = 16;
-    const gapY = 14;
+    const gapY = 22;
     const columns = Math.min(4, Math.max(1, itemCount));
     const rowsPerBlock = Math.max(1, Math.ceil(8 / columns));
     const blockGap = viewport.height < 620 ? 26 : 32;

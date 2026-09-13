@@ -118,7 +118,7 @@ export class CellView {
     this.guidanceFloorGhost = scene.add
       .image(centerX, centerY, BOARD_FLOOR_MARK_KEY)
       .setDisplaySize(visualSize, visualSize)
-      .setAlpha(0.32)
+      .setAlpha(0.4)
       .setTint(0xd54a42)
       .setVisible(false);
 
@@ -322,22 +322,21 @@ export class CellView {
 
   private renderGuidanceTarget(): void {
     const guidanceState = this.tutorialTargetState ?? this.hintState;
-    const visible = this.fixedVisual === null
+    const guidanceVisible = this.fixedVisual === null
       && guidanceState !== null
       && this.state !== guidanceState;
-    const showWall = visible && guidanceState === CellState.Wall;
-    const showFloor = visible && guidanceState === CellState.Floor;
-    this.guidanceWallGhost.setVisible(showWall);
-    this.guidanceFloorGhost.setVisible(showFloor);
 
-    if (visible && !this.guidancePulseActive) {
+    this.guidanceWallGhost.setVisible(guidanceVisible && guidanceState === CellState.Wall);
+    this.guidanceFloorGhost.setVisible(guidanceVisible && guidanceState === CellState.Floor);
+
+    if (guidanceVisible && !this.guidancePulseActive) {
       this.guidancePulseActive = true;
       this.guidancePulseTween.restart();
-    } else if (!visible && this.guidancePulseActive) {
+    } else if (!guidanceVisible && this.guidancePulseActive) {
       this.guidancePulseActive = false;
       this.guidancePulseTween.pause();
       this.guidanceWallGhost.setAlpha(0.32);
-      this.guidanceFloorGhost.setAlpha(0.32);
+      this.guidanceFloorGhost.setAlpha(0.4);
     }
   }
 }

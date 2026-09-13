@@ -29,10 +29,10 @@ assert(boot.includes('preloadBoardThemeAssets(this);'), 'BootScene must preload 
 const assets = read('src/view/BoardThemeAssets.ts');
 for (let i = 1; i <= 4; i += 1) {
   const suffix = String(i).padStart(2, '0');
-  assert(assets.includes(`/assets/floor/tile_floor_${suffix}.png`), `Floor ${suffix} must be preloaded.`);
-  assert(assets.includes(`/assets/wall/tile_wall_${suffix}.png`), `Wall ${suffix} must be preloaded.`);
+  assert(assets.includes(`assets/floor/tile_floor_${suffix}.png`), `Floor ${suffix} must be preloaded.`);
+  assert(assets.includes(`assets/wall/tile_wall_${suffix}.png`), `Wall ${suffix} must be preloaded.`);
 }
-assert(assets.includes("'/assets/mark.png'"), 'Floor mark asset must be preloaded.');
+assert(assets.includes("'assets/mark.png'"), 'Floor mark asset must be preloaded.');
 assert(assets.includes('resolveFloorTextureKey'), 'Floor variants must have a coordinate-stable resolver.');
 assert(assets.includes('resolveWallTextureKey'), 'Wall variants must have a coordinate-stable resolver.');
 

@@ -39,6 +39,8 @@ export class BoardView {
   private readonly cells: CellView[][] = [];
   private readonly rowClues: Phaser.GameObjects.Text[] = [];
   private readonly columnClues: Phaser.GameObjects.Text[] = [];
+  private tutorialGuideClue: { readonly axis: 'row' | 'column'; readonly index: number } | null = null;
+  private guideCluePulseTween: Phaser.Tweens.Tween | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -144,6 +146,35 @@ export class BoardView {
     }
   }
 
+  setTutorialGuideClue(
+    guideClue: { readonly axis: 'row' | 'column'; readonly index: number } | null,
+  ): void {
+    const previous = this.getGuideClueText(this.tutorialGuideClue);
+    if (previous !== null) {
+      previous.setScale(1).setAlpha(1);
+    }
+    this.guideCluePulseTween?.stop();
+    this.guideCluePulseTween = null;
+
+    this.tutorialGuideClue = guideClue;
+    this.updateClues();
+
+    const next = this.getGuideClueText(this.tutorialGuideClue);
+    if (next === null) return;
+
+    next.setScale(1.08).setAlpha(1);
+    this.guideCluePulseTween = this.scene.tweens.add({
+      targets: next,
+      alpha: { from: 1, to: 0.5 },
+      scaleX: { from: 1.08, to: 1.18 },
+      scaleY: { from: 1.08, to: 1.18 },
+      duration: 620,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
   setHintCellTarget(
     target: {
       readonly x: number;
@@ -229,6 +260,19 @@ export class BoardView {
         },
       )
       .setOrigin(0.5);
+  }
+
+  private getGuideClueText(
+    guideClue: { readonly axis: 'row' | 'column'; readonly index: number } | null,
+  ): Phaser.GameObjects.Text | null {
+    if (guideClue === null) return null;
+    return guideClue.axis === 'row'
+      ? this.rowClues[guideClue.index] ?? null
+      : this.columnClues[guideClue.index] ?? null;
+  }
+
+  private isGuideClue(axis: 'row' | 'column', index: number): boolean {
+    return this.tutorialGuideClue?.axis === axis && this.tutorialGuideClue.index === index;
   }
 
   private createCells(): void {
@@ -396,18 +440,24 @@ export class BoardView {
     const level = this.puzzle.level;
 
     for (let y = 0; y < level.height; y += 1) {
+      const complete = this.puzzle.getRowWallCount(y) === level.rowClues[y];
       this.rowClues[y].setColor(
-        this.puzzle.getRowWallCount(y) === level.rowClues[y]
-          ? WIREFRAME.clueComplete
-          : WIREFRAME.clueActive,
+        this.isGuideClue('row', y)
+          ? '#f0d28a'
+          : complete
+            ? WIREFRAME.clueComplete
+            : WIREFRAME.clueActive,
       );
     }
 
     for (let x = 0; x < level.width; x += 1) {
+      const complete = this.puzzle.getColumnWallCount(x) === level.columnClues[x];
       this.columnClues[x].setColor(
-        this.puzzle.getColumnWallCount(x) === level.columnClues[x]
-          ? WIREFRAME.clueComplete
-          : WIREFRAME.clueActive,
+        this.isGuideClue('column', x)
+          ? '#f0d28a'
+          : complete
+            ? WIREFRAME.clueComplete
+            : WIREFRAME.clueActive,
       );
     }
   }

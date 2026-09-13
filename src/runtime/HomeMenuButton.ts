@@ -37,17 +37,17 @@ const VERTICAL_SLICE = 24;
 const HOME_MENU_ICON_RASTER_SIZE = 96;
 
 export function preloadHomeMenuAssets(scene: Phaser.Scene): void {
-  scene.load.image(HOME_MENU_FILL_KEY, '/assets/ui/menu_button_fill.png');
-  scene.load.image(HOME_MENU_FRAME_KEYS.normal, '/assets/ui/menu_button_frame_normal.png');
-  scene.load.image(HOME_MENU_FRAME_KEYS.hover, '/assets/ui/menu_button_frame_hover.png');
-  scene.load.image(HOME_MENU_FRAME_KEYS.pressed, '/assets/ui/menu_button_frame_pressed.png');
+  scene.load.image(HOME_MENU_FILL_KEY, 'assets/ui/menu_button_fill.webp');
+  scene.load.image(HOME_MENU_FRAME_KEYS.normal, 'assets/ui/menu_button_frame_normal.png');
+  scene.load.image(HOME_MENU_FRAME_KEYS.hover, 'assets/ui/menu_button_frame_hover.png');
+  scene.load.image(HOME_MENU_FRAME_KEYS.pressed, 'assets/ui/menu_button_frame_pressed.png');
 
   const rasterizeConfig = { width: HOME_MENU_ICON_RASTER_SIZE, height: HOME_MENU_ICON_RASTER_SIZE };
-  scene.load.svg('home-menu-icon-play', '/assets/ui/icons/play.svg', rasterizeConfig);
-  scene.load.svg('home-menu-icon-daily', '/assets/ui/icons/daily.svg', rasterizeConfig);
-  scene.load.svg('home-menu-icon-levels', '/assets/ui/icons/levels.svg', rasterizeConfig);
-  scene.load.svg('home-menu-icon-statistics', '/assets/ui/icons/statistics.svg', rasterizeConfig);
-  scene.load.svg('home-menu-icon-settings', '/assets/ui/icons/settings.svg', rasterizeConfig);
+  scene.load.svg('home-menu-icon-play', 'assets/ui/icons/play.svg', rasterizeConfig);
+  scene.load.svg('home-menu-icon-daily', 'assets/ui/icons/daily.svg', rasterizeConfig);
+  scene.load.svg('home-menu-icon-levels', 'assets/ui/icons/levels.svg', rasterizeConfig);
+  scene.load.svg('home-menu-icon-statistics', 'assets/ui/icons/statistics.svg', rasterizeConfig);
+  scene.load.svg('home-menu-icon-settings', 'assets/ui/icons/settings.svg', rasterizeConfig);
 }
 
 export interface HomeMenuButtonOptions {

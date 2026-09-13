@@ -50,15 +50,15 @@ assert(layout.includes('readonly progressBarY: number;'), 'Responsive Level Sele
 assert(layout.includes('const progressLabelY = continueY + continueHeight / 2 +'), 'Progress summary must sit directly below Continue.');
 assert(layout.includes('const headerBottom = progressBarY + progressBarHeight / 2 +'), 'Card grid must start below the progress bar.');
 assert(layout.includes('continueWidth: Math.min(shortViewport ? 240 : 260'), 'Desktop Continue button must stay compact.');
-assert(icons.includes("scene.load.svg(UI_ICON_KEYS.lock, '/assets/ui/icons/lock.svg', rasterizeConfig);"), 'Lock icon must preload as a shared UI SVG.');
-assert(icons.includes("scene.load.svg(UI_ICON_KEYS.check, '/assets/ui/icons/check.svg', rasterizeConfig);"), 'Check icon must preload as a shared UI SVG.');
-assert(icons.includes("scene.load.svg(UI_ICON_KEYS.question, '/assets/ui/icons/question.svg', rasterizeConfig);"), 'Question icon must preload as a shared UI SVG.');
+assert(icons.includes("scene.load.svg(UI_ICON_KEYS.lock, 'assets/ui/icons/lock.svg', rasterizeConfig);"), 'Lock icon must preload as a shared UI SVG.');
+assert(icons.includes("scene.load.svg(UI_ICON_KEYS.check, 'assets/ui/icons/check.svg', rasterizeConfig);"), 'Check icon must preload as a shared UI SVG.');
+assert(icons.includes("scene.load.svg(UI_ICON_KEYS.question, 'assets/ui/icons/question.svg', rasterizeConfig);"), 'Question icon must preload as a shared UI SVG.');
 
 
 assert(layout.includes("const gapX = viewportClass === 'wide' ? 16 : 14;"), 'Desktop/landscape level cards need wider horizontal spacing.');
 assert(layout.includes("viewport.height >= 860 ? 34 : viewport.height >= 760 ? 28 : 20"), 'Desktop level groups need a larger reserved block gap around separators.');
 assert(layout.includes("const gapX = 16;"), 'Portrait level cards need 16px horizontal spacing.');
-assert(layout.includes("const gapY = 14;"), 'Portrait level rows need 14px vertical spacing.');
+assert(layout.includes("const gapY = 22;"), 'Portrait level rows need 22px vertical spacing.');
 assert(layout.includes("viewport.height < 620 ? 26 : 32"), 'Portrait 8-level blocks need a larger separator gap.');
 assert(scene.includes('const backingRadius = iconSize * 0.39;'), 'Completed check needs a dark backing only behind its transparent check cutout.');
 assert(scene.includes('this.add.circle(x, y, backingRadius, 0x0d1b2d, 1);'), 'Completed check backing must be fill-only with no outer stroke.');

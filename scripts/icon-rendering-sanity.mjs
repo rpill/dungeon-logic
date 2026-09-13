@@ -14,6 +14,6 @@ assert(mainSource.includes('antialiasGL: true'), 'WebGL antialiasing must be ena
 assert(commonIconsSource.includes('const UI_ICON_RASTER_SIZE = 96;'), 'Common UI SVG icons should rasterize at 96px.');
 assert(commonIconsSource.includes('rasterizeConfig'), 'Common UI SVG preload should use a shared rasterization config.');
 assert(homeMenuSource.includes('const HOME_MENU_ICON_RASTER_SIZE = 96;'), 'Home menu SVG icons should rasterize at 96px.');
-assert(homeMenuSource.includes("scene.load.svg('home-menu-icon-play', '/assets/ui/icons/play.svg', rasterizeConfig);"), 'Home menu icons must be loaded with the shared rasterization config.');
+assert(homeMenuSource.includes("scene.load.svg('home-menu-icon-play', 'assets/ui/icons/play.svg', rasterizeConfig);"), 'Home menu icons must be loaded with the shared rasterization config.');
 
 console.info('Icon rendering sanity: PASS');

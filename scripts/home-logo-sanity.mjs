@@ -10,11 +10,11 @@ const scriptDir = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = resolve(scriptDir, '..');
 const bootSource = readFileSync(resolve(projectRoot, 'src/scenes/BootScene.ts'), 'utf8');
 const homeSource = readFileSync(resolve(projectRoot, 'src/scenes/HomeScene.ts'), 'utf8');
-const logoPath = resolve(projectRoot, 'public/assets/logo.png');
+const logoPath = resolve(projectRoot, 'public/assets/logo.webp');
 
-assert(existsSync(logoPath), 'Home logo asset must exist at public/assets/logo.png.');
+assert(existsSync(logoPath), 'Home logo asset must exist at public/assets/logo.webp.');
 assert(
-  bootSource.includes("this.load.image('home-logo', '/assets/logo.png')"),
+  bootSource.includes("this.load.image('home-logo', 'assets/logo.webp')"),
   'BootScene must preload the home logo texture.',
 );
 assert(

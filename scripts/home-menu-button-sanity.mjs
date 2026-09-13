@@ -13,7 +13,7 @@ const homeSource = readFileSync(resolve(projectRoot, 'src/scenes/HomeScene.ts'),
 const rendererPath = resolve(projectRoot, 'src/runtime/HomeMenuButton.ts');
 
 const expectedAssets = [
-  'public/assets/ui/menu_button_fill.png',
+  'public/assets/ui/menu_button_fill.webp',
   'public/assets/ui/menu_button_frame_normal.png',
   'public/assets/ui/menu_button_frame_hover.png',
   'public/assets/ui/menu_button_frame_pressed.png',

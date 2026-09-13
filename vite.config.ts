@@ -145,6 +145,7 @@ function isNodeError(
 }
 
 export default defineConfig({
+  base: './',
   plugins: [
     generatedCandidatesDevPlugin(),
   ],

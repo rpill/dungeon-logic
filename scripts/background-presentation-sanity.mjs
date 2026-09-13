@@ -15,8 +15,8 @@ const backgroundSource = readFileSync(resolve(projectRoot, 'src/runtime/SceneBac
 const assetPlanSource = readFileSync(resolve(projectRoot, 'docs/visual/ASSET_PRODUCTION_PLAN.md'), 'utf8');
 
 const expectedAssets = [
-  'public/assets/backgrounds/meta/bg_meta_desktop.png',
-  'public/assets/backgrounds/meta/bg_meta_mobile.png',
+  'public/assets/backgrounds/meta/bg_meta_desktop.webp',
+  'public/assets/backgrounds/meta/bg_meta_mobile.webp',
 ];
 
 for (const relativePath of expectedAssets) {
@@ -49,7 +49,7 @@ assert(
 );
 assert(
   !backgroundSource.includes("'gameplay'") &&
-    !backgroundSource.includes('/assets/backgrounds/gameplay/') &&
+    !backgroundSource.includes('assets/backgrounds/gameplay/') &&
     !backgroundSource.includes('background-gameplay-'),
   'SceneBackground must expose only the shared meta background family.',
 );

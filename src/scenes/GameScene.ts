@@ -599,6 +599,8 @@ export class GameScene extends Phaser.Scene {
       disabled: boolean;
       hovered: boolean;
       pressed: boolean;
+      guided: boolean;
+      guidancePulseTween: Phaser.Tweens.Tween | null;
     };
     const toolbarVisuals = new Map<PuzzleToolbarButtonId, ToolbarVisual>();
     const toolbarIconKeys: Partial<Record<PuzzleToolbarButtonId, string>> = {
@@ -636,7 +638,43 @@ export class GameScene extends Phaser.Scene {
         visual.height,
         getToolbarRadius(visual.id),
       );
+      if (visual.guided && !visual.disabled) {
+        visual.background.lineStyle(3, 0xf0bd63, 0.98);
+        visual.background.strokeRoundedRect(
+          visual.hitArea.x - visual.width / 2 + 1.5,
+          visual.hitArea.y - visual.height / 2 + 1.5,
+          visual.width - 3,
+          visual.height - 3,
+          Math.max(2, getToolbarRadius(visual.id) - 1),
+        );
+      }
     };
+    const syncToolbarGuidancePulse = (visual: ToolbarVisual): void => {
+      const pulseTargets = visual.icon === null
+        ? [visual.background, visual.label]
+        : [visual.background, visual.label, visual.icon];
+
+      if (visual.guided && !visual.disabled) {
+        if (visual.guidancePulseTween === null) {
+          visual.guidancePulseTween = this.tweens.add({
+            targets: pulseTargets,
+            alpha: { from: 1, to: 0.5 },
+            duration: 560,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
+        return;
+      }
+
+      visual.guidancePulseTween?.stop();
+      visual.guidancePulseTween = null;
+      visual.background.setAlpha(1);
+      visual.label.setAlpha(1);
+      visual.icon?.setAlpha(visual.disabled ? 0.52 : 1);
+    };
+
     const fitToolbarLabelToButton = (
       visual: ToolbarVisual,
       width: number,
@@ -788,6 +826,7 @@ export class GameScene extends Phaser.Scene {
         onboardingPanel.setVisible(false);
         onboardingText.setVisible(false);
         board?.setTutorialCellTargets(null);
+        board?.setTutorialGuideClue(null);
         return;
       }
 
@@ -834,6 +873,7 @@ export class GameScene extends Phaser.Scene {
         .setVisible(true);
 
       board?.setTutorialCellTargets(step.cells, step.expectedState);
+      board?.setTutorialGuideClue(step.guideClue ?? null);
     };
 
     const controlsLocked = (): boolean => (
@@ -1014,28 +1054,29 @@ export class GameScene extends Phaser.Scene {
           || buttonState.disabled
           || (buttonState.id === 'reset' && !completedReview && interaction.getEditCount() === 0)
           || (buttonState.id === 'hint' && currentHint !== null);
-        const guided = onboardingOpen
+        const guided = showTouchToolButtons
+          && onboardingOpen
+          && !buttonState.active
           && step !== null
           && buttonState.id === step.expectedState;
         const fill = disabled
           ? 0x1a2238
           : buttonState.id === 'reset'
             ? 0xc96568
-            : guided
-              ? 0x8a5155
-              : isToolSelector
-                ? (buttonState.active ? 0x40577f : 0x18233a)
-                : 0x1f2c4a;
+            : isToolSelector
+              ? (buttonState.active ? 0x40577f : 0x18233a)
+              : 0x1f2c4a;
         const textColor = disabled
           ? '#6f788c'
           : guided
-            ? '#fff0e8'
+            ? '#fff3cc'
             : '#f4ead7';
         const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
         const buttonVisible = toolbarVisible && buttonLayout !== undefined;
 
         visual.baseFill = fill;
         visual.disabled = disabled;
+        visual.guided = guided;
         visual.pressed = false;
         visual.label.setText(buttonState.label).setColor(textColor);
         if (visual.icon !== null) {
@@ -1059,6 +1100,7 @@ export class GameScene extends Phaser.Scene {
         } else {
           redrawToolbarBackground(visual);
         }
+        syncToolbarGuidancePulse(visual);
 
         visual.background.setVisible(buttonVisible);
         visual.hitArea.setVisible(buttonVisible);
@@ -1468,6 +1510,7 @@ ${copy.game.featuresUnlocked}`
       board?.setHintCellTarget(null);
       board?.setInputCellTargets(null);
       board?.setTutorialCellTargets(null);
+      board?.setTutorialGuideClue(null);
       relayoutOnboarding();
       setToolbarVisible(false);
 
@@ -1690,6 +1733,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       onboardingBlocksTimer = false;
       board?.setInputCellTargets(null);
       board?.setTutorialCellTargets(null);
+      board?.setTutorialGuideClue(null);
       boardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve());
       board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       if (!solved && !resetDialogOpen) {
@@ -2170,6 +2214,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         disabled: buttonState.disabled,
         hovered: false,
         pressed: false,
+        guided: false,
+        guidancePulseTween: null,
       };
       hitArea
         .on('pointerover', () => {

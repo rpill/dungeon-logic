@@ -1,17 +1,17 @@
 import type Phaser from 'phaser';
 
 const BOARD_FLOOR_ASSETS = [
-  { key: 'board-floor-01', path: '/assets/floor/tile_floor_01.png' },
-  { key: 'board-floor-02', path: '/assets/floor/tile_floor_02.png' },
-  { key: 'board-floor-03', path: '/assets/floor/tile_floor_03.png' },
-  { key: 'board-floor-04', path: '/assets/floor/tile_floor_04.png' },
+  { key: 'board-floor-01', path: 'assets/floor/tile_floor_01.png' },
+  { key: 'board-floor-02', path: 'assets/floor/tile_floor_02.png' },
+  { key: 'board-floor-03', path: 'assets/floor/tile_floor_03.png' },
+  { key: 'board-floor-04', path: 'assets/floor/tile_floor_04.png' },
 ] as const;
 
 const BOARD_WALL_ASSETS = [
-  { key: 'board-wall-01', path: '/assets/wall/tile_wall_01.png' },
-  { key: 'board-wall-02', path: '/assets/wall/tile_wall_02.png' },
-  { key: 'board-wall-03', path: '/assets/wall/tile_wall_03.png' },
-  { key: 'board-wall-04', path: '/assets/wall/tile_wall_04.png' },
+  { key: 'board-wall-01', path: 'assets/wall/tile_wall_01.png' },
+  { key: 'board-wall-02', path: 'assets/wall/tile_wall_02.png' },
+  { key: 'board-wall-03', path: 'assets/wall/tile_wall_03.png' },
+  { key: 'board-wall-04', path: 'assets/wall/tile_wall_04.png' },
 ] as const;
 
 export const BOARD_FLOOR_TEXTURE_KEYS = BOARD_FLOOR_ASSETS.map(({ key }) => key);
@@ -39,5 +39,5 @@ export function resolveWallTextureKey(x: number, y: number): BoardWallTextureKey
 export function preloadBoardThemeAssets(scene: Phaser.Scene): void {
   BOARD_FLOOR_ASSETS.forEach(({ key, path }) => scene.load.image(key, path));
   BOARD_WALL_ASSETS.forEach(({ key, path }) => scene.load.image(key, path));
-  scene.load.image(BOARD_FLOOR_MARK_KEY, '/assets/mark.png');
+  scene.load.image(BOARD_FLOOR_MARK_KEY, 'assets/mark.png');
 }

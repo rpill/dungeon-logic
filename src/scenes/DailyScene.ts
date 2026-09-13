@@ -37,6 +37,7 @@ import {
 } from '../runtime/MetaScroll';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { createDailyLevelPreview } from '../runtime/DailyLevelPreview';
 import type { DailyProfileState } from '../profile/types';
 import { drawLevelThumbnail } from '../view/LevelThumbnailRenderer';
@@ -48,14 +49,19 @@ const CALENDAR_STATE_STYLE: Readonly<Record<DailyHubCalendarDayState, {
   readonly fill: number;
   readonly alpha: number;
   readonly stroke: number;
+  readonly strokeAlpha: number;
   readonly text: string;
 }>> = {
-  unavailable: { fill: 0x101a2c, alpha: 0.56, stroke: 0x2b3b55, text: '#52617a' },
-  'archive-unsolved': { fill: 0x17243d, alpha: 0.96, stroke: 0x8190aa, text: '#d8d1c4' },
-  'archive-solved': { fill: 0x17243d, alpha: 0.98, stroke: 0x73d0bd, text: '#73d0bd' },
-  today: { fill: 0x1f2c4a, alpha: 1, stroke: 0xf0bd63, text: '#f0bd63' },
-  future: { fill: 0x111a2d, alpha: 0.66, stroke: 0x34455f, text: '#65728a' },
+  unavailable: { fill: 0x0f1728, alpha: 0.3, stroke: 0x30415e, strokeAlpha: 0.42, text: '#52617a' },
+  'archive-unsolved': { fill: 0x142038, alpha: 0.94, stroke: 0xf4ead7, strokeAlpha: 0.9, text: '#f4ead7' },
+  'archive-solved': { fill: 0x15243d, alpha: 0.96, stroke: 0x73d0bd, strokeAlpha: 1, text: '#73d0bd' },
+  today: { fill: 0x1a2843, alpha: 0.98, stroke: 0xf0bd63, strokeAlpha: 1, text: '#f0bd63' },
+  future: { fill: 0x0f1728, alpha: 0.74, stroke: 0x7f8ba2, strokeAlpha: 0.72, text: '#7f8ba2' },
 };
+
+const DAILY_CARD_RADIUS = 8;
+const CURRENT_GLOW_TEXTURE_SCALE = 3;
+
 
 export class DailyScene extends Phaser.Scene {
   private launchPending = false;
@@ -350,28 +356,74 @@ export class DailyScene extends Phaser.Scene {
         const cellY = layout.gridTopY + layout.cellSize / 2 + row * layout.rowPitch;
         const numberY = cellY + layout.cellSize / 2 + layout.numberGap;
         const style = CALENDAR_STATE_STYLE[day.state];
-        const cell = this.add.rectangle(x, cellY, layout.cellSize, layout.cellSize, style.fill, style.alpha)
-          .setStrokeStyle(day.state === 'today' ? 2 : 1, style.stroke);
-        calendarContainer.add(cell);
+        const radius = Math.min(DAILY_CARD_RADIUS, Math.max(5, Math.floor(layout.cellSize * 0.14)));
 
-        if (day.entry !== null && day.state !== 'future' && day.state !== 'unavailable') {
+        if (day.state === 'today') {
+          this.drawDailyCurrentGlow(calendarContainer, x, cellY, layout.cellSize, style.stroke, radius);
+        }
+
+        this.drawRoundedDailyCard(
+          calendarContainer,
+          x,
+          cellY + 2,
+          layout.cellSize,
+          layout.cellSize,
+          0x040912,
+          day.state === 'unavailable' ? 0.1 : 0.2,
+          0x000000,
+          0,
+          0,
+          radius,
+        );
+        this.drawRoundedDailyCard(
+          calendarContainer,
+          x,
+          cellY,
+          layout.cellSize,
+          layout.cellSize,
+          style.fill,
+          style.alpha,
+          style.stroke,
+          style.strokeAlpha,
+          day.state === 'today' ? 3 : day.state === 'unavailable' ? 1.5 : 2.5,
+          radius,
+        );
+
+        let previewStatus: 'unstarted' | 'started' | 'completed' | null = null;
+
+        if (day.state === 'unavailable') {
+          // A calendar day without a released Daily stays intentionally empty.
+        } else if (day.state === 'future') {
+          const iconSize = Math.max(16, Math.floor(layout.cellSize * 0.34));
+          const lock = this.add.image(x, cellY, UI_ICON_KEYS.lock)
+            .setDisplaySize(iconSize, iconSize)
+            .setTint(0x7f8ba2)
+            .setAlpha(0.82);
+          calendarContainer.add(lock);
+        } else if (day.entry !== null) {
           const preview = createDailyLevelPreview(day.entry, dailyProfile);
+          previewStatus = preview.status;
+
           if (preview.status === 'unstarted') {
-            const veil = this.add.rectangle(
+            this.drawRoundedDailyCard(
+              calendarContainer,
               x,
               cellY,
-              Math.max(1, layout.cellSize - 4),
-              Math.max(1, layout.cellSize - 4),
-              0xf3eee5,
-              day.state === 'today' ? 0.1 : 0.08,
+              Math.max(1, layout.cellSize - 6),
+              Math.max(1, layout.cellSize - 6),
+              day.state === 'today' ? 0x324468 : 0x31425f,
+              day.state === 'today' ? 0.86 : 0.62,
+              0x000000,
+              0,
+              0,
+              Math.max(4, radius - 2),
             );
-            const question = this.add.text(x, cellY, '?', {
-              fontFamily: 'monospace',
-              fontSize: `${Math.max(layout.density === 'ultra' ? 11 : 14, Math.floor(layout.cellSize * 0.4))}px`,
-              color: day.state === 'today' ? '#f0bd63' : '#c9d0dc',
-              fontStyle: 'bold',
-            }).setOrigin(0.5);
-            calendarContainer.add([veil, question]);
+            const iconSize = Math.max(17, Math.floor(layout.cellSize * 0.36));
+            const question = this.add.image(x, cellY, UI_ICON_KEYS.question)
+              .setDisplaySize(iconSize, iconSize)
+              .setTint(day.state === 'today' ? 0xf0bd63 : 0xf4ead7)
+              .setAlpha(0.9);
+            calendarContainer.add(question);
           } else {
             const thumbnail = drawLevelThumbnail(
               this,
@@ -382,26 +434,41 @@ export class DailyScene extends Phaser.Scene {
             );
             calendarContainer.add(thumbnail);
           }
-        } else if (day.entry !== null && day.state === 'future') {
-          const question = this.add.text(x, cellY, '?', {
-            fontFamily: 'monospace',
-            fontSize: `${Math.max(layout.density === 'ultra' ? 10 : 13, Math.floor(layout.cellSize * 0.36))}px`,
-            color: '#65728a',
-            fontStyle: 'bold',
-          }).setOrigin(0.5);
-          calendarContainer.add(question);
+
+          // Redraw the rounded state border above the thumbnail so it stays crisp.
+          this.drawRoundedDailyCard(
+            calendarContainer,
+            x,
+            cellY,
+            layout.cellSize,
+            layout.cellSize,
+            0x000000,
+            0,
+            style.stroke,
+            style.strokeAlpha,
+            day.state === 'today' ? 3 : 2.5,
+            radius,
+          );
         }
 
         const playableDay = (day.state === 'today' || day.state === 'archive-unsolved' || day.state === 'archive-solved') && day.entry !== null;
-        const hoverOverlay = this.add.rectangle(
+        const hoverOverlay = this.drawRoundedDailyOverlay(
+          calendarContainer,
           x,
           cellY,
-          Math.max(1, layout.cellSize - 4),
-          Math.max(1, layout.cellSize - 4),
-          0x28395f,
-          0.22,
+          Math.max(1, layout.cellSize - 6),
+          Math.max(1, layout.cellSize - 6),
+          0x40577f,
+          0.16,
+          Math.max(4, radius - 2),
         ).setVisible(false);
-        calendarContainer.add(hoverOverlay);
+
+        if (day.state === 'today') {
+          this.drawDailyStateMarker(calendarContainer, x, cellY, layout.cellSize);
+        }
+        if (day.state === 'archive-solved' || previewStatus === 'completed') {
+          this.drawDailyCompletedCheck(calendarContainer, x, cellY, layout.cellSize);
+        }
 
         const number = this.add.text(x, numberY, String(day.day), {
           fontFamily: 'monospace',
@@ -411,39 +478,23 @@ export class DailyScene extends Phaser.Scene {
         }).setOrigin(0.5, 0);
         calendarContainer.add(number);
 
-        if (day.state === 'archive-solved') {
-          const markerInset = layout.density === 'ultra' ? 2 : 4;
-          const marker = this.add.text(
-            x + layout.cellSize / 2 - markerInset,
-            cellY - layout.cellSize / 2 + markerInset,
-            '✓',
-            {
-              fontFamily: 'monospace',
-              fontSize: layout.density === 'ultra' ? '7px' : narrow ? '9px' : '11px',
-              color: '#73d0bd',
-              fontStyle: 'bold',
-            },
-          ).setOrigin(1, 0);
-          calendarContainer.add(marker);
-        }
-
         if (playableDay) {
-          cell.setInteractive({ useHandCursor: true })
+          const cellHit = this.add.zone(x, cellY, layout.cellSize, layout.cellSize)
+            .setInteractive({ useHandCursor: true });
+          calendarContainer.add(cellHit);
+          cellHit
             .on('pointerover', () => {
-              hoverOverlay.setAlpha(0.22);
-              hoverOverlay.setVisible(true);
+              hoverOverlay.setAlpha(0.16).setVisible(true);
               getAudioFeedback(this).play('ui-hover');
             })
             .on('pointerout', () => {
               hoverOverlay.setVisible(false);
             })
             .on('pointerdown', () => {
-              hoverOverlay.setAlpha(0.34);
-              hoverOverlay.setVisible(true);
+              hoverOverlay.setAlpha(0.28).setVisible(true);
             })
             .on('pointerup', (pointer: Phaser.Input.Pointer) => {
-              hoverOverlay.setAlpha(0.22);
-              hoverOverlay.setVisible(true);
+              hoverOverlay.setAlpha(0.16).setVisible(true);
               if (!this.shouldActivatePointer(pointer)) return;
               getAudioFeedback(this).play('ui-click');
               void this.launchDaily(day.entry!);
@@ -464,6 +515,150 @@ export class DailyScene extends Phaser.Scene {
     };
 
     renderCalendarMonth();
+  }
+
+  private drawRoundedDailyCard(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fillColor: number,
+    fillAlpha: number,
+    strokeColor: number,
+    strokeAlpha: number,
+    strokeWidth: number,
+    radius: number,
+  ): Phaser.GameObjects.Graphics {
+    const graphics = this.add.graphics();
+    const left = x - width / 2;
+    const top = y - height / 2;
+    graphics.fillStyle(fillColor, fillAlpha);
+    graphics.fillRoundedRect(left, top, width, height, radius);
+    if (strokeWidth > 0 && strokeAlpha > 0) {
+      graphics.lineStyle(strokeWidth, strokeColor, strokeAlpha);
+      graphics.strokeRoundedRect(left, top, width, height, radius);
+    }
+    container.add(graphics);
+    return graphics;
+  }
+
+  private drawRoundedDailyOverlay(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fillColor: number,
+    fillAlpha: number,
+    radius: number,
+  ): Phaser.GameObjects.Graphics {
+    return this.drawRoundedDailyCard(
+      container,
+      x,
+      y,
+      width,
+      height,
+      fillColor,
+      fillAlpha,
+      fillColor,
+      0,
+      0,
+      radius,
+    );
+  }
+
+  private drawDailyCurrentGlow(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    size: number,
+    strokeColor: number,
+    radius: number,
+  ): void {
+    const padding = Math.max(22, Math.round(size * 0.42));
+    const logicalSize = Math.ceil(size + padding * 2);
+    const textureKey = `daily-current-glow-${Math.round(size)}-${strokeColor.toString(16)}`;
+
+    if (!this.textures.exists(textureKey)) {
+      const canvas = document.createElement('canvas');
+      canvas.width = logicalSize * CURRENT_GLOW_TEXTURE_SCALE;
+      canvas.height = logicalSize * CURRENT_GLOW_TEXTURE_SCALE;
+      const context = canvas.getContext('2d');
+      if (context !== null) {
+        context.scale(CURRENT_GLOW_TEXTURE_SCALE, CURRENT_GLOW_TEXTURE_SCALE);
+        const color = `#${strokeColor.toString(16).padStart(6, '0')}`;
+        context.fillStyle = color;
+        context.shadowColor = color;
+        context.shadowBlur = Math.max(17, size * 0.3) * CURRENT_GLOW_TEXTURE_SCALE;
+        context.globalAlpha = 0.64;
+        this.traceDailyRoundedCanvasRect(context, padding, padding, size, size, radius);
+        context.fill();
+        context.globalAlpha = 1;
+      }
+      this.textures.addCanvas(textureKey, canvas);
+    }
+
+    const glow = this.add.image(x, y, textureKey)
+      .setDisplaySize(logicalSize, logicalSize)
+      .setAlpha(0.8);
+    container.add(glow);
+  }
+
+  private traceDailyRoundedCanvasRect(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+  ): void {
+    const r = Math.min(radius, width / 2, height / 2);
+    context.beginPath();
+    context.moveTo(x + r, y);
+    context.lineTo(x + width - r, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + r);
+    context.lineTo(x + width, y + height - r);
+    context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    context.lineTo(x + r, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - r);
+    context.lineTo(x, y + r);
+    context.quadraticCurveTo(x, y, x + r, y);
+    context.closePath();
+  }
+
+  private drawDailyStateMarker(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    size: number,
+  ): void {
+    const marker = this.add.rectangle(
+      x,
+      y - size / 2 - Math.max(6, Math.round(size * 0.11)),
+      Math.max(6, Math.round(size * 0.12)),
+      Math.max(6, Math.round(size * 0.12)),
+      0xf0bd63,
+      0.96,
+    ).setRotation(Math.PI / 4);
+    container.add(marker);
+  }
+
+  private drawDailyCompletedCheck(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    size: number,
+  ): void {
+    const iconSize = Math.max(16, Math.floor(size * 0.31));
+    const iconX = x + size / 2 - 3;
+    const iconY = y + size / 2 - 3;
+    const backingRadius = iconSize * 0.39;
+    const backing = this.add.circle(iconX, iconY, backingRadius, 0x0d1b2d, 1);
+    const check = this.add.image(iconX, iconY, UI_ICON_KEYS.check)
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(0x73d0bd);
+    container.add([backing, check]);
   }
 
   private createTodayActionButton(

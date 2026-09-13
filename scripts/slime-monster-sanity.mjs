@@ -18,7 +18,7 @@ assert(
 for (let i = 1; i <= 4; i += 1) {
   const nn = String(i).padStart(2, '0');
   assert(
-    assets.includes(`{ key: 'monster-slime-${nn}', path: '/assets/monsters/slime_${nn}.png' }`),
+    assets.includes(`{ key: 'monster-slime-${nn}', path: 'assets/monsters/slime_${nn}.png' }`),
     `FixedObjectAssets must preload slime_${nn}.png.`,
   );
   assert(

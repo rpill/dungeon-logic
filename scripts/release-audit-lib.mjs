@@ -44,6 +44,9 @@ async function collectFiles(rootPath, currentPath = rootPath) {
 }
 
 function auditBuiltIndex(indexHtml) {
+  if (/\b(?:src|href)\s*=\s*["']\/assets\//iu.test(indexHtml)) {
+    throw new Error('Release index contains root-absolute /assets/ URLs; built JS/CSS must be package-relative for Yandex archive hosting.');
+  }
   if (indexHtml.includes(ABSOLUTE_YANDEX_SDK_HOST)) {
     throw new Error('Release index uses the forbidden absolute Yandex SDK S3 URL; archive deployment must use /sdk.js.');
   }

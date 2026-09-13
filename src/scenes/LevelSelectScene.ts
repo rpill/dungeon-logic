@@ -25,7 +25,9 @@ import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   clampMetaScrollY,
   getMetaScrollMaxY,
+  getMetaScrollVelocity,
   isMetaScrollDrag,
+  stepMetaScrollInertia,
 } from '../runtime/MetaScroll';
 import { calculateLevelSelectLayout, type LevelCardLayout, type LevelSelectLayout } from '../runtime/ResponsiveLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
@@ -79,6 +81,9 @@ export class LevelSelectScene extends Phaser.Scene {
   private scrollStartPointerY = 0;
   private scrollStartCameraY = 0;
   private scrollGestureDragged = false;
+  private scrollVelocityY = 0;
+  private lastScrollSampleY = 0;
+  private lastScrollSampleAtMs = 0;
   private lastDraggedPointerId: number | null = null;
   private lastDragEndedAtMs = 0;
   private readonly pointerGate = new MetaPointerGate();
@@ -94,6 +99,9 @@ export class LevelSelectScene extends Phaser.Scene {
     this.scrollMaxY = 0;
     this.scrollPointerId = null;
     this.scrollGestureDragged = false;
+    this.scrollVelocityY = 0;
+    this.lastScrollSampleY = 0;
+    this.lastScrollSampleAtMs = 0;
     this.lastDraggedPointerId = null;
     this.lastDragEndedAtMs = 0;
     this.cameras.main.setScroll(0, 0);
@@ -621,6 +629,7 @@ export class LevelSelectScene extends Phaser.Scene {
     scrollbar.thumbHitArea
       .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         wheelTargetY = camera.scrollY;
+        this.scrollVelocityY = 0;
         this.scrollPointerId = null;
         this.scrollGestureDragged = false;
         this.lastDraggedPointerId = pointer.id;
@@ -634,6 +643,8 @@ export class LevelSelectScene extends Phaser.Scene {
       });
 
     scrollbar.trackHitArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.scrollVelocityY = 0;
+      wheelTargetY = camera.scrollY;
       const thumbTop = scrollbar.thumbHitArea.y - scrollbar.thumbHeight / 2;
       const thumbBottom = scrollbar.thumbHitArea.y + scrollbar.thumbHeight / 2;
       if (pointer.y >= thumbTop && pointer.y <= thumbBottom) return;
@@ -646,6 +657,7 @@ export class LevelSelectScene extends Phaser.Scene {
       _deltaX: number,
       deltaY: number,
     ): void => {
+      this.scrollVelocityY = 0;
       const wheelStep = Phaser.Math.Clamp(
         deltaY * WHEEL_SCROLL_SCALE,
         -WHEEL_SCROLL_MAX_STEP,
@@ -655,6 +667,7 @@ export class LevelSelectScene extends Phaser.Scene {
     };
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       wheelTargetY = camera.scrollY;
+      this.scrollVelocityY = 0;
       if (pointer.x >= scrollbar.interactionLeft) {
         this.scrollPointerId = null;
         this.scrollGestureDragged = false;
@@ -664,14 +677,29 @@ export class LevelSelectScene extends Phaser.Scene {
       this.scrollStartPointerY = pointer.y;
       this.scrollStartCameraY = camera.scrollY;
       this.scrollGestureDragged = false;
+      this.lastScrollSampleY = pointer.y;
+      this.lastScrollSampleAtMs = performance.now();
     };
     const handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
       if (this.scrollPointerId !== pointer.id || !pointer.isDown) return;
+
+      const sampleAtMs = performance.now();
+      const sampleElapsedMs = sampleAtMs - this.lastScrollSampleAtMs;
+      const sampleVelocityY = getMetaScrollVelocity(
+        this.lastScrollSampleY,
+        pointer.y,
+        sampleElapsedMs,
+        this.scrollVelocityY,
+      );
+      this.lastScrollSampleY = pointer.y;
+      this.lastScrollSampleAtMs = sampleAtMs;
+
       if (!this.scrollGestureDragged) {
         this.scrollGestureDragged = isMetaScrollDrag(this.scrollStartPointerY, pointer.y);
       }
       if (!this.scrollGestureDragged) return;
 
+      this.scrollVelocityY = sampleVelocityY;
       const dragDelta = pointer.y - this.scrollStartPointerY;
       applyScrollY(this.scrollStartCameraY - dragDelta);
     };
@@ -680,12 +708,31 @@ export class LevelSelectScene extends Phaser.Scene {
       if (this.scrollGestureDragged) {
         this.lastDraggedPointerId = pointer.id;
         this.lastDragEndedAtMs = Date.now();
+        if (performance.now() - this.lastScrollSampleAtMs > 100) {
+          this.scrollVelocityY = 0;
+        }
+      } else {
+        this.scrollVelocityY = 0;
       }
       this.scrollPointerId = null;
       this.scrollGestureDragged = false;
     };
 
     const handleSmoothWheelUpdate = (_time: number, delta: number): void => {
+      if (this.scrollPointerId === null && this.scrollVelocityY !== 0) {
+        const inertia = stepMetaScrollInertia(
+          camera.scrollY,
+          this.scrollVelocityY,
+          delta,
+          this.scrollMaxY,
+        );
+        camera.scrollY = inertia.scrollY;
+        this.scrollVelocityY = inertia.velocityY;
+        wheelTargetY = camera.scrollY;
+        syncScrollbar();
+        return;
+      }
+
       const remaining = wheelTargetY - camera.scrollY;
       if (Math.abs(remaining) > WHEEL_SCROLL_SNAP_EPSILON) {
         const normalizedDelta = Math.max(0, delta) / (1000 / 60);

@@ -77,10 +77,10 @@ export function calculateDailyHubLayout(
         monthHeaderY: 150,
         weekdaysY: 166,
         gridTopY: 178,
-        columnGap: 5,
+        columnGap: 6,
         numberGap: 1,
         numberHeight: 7,
-        rowGap: 1,
+        rowGap: 3,
         outsideGap: 4,
         outsideHeight: 7,
         bottomMargin: 5,
@@ -100,10 +100,10 @@ export function calculateDailyHubLayout(
           monthHeaderY: 212,
           weekdaysY: 232,
           gridTopY: 248,
-          columnGap: 5,
+          columnGap: 7,
           numberGap: 2,
           numberHeight: 8,
-          rowGap: 2,
+          rowGap: 4,
           outsideGap: 5,
           outsideHeight: 8,
           bottomMargin: 8,
@@ -123,10 +123,10 @@ export function calculateDailyHubLayout(
             monthHeaderY: 286,
             weekdaysY: 310,
             gridTopY: 330,
-            columnGap: 7,
+            columnGap: 9,
             numberGap: 3,
             numberHeight: 9,
-            rowGap: 4,
+            rowGap: 6,
             outsideGap: 7,
             outsideHeight: 9,
             bottomMargin: 10,
@@ -145,10 +145,10 @@ export function calculateDailyHubLayout(
             monthHeaderY: 336,
             weekdaysY: 364,
             gridTopY: 386,
-            columnGap: 8,
+            columnGap: 10,
             numberGap: 4,
             numberHeight: 10,
-            rowGap: 6,
+            rowGap: 8,
             outsideGap: 8,
             outsideHeight: 10,
             bottomMargin: 12,
@@ -161,6 +161,7 @@ export function calculateDailyHubLayout(
     narrow ? 460 : 700,
   );
   const calendarWidth = Math.min(contentWidth, 680);
+  const rowGap = vertical.rowGap + (narrow ? 8 : 0);
   const maxCellFromWidth = Math.floor(
     (calendarWidth - vertical.columnGap * 6) / 7,
   );
@@ -170,7 +171,7 @@ export function calculateDailyHubLayout(
       - vertical.bottomMargin
       - vertical.gridTopY
       - rows * (vertical.numberGap + vertical.numberHeight)
-      - Math.max(0, rows - 1) * vertical.rowGap
+      - Math.max(0, rows - 1) * rowGap
       - vertical.outsideGap
       - vertical.outsideHeight
     ) / rows,
@@ -179,10 +180,10 @@ export function calculateDailyHubLayout(
     vertical.cellMin,
     Math.min(vertical.cellCap, maxCellFromWidth, maxCellFromHeight),
   );
-  const rowPitch = cellSize + vertical.numberGap + vertical.numberHeight + vertical.rowGap;
+  const rowPitch = cellSize + vertical.numberGap + vertical.numberHeight + rowGap;
   const calendarBottom = vertical.gridTopY
     + rows * (cellSize + vertical.numberGap + vertical.numberHeight)
-    + Math.max(0, rows - 1) * vertical.rowGap;
+    + Math.max(0, rows - 1) * rowGap;
   const outsideRatingY = calendarBottom + vertical.outsideGap;
   const contentBottom = outsideRatingY + vertical.outsideHeight + vertical.bottomMargin;
 
@@ -206,7 +207,7 @@ export function calculateDailyHubLayout(
     cellSize,
     numberGap: vertical.numberGap,
     numberHeight: vertical.numberHeight,
-    rowGap: vertical.rowGap,
+    rowGap,
     rowPitch,
     calendarBottom,
     outsideRatingY,

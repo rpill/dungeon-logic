@@ -18,7 +18,7 @@ async function writeValidRelease(root) {
   await mkdir(join(root, 'assets'), { recursive: true });
   await writeFile(
     join(root, 'index.html'),
-    '<!doctype html><html><head><script src="/sdk.js"></script><script type="module" src="/assets/app.js"></script></head><body></body></html>',
+    '<!doctype html><html><head><script src="/sdk.js"></script><script type="module" src="./assets/app.js"></script></head><body></body></html>',
     'utf8',
   );
   await writeFile(join(root, 'assets', 'app.js'), 'console.log("ok")', 'utf8');
@@ -26,6 +26,7 @@ async function writeValidRelease(root) {
 
 
 const requiredReleaseSanities = [
+  'sanity:yandex-paths',
   'sanity:platform',
   'sanity:platform-gameplay',
   'sanity:i18n',
@@ -92,6 +93,22 @@ try {
   assert.equal(validSummary.fileCount, 2, 'Valid release reports every file.');
   assert(validSummary.totalBytes > 0, 'Valid release reports non-zero size.');
 
+
+  const rootAbsoluteApp = join(workspace, 'root-absolute-app');
+  await mkdir(join(rootAbsoluteApp, 'assets'), { recursive: true });
+  await writeFile(
+    join(rootAbsoluteApp, 'index.html'),
+    '<!doctype html><html><head><script src="/sdk.js"></script><link rel="stylesheet" href="/assets/app.css"><script type="module" src="/assets/app.js"></script></head></html>',
+    'utf8',
+  );
+  await writeFile(join(rootAbsoluteApp, 'assets', 'app.js'), '', 'utf8');
+  await writeFile(join(rootAbsoluteApp, 'assets', 'app.css'), '', 'utf8');
+  await expectFailure(
+    rootAbsoluteApp,
+    /root-absolute.*assets|package-relative/i,
+    'Built app JS/CSS must be package-relative for Yandex archive hosting.',
+  );
+
   const missingIndex = join(workspace, 'missing-index');
   await mkdir(missingIndex, { recursive: true });
   await writeFile(join(missingIndex, 'app.js'), '', 'utf8');
@@ -118,7 +135,7 @@ try {
   await mkdir(join(viteHoistedOrder, 'assets'), { recursive: true });
   await writeFile(
     join(viteHoistedOrder, 'index.html'),
-    '<!doctype html><html><head><script type="module" src="/assets/app.js"></script><script src="/sdk.js"></script></head></html>',
+    '<!doctype html><html><head><script type="module" src="./assets/app.js"></script><script src="/sdk.js"></script></head></html>',
     'utf8',
   );
   await writeFile(join(viteHoistedOrder, 'assets', 'app.js'), '', 'utf8');
@@ -128,7 +145,7 @@ try {
   await mkdir(join(asyncSdk, 'assets'), { recursive: true });
   await writeFile(
     join(asyncSdk, 'index.html'),
-    '<!doctype html><html><head><script async src="/sdk.js"></script><script type="module" src="/assets/app.js"></script></head></html>',
+    '<!doctype html><html><head><script async src="/sdk.js"></script><script type="module" src="./assets/app.js"></script></head></html>',
     'utf8',
   );
   await writeFile(join(asyncSdk, 'assets', 'app.js'), '', 'utf8');
@@ -138,7 +155,7 @@ try {
   await mkdir(join(absoluteSdk, 'assets'), { recursive: true });
   await writeFile(
     join(absoluteSdk, 'index.html'),
-    '<!doctype html><html><head><script src="https://sdk.games.s3.yandex.net/sdk.js"></script><script type="module" src="/assets/app.js"></script></head></html>',
+    '<!doctype html><html><head><script src="https://sdk.games.s3.yandex.net/sdk.js"></script><script type="module" src="./assets/app.js"></script></head></html>',
     'utf8',
   );
   await writeFile(join(absoluteSdk, 'assets', 'app.js'), '', 'utf8');

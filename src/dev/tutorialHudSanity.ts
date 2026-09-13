@@ -9,17 +9,29 @@ const boardViewSource = readFileSync(new URL('../board/BoardView.ts', import.met
 const cellViewSource = readFileSync(new URL('../board/CellView.ts', import.meta.url), 'utf8');
 
 assert(boardViewSource.includes('setTutorialCellTargets('), 'BoardView exposes tutorial target previews.');
-assert(cellViewSource.includes('guidanceWallGhost'), 'Tutorial can render a semi-transparent wall preview.');
-assert(cellViewSource.includes('guidanceFloorGhost'), 'Tutorial can render a floor marker preview.');
-assert(cellViewSource.includes('this.state !== guidanceState'), 'A completed tutorial target hides immediately per cell.');
-assert(cellViewSource.includes('guidancePulseTween'), 'Tutorial target previews own a pulsing tween.');
-assert(cellViewSource.includes('scene.tweens.add'), 'Tutorial target previews actually animate.');
-assert(cellViewSource.includes('setTint(0xd54a42)'), 'Tutorial floor targets use the red/coral gameplay accent.');
-assert(!gameSceneSource.includes('onboardingGuides'), 'Tutorial must not draw rectangular clue guide overlays.');
-assert(!gameSceneSource.includes('onboardingActionText'), 'Tutorial must not render obsolete secondary gold-cell instructions.');
-assert(!gameSceneSource.includes('const onboardingActionBadge'), 'Tutorial guidance has no oversized secondary action badge.');
-assert(gameSceneSource.includes('narrowScreen ? 344 : 500'), 'Tutorial guidance panel stays compact.');
-assert(gameSceneSource.includes('getOnboardingBottomReserve'), 'Tutorial panel receives dedicated layout space above the toolbar.');
-assert(gameSceneSource.includes('board?.setTutorialCellTargets(step.cells, step.expectedState);'), 'GameScene maps each tutorial step to board ghost targets.');
+assert(boardViewSource.includes('setTutorialGuideClue('), 'BoardView can guide the relevant row or column clue during onboarding.');
+assert(boardViewSource.includes('guideCluePulseTween'), 'The active tutorial row/column clue visibly pulses.');
+assert(boardViewSource.includes("? '#f0d28a'"), 'The guided clue uses the warm tutorial gold accent.');
 
-console.info('[Dungeon Logic] Tutorial HUD sanity: compact callout + individual pulsing targets passed');
+assert(cellViewSource.includes('guidanceWallGhost'), 'Tutorial WALL cells keep the original shared ghost preview.');
+assert(cellViewSource.includes('guidanceFloorGhost'), 'Tutorial FLOOR cells keep the original shared floor-mark preview.');
+assert(cellViewSource.includes('const guidanceState = this.tutorialTargetState ?? this.hintState;'), 'Tutorial and hint targets keep the original shared guidance renderer.');
+assert(cellViewSource.includes('this.state !== guidanceState'), 'A completed guidance target hides immediately per cell.');
+assert(cellViewSource.includes('guidancePulseTween'), 'Original board guidance continues to pulse.');
+assert(cellViewSource.includes('setTint(0xd54a42)'), 'Original FLOOR guidance keeps its gameplay floor-mark tint.');
+assert(!cellViewSource.includes('tutorialHighlight'), 'Tutorial must not replace board guidance with a new highlight layer.');
+assert(!cellViewSource.includes('tutorialWallGhost'), 'Tutorial must not replace the original wall ghost.');
+assert(!cellViewSource.includes('tutorialFloorBadge'), 'Tutorial must not replace the original floor mark.');
+
+assert(gameSceneSource.includes('guided: boolean;'), 'Toolbar visuals track guided state separately from active/selected state.');
+assert(gameSceneSource.includes('guidancePulseTween: Phaser.Tweens.Tween | null;'), 'Guided touch tool buttons own a pulse tween.');
+assert(gameSceneSource.includes('showTouchToolButtons\n          && onboardingOpen\n          && !buttonState.active'), 'Tutorial tool guidance is limited to touch WALL/FLOOR controls.');
+assert(gameSceneSource.includes('syncToolbarGuidancePulse(visual);'), 'Toolbar sync starts and stops the guidance pulse.');
+assert(gameSceneSource.includes('if (visual.guided && !visual.disabled)'), 'Guided tool selector uses a separate visual treatment.');
+assert(gameSceneSource.includes('lineStyle(3, 0xf0bd63'), 'Guided tool selector uses a gold outline rather than a selected-looking fill.');
+assert(gameSceneSource.includes("buttonState.active ? 0x40577f : 0x18233a"), 'Actual selected tool keeps the normal blue active fill.');
+assert(gameSceneSource.includes('visual.guided = guided;'), 'Toolbar sync applies tutorial guidance independently from active state.');
+assert(gameSceneSource.includes('board?.setTutorialCellTargets(step.cells, step.expectedState);'), 'GameScene maps each tutorial step to board guidance targets.');
+assert(gameSceneSource.includes('board?.setTutorialGuideClue(step.guideClue ?? null);'), 'GameScene syncs clue pulsing with the active tutorial step.');
+
+console.info('[Dungeon Logic] Tutorial HUD sanity: original board guidance + clue pulse + touch tool pulse passed');

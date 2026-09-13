@@ -41,21 +41,32 @@ import {
 } from '../runtime/LaunchRouting';
 
 export class BootScene extends Phaser.Scene {
+  private readonly failedBootAssetKeys = new Set<string>();
+
   constructor() {
     super('BootScene');
   }
 
   preload(): void {
+    this.failedBootAssetKeys.clear();
+    this.load.on('loaderror', this.handleBootAssetLoadError, this);
+
     preloadSceneBackgrounds(this);
     preloadAudioFeedbackAssets(this);
     preloadHomeMenuAssets(this);
     preloadCommonUiIcons(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
-    this.load.image('home-logo', '/assets/logo.png');
+    this.load.image('home-logo', 'assets/logo.webp');
   }
 
   create(): void {
+    this.load.off('loaderror', this.handleBootAssetLoadError, this);
+    if (this.failedBootAssetKeys.size > 0) {
+      this.renderLoadFailure();
+      return;
+    }
+
     const hostname = window.location.hostname;
     const isLocalDevelopment = hostname === 'localhost' || hostname === '127.0.0.1';
 
@@ -66,6 +77,64 @@ export class BootScene extends Phaser.Scene {
     }
 
     void this.routeLaunch();
+  }
+
+
+  private handleBootAssetLoadError(file: Phaser.Loader.File): void {
+    const key = String(file.key ?? 'unknown');
+    this.failedBootAssetKeys.add(key);
+    console.error(`[Dungeon Logic] Required boot asset failed to load: ${key}`);
+  }
+
+  private renderLoadFailure(): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const narrow = width < 700;
+    const russian = typeof navigator !== 'undefined'
+      && navigator.language.toLowerCase().startsWith('ru');
+    const title = russian ? 'Не удалось загрузить игру' : 'Could not load the game';
+    const details = russian
+      ? 'Проверьте соединение и попробуйте ещё раз.'
+      : 'Check your connection and try again.';
+    const retryLabel = russian ? 'ПОВТОРИТЬ' : 'RETRY';
+
+    this.cameras.main.setBackgroundColor('#111318');
+    this.add.text(width / 2, height / 2 - (narrow ? 70 : 82), title, {
+      fontFamily: 'monospace',
+      fontSize: `${narrow ? 24 : 32}px`,
+      color: '#f2e7d5',
+      fontStyle: 'bold',
+      align: 'center',
+      wordWrap: { width: Math.max(240, width - 48) },
+    }).setOrigin(0.5);
+
+    this.add.text(width / 2, height / 2 - (narrow ? 20 : 24), details, {
+      fontFamily: 'monospace',
+      fontSize: `${narrow ? 14 : 17}px`,
+      color: '#aebbd0',
+      align: 'center',
+      wordWrap: { width: Math.max(240, width - 64) },
+    }).setOrigin(0.5);
+
+    const buttonWidth = Math.min(narrow ? 220 : 260, Math.max(180, width - 56));
+    const buttonHeight = narrow ? 48 : 54;
+    const buttonY = height / 2 + (narrow ? 58 : 70);
+    const button = this.add.rectangle(width / 2, buttonY, buttonWidth, buttonHeight, 0x1d2b4b, 1)
+      .setStrokeStyle(2, 0xf0bd63, 1)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add.text(width / 2, buttonY, retryLabel, {
+      fontFamily: 'monospace',
+      fontSize: `${narrow ? 17 : 19}px`,
+      color: '#f0bd63',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+
+    const reload = (): void => window.location.reload();
+    button.on('pointerover', () => button.setFillStyle(0x2a3d66, 1));
+    button.on('pointerout', () => button.setFillStyle(0x1d2b4b, 1));
+    button.on('pointerdown', () => button.setFillStyle(0x17243e, 1));
+    button.on('pointerup', reload);
+    label.setInteractive({ useHandCursor: true }).on('pointerup', reload);
   }
 
   private async routeLaunch(): Promise<void> {

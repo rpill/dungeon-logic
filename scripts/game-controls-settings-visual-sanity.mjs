@@ -48,6 +48,6 @@ assert(game.includes("'ui-icon-menu'"), 'GameScene must use the prepared menu ic
 assert(game.includes(".setTint(0xf4ead7)"), 'Top navigation icons must use the bright cream tint.');
 const uiIcons = fs.readFileSync(new URL('../src/runtime/UiIcons.ts', import.meta.url), 'utf8');
 assert(uiIcons.includes("menu: 'ui-icon-menu'"), 'Common UI icons must register the menu icon.');
-assert(uiIcons.includes("/assets/ui/icons/menu.svg"), 'Common UI icons must preload menu.svg.');
+assert(uiIcons.includes("assets/ui/icons/menu.svg"), 'Common UI icons must preload menu.svg.');
 
 console.info('[Dungeon Logic] Game controls + Settings visual sanity: PASS');
