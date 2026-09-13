@@ -11,7 +11,8 @@ const cellViewSource = readFileSync(new URL('../board/CellView.ts', import.meta.
 assert(boardViewSource.includes('setTutorialCellTargets('), 'BoardView exposes tutorial target previews.');
 assert(boardViewSource.includes('setTutorialGuideClue('), 'BoardView can guide the relevant row or column clue during onboarding.');
 assert(boardViewSource.includes('guideCluePulseTween'), 'The active tutorial row/column clue visibly pulses.');
-assert(boardViewSource.includes("? '#f0d28a'"), 'The guided clue uses the warm tutorial gold accent.');
+assert(!boardViewSource.includes("'#f0d28a'"), 'Guided clues keep the normal gameplay clue colors; tutorial adds no gold clue state.');
+assert(!boardViewSource.includes('isGuideClue('), 'Tutorial guidance must not override clue color state.');
 
 assert(cellViewSource.includes('guidanceWallGhost'), 'Tutorial WALL cells keep the original shared ghost preview.');
 assert(cellViewSource.includes('guidanceFloorGhost'), 'Tutorial FLOOR cells keep the original shared floor-mark preview.');
@@ -22,6 +23,11 @@ assert(cellViewSource.includes('setTint(0xd54a42)'), 'Original FLOOR guidance ke
 assert(!cellViewSource.includes('tutorialHighlight'), 'Tutorial must not replace board guidance with a new highlight layer.');
 assert(!cellViewSource.includes('tutorialWallGhost'), 'Tutorial must not replace the original wall ghost.');
 assert(!cellViewSource.includes('tutorialFloorBadge'), 'Tutorial must not replace the original floor mark.');
+
+assert(gameSceneSource.includes("import { WIREFRAME } from '../board/CellView';"), 'Toolbar can size the FLOOR icon from the exact board mark geometry.');
+assert(cellViewSource.includes('const visualSize = Math.max(1, size - WIREFRAME.gap);'), 'Placed FLOOR mark uses cell visual size.');
+assert(gameSceneSource.includes('const floorMarkIconSize = Math.max(1, boardLayout.cellSize - WIREFRAME.gap);'), 'Mobile FLOOR button icon matches the placed board mark display size.');
+assert(gameSceneSource.includes("visual.id === 'floor'\n          ? floorMarkIconSize"), 'FLOOR toolbar icon uses the board mark size instead of a small fixed icon.');
 
 assert(gameSceneSource.includes('guided: boolean;'), 'Toolbar visuals track guided state separately from active/selected state.');
 assert(gameSceneSource.includes('guidancePulseTween: Phaser.Tweens.Tween | null;'), 'Guided touch tool buttons own a pulse tween.');

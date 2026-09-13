@@ -9,6 +9,7 @@ import {
 import { PuzzleAnalyticsSession, classifyPuzzleAttempt } from '../analytics/PuzzleAnalyticsSession';
 import { NOOP_ANALYTICS_TRANSPORT } from '../analytics/AnalyticsTransport';
 import { BoardView } from '../board/BoardView';
+import { WIREFRAME } from '../board/CellView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type {
   CampaignCompletionMetadata,
@@ -705,10 +706,11 @@ export class GameScene extends Phaser.Scene {
       visual.height = height;
       visual.hitArea.setPosition(x, y).setSize(width, height);
       const narrowToolbar = this.scale.width < 700;
+      const floorMarkIconSize = Math.max(1, boardLayout.cellSize - WIREFRAME.gap);
       const iconSize = visual.id === 'wall'
         ? (narrowToolbar ? 30 : 34)
         : visual.id === 'floor'
-          ? (narrowToolbar ? 26 : 30)
+          ? floorMarkIconSize
           : (narrowToolbar ? 22 : 28);
       if (visual.icon === null) {
         visual.label.setPosition(x, y).setOrigin(0.5);

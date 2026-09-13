@@ -10,7 +10,8 @@ const cellViewSource = readFileSync(new URL('../src/board/CellView.ts', import.m
 
 assert(boardViewSource.includes('setTutorialGuideClue('), 'Tutorial must guide the relevant row/column clue.');
 assert(boardViewSource.includes('guideCluePulseTween'), 'Guided clue must pulse.');
-assert(boardViewSource.includes("? '#f0d28a'"), 'Guided clue must use tutorial gold.');
+assert(!boardViewSource.includes("'#f0d28a'"), 'Guided clue must keep the normal red/gray gameplay color state.');
+assert(!boardViewSource.includes('isGuideClue('), 'Tutorial guidance must not override clue color state.');
 assert(gameSceneSource.includes('board?.setTutorialGuideClue(step.guideClue ?? null);'), 'Active onboarding step must drive clue guidance.');
 
 assert(cellViewSource.includes('guidanceWallGhost'), 'Tutorial WALL cells must keep the original shared ghost preview.');
@@ -22,6 +23,11 @@ assert(cellViewSource.includes('setTint(0xd54a42)'), 'Original FLOOR guidance mu
 assert(!cellViewSource.includes('tutorialHighlight'), 'Do not replace board guidance with a new tutorial-only highlight layer.');
 assert(!cellViewSource.includes('tutorialWallGhost'), 'Do not replace the original wall ghost with a tutorial-only variant.');
 assert(!cellViewSource.includes('tutorialFloorBadge'), 'Do not replace the original floor mark with a tutorial-only badge.');
+
+assert(gameSceneSource.includes("import { WIREFRAME } from '../board/CellView';"), 'Toolbar must use the exact board mark geometry for FLOOR icon sizing.');
+assert(cellViewSource.includes('const visualSize = Math.max(1, size - WIREFRAME.gap);'), 'Placed FLOOR mark must use cell visual size.');
+assert(gameSceneSource.includes('const floorMarkIconSize = Math.max(1, boardLayout.cellSize - WIREFRAME.gap);'), 'FLOOR tool icon must match the placed board mark display size.');
+assert(gameSceneSource.includes("visual.id === 'floor'\n          ? floorMarkIconSize"), 'FLOOR toolbar icon must not use the old small fixed size.');
 
 assert(gameSceneSource.includes('guided: boolean;'), 'Toolbar guidance state must stay separate from selected state.');
 assert(gameSceneSource.includes('guidancePulseTween: Phaser.Tweens.Tween | null;'), 'Guided mobile tool buttons must own a pulse tween.');

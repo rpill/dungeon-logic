@@ -271,10 +271,6 @@ export class BoardView {
       : this.columnClues[guideClue.index] ?? null;
   }
 
-  private isGuideClue(axis: 'row' | 'column', index: number): boolean {
-    return this.tutorialGuideClue?.axis === axis && this.tutorialGuideClue.index === index;
-  }
-
   private createCells(): void {
     const level = this.puzzle.level;
 
@@ -442,22 +438,18 @@ export class BoardView {
     for (let y = 0; y < level.height; y += 1) {
       const complete = this.puzzle.getRowWallCount(y) === level.rowClues[y];
       this.rowClues[y].setColor(
-        this.isGuideClue('row', y)
-          ? '#f0d28a'
-          : complete
-            ? WIREFRAME.clueComplete
-            : WIREFRAME.clueActive,
+        complete
+          ? WIREFRAME.clueComplete
+          : WIREFRAME.clueActive,
       );
     }
 
     for (let x = 0; x < level.width; x += 1) {
       const complete = this.puzzle.getColumnWallCount(x) === level.columnClues[x];
       this.columnClues[x].setColor(
-        this.isGuideClue('column', x)
-          ? '#f0d28a'
-          : complete
-            ? WIREFRAME.clueComplete
-            : WIREFRAME.clueActive,
+        complete
+          ? WIREFRAME.clueComplete
+          : WIREFRAME.clueActive,
       );
     }
   }
