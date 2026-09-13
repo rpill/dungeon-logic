@@ -7,7 +7,11 @@ import type { PlayerSettings } from '../profile/types';
 export type { SupportedLanguage } from '../i18n/Language';
 
 export class SettingsService {
-  constructor(private readonly profileService: PlayerProfileService) {}
+  private readonly profileService: PlayerProfileService;
+
+  constructor(profileService: PlayerProfileService) {
+    this.profileService = profileService;
+  }
 
   getSettings(): PlayerSettings {
     return this.profileService.getProfile().settings;

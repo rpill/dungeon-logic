@@ -37,6 +37,7 @@ const HOME_FRAME_SLICE_X = 48;
 const HOME_FRAME_SLICE_Y = 24;
 const HOME_PROGRESS_TRACK_FILL = 0x1f4375;
 const HOME_PROGRESS_FILL = 0xf0bd63;
+const HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY = 'home-bottom-reserved-px';
 
 const HOME_CARD_ICON_KEYS = {
   play: 'home-menu-icon-play',
@@ -69,6 +70,13 @@ interface HomeHubCardOptions {
 
 interface HomeHubCardHandle {
   destroy(): void;
+}
+
+interface HomeSettingsButtonOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+  readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
 }
 
 export class HomeScene extends Phaser.Scene {
@@ -115,16 +123,9 @@ export class HomeScene extends Phaser.Scene {
       0,
     );
 
-    const logoWidth = Math.min(
-      narrow ? this.scale.width - 68 : this.scale.width * 0.42,
-      narrow ? 330 : 540,
-    );
-    const logoY = narrow
-      ? (compactHeight ? 62 : 78)
-      : (compactHeight ? 66 : 86);
-    const logo = this.add.image(this.scale.width / 2, logoY, 'home-logo').setOrigin(0.5);
+    const centerX = this.scale.width / 2;
+    const logo = this.add.image(centerX, 0, 'home-logo').setOrigin(0.5);
     const logoAspect = logo.width / logo.height;
-    logo.setDisplaySize(logoWidth, logoWidth / logoAspect);
 
     const homeHeaderActionMetrics = getHeaderActionButtonMetrics(narrow);
     const homeHeaderInset = narrow ? 16 : 28;
@@ -132,39 +133,90 @@ export class HomeScene extends Phaser.Scene {
       x: this.scale.width - homeHeaderInset - homeHeaderActionMetrics.iconButtonSize / 2,
       y: homeHeaderInset + homeHeaderActionMetrics.iconButtonSize / 2,
       size: homeHeaderActionMetrics.iconButtonSize,
-      onActivate: (pointer) => {
+      onActivate: (pointer: Phaser.Input.Pointer) => {
         if (!this.pointerGate.canActivate(pointer.id)) return;
         this.scene.start(SETTINGS_SCENE_KEY);
       },
     });
 
-    const centerX = this.scale.width / 2;
-    const cardGap = narrow ? 10 : 16;
-    const primaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
-    const mobileTileHeight = compactHeight ? 102 : 116;
-    const wideHeight = narrow ? (compactHeight ? 72 : 82) : (compactHeight ? 80 : 96);
-    const rowGap = narrow ? (compactHeight ? 10 : 14) : (compactHeight ? 12 : 16);
+    // Build Home as one cohesive stack. The whole stack is centered inside the
+    // usable viewport and scales down together on short screens instead of
+    // letting the bottom cards clip. A future sticky banner can reserve space
+    // by setting HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY before entering Home.
+    const naturalCardGap = narrow ? 10 : 16;
+    const naturalPrimaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
+    const naturalMobileTileHeight = compactHeight ? 102 : 116;
+    const naturalWideHeight = narrow ? (compactHeight ? 72 : 82) : (compactHeight ? 80 : 96);
+    const cardSectionGap = narrow ? (compactHeight ? 10 : 12) : (compactHeight ? 10 : 14);
+    const logoToPrimaryGap = narrow ? (compactHeight ? 18 : 22) : (compactHeight ? 18 : 24);
 
-    const logoBottom = logoY + logo.displayHeight / 2;
-    const primaryLead = narrow ? (compactHeight ? 36 : 52) : (compactHeight ? 32 : 46);
-    const desktopTileSide = narrow
-      ? 0
-      : Math.max(180, Math.min(
-        260,
-        (this.scale.width - 72 - cardGap) / 2,
-        this.scale.height - 24 - logoBottom - primaryLead - primaryHeight - (rowGap * 2) - wideHeight,
-      ));
-    const contentWidth = narrow
+    const naturalDesktopTileSide = Math.max(200, Math.min(
+      260,
+      (this.scale.width - 80 - naturalCardGap) / 2,
+    ));
+    const naturalContentWidth = narrow
       ? Math.min(this.scale.width - 28, 390)
-      : (desktopTileSide * 2) + cardGap;
-    const tileWidth = (contentWidth - cardGap) / 2;
-    const tileHeight = narrow
-      ? mobileTileHeight
-      : tileWidth;
+      : (naturalDesktopTileSide * 2) + naturalCardGap;
+    const naturalTileWidth = (naturalContentWidth - naturalCardGap) / 2;
+    const naturalTileHeight = narrow
+      ? naturalMobileTileHeight
+      : naturalTileWidth;
+    const naturalLogoWidth = narrow
+      ? Math.min(naturalContentWidth * 0.88, 330)
+      : Math.min(naturalContentWidth * 0.94, 500);
+    const naturalLogoHeight = naturalLogoWidth / logoAspect;
+    const naturalStackHeight = naturalLogoHeight
+      + logoToPrimaryGap
+      + naturalPrimaryHeight
+      + cardSectionGap
+      + naturalTileHeight
+      + cardSectionGap
+      + naturalWideHeight;
 
-    const primaryY = logoBottom + primaryLead + primaryHeight / 2;
-    const tileY = primaryY + primaryHeight / 2 + rowGap + tileHeight / 2;
-    const wideY = tileY + tileHeight / 2 + rowGap + wideHeight / 2;
+    const reservedBottomRaw = this.registry.get(HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY) as unknown;
+    const reservedBottom = typeof reservedBottomRaw === 'number' && Number.isFinite(reservedBottomRaw)
+      ? Math.max(0, reservedBottomRaw)
+      : 0;
+    const topSafeInset = narrow ? 14 : 20;
+    const bottomSafeInset = (narrow ? 18 : 24) + reservedBottom;
+    const availableHeight = Math.max(1, this.scale.height - topSafeInset - bottomSafeInset);
+    const stackScale = Math.min(1, availableHeight / naturalStackHeight);
+
+    const contentWidth = naturalContentWidth * stackScale;
+    const cardGap = naturalCardGap * stackScale;
+    const primaryHeight = naturalPrimaryHeight * stackScale;
+    const tileWidth = naturalTileWidth * stackScale;
+    const tileHeight = naturalTileHeight * stackScale;
+    const wideHeight = naturalWideHeight * stackScale;
+    const scaledLogoWidth = naturalLogoWidth * stackScale;
+    const scaledLogoHeight = naturalLogoHeight * stackScale;
+    const scaledLogoGap = logoToPrimaryGap * stackScale;
+    const scaledCardSectionGap = cardSectionGap * stackScale;
+    const scaledStackHeight = naturalStackHeight * stackScale;
+
+    const desiredCenterRatio = narrow ? 0.47 : 0.5;
+    const desiredCenterY = topSafeInset + availableHeight * desiredCenterRatio;
+    const minCenterY = topSafeInset + scaledStackHeight / 2;
+    const maxCenterY = this.scale.height - bottomSafeInset - scaledStackHeight / 2;
+    const stackCenterY = Phaser.Math.Clamp(desiredCenterY, minCenterY, maxCenterY);
+    const stackTop = stackCenterY - scaledStackHeight / 2;
+
+    const logoY = stackTop + scaledLogoHeight / 2;
+    const primaryY = stackTop
+      + scaledLogoHeight
+      + scaledLogoGap
+      + primaryHeight / 2;
+    const tileY = primaryY
+      + primaryHeight / 2
+      + scaledCardSectionGap
+      + tileHeight / 2;
+    const wideY = tileY
+      + tileHeight / 2
+      + scaledCardSectionGap
+      + wideHeight / 2;
+
+    logo.setPosition(centerX, logoY);
+    logo.setDisplaySize(scaledLogoWidth, scaledLogoHeight);
 
     const primary = this.resolvePrimaryCard(campaign, tutorial, action, completedCampaign, levels.length, copy);
     createHomeHubCard(this, {

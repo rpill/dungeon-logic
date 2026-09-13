@@ -18,17 +18,21 @@ assert(
   'BootScene must preload the home logo texture.',
 );
 assert(
-  homeSource.includes("this.add.image(this.scale.width / 2, logoY, 'home-logo')"),
-  'HomeScene must render the logo image centered at logoY.',
+  homeSource.includes("this.add.image(centerX, 0, 'home-logo')")
+    && homeSource.includes('logo.setPosition(centerX, logoY)'),
+  'HomeScene must keep the logo horizontally centered while positioning it inside the responsive stack.',
 );
 assert(
-  homeSource.includes('narrow ? this.scale.width - 68 : this.scale.width * 0.42')
-    && homeSource.includes('narrow ? 330 : 540'),
-  'Home logo must use responsive mobile/desktop width caps.',
+  homeSource.includes('naturalContentWidth * 0.88')
+    && homeSource.includes('naturalContentWidth * 0.94')
+    && homeSource.includes('330')
+    && homeSource.includes('500'),
+  'Home logo must derive responsive width from the shared Home stack width.',
 );
 assert(
-  homeSource.includes('logo.setDisplaySize(logoWidth, logoWidth / logoAspect)'),
-  'Home logo must preserve the source aspect ratio.',
+  homeSource.includes('const naturalLogoHeight = naturalLogoWidth / logoAspect')
+    && homeSource.includes('logo.setDisplaySize(scaledLogoWidth, scaledLogoHeight)'),
+  'Home logo must preserve source aspect ratio while scaling with the whole stack.',
 );
 assert(
   !homeSource.includes("this.add.text(this.scale.width / 2, titleY, 'DUNGEON LOGIC'"),
