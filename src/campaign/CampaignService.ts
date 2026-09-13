@@ -177,11 +177,17 @@ export class CampaignService {
   }
 
   private getRecommendedNextLevel(
-    _completedEntry: CampaignLevelEntry,
+    completedEntry: CampaignLevelEntry,
     progress: CampaignProgressSnapshot,
   ): CampaignLevelEntry | null {
     const completed = new Set(progress.completedLevelIds);
-    return this.getPlayableLevels().find((entry) => !completed.has(entry.id)) ?? null;
+    const unsolvedPlayable = this.getPlayableLevels()
+      .filter((entry) => !completed.has(entry.id))
+      .sort((left, right) => left.slot - right.slot);
+
+    return unsolvedPlayable.find((entry) => entry.slot > completedEntry.slot)
+      ?? unsolvedPlayable[0]
+      ?? null;
   }
 
   private async tryFlush(): Promise<boolean> {

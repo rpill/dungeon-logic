@@ -222,7 +222,7 @@ async function runServiceChecks(): Promise<void> {
   assert(service.getContinueLevel()?.id === 'campaign-002', 'Continue prioritizes the last-played incomplete level when it has a saved draft.');
   const twoResult = await service.completeLevel('campaign-002');
   assert(profile.getProfile().campaign.drafts['campaign-002'] === undefined, 'Completing a Campaign level removes its saved draft.');
-  assert(twoResult.recommendedNextLevel?.id === 'campaign-001', 'Completing 002 recommends the first remaining unsolved frontier level.');
+  assert(twoResult.recommendedNextLevel?.id === 'campaign-003', 'Completing 002 recommends the nearest available unsolved level ahead.');
   assert(
     service.getPlayableLevels().filter((entry) => !service.getProgress().completedLevelIds.includes(entry.id)).map((entry) => entry.id).join(',')
       === 'campaign-001,campaign-003,campaign-004',
@@ -237,7 +237,7 @@ async function runServiceChecks(): Promise<void> {
     solveCount: 1,
     solvedWithoutHints: true,
   });
-  assert(fourResult.recommendedNextLevel?.id === 'campaign-001', 'Recommendation remains the earliest unsolved playable level.');
+  assert(fourResult.recommendedNextLevel?.id === 'campaign-005', 'Recommendation prefers an available unsolved level ahead of the completed level.');
   assert(service.getProgress().completedLevelIds.filter((id) => id === 'campaign-004').length === 1, '004 is recorded once.');
 
   await service.completeLevel('campaign-004', {
@@ -252,6 +252,25 @@ async function runServiceChecks(): Promise<void> {
   assert(result?.minHintsUsed === 0, 'Replay metadata keeps the minimum hint count.');
   assert(result?.solveCount === 2, 'Replay metadata increments solve count.');
   assert(result?.solvedWithoutHints, 'No-hint achievement is sticky across replays.');
+
+  const skippedHarness = await createService(selectorManifest);
+  await skippedHarness.service.completeLevel('campaign-001');
+  await skippedHarness.service.completeLevel('campaign-002');
+  await skippedHarness.service.completeLevel('campaign-003');
+  const fiveAfterSkippingFour = await skippedHarness.service.completeLevel('campaign-005');
+  assert(
+    fiveAfterSkippingFour.recommendedNextLevel?.id === 'campaign-006',
+    'After skipping 004 and completing 005, Next advances to available 006 instead of jumping backward to 004.',
+  );
+
+  let latestResult = fiveAfterSkippingFour;
+  for (let slot = 6; slot <= selectorManifest.length; slot += 1) {
+    latestResult = await skippedHarness.service.completeLevel(`campaign-${String(slot).padStart(3, '0')}`);
+  }
+  assert(
+    latestResult.recommendedNextLevel?.id === 'campaign-004',
+    'When no available unsolved levels remain ahead, Next falls back to the skipped unfinished level behind.',
+  );
 
   const failingStorage = new FakeProfileStorage();
   failingStorage.failSave = true;
