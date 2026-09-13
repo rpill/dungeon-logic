@@ -1,4 +1,5 @@
 import { CampaignService } from '../campaign/CampaignService';
+import { getPlayableCampaignIds } from '../campaign/CampaignUnlocks';
 import {
   getCampaignContinueEntry,
   getCampaignLevelState,
@@ -55,6 +56,26 @@ function createSyntheticManifest(count: number): readonly CampaignLevelEntry[] {
 }
 
 const selectorManifest = createSyntheticManifest(14);
+const rowGateManifest = createSyntheticManifest(24);
+const firstRowAlmostComplete = Array.from({ length: 7 }, (_, index) =>
+  `campaign-${String(index + 1).padStart(3, '0')}`
+);
+const playableBeforeRowClear = getPlayableCampaignIds(rowGateManifest, firstRowAlmostComplete);
+assert(playableBeforeRowClear.includes('campaign-008'), 'Last unfinished level in the current row remains playable.');
+assert(!playableBeforeRowClear.includes('campaign-009'), 'Next row stays locked until every level in the current row is complete.');
+const firstRowComplete = [...firstRowAlmostComplete, 'campaign-008'];
+const playableAfterRowClear = getPlayableCampaignIds(rowGateManifest, firstRowComplete);
+assert(
+  ['campaign-009', 'campaign-010', 'campaign-011'].every((id) => playableAfterRowClear.includes(id)),
+  'Clearing all eight levels unlocks the three-level frontier in the next row.',
+);
+assert(!playableAfterRowClear.includes('campaign-012'), 'Next-row unlock still respects the three-level frontier.');
+const legacyFutureCompletion = getPlayableCampaignIds(
+  rowGateManifest,
+  [...firstRowAlmostComplete, 'campaign-009'],
+);
+assert(legacyFutureCompletion.includes('campaign-009'), 'A previously completed later-row level remains replayable after the row gate migration.');
+assert(!legacyFutureCompletion.includes('campaign-010'), 'Legacy later-row completion does not bypass the unfinished current-row gate.');
 const freshProgress = {
   completedLevelIds: [],
   lastPlayedLevelId: null,
@@ -263,13 +284,25 @@ async function runServiceChecks(): Promise<void> {
     'After skipping 004 and completing 005, Next advances to available 006 instead of jumping backward to 004.',
   );
 
-  let latestResult = fiveAfterSkippingFour;
-  for (let slot = 6; slot <= selectorManifest.length; slot += 1) {
-    latestResult = await skippedHarness.service.completeLevel(`campaign-${String(slot).padStart(3, '0')}`);
-  }
+  await skippedHarness.service.completeLevel('campaign-006');
+  await skippedHarness.service.completeLevel('campaign-007');
+  const eightAfterSkippingFour = await skippedHarness.service.completeLevel('campaign-008');
   assert(
-    latestResult.recommendedNextLevel?.id === 'campaign-004',
-    'When no available unsolved levels remain ahead, Next falls back to the skipped unfinished level behind.',
+    eightAfterSkippingFour.recommendedNextLevel?.id === 'campaign-004',
+    'Finishing the available levels in a row sends Next back to the skipped unfinished level before opening the next row.',
+  );
+  assert(
+    !skippedHarness.service.canPlayLevel('campaign-009'),
+    '009 stays locked while any level in 001-008 is unfinished.',
+  );
+  const fourAfterRowCleanup = await skippedHarness.service.completeLevel('campaign-004');
+  assert(
+    fourAfterRowCleanup.recommendedNextLevel?.id === 'campaign-009',
+    'Completing the final skipped level in a row advances Next into the newly unlocked row.',
+  );
+  assert(
+    skippedHarness.service.canPlayLevel('campaign-009'),
+    '009 becomes playable immediately after all of 001-008 are complete.',
   );
 
   const failingStorage = new FakeProfileStorage();
