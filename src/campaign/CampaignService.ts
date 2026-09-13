@@ -6,10 +6,11 @@ import {
   campaignProgressSnapshot,
   getCampaignContinueEntry,
 } from './CampaignProgress';
-import { getPlayableCampaignIds } from './CampaignUnlocks';
+import { CAMPAIGN_ROW_SIZE, getPlayableCampaignIds } from './CampaignUnlocks';
 import type {
   CampaignCompletionResult,
   CampaignProgressSnapshot,
+  CampaignRowUnlockTransition,
 } from './types';
 
 export const CAMPAIGN_SERVICE_REGISTRY_KEY = 'campaign-service';
@@ -162,6 +163,7 @@ export class CampaignService {
     return {
       progress,
       recommendedNextLevel: this.getRecommendedNextLevel(entry, progress),
+      rowUnlock: this.getRowUnlockTransition(entry, beforeCompleted, progress),
       unlockedFeatures: !wasCompleted && id === 'campaign-005'
         ? ['daily']
         : [],
@@ -174,6 +176,33 @@ export class CampaignService {
     if (entry === undefined) throw new Error(`Unknown campaign level: ${id}.`);
     if (!this.canPlayLevel(id)) throw new Error(`Campaign level is locked: ${id}.`);
     return entry;
+  }
+
+  private getRowUnlockTransition(
+    completedEntry: CampaignLevelEntry,
+    beforeCompletedIds: readonly string[],
+    progress: CampaignProgressSnapshot,
+  ): CampaignRowUnlockTransition | null {
+    if (beforeCompletedIds.includes(completedEntry.id)) return null;
+
+    const rowStartSlot = Math.floor((completedEntry.slot - 1) / CAMPAIGN_ROW_SIZE) * CAMPAIGN_ROW_SIZE + 1;
+    const rowEndSlot = rowStartSlot + CAMPAIGN_ROW_SIZE - 1;
+    const rowEntries = this.levels
+      .filter((entry) => entry.slot >= rowStartSlot && entry.slot <= rowEndSlot)
+      .sort((left, right) => left.slot - right.slot);
+    const completed = new Set(progress.completedLevelIds);
+    if (rowEntries.length === 0 || rowEntries.some((entry) => !completed.has(entry.id))) return null;
+
+    const ordered = this.levels.slice().sort((left, right) => left.slot - right.slot);
+    const firstIncomplete = ordered.find((entry) => !completed.has(entry.id));
+    if (firstIncomplete === undefined) return null;
+    const nextRowStartSlot = Math.floor((firstIncomplete.slot - 1) / CAMPAIGN_ROW_SIZE) * CAMPAIGN_ROW_SIZE + 1;
+
+    return {
+      completedRowStartSlot: rowEntries[0].slot,
+      completedRowEndSlot: rowEntries[rowEntries.length - 1].slot,
+      nextRowStartSlot,
+    };
   }
 
   private getRecommendedNextLevel(

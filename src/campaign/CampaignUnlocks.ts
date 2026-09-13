@@ -1,10 +1,10 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 
 const FRONTIER_SIZE = 3;
-const ROW_SIZE = 8;
+export const CAMPAIGN_ROW_SIZE = 8;
 
 function campaignRowIndex(slot: number): number {
-  return Math.floor((slot - 1) / ROW_SIZE);
+  return Math.floor((slot - 1) / CAMPAIGN_ROW_SIZE);
 }
 
 export function getPlayableCampaignIds(

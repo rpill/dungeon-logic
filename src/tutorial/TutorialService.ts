@@ -38,15 +38,15 @@ export class TutorialService {
 
   getContinueLevel(): TutorialLevelEntry | null {
     const tutorial = this.profileService.getProfile().tutorial;
+    const completed = new Set(tutorial.completedLevelIds);
     const activeId = tutorial.activePuzzle?.mode === 'tutorial'
       ? tutorial.activePuzzle.puzzleId
       : null;
-    if (activeId !== null) {
+    if (activeId !== null && !completed.has(activeId)) {
       const active = this.levels.find((entry) => entry.id === activeId);
       if (active !== undefined && this.canPlayLevel(active.id)) return active;
     }
 
-    const completed = new Set(tutorial.completedLevelIds);
     return this.levels.find((entry) => !completed.has(entry.id)) ?? null;
   }
 

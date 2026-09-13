@@ -10,6 +10,7 @@ import { AUDIO_KEYS } from './AudioAssets';
 export type AudioFeedbackEvent =
   | 'ui-click'
   | 'ui-hover'
+  | 'campaign-unlock'
   | 'wall-place'
   | 'wall-remove'
   | 'marker-toggle'
@@ -39,6 +40,12 @@ const FEEDBACK: Readonly<Record<AudioFeedbackEvent, FeedbackDefinition>> = {
     volume: 0.025,
     rateVariance: 0,
     cooldownMs: 24,
+  },
+  'campaign-unlock': {
+    keys: [AUDIO_KEYS.wallRemove],
+    volume: 0.12,
+    rateVariance: 0.06,
+    cooldownMs: 80,
   },
   'wall-place': {
     keys: [AUDIO_KEYS.wallPlace],

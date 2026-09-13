@@ -1456,6 +1456,10 @@ ${copy.game.featuresUnlocked}`
             await monetizationService.maybeShowCampaignInterstitial(completedCampaignSlot);
           }
           if (createVersion !== this.createVersion) return;
+          if (result.rowUnlock !== null) {
+            this.scene.start(LEVELS_SCENE_KEY, { rowUnlock: result.rowUnlock });
+            return;
+          }
           await this.startNextLevel(result.recommendedNextLevel!, service, createVersion);
         };
         void transition().finally(() => {
@@ -1482,6 +1486,13 @@ ${copy.game.featuresUnlocked}`
               label: copy.game.next,
               action: continueCampaign,
             },
+        ];
+      } else if (result.rowUnlock !== null && result.recommendedNextLevel !== null) {
+        completionActions = [
+          {
+            label: copy.game.next,
+            action: continueCampaign,
+          },
         ];
       } else {
         completionActions = [
@@ -1559,10 +1570,10 @@ ${copy.game.featuresUnlocked}`
           action: () => {
             if (completionTransitionPending) return;
             const service = this.getCampaignService();
-            const continueLevel = service.getContinueLevel() ?? service.getLevels()[0];
-            if (continueLevel === undefined) return;
+            const firstLevel = service.getContinueLevel() ?? service.getLevels()[0];
+            if (firstLevel === undefined) return;
             completionTransitionPending = true;
-            void service.startLevel(continueLevel.id)
+            void service.startLevel(firstLevel.id)
               .then((started) => {
                 if (createVersion !== this.createVersion) return;
                 this.scene.restart(createCampaignGameSceneData(started, service.getProgress()));

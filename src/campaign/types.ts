@@ -25,9 +25,16 @@ export type CampaignLevelState = 'completed' | 'current' | 'unlocked' | 'locked'
 export type FeatureUnlockId = 'daily' | 'statistics';
 export type GameAnalyticsAttempt = 'new' | 'resume' | 'replay';
 
+export interface CampaignRowUnlockTransition {
+  readonly completedRowStartSlot: number;
+  readonly completedRowEndSlot: number;
+  readonly nextRowStartSlot: number;
+}
+
 export interface CampaignCompletionResult {
   readonly progress: CampaignProgressSnapshot;
   readonly recommendedNextLevel: CampaignLevelEntry | null;
+  readonly rowUnlock: CampaignRowUnlockTransition | null;
   readonly unlockedFeatures: readonly FeatureUnlockId[];
   readonly persisted: boolean;
 }

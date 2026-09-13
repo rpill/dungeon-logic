@@ -138,6 +138,7 @@ async function main(): Promise<void> {
       lastPlayedLevelId: 'campaign-001',
     },
     recommendedNextLevel: campaignManifest[1],
+    rowUnlock: null,
     unlockedFeatures: [],
     persisted: true,
   } as const;

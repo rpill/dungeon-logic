@@ -283,6 +283,10 @@ async function runServiceChecks(): Promise<void> {
     fiveAfterSkippingFour.recommendedNextLevel?.id === 'campaign-006',
     'After skipping 004 and completing 005, Next advances to available 006 instead of jumping backward to 004.',
   );
+  assert(
+    (fiveAfterSkippingFour as typeof fiveAfterSkippingFour & { rowUnlock?: unknown }).rowUnlock == null,
+    'Ordinary completion inside a row does not request the row-unlock transition.',
+  );
 
   await skippedHarness.service.completeLevel('campaign-006');
   await skippedHarness.service.completeLevel('campaign-007');
@@ -303,6 +307,17 @@ async function runServiceChecks(): Promise<void> {
   assert(
     skippedHarness.service.canPlayLevel('campaign-009'),
     '009 becomes playable immediately after all of 001-008 are complete.',
+  );
+  const rowUnlock = (fourAfterRowCleanup as typeof fourAfterRowCleanup & {
+    rowUnlock?: { readonly completedRowStartSlot: number; readonly nextRowStartSlot: number } | null;
+  }).rowUnlock;
+  assert(rowUnlock?.completedRowStartSlot === 1, 'Closing the last gap reports the completed row start slot.');
+  assert(rowUnlock?.nextRowStartSlot === 9, 'Closing the last gap reports the newly activated next row.');
+
+  const replayAfterRowUnlock = await skippedHarness.service.completeLevel('campaign-004');
+  assert(
+    (replayAfterRowUnlock as typeof replayAfterRowUnlock & { rowUnlock?: unknown }).rowUnlock == null,
+    'Replaying a completed level never replays the row-unlock transition.',
   );
 
   const failingStorage = new FakeProfileStorage();

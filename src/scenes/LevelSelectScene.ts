@@ -6,6 +6,8 @@ import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { getUiCopy } from '../i18n/UiCopy';
 
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
+import { CAMPAIGN_ROW_SIZE } from '../campaign/CampaignUnlocks';
+import type { CampaignRowUnlockTransition } from '../campaign/types';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { TutorialLevelEntry } from '../content/tutorial/types';
 import {
@@ -71,7 +73,24 @@ const WHEEL_SCROLL_SNAP_EPSILON = 0.15;
 const CARD_RADIUS = 8;
 const CURRENT_GLOW_TEXTURE_SCALE = 3;
 
+const ROW_UNLOCK_INITIAL_PAUSE_MS = 300;
+const ROW_UNLOCK_ROW_PULSE_DURATION_MS = 170;
+const ROW_UNLOCK_ROW_PULSE_HOLD_MS = 90;
+const ROW_UNLOCK_ROW_PULSE_STAGGER_MS = 10;
+const ROW_UNLOCK_DIVIDER_DURATION_MS = 160;
+const ROW_UNLOCK_DIVIDER_HOLD_MS = 70;
+const ROW_UNLOCK_PHASE_GAP_MS = 50;
+const ROW_UNLOCK_CARD_STAGGER_MS = 150;
+const ROW_UNLOCK_CARD_DURATION_MS = 260;
+const ROW_UNLOCK_CURRENT_REVEAL_DELAY_MS = 220;
+const ROW_UNLOCK_CURRENT_REVEAL_DURATION_MS = 260;
+const ROW_UNLOCK_COMPLETED_CHECK_SCALE = 1.28;
+
 type LevelSelectState = keyof typeof STATE_COLOR;
+
+interface LevelSelectSceneData {
+  readonly rowUnlock?: CampaignRowUnlockTransition;
+}
 
 export class LevelSelectScene extends Phaser.Scene {
   private launchPending = false;
@@ -92,7 +111,7 @@ export class LevelSelectScene extends Phaser.Scene {
     super('LevelSelectScene');
   }
 
-  create(): void {
+  create(data: LevelSelectSceneData = {}): void {
     this.launchPending = false;
     this.pointerGate.reset();
     this.contentBottom = 0;
@@ -121,6 +140,7 @@ export class LevelSelectScene extends Phaser.Scene {
       this.scale.height,
       items.length,
     );
+    const rowUnlock = data.rowUnlock ?? null;
     this.contentBottom = layout.contentBottom;
 
     createMetaPageHeader(this, {
@@ -172,12 +192,16 @@ export class LevelSelectScene extends Phaser.Scene {
 
     items.forEach((item, index) => {
       const cardLayout = layout.cards[index];
-      const color = STATE_COLOR[item.state];
+      const deferCurrentHighlight = rowUnlock !== null
+        && item.state === 'current'
+        && item.entry.slot === rowUnlock.nextRowStartSlot;
+      const visualState: LevelSelectState = deferCurrentHighlight ? 'unlocked' : item.state;
+      const color = STATE_COLOR[visualState];
       const preview = createCampaignLevelPreview(item.entry, profile.campaign);
-      const cardTone = STATE_FILL[item.state];
+      const cardTone = STATE_FILL[visualState];
       const strokeColor = Phaser.Display.Color.HexStringToColor(color).color;
 
-      if (item.state === 'current') {
+      if (visualState === 'current') {
         this.drawCurrentGlow(cardLayout, strokeColor);
       }
 
@@ -187,7 +211,7 @@ export class LevelSelectScene extends Phaser.Scene {
         cardLayout.width,
         cardLayout.height,
         0x040912,
-        item.state === 'locked' ? 0.16 : 0.22,
+        visualState === 'locked' ? 0.16 : 0.22,
         0x000000,
         0,
         0,
@@ -202,13 +226,13 @@ export class LevelSelectScene extends Phaser.Scene {
         cardTone.color,
         cardTone.alpha,
         strokeColor,
-        item.state === 'locked' ? 0.72 : 0.96,
-        item.state === 'current' ? 3 : 2.5,
+        visualState === 'locked' ? 0.72 : 0.96,
+        visualState === 'current' ? 3 : 2.5,
         CARD_RADIUS,
       );
 
-      this.drawLevelPreview(item.entry, preview, cardLayout, item.state);
-      this.drawLevelStateMarkers(item.state, cardLayout);
+      this.drawLevelPreview(item.entry, preview, cardLayout, visualState);
+      this.drawLevelStateMarkers(visualState, cardLayout);
 
       this.add.text(
         cardLayout.x,
@@ -261,7 +285,13 @@ export class LevelSelectScene extends Phaser.Scene {
     });
 
     this.setupPointerOwnership();
-    this.setupMetaScroll(layout);
+    const initialScrollY = rowUnlock === null
+      ? 0
+      : this.getRowUnlockInitialScrollY(layout, rowUnlock.nextRowStartSlot);
+    this.setupMetaScroll(layout, initialScrollY);
+    if (rowUnlock !== null) {
+      this.playRowUnlockTransition(layout, items, rowUnlock);
+    }
 
     const handleResize = (): void => {
       sceneBackground.sync();
@@ -418,7 +448,7 @@ export class LevelSelectScene extends Phaser.Scene {
     );
   }
 
-  private drawCurrentGlow(cardLayout: LevelCardLayout, strokeColor: number): void {
+  private drawCurrentGlow(cardLayout: LevelCardLayout, strokeColor: number): Phaser.GameObjects.Image {
     const padding = Math.max(26, Math.round(cardLayout.width * 0.44));
     const logicalWidth = Math.ceil(cardLayout.width + padding * 2);
     const logicalHeight = Math.ceil(cardLayout.height + padding * 2);
@@ -452,7 +482,7 @@ export class LevelSelectScene extends Phaser.Scene {
       this.textures.addCanvas(textureKey, canvas);
     }
 
-    this.add.image(cardLayout.x, cardLayout.y, textureKey)
+    return this.add.image(cardLayout.x, cardLayout.y, textureKey)
       .setDisplaySize(logicalWidth, logicalHeight)
       .setAlpha(0.82);
   }
@@ -584,6 +614,263 @@ export class LevelSelectScene extends Phaser.Scene {
     button.label.setPosition(startX + button.icon.displayWidth + gap, y);
   }
 
+  private getRowUnlockInitialScrollY(layout: LevelSelectLayout, nextRowStartSlot: number): number {
+    const card = layout.cards[nextRowStartSlot - 1];
+    if (card === undefined) return 0;
+    return Math.max(0, card.y - this.scale.height * 0.58);
+  }
+
+  private playRowUnlockTransition(
+    layout: LevelSelectLayout,
+    items: ReturnType<typeof createLevelSelectItems>,
+    transition: CampaignRowUnlockTransition,
+  ): void {
+    const firstCompletedIndex = transition.completedRowStartSlot - 1;
+    const lastCompletedIndex = transition.completedRowEndSlot - 1;
+    const completedCardCount = Math.max(0, lastCompletedIndex - firstCompletedIndex + 1);
+    const rowPulseDuration = (
+      ROW_UNLOCK_ROW_PULSE_DURATION_MS * 2
+      + ROW_UNLOCK_ROW_PULSE_HOLD_MS
+      + Math.max(0, completedCardCount - 1) * ROW_UNLOCK_ROW_PULSE_STAGGER_MS
+    );
+    const dividerDelay = ROW_UNLOCK_INITIAL_PAUSE_MS + rowPulseDuration;
+    const dividerDuration = ROW_UNLOCK_DIVIDER_DURATION_MS * 2 + ROW_UNLOCK_DIVIDER_HOLD_MS;
+    const unlockStartDelay = dividerDelay + dividerDuration + ROW_UNLOCK_PHASE_GAP_MS;
+
+    const newlyPlayable = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => (
+        item.entry.slot >= transition.nextRowStartSlot
+        && item.entry.slot < transition.nextRowStartSlot + CAMPAIGN_ROW_SIZE
+        && item.playable
+        && item.state !== 'completed'
+      ));
+    const unlockWaveEnd = (
+      unlockStartDelay
+      + Math.max(0, newlyPlayable.length - 1) * ROW_UNLOCK_CARD_STAGGER_MS
+      + ROW_UNLOCK_CARD_DURATION_MS
+    );
+    const currentRevealStart = unlockWaveEnd + ROW_UNLOCK_CURRENT_REVEAL_DELAY_MS;
+    const transitionDuration = currentRevealStart + ROW_UNLOCK_CURRENT_REVEAL_DURATION_MS;
+
+    this.launchPending = true;
+    this.time.delayedCall(transitionDuration + ROW_UNLOCK_PHASE_GAP_MS, () => {
+      if (this.scene.isActive()) this.launchPending = false;
+    });
+
+    for (let index = firstCompletedIndex; index <= lastCompletedIndex; index += 1) {
+      const card = layout.cards[index];
+      if (card === undefined) continue;
+      const pulse = this.createCompletedRowGoldPulse(card);
+      const delay = ROW_UNLOCK_INITIAL_PAUSE_MS
+        + Math.max(0, index - firstCompletedIndex) * ROW_UNLOCK_ROW_PULSE_STAGGER_MS;
+
+      this.tweens.add({
+        targets: pulse.border,
+        alpha: { from: 0, to: 1 },
+        duration: ROW_UNLOCK_ROW_PULSE_DURATION_MS,
+        yoyo: true,
+        hold: ROW_UNLOCK_ROW_PULSE_HOLD_MS,
+        delay,
+        ease: 'Sine.easeInOut',
+        onComplete: () => pulse.border.destroy(),
+      });
+      this.tweens.add({
+        targets: pulse.check,
+        alpha: { from: 0, to: 1 },
+        scaleX: { from: 1, to: ROW_UNLOCK_COMPLETED_CHECK_SCALE },
+        scaleY: { from: 1, to: ROW_UNLOCK_COMPLETED_CHECK_SCALE },
+        duration: ROW_UNLOCK_ROW_PULSE_DURATION_MS,
+        yoyo: true,
+        hold: ROW_UNLOCK_ROW_PULSE_HOLD_MS,
+        delay,
+        ease: 'Back.easeOut',
+        onComplete: () => pulse.check.destroy(true),
+      });
+    }
+
+    this.createRowDividerPulse(layout, transition.nextRowStartSlot, dividerDelay);
+
+    newlyPlayable.forEach(({ index }, unlockIndex) => {
+      const card = layout.cards[index];
+      if (card === undefined) return;
+      const cover = this.createTemporaryUnlockCover(card);
+      this.tweens.add({
+        targets: cover,
+        alpha: 0,
+        scaleX: 1.06,
+        scaleY: 1.06,
+        duration: ROW_UNLOCK_CARD_DURATION_MS,
+        delay: unlockStartDelay + unlockIndex * ROW_UNLOCK_CARD_STAGGER_MS,
+        ease: 'Cubic.easeOut',
+        onStart: () => getAudioFeedback(this).play('campaign-unlock'),
+        onComplete: () => cover.destroy(true),
+      });
+    });
+
+    this.time.delayedCall(currentRevealStart, () => {
+      if (!this.scene.isActive()) return;
+      const currentCard = layout.cards[transition.nextRowStartSlot - 1];
+      if (currentCard !== undefined) {
+        this.revealCurrentLevelHighlight(currentCard, transition.nextRowStartSlot, layout.cardTitleFontSize);
+      }
+    });
+  }
+
+  private createCompletedRowGoldPulse(
+    card: LevelCardLayout,
+  ): {
+    readonly border: Phaser.GameObjects.Graphics;
+    readonly check: Phaser.GameObjects.Container;
+  } {
+    const border = this.drawRoundedCardShape(
+      card.x,
+      card.y,
+      card.width,
+      card.height,
+      0x000000,
+      0,
+      PROGRESS_FILL,
+      1,
+      2.5,
+      CARD_RADIUS,
+    ).setDepth(320).setAlpha(0);
+
+    const iconSize = Math.max(19, Math.floor(card.width * 0.34));
+    const checkX = card.x + card.width / 2 - 3;
+    const checkY = card.y + card.height / 2 - 3;
+    const backingRadius = iconSize * 0.42;
+    const backing = this.add.circle(0, 0, backingRadius, 0x0d1b2d, 1);
+    const icon = this.add.image(0, 0, UI_ICON_KEYS.check)
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(0xf0bd63);
+    const check = this.add.container(checkX, checkY, [backing, icon])
+      .setDepth(321)
+      .setAlpha(0);
+
+    return { border, check };
+  }
+
+  private revealCurrentLevelHighlight(
+    card: LevelCardLayout,
+    slot: number,
+    titleFontSize: number,
+  ): void {
+    const strokeColor = Phaser.Display.Color.HexStringToColor(STATE_COLOR.current).color;
+    const glow = this.drawCurrentGlow(card, strokeColor).setDepth(-1).setAlpha(0);
+    const border = this.drawRoundedCardShape(
+      card.x,
+      card.y,
+      card.width,
+      card.height,
+      STATE_FILL.current.color,
+      0,
+      strokeColor,
+      0.96,
+      3,
+      CARD_RADIUS,
+    ).setDepth(346).setAlpha(0);
+    const marker = this.add.rectangle(
+      card.x,
+      card.y - card.height / 2 - 8,
+      8,
+      8,
+      0xf0bd63,
+      0.96,
+    ).setRotation(Math.PI / 4).setDepth(347).setAlpha(0);
+    const number = this.add.text(
+      card.x,
+      card.numberY,
+      String(slot),
+      {
+        fontFamily: 'monospace',
+        fontSize: `${titleFontSize}px`,
+        color: STATE_COLOR.current,
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5).setDepth(347).setAlpha(0);
+
+    this.tweens.add({
+      targets: [glow, border, marker, number],
+      alpha: 1,
+      duration: ROW_UNLOCK_CURRENT_REVEAL_DURATION_MS,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  private createRowDividerPulse(
+    layout: LevelSelectLayout,
+    nextRowStartSlot: number,
+    delayMs = 0,
+  ): void {
+    const previous = layout.cards[nextRowStartSlot - 2];
+    const next = layout.cards[nextRowStartSlot - 1];
+    if (previous === undefined || next === undefined) return;
+
+    const previousBottom = previous.numberY + layout.cardTitleFontSize / 2;
+    const nextTop = next.y - next.height / 2;
+    const y = Math.round((previousBottom + nextTop) / 2);
+    const gridWidth = this.getGridWidth(layout);
+    const lineWidth = Math.max(24, (gridWidth - 36) / 2);
+    const centerX = this.scale.width / 2;
+    const left = this.add.rectangle(centerX - 10 - lineWidth / 2, y, lineWidth, 2, 0xffd98a, 1)
+      .setDepth(330)
+      .setAlpha(0.15)
+      .setScale(0.3, 1);
+    const right = this.add.rectangle(centerX + 10 + lineWidth / 2, y, lineWidth, 2, 0xffd98a, 1)
+      .setDepth(330)
+      .setAlpha(0.15)
+      .setScale(0.3, 1);
+    const diamond = this.add.rectangle(centerX, y, 9, 9, 0xffd98a, 1)
+      .setRotation(Math.PI / 4)
+      .setDepth(331)
+      .setAlpha(0.2)
+      .setScale(0.65);
+
+    this.tweens.add({
+      targets: [left, right],
+      alpha: { from: 0.15, to: 1 },
+      scaleX: 1,
+      duration: ROW_UNLOCK_DIVIDER_DURATION_MS,
+      yoyo: true,
+      hold: ROW_UNLOCK_DIVIDER_HOLD_MS,
+      delay: delayMs,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        left.destroy();
+        right.destroy();
+      },
+    });
+    this.tweens.add({
+      targets: diamond,
+      alpha: { from: 0.2, to: 1 },
+      scaleX: 1.25,
+      scaleY: 1.25,
+      duration: ROW_UNLOCK_DIVIDER_DURATION_MS,
+      yoyo: true,
+      hold: ROW_UNLOCK_DIVIDER_HOLD_MS,
+      delay: delayMs,
+      ease: 'Back.easeOut',
+      onComplete: () => diamond.destroy(),
+    });
+  }
+
+  private createTemporaryUnlockCover(card: LevelCardLayout): Phaser.GameObjects.Container {
+    const cover = this.add.container(card.x, card.y).setDepth(340);
+    const plate = this.add.graphics();
+    plate.fillStyle(STATE_FILL.locked.color, 0.97);
+    plate.fillRoundedRect(-card.width / 2, -card.height / 2, card.width, card.height, CARD_RADIUS);
+    plate.lineStyle(2.5, 0x7f8ba2, 0.9);
+    plate.strokeRoundedRect(-card.width / 2, -card.height / 2, card.width, card.height, CARD_RADIUS);
+    const iconSize = Math.max(18, Math.floor(card.width * 0.38));
+    const lock = this.add.image(0, 0, UI_ICON_KEYS.lock)
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(0x7f8ba2)
+      .setAlpha(0.9);
+    cover.add([plate, lock]);
+    return cover;
+  }
+
   private setupPointerOwnership(): void {
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
@@ -595,11 +882,15 @@ export class LevelSelectScene extends Phaser.Scene {
     });
   }
 
-  private setupMetaScroll(layout: LevelSelectLayout): void {
+  private setupMetaScroll(layout: LevelSelectLayout, initialScrollY = 0): void {
     this.scrollMaxY = getMetaScrollMaxY(this.scale.height, this.contentBottom);
-    if (this.scrollMaxY <= 0) return;
+    if (this.scrollMaxY <= 0) {
+      this.cameras.main.scrollY = 0;
+      return;
+    }
 
     const camera = this.cameras.main;
+    camera.scrollY = clampMetaScrollY(initialScrollY, this.scrollMaxY);
     const scrollbar = this.createScrollIndicator(layout);
     let wheelTargetY = camera.scrollY;
     const syncScrollbar = (): void => {

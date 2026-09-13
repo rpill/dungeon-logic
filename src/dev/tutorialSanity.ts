@@ -121,6 +121,13 @@ async function main(): Promise<void> {
   session.saveNow();
   assert(profileService.getProfile().tutorial.activePuzzle?.mode === 'tutorial', 'Tutorial session persists under tutorial.activePuzzle.');
   assert(Object.keys(profileService.getProfile().campaign.drafts).length === 0, 'Tutorial session never writes Campaign draft state.');
+
+  await tutorial.completeLevel('tutorial-001');
+  session.saveNow();
+  assert(
+    tutorial.getContinueLevel()?.id === 'tutorial-002',
+    'A stale activePuzzle for a completed Tutorial level is ignored and resume advances to the first incomplete lesson.',
+  );
   session.clearActivePuzzle();
 
   for (const id of expectedIds.slice(0, 4)) await tutorial.completeLevel(id);
