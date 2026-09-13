@@ -99,7 +99,7 @@ export class DailyScene extends Phaser.Scene {
 
     createMetaPageHeader(this, {
       title: copy.dailyHub.title,
-      backLabel: copy.common.backHome,
+      backLabel: copy.common.back,
       backButton: true,
       fixedBack: true,
       onBack: (pointer) => {

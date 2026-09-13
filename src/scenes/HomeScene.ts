@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 
 import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
-
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
+import { getUiCopy } from '../i18n/UiCopy';
+import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
+import type { PlatformServices } from '../platform/services';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
@@ -13,32 +15,61 @@ import {
   createCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { HELP_SCENE_KEY } from '../help/HelpNavigation';
-import { getUiCopy } from '../i18n/UiCopy';
-import { DAILY_SCENE_KEY } from './DailyScene';
+import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
-import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
-import type { PlatformServices } from '../platform/services';
 import {
   LEVELS_SCENE_KEY,
   SETTINGS_SCENE_KEY,
-  STATS_SCENE_KEY,
   getHomeCampaignAction,
   getHomeDailyAction,
-  shouldShowSettingsEntry,
 } from '../runtime/MetaSelectors';
-import { classifyViewport } from './GameBoardLayout';
-import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { createSceneBackground } from '../runtime/SceneBackground';
-import { createHomeMenuButton, type HomeMenuIcon } from '../runtime/HomeMenuButton';
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
+import { DAILY_SCENE_KEY } from './DailyScene';
+import { classifyViewport } from './GameBoardLayout';
 
-const HOME_MENU_ICONS = {
-  primary: { icon: 'play' as const },
-  daily: { icon: 'daily' as const },
-  levels: { icon: 'levels' as const },
-  statistics: { icon: 'statistics' as const },
-  settings: { icon: 'settings' as const },
-};
+const HOME_FILL_KEY = 'home-menu-fill';
+const HOME_FRAME_NORMAL_KEY = 'home-menu-frame-normal';
+const HOME_FRAME_HOVER_KEY = 'home-menu-frame-hover';
+const HOME_FRAME_PRESSED_KEY = 'home-menu-frame-pressed';
+const HOME_FRAME_SLICE_X = 48;
+const HOME_FRAME_SLICE_Y = 24;
+const HOME_PROGRESS_TRACK_FILL = 0x1f4375;
+const HOME_PROGRESS_FILL = 0xf0bd63;
+
+const HOME_CARD_ICON_KEYS = {
+  play: 'home-menu-icon-play',
+  daily: 'home-menu-icon-daily',
+  levels: 'home-menu-icon-levels',
+} as const;
+
+type HomeCardIcon = keyof typeof HOME_CARD_ICON_KEYS | 'infinity';
+type HomeCardVariant = 'primary' | 'tile' | 'wide';
+type HomeCardFrameState = 'normal' | 'hover' | 'pressed';
+
+interface HomeHubCardOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly variant: HomeCardVariant;
+  readonly label: string;
+  readonly subtitle: string;
+  readonly icon: HomeCardIcon;
+  readonly progress?: {
+    readonly completed: number;
+    readonly total: number;
+    readonly label: string;
+  };
+  readonly accent?: boolean;
+  readonly enabled?: boolean;
+  readonly onActivate: () => void;
+}
+
+interface HomeHubCardHandle {
+  destroy(): void;
+}
 
 export class HomeScene extends Phaser.Scene {
   private createVersion = 0;
@@ -56,6 +87,7 @@ export class HomeScene extends Phaser.Scene {
     this.createVersion = createVersion;
     this.launchPending = false;
     this.pointerGate.reset();
+
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
     };
@@ -63,6 +95,7 @@ export class HomeScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.off('pointerdown', handlePointerDown);
     });
+
     const campaign = this.getCampaignService();
     const tutorial = this.getTutorialService();
     const profileService = this.getProfileService();
@@ -70,164 +103,117 @@ export class HomeScene extends Phaser.Scene {
     const copy = getUiCopy(profile.settings.language);
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.screenView('home');
+
     const action = getHomeCampaignAction(campaign, profile);
     const viewportClass = classifyViewport(this.scale.width);
     const narrow = viewportClass === 'narrow';
+    const compactHeight = this.scale.height < (narrow ? 650 : 590);
+    const levels = campaign.getLevels();
+    const completedIds = new Set(profile.campaign.completedLevelIds);
+    const completedCampaign = levels.reduce(
+      (count, entry) => count + (completedIds.has(entry.id) ? 1 : 0),
+      0,
+    );
 
-    const logoY = narrow ? 86 : 104;
-    const logoWidth = Math.min(narrow ? this.scale.width - 48 : 560, 640);
+    const logoWidth = Math.min(
+      narrow ? this.scale.width - 68 : this.scale.width * 0.42,
+      narrow ? 330 : 540,
+    );
+    const logoY = narrow
+      ? (compactHeight ? 62 : 78)
+      : (compactHeight ? 66 : 86);
     const logo = this.add.image(this.scale.width / 2, logoY, 'home-logo').setOrigin(0.5);
     const logoAspect = logo.width / logo.height;
     logo.setDisplaySize(logoWidth, logoWidth / logoAspect);
 
-    const buttonWidth = Math.min(narrow ? this.scale.width - 32 : 360, 420);
-    const mainY = narrow ? 215 : 250;
-    const mainHeight = narrow ? 58 : 62;
-    const settingsVisible = shouldShowSettingsEntry(profile);
-    const secondaryStep = narrow ? 88 : 96;
+    const homeHeaderActionMetrics = getHeaderActionButtonMetrics(narrow);
+    const homeHeaderInset = narrow ? 16 : 28;
+    createHomeSettingsButton(this, {
+      x: this.scale.width - homeHeaderInset - homeHeaderActionMetrics.iconButtonSize / 2,
+      y: homeHeaderInset + homeHeaderActionMetrics.iconButtonSize / 2,
+      size: homeHeaderActionMetrics.iconButtonSize,
+      onActivate: (pointer) => {
+        if (!this.pointerGate.canActivate(pointer.id)) return;
+        this.scene.start(SETTINGS_SCENE_KEY);
+      },
+    });
 
-    if (action.kind === 'tutorial') {
-      const entry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
-      const started = profile.tutorial.completedLevelIds.length > 0
-        || profile.tutorial.activePuzzle !== null;
-      this.createButton(
-        this.scale.width / 2,
-        mainY,
-        buttonWidth,
-        mainHeight,
-        started ? copy.home.tutorialContinue : copy.home.tutorialStart,
-        '#f0d28a',
-        HOME_MENU_ICONS.primary.icon,
-        () => {
-          if (entry !== undefined) void this.launchTutorial(tutorial);
-        },
-      );
-      if (entry !== undefined) {
-        this.add.text(
-          this.scale.width / 2,
-          mainY + mainHeight / 2 + 10,
-          copy.game.tutorialTitle(entry.slot, tutorial.getLevels().length),
-          {
-            fontFamily: 'monospace',
-            fontSize: narrow ? '13px' : '15px',
-            color: '#89929d',
-          },
-        ).setOrigin(0.5);
-      }
-    } else if (action.kind === 'choose-level') {
-      this.createButton(
-        this.scale.width / 2,
-        mainY,
-        buttonWidth,
-        mainHeight,
-        copy.home.chooseLevel,
-        '#f0d28a',
-        HOME_MENU_ICONS.levels.icon,
-        () => this.scene.start(LEVELS_SCENE_KEY),
-      );
-    } else {
-      const entry = campaign.getLevels().find((candidate) => candidate.id === action.levelId);
-      const label = action.kind === 'start' ? copy.home.start : copy.home.continue;
-      this.createButton(
-        this.scale.width / 2,
-        mainY,
-        buttonWidth,
-        mainHeight,
-        label,
-        '#f0d28a',
-        HOME_MENU_ICONS.primary.icon,
-        () => {
-          if (entry !== undefined) void this.launchLevel(campaign, entry);
-        },
-      );
+    const centerX = this.scale.width / 2;
+    const cardGap = narrow ? 10 : 16;
+    const primaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
+    const mobileTileHeight = compactHeight ? 102 : 116;
+    const wideHeight = narrow ? (compactHeight ? 72 : 82) : (compactHeight ? 80 : 96);
+    const rowGap = narrow ? (compactHeight ? 10 : 14) : (compactHeight ? 12 : 16);
 
-    }
+    const logoBottom = logoY + logo.displayHeight / 2;
+    const primaryLead = narrow ? (compactHeight ? 36 : 52) : (compactHeight ? 32 : 46);
+    const desktopTileSide = narrow
+      ? 0
+      : Math.max(180, Math.min(
+        260,
+        (this.scale.width - 72 - cardGap) / 2,
+        this.scale.height - 24 - logoBottom - primaryLead - primaryHeight - (rowGap * 2) - wideHeight,
+      ));
+    const contentWidth = narrow
+      ? Math.min(this.scale.width - 28, 390)
+      : (desktopTileSide * 2) + cardGap;
+    const tileWidth = (contentWidth - cardGap) / 2;
+    const tileHeight = narrow
+      ? mobileTileHeight
+      : tileWidth;
 
-    this.createButton(
-      this.scale.width / 2,
-      mainY + secondaryStep * 2,
-      buttonWidth,
-      narrow ? 52 : 56,
-      copy.common.levels,
-      '#d8d1c4',
-      HOME_MENU_ICONS.levels.icon,
-      () => this.scene.start(LEVELS_SCENE_KEY),
-    );
+    const primaryY = logoBottom + primaryLead + primaryHeight / 2;
+    const tileY = primaryY + primaryHeight / 2 + rowGap + tileHeight / 2;
+    const wideY = tileY + tileHeight / 2 + rowGap + wideHeight / 2;
 
-    this.createButton(
-      this.scale.width / 2,
-      mainY + secondaryStep * 3,
-      buttonWidth,
-      narrow ? 52 : 56,
-      copy.common.statistics,
-      '#aeb4bc',
-      HOME_MENU_ICONS.statistics.icon,
-      () => this.scene.start(STATS_SCENE_KEY),
-    );
-    void this.renderDailyEntry(
+    const primary = this.resolvePrimaryCard(campaign, tutorial, action, completedCampaign, levels.length, copy);
+    createHomeHubCard(this, {
+      x: centerX,
+      y: primaryY,
+      width: contentWidth,
+      height: primaryHeight,
+      variant: 'primary',
+      label: primary.label,
+      subtitle: primary.subtitle,
+      icon: primary.icon,
+      accent: true,
+      onActivate: primary.onActivate,
+    }, this.pointerGate);
+
+    createHomeHubCard(this, {
+      x: centerX - (tileWidth + cardGap) / 2,
+      y: tileY,
+      width: tileWidth,
+      height: tileHeight,
+      variant: 'tile',
+      label: copy.common.levels,
+      subtitle: '',
+      icon: 'levels',
+      progress: { completed: completedCampaign, total: levels.length, label: copy.levelSelect.progress(completedCampaign, levels.length) },
+      onActivate: () => this.scene.start(LEVELS_SCENE_KEY),
+    }, this.pointerGate);
+
+    void this.renderDailyCard(
       profileService,
-      mainY + secondaryStep,
-      buttonWidth,
-      narrow ? 52 : 56,
+      centerX + (tileWidth + cardGap) / 2,
+      tileY,
+      tileWidth,
+      tileHeight,
       createVersion,
     );
 
-    if (settingsVisible) {
-      this.createButton(
-        this.scale.width / 2,
-        mainY + secondaryStep * 4,
-        buttonWidth,
-        narrow ? 52 : 56,
-        copy.common.settings,
-        '#89929d',
-        HOME_MENU_ICONS.settings.icon,
-        () => this.scene.start(SETTINGS_SCENE_KEY),
-      );
-    }
-
-    const lastMenuIndex = settingsVisible ? 4 : 3;
-    const lastMenuY = mainY + secondaryStep * lastMenuIndex;
-    const utilityGap = narrow ? 10 : 18;
-    const utilityMargin = narrow ? 12 : 22;
-    const utilityHeight = narrow ? 40 : 46;
-    const utilityWidth = narrow
-      ? Math.floor((this.scale.width - utilityMargin * 2 - utilityGap) / 2)
-      : 184;
-    const utilityY = narrow
-      ? Math.min(this.scale.height - utilityHeight / 2 - 12, lastMenuY + 66)
-      : 40;
-    const tutorialX = utilityMargin + utilityWidth / 2;
-    const helpX = this.scale.width - utilityMargin - utilityWidth / 2;
-
-    createHomeMenuButton(this, {
-      x: tutorialX,
-      y: utilityY,
-      width: utilityWidth,
-      height: utilityHeight,
-      label: copy.common.tutorial,
-      labelColor: '#f4ead7',
-      icon: 'play',
-      compact: true,
-      onActivate: (pointer) => {
-        if (!this.pointerGate.canActivate(pointer.id) || tutorial.getLevels()[0] === undefined) return;
-        void this.launchTutorial(tutorial);
-      },
-    });
-    createHomeMenuButton(this, {
-      x: helpX,
-      y: utilityY,
-      width: utilityWidth,
-      height: utilityHeight,
-      label: copy.common.howToPlay,
-      labelColor: '#f4ead7',
-      icon: 'info',
-      compact: true,
-      onActivate: (pointer) => {
-        if (!this.pointerGate.canActivate(pointer.id)) return;
-        this.scene.launch(HELP_SCENE_KEY, { returnSceneKey: 'HomeScene' });
-        this.scene.pause();
-      },
-    });
+    createHomeHubCard(this, {
+      x: centerX,
+      y: wideY,
+      width: contentWidth,
+      height: wideHeight,
+      variant: 'wide',
+      label: copy.home.endless,
+      subtitle: copy.home.endlessSoon,
+      icon: 'infinity',
+      enabled: false,
+      onActivate: () => {},
+    }, this.pointerGate);
 
     const handleResize = (): void => {
       if (this.scene.isActive()) this.scene.restart();
@@ -241,32 +227,57 @@ export class HomeScene extends Phaser.Scene {
     void platformServices?.readiness.ready();
   }
 
-  private createButton(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    label: string,
-    color: string,
-    icon: HomeMenuIcon,
-    onActivate: () => void,
-    enabled = true,
-  ): void {
-    createHomeMenuButton(this, {
-      x,
-      y,
-      width,
-      height,
+  private resolvePrimaryCard(
+    campaign: CampaignService,
+    tutorial: TutorialService,
+    action: ReturnType<typeof getHomeCampaignAction>,
+    completedCampaign: number,
+    campaignTotal: number,
+    copy: ReturnType<typeof getUiCopy>,
+  ): {
+    readonly label: string;
+    readonly subtitle: string;
+    readonly icon: 'play' | 'levels';
+    readonly onActivate: () => void;
+  } {
+    if (action.kind === 'tutorial') {
+      const entry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
+      const profile = this.getProfileService().getProfile();
+      const started = profile.tutorial.completedLevelIds.length > 0
+        || profile.tutorial.activePuzzle !== null;
+      return {
+        label: started ? copy.home.tutorialContinue : copy.home.tutorialStart,
+        subtitle: entry === undefined
+          ? ''
+          : copy.game.tutorialTitle(entry.slot, tutorial.getLevels().length),
+        icon: 'play',
+        onActivate: () => {
+          if (entry !== undefined) void this.launchTutorial(tutorial);
+        },
+      };
+    }
+
+    if (action.kind === 'choose-level') {
+      return {
+        label: copy.home.chooseLevel,
+        subtitle: `${completedCampaign} / ${campaignTotal}`,
+        icon: 'levels',
+        onActivate: () => this.scene.start(LEVELS_SCENE_KEY),
+      };
+    }
+
+    const entry = campaign.getLevels().find((candidate) => candidate.id === action.levelId);
+    const label = action.kind === 'start' ? copy.home.start : copy.home.continue;
+    return {
       label,
-      labelColor: color,
-      icon,
-      enabled,
-      accentFrame: icon === 'daily' && enabled,
-      onActivate: (pointer) => {
-        if (!this.pointerGate.canActivate(pointer.id)) return;
-        onActivate();
+      subtitle: entry === undefined
+        ? `${completedCampaign} / ${campaignTotal}`
+        : copy.levelSelect.level(entry.slot),
+      icon: 'play',
+      onActivate: () => {
+        if (entry !== undefined) void this.launchLevel(campaign, entry);
       },
-    });
+    };
   }
 
   private getCampaignService(): CampaignService {
@@ -301,8 +312,9 @@ export class HomeScene extends Phaser.Scene {
     return service;
   }
 
-  private async renderDailyEntry(
+  private async renderDailyCard(
     profileService: PlayerProfileService,
+    x: number,
     y: number,
     width: number,
     height: number,
@@ -311,20 +323,35 @@ export class HomeScene extends Phaser.Scene {
     const initialProfile = profileService.getProfile();
     const initialCopy = getUiCopy(initialProfile.settings.language);
     const initialAction = getHomeDailyAction(initialProfile, null);
+
     if (initialAction.kind === 'locked') {
-      this.createButton(
-        this.scale.width / 2,
+      createHomeHubCard(this, {
+        x,
         y,
         width,
         height,
-        initialCopy.home.dailyLockedAfterLevel,
-        '#7f8ba2',
-        HOME_MENU_ICONS.daily.icon,
-        () => {},
-        false,
-      );
+        variant: 'tile',
+        label: 'DAILY',
+        subtitle: initialCopy.home.dailyLockedShort,
+        icon: 'daily',
+        enabled: false,
+        onActivate: () => {},
+      }, this.pointerGate);
       return;
     }
+
+    const loading = createHomeHubCard(this, {
+      x,
+      y,
+      width,
+      height,
+      variant: 'tile',
+      label: 'DAILY',
+      subtitle: initialCopy.common.loading,
+      icon: 'daily',
+      enabled: false,
+      onActivate: () => {},
+    }, this.pointerGate);
 
     let today = null;
     try {
@@ -334,52 +361,63 @@ export class HomeScene extends Phaser.Scene {
     }
     if (!this.scene.isActive() || createVersion !== this.createVersion) return;
 
+    loading.destroy();
     const profile = profileService.getProfile();
     const copy = getUiCopy(profile.settings.language);
     const action = getHomeDailyAction(profile, today);
+
     if (action.kind === 'locked') {
-      this.createButton(
-        this.scale.width / 2,
+      createHomeHubCard(this, {
+        x,
         y,
         width,
         height,
-        copy.home.dailyLockedAfterLevel,
-        '#7f8ba2',
-        HOME_MENU_ICONS.daily.icon,
-        () => {},
-        false,
-      );
+        variant: 'tile',
+        label: 'DAILY',
+        subtitle: copy.home.dailyLockedShort,
+        icon: 'daily',
+        enabled: false,
+        onActivate: () => {},
+      }, this.pointerGate);
       return;
     }
 
     if (action.kind === 'unavailable') {
-      this.createButton(
-        this.scale.width / 2,
+      createHomeHubCard(this, {
+        x,
         y,
         width,
         height,
-        copy.home.dailyUnavailable,
-        '#5f666f',
-        HOME_MENU_ICONS.daily.icon,
-        () => {},
-        false,
-      );
+        variant: 'tile',
+        label: 'DAILY',
+        subtitle: copy.home.dailyUnavailableShort,
+        icon: 'daily',
+        enabled: false,
+        onActivate: () => {},
+      }, this.pointerGate);
       return;
     }
 
     const solved = action.kind === 'solved';
-    this.createButton(
-      this.scale.width / 2,
+    const streak = action.currentStreak > 0
+      ? copy.home.dailyStreak(action.currentStreak)
+      : solved
+        ? copy.home.dailySolvedShort
+        : copy.home.dailyNewShort;
+
+    createHomeHubCard(this, {
+      x,
       y,
       width,
       height,
-      solved ? copy.home.dailySolved : copy.home.dailyNew,
-      solved ? '#aeb4bc' : '#d0b978',
-      HOME_MENU_ICONS.daily.icon,
-      () => this.scene.start(DAILY_SCENE_KEY),
-    );
-
-    }
+      variant: 'tile',
+      label: 'DAILY',
+      subtitle: streak,
+      icon: 'daily',
+      accent: !solved,
+      onActivate: () => this.scene.start(DAILY_SCENE_KEY),
+    }, this.pointerGate);
+  }
 
   private async launchTutorial(service: TutorialService): Promise<void> {
     if (this.launchPending) return;
@@ -409,4 +447,244 @@ export class HomeScene extends Phaser.Scene {
       console.error(`[Dungeon Logic] Could not start ${entry.id} from Home.`, error);
     }
   }
+}
+
+function createHomeHubCard(
+  scene: Phaser.Scene,
+  options: HomeHubCardOptions,
+  pointerGate: MetaPointerGate,
+): HomeHubCardHandle {
+  const enabled = options.enabled ?? true;
+  const accent = options.accent ?? false;
+  const objects: Phaser.GameObjects.GameObject[] = [];
+
+  const fill = scene.add.nineslice(
+    options.x,
+    options.y,
+    HOME_FILL_KEY,
+    undefined,
+    options.width,
+    options.height,
+    HOME_FRAME_SLICE_X,
+    HOME_FRAME_SLICE_X,
+    HOME_FRAME_SLICE_Y,
+    HOME_FRAME_SLICE_Y,
+  );
+  objects.push(fill);
+
+  const frame = scene.add.nineslice(
+    options.x,
+    options.y,
+    accent ? HOME_FRAME_HOVER_KEY : HOME_FRAME_NORMAL_KEY,
+    undefined,
+    options.width,
+    options.height,
+    HOME_FRAME_SLICE_X,
+    HOME_FRAME_SLICE_X,
+    HOME_FRAME_SLICE_Y,
+    HOME_FRAME_SLICE_Y,
+  );
+  objects.push(frame);
+
+  const narrow = scene.scale.width < 700;
+  const labelColor = enabled
+    ? (accent ? '#f0c86b' : '#f4ead7')
+    : '#8290a7';
+  const subtitleColor = enabled ? '#98a5ba' : '#66738a';
+
+  const setFrameState = (state: HomeCardFrameState): void => {
+    frame.clearTint();
+    if (state === 'pressed') {
+      frame.setTexture(HOME_FRAME_PRESSED_KEY);
+      return;
+    }
+    if (state === 'hover' || accent) {
+      frame.setTexture(HOME_FRAME_HOVER_KEY);
+      return;
+    }
+    frame.setTexture(HOME_FRAME_NORMAL_KEY);
+  };
+
+  if (options.variant === 'primary') {
+    const iconSize = narrow ? 30 : 38;
+    const iconX = options.x - options.width * (narrow ? 0.31 : 0.32);
+    const contentX = options.x + options.width * (narrow ? 0.04 : 0.03);
+    const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon as 'play'])
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(0xf0c86b);
+    objects.push(icon);
+
+    const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '20px' : '26px',
+      color: labelColor,
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    fitHomeText(label, options.width * 0.67, narrow ? 15 : 18);
+    objects.push(label);
+
+    const subtitle = scene.add.text(contentX, options.y + (narrow ? 17 : 21), options.subtitle, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '12px' : '15px',
+      color: subtitleColor,
+    }).setOrigin(0.5);
+    fitHomeText(subtitle, options.width * 0.66, narrow ? 10 : 11);
+    objects.push(subtitle);
+  } else if (options.variant === 'tile') {
+    const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
+    const iconY = options.y - options.height * 0.22;
+    const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
+    const icon = scene.add.image(options.x, iconY, iconKey)
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(accent ? 0xf0c86b : 0xf4ead7);
+    objects.push(icon);
+
+    const label = scene.add.text(options.x, options.y + options.height * 0.08, options.label, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '16px' : '21px',
+      color: labelColor,
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    fitHomeText(label, options.width - (narrow ? 22 : 32), narrow ? 12 : 14);
+    objects.push(label);
+
+    if (options.progress !== undefined) {
+      const progressLabel = scene.add.text(options.x, options.y + options.height * (narrow ? 0.24 : 0.28), options.progress.label, {
+        fontFamily: 'monospace',
+        fontSize: narrow ? '10px' : '13px',
+        color: subtitleColor,
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      fitHomeText(progressLabel, options.width - (narrow ? 18 : 28), narrow ? 9 : 10);
+      objects.push(progressLabel);
+
+      const progress = drawHomeCardProgress(scene, {
+        x: options.x,
+        y: options.y + options.height * (narrow ? 0.35 : 0.41),
+        width: options.width - (narrow ? 28 : 44),
+        height: narrow ? 5 : 7,
+        completed: options.progress.completed,
+        total: options.progress.total,
+      });
+      objects.push(progress);
+    } else {
+      const subtitle = scene.add.text(options.x, options.y + options.height * (narrow ? 0.27 : 0.31), options.subtitle, {
+        fontFamily: 'monospace',
+        fontSize: narrow ? '11px' : '14px',
+        color: subtitleColor,
+      }).setOrigin(0.5);
+      fitHomeText(subtitle, options.width - (narrow ? 18 : 28), narrow ? 9 : 10);
+      objects.push(subtitle);
+    }
+  } else {
+    const iconX = options.x - options.width * (narrow ? 0.31 : 0.32);
+    const contentX = options.x + options.width * (narrow ? 0.08 : 0.05);
+    const infinity = scene.add.text(iconX, options.y, '∞', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: narrow ? '44px' : '58px',
+      color: enabled ? '#f0c86b' : '#8792a8',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    objects.push(infinity);
+
+    const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '16px' : '22px',
+      color: labelColor,
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    fitHomeText(label, options.width * 0.68, narrow ? 12 : 15);
+    objects.push(label);
+
+    const subtitle = scene.add.text(contentX, options.y + (narrow ? 15 : 20), options.subtitle, {
+      fontFamily: 'monospace',
+      fontSize: narrow ? '11px' : '14px',
+      color: subtitleColor,
+    }).setOrigin(0.5);
+    fitHomeText(subtitle, options.width * 0.67, narrow ? 9 : 10);
+    objects.push(subtitle);
+  }
+
+  if (enabled) {
+    fill.setInteractive({ useHandCursor: true });
+    fill.on('pointerover', () => {
+      setFrameState('hover');
+      getAudioFeedback(scene).play('ui-hover');
+    });
+    fill.on('pointerout', () => setFrameState('normal'));
+    fill.on('pointerdown', () => setFrameState('pressed'));
+    fill.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      setFrameState('hover');
+      getAudioFeedback(scene).play('ui-click');
+      if (pointerGate.canActivate(pointer.id)) options.onActivate();
+    });
+  } else {
+    fill.setAlpha(0.72);
+    frame.setAlpha(0.72);
+  }
+
+  return {
+    destroy: () => {
+      for (const object of objects) object.destroy();
+    },
+  };
+}
+
+function drawHomeCardProgress(
+  scene: Phaser.Scene,
+  options: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly completed: number;
+    readonly total: number;
+  },
+): Phaser.GameObjects.Graphics {
+  const graphics = scene.add.graphics();
+  const radius = options.height / 2;
+  const left = options.x - options.width / 2;
+  const top = options.y - options.height / 2;
+  const safeTotal = Math.max(1, options.total);
+  const ratio = Phaser.Math.Clamp(options.completed / safeTotal, 0, 1);
+
+  graphics.fillStyle(HOME_PROGRESS_TRACK_FILL, 0.9);
+  graphics.fillRoundedRect(left, top, options.width, options.height, radius);
+
+  if (ratio > 0) {
+    const fillWidth = Math.min(options.width, Math.max(options.height, options.width * ratio));
+    graphics.fillStyle(HOME_PROGRESS_FILL, 1);
+    graphics.fillRoundedRect(left, top, fillWidth, options.height, radius);
+  }
+
+  return graphics;
+}
+
+function createHomeSettingsButton(
+  scene: Phaser.Scene,
+  options: HomeSettingsButtonOptions,
+): void {
+  const narrow = scene.scale.width < 700;
+  const metrics = getHeaderActionButtonMetrics(narrow);
+  createHeaderActionButton(scene, {
+    x: options.x,
+    y: options.y,
+    width: options.size,
+    height: options.size,
+    radius: metrics.radius,
+    iconKey: 'home-menu-icon-settings',
+    iconSize: metrics.iconSize,
+    onActivate: options.onActivate,
+  });
+}
+
+function fitHomeText(
+  text: Phaser.GameObjects.Text,
+  maxWidth: number,
+  minFontSize: number,
+): void {
+  if (text.width <= maxWidth) return;
+  const current = Number.parseFloat(text.style.fontSize?.toString() ?? '16');
+  if (!Number.isFinite(current) || current <= 0) return;
+  text.setFontSize(Math.max(minFontSize, Math.floor(current * maxWidth / text.width)));
 }

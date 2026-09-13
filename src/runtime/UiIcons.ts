@@ -12,7 +12,7 @@ export const UI_ICON_KEYS = {
   settings: 'ui-icon-settings',
   music: 'ui-icon-music',
   sound: 'ui-icon-sound',
-  vibration: 'ui-icon-vibration',
+  levels: 'ui-icon-levels',
   language: 'ui-icon-language',
   check: 'ui-icon-check',
   lock: 'ui-icon-lock',
@@ -30,7 +30,7 @@ export function preloadCommonUiIcons(scene: Phaser.Scene): void {
   scene.load.svg(UI_ICON_KEYS.settings, 'assets/ui/icons/settings.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.music, 'assets/ui/icons/music.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.sound, 'assets/ui/icons/sound.svg', rasterizeConfig);
-  scene.load.svg(UI_ICON_KEYS.vibration, 'assets/ui/icons/vibration.svg', rasterizeConfig);
+  scene.load.svg(UI_ICON_KEYS.levels, 'assets/ui/icons/levels.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.language, 'assets/ui/icons/language.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.check, 'assets/ui/icons/check.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.lock, 'assets/ui/icons/lock.svg', rasterizeConfig);

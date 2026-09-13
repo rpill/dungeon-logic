@@ -26,9 +26,9 @@ assert(!game.includes("feedback.play(kind === 'monster' ? 'monster' : 'chest')")
 const audioService = existsSync(new URL('../src/audio/AudioFeedbackService.ts', import.meta.url))
   ? readFileSync(new URL('../src/audio/AudioFeedbackService.ts', import.meta.url), 'utf8')
   : '';
-assert(audioService.includes('navigator.vibrate'), 'Feedback service must use navigator.vibrate when enabled.');
+assert(!audioService.includes('navigator.vibrate'), 'Feedback service must not use browser vibration.');
 assert(audioService.includes('soundEnabled'), 'Feedback service must honor the sound setting.');
-assert(audioService.includes('vibrationEnabled'), 'Feedback service must honor the vibration setting.');
+assert(!audioService.includes('vibrationEnabled'), 'Feedback service must not depend on a vibration setting.');
 
 for (const file of [
   'ui-click.wav',

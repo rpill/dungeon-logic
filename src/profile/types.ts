@@ -54,7 +54,6 @@ export interface TutorialProfileState {
 export interface PlayerSettings {
   readonly musicEnabled: boolean;
   readonly soundEnabled: boolean;
-  readonly vibrationEnabled: boolean;
   readonly language: SupportedLanguage;
 }
 

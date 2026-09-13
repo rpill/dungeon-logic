@@ -22,8 +22,9 @@ assert(
   'HomeScene must render the logo image centered at logoY.',
 );
 assert(
-  homeSource.includes('const logoWidth = Math.min(narrow ? this.scale.width - 48 : 560, 640)'),
-  'Home logo must use responsive width capped for desktop.',
+  homeSource.includes('narrow ? this.scale.width - 68 : this.scale.width * 0.42')
+    && homeSource.includes('narrow ? 330 : 540'),
+  'Home logo must use responsive mobile/desktop width caps.',
 );
 assert(
   homeSource.includes('logo.setDisplaySize(logoWidth, logoWidth / logoAspect)'),
@@ -31,11 +32,7 @@ assert(
 );
 assert(
   !homeSource.includes("this.add.text(this.scale.width / 2, titleY, 'DUNGEON LOGIC'"),
-  'The old text-only DUNGEON LOGIC title must be removed.',
-);
-assert(
-  !homeSource.includes('copy.home.levelsProgress('),
-  'Home must not render campaign progress helper text below the logo.',
+  'The old text-only DUNGEON LOGIC title must stay removed.',
 );
 
-console.info('[Dungeon Logic] Home logo sanity: responsive image logo passed');
+console.info('[Dungeon Logic] Home logo sanity: compact hub logo passed');

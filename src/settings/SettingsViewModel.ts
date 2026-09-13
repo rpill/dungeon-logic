@@ -2,7 +2,7 @@ import type { SupportedLanguage } from '../i18n/Language';
 import { getUiCopy } from '../i18n/UiCopy';
 import type { PlayerSettings } from '../profile/types';
 
-export type SettingsRowId = 'music' | 'sound' | 'vibration' | 'language' | 'help' | 'reset';
+export type SettingsRowId = 'music' | 'sound' | 'language' | 'tutorial' | 'help' | 'reset';
 
 export interface SettingsRowViewModel {
   readonly id: SettingsRowId;
@@ -13,25 +13,18 @@ export interface SettingsRowViewModel {
 
 export function getSettingsRows(
   settings: PlayerSettings,
-  vibrationSupported: boolean,
   language: SupportedLanguage = settings.language,
 ): readonly SettingsRowViewModel[] {
-  const copy = getUiCopy(language).settings;
-  const onOff = (enabled: boolean): string => enabled ? copy.on : copy.off;
-  const rows: SettingsRowViewModel[] = [
-    { id: 'music', label: copy.music, value: onOff(settings.musicEnabled), danger: false },
-    { id: 'sound', label: copy.sound, value: onOff(settings.soundEnabled), danger: false },
+  const copy = getUiCopy(language);
+  const settingsCopy = copy.settings;
+  const onOff = (enabled: boolean): string => enabled ? settingsCopy.on : settingsCopy.off;
+
+  return [
+    { id: 'music', label: settingsCopy.music, value: onOff(settings.musicEnabled), danger: false },
+    { id: 'sound', label: settingsCopy.sound, value: onOff(settings.soundEnabled), danger: false },
+    { id: 'language', label: settingsCopy.language, value: settingsCopy.languageName[settings.language], danger: false },
+    { id: 'tutorial', label: copy.common.tutorial, value: null, danger: false },
+    { id: 'help', label: settingsCopy.rules, value: null, danger: false },
+    { id: 'reset', label: settingsCopy.resetProgress, value: null, danger: true },
   ];
-
-  if (vibrationSupported) {
-    rows.push({ id: 'vibration', label: copy.vibration, value: onOff(settings.vibrationEnabled), danger: false });
-  }
-
-  rows.push(
-    { id: 'language', label: copy.language, value: copy.languageName[settings.language], danger: false },
-    { id: 'help', label: copy.help, value: '→', danger: false },
-    { id: 'reset', label: copy.resetProgress, value: null, danger: true },
-  );
-
-  return rows;
 }

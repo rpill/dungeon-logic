@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import { createHeaderActionButton, getHeaderActionButtonMetrics } from './HeaderActionButton';
 import { calculateMetaPageHeaderMetrics, type MetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
 export interface MetaPageHeaderOptions {
@@ -41,60 +41,51 @@ export function createMetaPageHeader(
   const backButton = options.backButton ?? false;
   const fixedBack = options.fixedBack ?? fixed;
   const backInset = metrics.narrow ? 16 : 28;
-  const backGap = metrics.narrow ? 7 : 9;
+  const actionMetrics = getHeaderActionButtonMetrics(metrics.narrow);
+  const backGap = actionMetrics.gap;
   const titleDepthBase = fixed ? 1001 : 1;
   const backDepthBase = fixedBack ? 1101 : titleDepthBase;
-  const buttonWidth = metrics.narrow ? 116 : 150;
-  const buttonHeight = metrics.density === 'ultra' ? 38 : metrics.narrow ? 42 : 48;
-  const buttonRadius = metrics.narrow ? 9 : 11;
+  const buttonWidth = actionMetrics.pillWidth;
+  const buttonHeight = metrics.density === 'ultra' ? 38 : actionMetrics.height;
+  const buttonRadius = actionMetrics.radius;
   const buttonX = backInset + buttonWidth / 2;
-
-  const backButtonBackground = scene.add.graphics().setDepth(backDepthBase + 1);
-  let backHovered = false;
-  const redrawBackButton = (): void => {
-    backButtonBackground.clear();
-    if (!backButton) return;
-    backButtonBackground.fillStyle(backHovered ? 0x2a3d66 : 0x1d2b4b, 1);
-    backButtonBackground.fillRoundedRect(
-      buttonX - buttonWidth / 2,
-      metrics.backY - buttonHeight / 2,
-      buttonWidth,
-      buttonHeight,
-      buttonRadius,
-    );
-  };
-  redrawBackButton();
-
-  const backIcon = scene.add.image(0, metrics.backY, 'ui-icon-back')
-    .setDisplaySize(metrics.backIconSize, metrics.backIconSize)
-    .setTint(0xf4ead7)
-    .setDepth(backDepthBase + 2);
-  const backText = scene.add.text(
-    0,
-    metrics.backY,
-    options.backLabel.replace(/^←\s*/, ''),
-    {
-      fontFamily: 'monospace',
-      fontSize: `${metrics.backFontSize}px`,
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    },
-  ).setOrigin(0, 0.5).setDepth(backDepthBase + 2);
 
   let backHit: Phaser.GameObjects.Zone;
   let backRight: number;
   if (backButton) {
-    const contentWidth = metrics.backIconSize + backGap + backText.width;
-    const contentStartX = buttonX - contentWidth / 2;
-    backIcon.setPosition(contentStartX + metrics.backIconSize / 2, metrics.backY);
-    backText.setPosition(contentStartX + metrics.backIconSize + backGap, metrics.backY);
-    backHit = scene.add.zone(buttonX, metrics.backY, buttonWidth, buttonHeight)
-      .setDepth(backDepthBase + 3)
-      .setInteractive({ useHandCursor: true });
+    const action = createHeaderActionButton(scene, {
+      x: buttonX,
+      y: metrics.backY,
+      width: buttonWidth,
+      height: buttonHeight,
+      radius: buttonRadius,
+      iconKey: 'ui-icon-back',
+      iconSize: metrics.backIconSize,
+      label: options.backLabel,
+      fontSize: metrics.backFontSize,
+      gap: backGap,
+      fixed: fixedBack,
+      depth: backDepthBase + 1,
+      onActivate: options.onBack,
+    });
+    backHit = action.hit;
     backRight = backInset + buttonWidth;
   } else {
-    backIcon.setPosition(backInset + metrics.backIconSize / 2, metrics.backY);
-    backText.setPosition(backInset + metrics.backIconSize + backGap, metrics.backY);
+    const backIcon = scene.add.image(backInset + metrics.backIconSize / 2, metrics.backY, 'ui-icon-back')
+      .setDisplaySize(metrics.backIconSize, metrics.backIconSize)
+      .setTint(0xf4ead7)
+      .setDepth(backDepthBase + 2);
+    const backText = scene.add.text(
+      backInset + metrics.backIconSize + backGap,
+      metrics.backY,
+      options.backLabel.replace(/^←\s*/, ''),
+      {
+        fontFamily: 'monospace',
+        fontSize: `${metrics.backFontSize}px`,
+        color: '#f4ead7',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0, 0.5).setDepth(backDepthBase + 2);
     const backWidth = metrics.backIconSize + backGap + backText.width;
     backHit = scene.add.zone(
       backInset + backWidth / 2,
@@ -102,41 +93,15 @@ export function createMetaPageHeader(
       backWidth,
       Math.max(42, metrics.backIconSize + 10),
     ).setDepth(backDepthBase + 3).setInteractive({ useHandCursor: true });
+    backHit.on('pointerup', options.onBack);
     backRight = backInset + backWidth;
+    if (fixedBack) {
+      backIcon.setScrollFactor(0);
+      backText.setScrollFactor(0);
+      backHit.setScrollFactor(0);
+    }
   }
 
-  backHit.on('pointerover', () => {
-    if (backButton) {
-      backHovered = true;
-      redrawBackButton();
-    }
-    getAudioFeedback(scene).play('ui-hover');
-  });
-  backHit.on('pointerout', () => {
-    if (!backButton) return;
-    backHovered = false;
-    redrawBackButton();
-  });
-  backHit.on('pointerdown', () => {
-    if (!backButton) return;
-    backButtonBackground.clear();
-    backButtonBackground.fillStyle(0x17243e, 1);
-    backButtonBackground.fillRoundedRect(
-      buttonX - buttonWidth / 2,
-      metrics.backY - buttonHeight / 2,
-      buttonWidth,
-      buttonHeight,
-      buttonRadius,
-    );
-  });
-  backHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-    if (backButton) {
-      backHovered = true;
-      redrawBackButton();
-    }
-    getAudioFeedback(scene).play('ui-click');
-    options.onBack(pointer);
-  });
 
   const title = scene.add.text(scene.scale.width / 2, metrics.titleY, options.title, {
     fontFamily: 'monospace',
@@ -175,12 +140,6 @@ export function createMetaPageHeader(
     decor.fillRect(rightDiamondX + sideGap, metrics.titleY - 1, maxLineWidth, 2);
   }
 
-  if (fixedBack) {
-    backButtonBackground.setScrollFactor(0);
-    backIcon.setScrollFactor(0);
-    backText.setScrollFactor(0);
-    backHit.setScrollFactor(0);
-  }
   if (fixed) {
     title.setScrollFactor(0);
     decor.setScrollFactor(0);

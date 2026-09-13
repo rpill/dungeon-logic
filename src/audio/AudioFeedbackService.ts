@@ -4,7 +4,6 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   type PlayerProfileService,
 } from '../profile/PlayerProfileService';
-import { detectVibrationSupport } from '../settings/SettingsService';
 import { AUDIO_KEYS } from './AudioAssets';
 
 export type AudioFeedbackEvent =
@@ -25,7 +24,6 @@ interface FeedbackDefinition {
   readonly volume: number;
   readonly rateVariance: number;
   readonly cooldownMs: number;
-  readonly vibration?: number | readonly number[];
 }
 
 const FEEDBACK: Readonly<Record<AudioFeedbackEvent, FeedbackDefinition>> = {
@@ -88,14 +86,12 @@ const FEEDBACK: Readonly<Record<AudioFeedbackEvent, FeedbackDefinition>> = {
     volume: 0.18,
     rateVariance: 0,
     cooldownMs: 90,
-    vibration: 18,
   },
   complete: {
     keys: [AUDIO_KEYS.complete],
     volume: 0.18,
     rateVariance: 0,
     cooldownMs: 600,
-    vibration: [12, 34, 22],
   },
 };
 
@@ -136,7 +132,6 @@ export class AudioFeedbackService {
 
     const settings = readProfileService(this.scene)?.getProfile().settings;
     const soundEnabled = settings?.soundEnabled ?? true;
-    const vibrationEnabled = settings?.vibrationEnabled ?? true;
 
     if (soundEnabled) {
       const key = this.chooseKey(definition.keys);
@@ -147,10 +142,6 @@ export class AudioFeedbackService {
         });
       }
     }
-
-    if (vibrationEnabled && definition.vibration !== undefined) {
-      this.vibrate(definition.vibration);
-    }
   }
 
   private chooseKey(keys: readonly string[]): string {
@@ -158,14 +149,6 @@ export class AudioFeedbackService {
     return keys[Math.floor(Math.random() * keys.length)] ?? keys[0]!;
   }
 
-  private vibrate(pattern: number | readonly number[]): void {
-    if (typeof navigator === 'undefined' || !detectVibrationSupport(navigator)) return;
-    try {
-      navigator.vibrate(Array.isArray(pattern) ? [...pattern] : pattern as number);
-    } catch {
-      // Vibration is optional feedback. Unsupported/blocked devices should stay silent.
-    }
-  }
 }
 
 export function getAudioFeedback(scene: Phaser.Scene): AudioFeedbackService {

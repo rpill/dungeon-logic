@@ -6,47 +6,11 @@ import type { PlayerSettings } from '../profile/types';
 
 export type { SupportedLanguage } from '../i18n/Language';
 
-export interface VibrationNavigatorLike {
-  readonly vibrate?: unknown;
-  readonly maxTouchPoints?: number;
-}
-
-function detectCoarsePrimaryPointer(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-  return window.matchMedia('(pointer: coarse)').matches;
-}
-
-export function detectVibrationSupport(
-  value: VibrationNavigatorLike | null | undefined,
-  coarsePointer = detectCoarsePrimaryPointer(),
-): boolean {
-  return typeof value?.vibrate === 'function'
-    && (value.maxTouchPoints ?? 0) > 0
-    && coarsePointer;
-}
-
-export interface SettingsServiceOptions {
-  readonly vibrationSupported: boolean;
-}
-
 export class SettingsService {
-  private readonly profileService: PlayerProfileService;
-  private readonly vibrationSupported: boolean;
-
-  constructor(
-    profileService: PlayerProfileService,
-    options: SettingsServiceOptions,
-  ) {
-    this.profileService = profileService;
-    this.vibrationSupported = options.vibrationSupported;
-  }
+  constructor(private readonly profileService: PlayerProfileService) {}
 
   getSettings(): PlayerSettings {
     return this.profileService.getProfile().settings;
-  }
-
-  isVibrationSupported(): boolean {
-    return this.vibrationSupported;
   }
 
   async setMusicEnabled(enabled: boolean): Promise<void> {
@@ -56,11 +20,6 @@ export class SettingsService {
 
   async setSoundEnabled(enabled: boolean): Promise<void> {
     await this.updateSettings({ soundEnabled: enabled });
-  }
-
-  async setVibrationEnabled(enabled: boolean): Promise<void> {
-    if (!this.vibrationSupported) return;
-    await this.updateSettings({ vibrationEnabled: enabled });
   }
 
   async setLanguage(language: SupportedLanguage): Promise<void> {

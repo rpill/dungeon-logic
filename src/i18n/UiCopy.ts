@@ -42,14 +42,21 @@ export interface UiCopy {
     readonly streakSuffix: (streak: number) => string;
     readonly best: (time: string, streakSuffix: string) => string;
     readonly today: (streakSuffix: string) => string;
+    readonly dailyLockedShort: string;
+    readonly dailyUnavailableShort: string;
+    readonly dailyNewShort: string;
+    readonly dailySolvedShort: string;
+    readonly dailyStreak: (streak: number) => string;
+    readonly endless: string;
+    readonly endlessSoon: string;
   };
   readonly settings: {
     readonly title: string;
     readonly music: string;
     readonly sound: string;
-    readonly vibration: string;
     readonly language: string;
-    readonly help: string;
+    readonly helpAndInfo: string;
+    readonly rules: string;
     readonly resetProgress: string;
     readonly on: string;
     readonly off: string;
@@ -215,14 +222,21 @@ const RU: UiCopy = {
     streakSuffix: (streak) => streak > 0 ? ` · Серия ${streak}` : '',
     best: (time, streakSuffix) => `Результат ${time}${streakSuffix}`,
     today: (streakSuffix) => `Сегодня${streakSuffix}`,
+    dailyLockedShort: 'ПОСЛЕ УРОВНЯ 5',
+    dailyUnavailableShort: 'НЕДОСТУПНО',
+    dailyNewShort: 'СЕГОДНЯ НОВАЯ',
+    dailySolvedShort: 'СЕГОДНЯ РЕШЕНО',
+    dailyStreak: (streak) => `Серия: ${streak}`,
+    endless: 'БЕСКОНЕЧНЫЙ РЕЖИМ',
+    endlessSoon: 'СКОРО',
   },
   settings: {
     title: 'НАСТРОЙКИ',
     music: 'МУЗЫКА',
     sound: 'ЗВУК',
-    vibration: 'ВИБРАЦИЯ',
     language: 'ЯЗЫК',
-    help: 'КАК ИГРАТЬ',
+    helpAndInfo: 'ПОМОЩЬ И ИНФОРМАЦИЯ',
+    rules: 'ПРАВИЛА',
     resetProgress: 'СБРОСИТЬ ПРОГРЕСС',
     on: 'ВКЛ',
     off: 'ВЫКЛ',
@@ -231,7 +245,7 @@ const RU: UiCopy = {
     resetBody: 'Кампания, Daily, статистика и подсказки\nбудут удалены. Настройки сохранятся.',
   },
   help: {
-    title: 'КАК ИГРАТЬ',
+    title: 'ПРАВИЛА',
     utilityTitle: 'УПРАВЛЕНИЕ',
     done: 'ПОНЯТНО',
   },
@@ -388,14 +402,21 @@ const EN: UiCopy = {
     streakSuffix: (streak) => streak > 0 ? ` · Streak ${streak}` : '',
     best: (time, streakSuffix) => `Result ${time}${streakSuffix}`,
     today: (streakSuffix) => `Today${streakSuffix}`,
+    dailyLockedShort: 'AFTER LEVEL 5',
+    dailyUnavailableShort: 'UNAVAILABLE',
+    dailyNewShort: 'NEW TODAY',
+    dailySolvedShort: 'SOLVED TODAY',
+    dailyStreak: (streak) => `Streak: ${streak}`,
+    endless: 'ENDLESS MODE',
+    endlessSoon: 'COMING SOON',
   },
   settings: {
     title: 'SETTINGS',
     music: 'MUSIC',
     sound: 'SOUND',
-    vibration: 'VIBRATION',
     language: 'LANGUAGE',
-    help: 'HOW TO PLAY',
+    helpAndInfo: 'HELP & INFORMATION',
+    rules: 'RULES',
     resetProgress: 'RESET PROGRESS',
     on: 'ON',
     off: 'OFF',
@@ -404,7 +425,7 @@ const EN: UiCopy = {
     resetBody: 'Campaign, Daily, statistics and hints\nwill be deleted. Settings will be kept.',
   },
   help: {
-    title: 'HOW TO PLAY',
+    title: 'RULES',
     utilityTitle: 'CONTROLS',
     done: 'GOT IT',
   },

@@ -66,7 +66,6 @@ function profile(
     settings: {
       musicEnabled: true,
       soundEnabled: true,
-      vibrationEnabled: true,
       language: 'ru',
     },
     hints: { freeRemaining: 3, totalUsed: 0 },

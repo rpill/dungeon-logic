@@ -119,8 +119,8 @@ async function main(): Promise<void> {
   assert(JSON.stringify(ruFlow[1]?.target === 'board-cells' ? ruFlow[1].cells : []) === JSON.stringify(enFlow[1]?.target === 'board-cells' ? enFlow[1].cells : []), 'Onboarding target cells are locale invariant.');
   assert(ruFlow[0]?.message !== enFlow[0]?.message, 'Onboarding prose is localized.');
 
-  const ruSettingsRows = getSettingsRows(savedRussian.settings, true, 'ru');
-  const enSettingsRows = getSettingsRows({ ...savedRussian.settings, language: 'en' }, true, 'en');
+  const ruSettingsRows = getSettingsRows(savedRussian.settings, 'ru');
+  const enSettingsRows = getSettingsRows({ ...savedRussian.settings, language: 'en' }, 'en');
   assert(ruSettingsRows.find((row) => row.id === 'music')?.label === 'МУЗЫКА', 'Settings rows localize Russian labels.');
   assert(enSettingsRows.find((row) => row.id === 'music')?.label === 'MUSIC', 'Settings rows localize English labels.');
   assert(ruSettingsRows.find((row) => row.id === 'music')?.value === 'ВКЛ', 'Settings rows localize Russian toggle values.');

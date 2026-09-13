@@ -101,7 +101,8 @@
     "endless:verify": "tsx src/dev/endless/cli.ts verify",
     "endless:pack": "tsx src/dev/endless/cli.ts pack",
     "sanity:endless-catalog": "tsx src/dev/endlessCatalogSanity.ts --allow-missing-production",
-    "sanity:endless-production": "tsx src/dev/endlessCatalogSanity.ts"
+    "sanity:endless-production": "tsx src/dev/endlessCatalogSanity.ts",
+    "sanity:home-hub": "node scripts/home-hub-layout-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

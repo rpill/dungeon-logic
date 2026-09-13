@@ -124,7 +124,8 @@ async function main(): Promise<void> {
   assert(fresh.daily.currentStreak === 0 && fresh.daily.bestStreak === 0, 'Fresh profile starts with empty Daily streaks.');
   assert(fresh.ads.campaignCompletionsSinceOpportunity === 0, 'Fresh profile starts with zero ad opportunity completions.');
   assert(fresh.totals.activePlayMs === 0, 'Fresh profile starts with zero active play time.');
-  assert(fresh.settings.musicEnabled && fresh.settings.soundEnabled && fresh.settings.vibrationEnabled, 'Fresh settings enable music, sound, and vibration.');
+  assert(fresh.settings.musicEnabled && fresh.settings.soundEnabled, 'Fresh settings enable music and sound.');
+  assert(!('vibrationEnabled' in fresh.settings), 'Fresh settings no longer persist vibration.');
   assert(fresh.settings.language === 'ru', 'Fresh profile language defaults to ru.');
 
 

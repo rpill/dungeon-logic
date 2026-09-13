@@ -9,14 +9,8 @@ const feedback = readFileSync(new URL('../src/audio/AudioFeedbackService.ts', im
 const boot = readFileSync(new URL('../src/scenes/BootScene.ts', import.meta.url), 'utf8');
 const assets = readFileSync(new URL('../src/audio/AudioAssets.ts', import.meta.url), 'utf8');
 
-assert(
-  settings.includes('maxTouchPoints') && settings.includes('coarsePointer'),
-  'Vibration capability must require touch points and a coarse primary pointer, not navigator.vibrate alone.',
-);
-assert(
-  feedback.includes('detectVibrationSupport'),
-  'Runtime haptics must use the same vibration capability predicate as Settings.',
-);
+assert(!settings.includes('vibration'), 'SettingsService must not expose vibration controls.');
+assert(!feedback.includes('navigator.vibrate'), 'Runtime feedback must not attempt browser vibration.');
 assert(
   existsSync(new URL('../src/audio/MusicService.ts', import.meta.url)),
   'A persistent MusicService must own the background loop.',
@@ -34,4 +28,4 @@ assert(
   'Changing the Music setting must immediately sync the persistent loop.',
 );
 
-console.info('Music + vibration sanity: PASS');
+console.info('Music + no-vibration sanity: PASS');

@@ -145,7 +145,7 @@ export class LevelSelectScene extends Phaser.Scene {
 
     createMetaPageHeader(this, {
       title: copy.common.levels,
-      backLabel: copy.common.backHome,
+      backLabel: copy.common.back,
       backButton: true,
       fixedBack: true,
       onBack: (pointer) => {

@@ -5,7 +5,7 @@ import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileV4 } from '../profile/types';
 import type { HelpReturnSceneKey } from '../help/HelpNavigation';
 import { SETTINGS_SCENE_KEY, shouldShowSettingsEntry } from '../runtime/MetaSelectors';
-import { SettingsService, detectVibrationSupport } from '../settings/SettingsService';
+import { SettingsService } from '../settings/SettingsService';
 import { getSettingsRows } from '../settings/SettingsViewModel';
 
 function assert(condition: boolean, message: string): void {
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   const manifest = [entry(1), entry(2), entry(3), entry(4), entry(5), entry(6)];
   const storage = new MemoryStorage();
   const profileService = await PlayerProfileService.create(manifest, storage, { saveDelayMs: 60_000 });
-  const settings = new SettingsService(profileService, { vibrationSupported: true });
+  const settings = new SettingsService(profileService);
 
   const helpReturnKey: HelpReturnSceneKey = SETTINGS_SCENE_KEY;
   assert(helpReturnKey === SETTINGS_SCENE_KEY, 'How to Play can return to SettingsScene.');
@@ -58,32 +58,20 @@ async function main(): Promise<void> {
   assert(shouldShowSettingsEntry(profileService.getProfile()), 'Settings is available from the first launch.');
 
   assert(settings.getSettings().language === 'ru', 'SettingsService exposes fresh profile settings.');
-  assert(settings.isVibrationSupported(), 'Injected vibration capability is exposed.');
+  assert(!('vibrationEnabled' in settings.getSettings()), 'Vibration is removed from persisted player settings.');
+  const rows = getSettingsRows(settings.getSettings(), settings.getSettings().language);
   assert(
-    detectVibrationSupport({ vibrate: () => true, maxTouchPoints: 1 }, true),
-    'Touch device with vibrate and a coarse primary pointer enables vibration capability.',
+    rows.map((row) => row.id).join(',') === 'music,sound,language,tutorial,help,reset',
+    'Settings renders Music, Sound, Language, Tutorial, Rules, then Reset.',
   );
-  assert(
-    !detectVibrationSupport({ vibrate: () => true, maxTouchPoints: 0 }, false),
-    'Desktop-like device hides vibration even when navigator.vibrate exists.',
-  );
-  assert(
-    !detectVibrationSupport({ vibrate: () => true, maxTouchPoints: 5 }, false),
-    'Fine-pointer desktop UI hides vibration even on hybrid touch hardware.',
-  );
-  assert(!detectVibrationSupport({}, true), 'Missing vibrate function disables vibration capability.');
-  const supportedRows = getSettingsRows(settings.getSettings(), true);
-  assert(supportedRows.map((row) => row.id).join(',') === 'music,sound,vibration,language,help,reset', 'Supported devices render the v1 settings rows in order.');
-  const unsupportedRows = getSettingsRows(settings.getSettings(), false);
-  assert(!unsupportedRows.some((row) => row.id === 'vibration'), 'Unsupported devices omit the vibration row entirely.');
+  assert(rows.find((row) => row.id === 'help')?.label === 'ПРАВИЛА', 'Rules replaces the duplicate How to Play entry.');
+
 
   await settings.setMusicEnabled(false);
   await settings.setSoundEnabled(false);
-  await settings.setVibrationEnabled(false);
   await settings.setLanguage('en');
   assert(!settings.getSettings().musicEnabled, 'Music setting updates immediately.');
   assert(!settings.getSettings().soundEnabled, 'Sound setting updates immediately.');
-  assert(!settings.getSettings().vibrationEnabled, 'Vibration setting updates immediately when supported.');
   assert(settings.getSettings().language === 'en', 'Language setting updates immediately.');
   assert(storage.saves.at(-1)?.settings.language === 'en', 'Settings mutations flush through profile storage immediately.');
 
@@ -130,7 +118,6 @@ async function main(): Promise<void> {
 
   assert(reset.settings.musicEnabled === false, 'Reset preserves music preference.');
   assert(reset.settings.soundEnabled === false, 'Reset preserves sound preference.');
-  assert(reset.settings.vibrationEnabled === false, 'Reset preserves vibration preference.');
   assert(reset.settings.language === 'en', 'Reset preserves language preference.');
   assert(reset.campaign.completedLevelIds.length === 0, 'Reset clears campaign completions.');
   assert(reset.campaign.lastPlayedLevelId === null, 'Reset clears last played campaign level.');
@@ -147,14 +134,9 @@ async function main(): Promise<void> {
   assert(reset.totals.activePlayMs === 0, 'Reset clears accumulated active play time.');
   assert(storage.saves.at(-1)?.settings.language === 'en', 'Reset flushes preserved settings with the fresh progression state.');
 
-  const unsupportedStorage = new MemoryStorage();
-  const unsupportedProfile = await PlayerProfileService.create(manifest, unsupportedStorage, { saveDelayMs: 60_000 });
-  const unsupported = new SettingsService(unsupportedProfile, { vibrationSupported: false });
-  await unsupported.setVibrationEnabled(false);
-  assert(!unsupported.isVibrationSupported(), 'Unsupported devices report no vibration capability.');
-  assert(unsupported.getSettings().vibrationEnabled, 'Unsupported devices do not mutate hidden vibration preference.');
 
-  console.info('[Dungeon Logic] Settings sanity: persisted toggles + capability + reset semantics passed');
+
+  console.info('[Dungeon Logic] Settings sanity: redesigned rows + persistence + reset semantics passed');
 }
 
 void main();

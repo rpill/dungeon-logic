@@ -45,7 +45,7 @@ export class StatsScene extends Phaser.Scene {
 
     createMetaPageHeader(this, {
       title: this.copy.stats.title,
-      backLabel: this.copy.common.backHome,
+      backLabel: this.copy.common.back,
       backButton: true,
       fixedBack: true,
       onBack: () => this.scene.start(HOME_SCENE_KEY),

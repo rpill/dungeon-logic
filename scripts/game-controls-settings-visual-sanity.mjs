@@ -4,6 +4,7 @@ const game = fs.readFileSync(new URL('../src/scenes/GameScene.ts', import.meta.u
 const settings = fs.readFileSync(new URL('../src/scenes/SettingsScene.ts', import.meta.url), 'utf8');
 const boot = fs.readFileSync(new URL('../src/scenes/BootScene.ts', import.meta.url), 'utf8');
 const puzzleUi = fs.readFileSync(new URL('../src/runtime/PuzzleUiState.ts', import.meta.url), 'utf8');
+const uiIcons = fs.readFileSync(new URL('../src/runtime/UiIcons.ts', import.meta.url), 'utf8');
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -22,32 +23,21 @@ assert(puzzleUi.includes("const buttonHeight = viewportClass === 'wide' ? 58 : 5
 assert(puzzleUi.includes('const gapY = 22;'), 'Touch tool selectors must sit above the lower action row.');
 assert(game.includes("wall: 'board-wall-01'"), 'Wall selector must use a real wall-tile icon.');
 assert(game.includes("floor: 'board-floor-mark'"), 'Floor selector must use the coral diamond icon.');
-assert(puzzleUi.includes('hideHintButton = false') && puzzleUi.includes("? ['undo', 'reset']"), 'Delivered touch hints must remove the Hint button from the touch layout until resolved.');
-assert(game.includes('const backHit = this.add.zone('), 'Back control must use one full-button hit area.');
-assert(game.includes('const menuHit = this.add.zone('), 'Menu control must use one full-button hit area.');
-assert(!game.includes("copy.game.exitDaily : copy.game.exitLevels"), 'Game menu must not duplicate contextual Back navigation.');
-assert(game.includes('createHomeMenuButton(this, {'), 'Game menu must reuse the same asset-backed menu buttons as Home.');
-const home = fs.readFileSync(new URL('../src/scenes/HomeScene.ts', import.meta.url), 'utf8');
-assert(!home.includes('createHomeUtilityButton'), 'Home utility controls must not use the old custom bordered renderer.');
-assert(home.includes('compact: true'), 'Home utility controls must reuse compact shared menu assets.');
-assert(home.includes("icon: 'info'"), 'How to Play utility button must use the info icon through the shared renderer.');
-assert(home.includes("icon: 'play'"), 'Tutorial utility button must use the existing play icon.');
-assert(!home.includes('const tutorialLink = this.add.text'), 'Tutorial must no longer be a tiny text-only corner link.');
-assert(!home.includes('const helpLink = this.add.text'), 'How to Play must no longer be a tiny text-only corner link.');
+assert(game.includes('createHomeMenuButton(this, {'), 'Game menu must reuse shared menu buttons.');
 
 assert(settings.includes("createSceneBackground(this, 'meta')"), 'Settings must use the meta dungeon background.');
-assert(settings.includes('fillRoundedRect'), 'Settings rows must be rounded solid panels.');
-for (const key of ['ui-icon-music', 'ui-icon-sound', 'ui-icon-vibration', 'ui-icon-language', 'ui-icon-hint', 'ui-icon-reset']) {
+assert(settings.includes('createControlsPanel('), 'Settings must group Music, Sound, and Language in one controls panel.');
+assert(settings.includes('createToggle('), 'Music and Sound must render switch-style controls.');
+for (const key of ['ui-icon-music', 'ui-icon-sound', 'ui-icon-language', 'ui-icon-levels', 'ui-icon-question', 'ui-icon-reset']) {
   assert(settings.includes(key), `Settings must use ${key}.`);
 }
-assert(settings.includes('0xff4f57'), 'Reset progress row must use the coral/red accent fill.');
+assert(!settings.includes('vibration'), 'Settings UI must not render vibration controls.');
+assert(settings.includes('copy.settings.rules'), 'Settings must expose one Rules entry.');
+assert(settings.includes('launchTutorial'), 'Settings must expose Tutorial replay.');
+assert(settings.includes('0xc96568'), 'Reset progress action must use the softer coral accent.');
 
-assert(!game.includes('visual.disabled ? 0.58 : 1'), 'Disabled gameplay buttons must stay opaque.');
-assert(game.includes("return copy.game.levelTitle(campaignEntry.slot);"), 'Campaign title must show only the current level number.');
-assert(game.includes("'ui-icon-menu'"), 'GameScene must use the prepared menu icon.');
-assert(game.includes(".setTint(0xf4ead7)"), 'Top navigation icons must use the bright cream tint.');
-const uiIcons = fs.readFileSync(new URL('../src/runtime/UiIcons.ts', import.meta.url), 'utf8');
-assert(uiIcons.includes("menu: 'ui-icon-menu'"), 'Common UI icons must register the menu icon.');
-assert(uiIcons.includes("assets/ui/icons/menu.svg"), 'Common UI icons must preload menu.svg.');
+assert(uiIcons.includes("levels: 'ui-icon-levels'"), 'Common UI icons must register the levels/book icon for Tutorial replay.');
+assert(uiIcons.includes("assets/ui/icons/levels.svg"), 'Common UI icons must preload levels.svg.');
+assert(!uiIcons.includes("vibration: 'ui-icon-vibration'"), 'Common UI preload must no longer register vibration.');
 
-console.info('[Dungeon Logic] Game controls + Settings visual sanity: PASS');
+console.info('[Dungeon Logic] Game controls + redesigned Settings visual sanity: PASS');

@@ -47,7 +47,6 @@ const profile: PlayerProfileV4 = {
   settings: {
     musicEnabled: true,
     soundEnabled: true,
-    vibrationEnabled: true,
     language: 'ru',
   },
   hints: {

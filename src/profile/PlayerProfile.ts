@@ -130,7 +130,6 @@ function normalizeSettings(
   return {
     musicEnabled: typeof raw.musicEnabled === 'boolean' ? raw.musicEnabled : true,
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
-    vibrationEnabled: typeof raw.vibrationEnabled === 'boolean' ? raw.vibrationEnabled : true,
     language: isSupportedLanguage(raw.language) ? raw.language : defaultLanguage,
   };
 }
@@ -238,7 +237,6 @@ export function createFreshPlayerProfile(
     settings: {
       musicEnabled: true,
       soundEnabled: true,
-      vibrationEnabled: true,
       language: defaultLanguage,
     },
     hints: {

@@ -73,7 +73,8 @@ export class LeaderboardScene extends Phaser.Scene {
 
     createMetaPageHeader(this, {
       title: copy.leaderboard.title,
-      backLabel: copy.leaderboard.back,
+      backLabel: copy.common.back,
+      backButton: true,
       onBack: () => this.scene.start('DailyScene'),
     });
     this.add.text(this.scale.width / 2, layout.subtitleY, copy.leaderboard.subtitle(this.formatDate(data.dateKey)), {

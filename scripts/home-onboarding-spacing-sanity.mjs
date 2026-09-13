@@ -8,24 +8,21 @@ const home = readFileSync(new URL('../src/scenes/HomeScene.ts', import.meta.url)
 const copy = readFileSync(new URL('../src/i18n/UiCopy.ts', import.meta.url), 'utf8');
 
 assert(
-  home.includes('mainY + mainHeight / 2 + 10'),
-  'Tutorial progress must sit 10px below the tutorial button edge, not drift toward Daily.',
+  home.includes('copy.game.tutorialTitle(entry.slot, tutorial.getLevels().length)'),
+  'Tutorial resume progress must live inside the primary Home card subtitle.',
 );
 assert(
-  home.includes('initialCopy.home.dailyLockedAfterLevel'),
-  'Locked Daily must explain when it unlocks.',
+  home.includes('initialCopy.home.dailyLockedShort') && home.includes('copy.home.dailyLockedShort'),
+  'Locked Daily card must keep a short unlock explanation in both sync and async paths.',
 );
 assert(
-  home.includes('copy.home.dailyLockedAfterLevel'),
-  'Async locked Daily path must explain when it unlocks.',
+  copy.includes("dailyLockedShort: 'ПОСЛЕ УРОВНЯ 5'")
+    && copy.includes("dailyLockedShort: 'AFTER LEVEL 5'"),
+  'Daily locked subtitle must be localized for the compact Home tile.',
 );
 assert(
-  copy.includes("dailyLockedAfterLevel: 'DAILY · ПОСЛЕ УРОВНЯ 5'"),
-  'Russian copy must say Daily unlocks after level 5.',
-);
-assert(
-  copy.includes("dailyLockedAfterLevel: 'DAILY · AFTER LEVEL 5'"),
-  'English copy must say Daily unlocks after level 5.',
+  !home.includes('copy.common.tutorial') && !home.includes('copy.common.howToPlay'),
+  'Standalone Tutorial and How to Play utility buttons must be removed from compact Home.',
 );
 
-console.info('Home onboarding spacing sanity: PASS');
+console.info('Home onboarding spacing sanity: compact hub PASS');

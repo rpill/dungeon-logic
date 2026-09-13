@@ -72,6 +72,7 @@ export class HelpScene extends Phaser.Scene {
     createMetaPageHeader(this, {
       title: copy.help.title,
       backLabel: copy.common.back,
+      backButton: true,
       onBack: (pointer) => {
         if (!this.shouldActivatePointer(pointer)) return;
         this.closeHelp();

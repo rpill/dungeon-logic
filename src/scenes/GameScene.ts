@@ -54,6 +54,7 @@ import {
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
+import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
 import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   TUTORIAL_SERVICE_REGISTRY_KEY,
@@ -329,38 +330,36 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     const menuIcon = this.add.image(0, 0, 'ui-icon-menu').setTint(0xf4ead7);
-    const menuText = this.add.text(0, 0, copy.game.menu, {
-      fontFamily: 'monospace',
-      fontSize: `${chrome.actionFontSize}px`,
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    }).setOrigin(0, 0.5);
     let backHovered = false;
     let menuHovered = false;
 
     const redrawTopActions = (): void => {
-      const draw = (hit: Phaser.GameObjects.Zone, hovered: boolean): void => {
-        topActionBackground.fillStyle(hovered ? 0x2a3d66 : 0x1d2b4b, 1);
-        topActionBackground.fillRoundedRect(
-          hit.x - hit.width / 2,
-          hit.y - hit.height / 2,
-          hit.width,
-          hit.height,
-          this.scale.width < 700 ? 9 : 11,
-        );
-      };
+      const radius = this.scale.width < 700 ? 9 : 11;
       topActionBackground.clear();
-      draw(backHit, backHovered);
-      draw(menuHit, menuHovered);
+      drawHeaderActionButtonBackground(topActionBackground, {
+        x: backHit.x,
+        y: backHit.y,
+        width: backHit.width,
+        height: backHit.height,
+        radius,
+      }, backHovered ? 'hover' : 'normal');
+      drawHeaderActionButtonBackground(topActionBackground, {
+        x: menuHit.x,
+        y: menuHit.y,
+        width: menuHit.width,
+        height: menuHit.height,
+        radius,
+      }, menuHovered ? 'hover' : 'normal');
     };
 
     const layoutTopActions = (layout = chrome, insetTop = safeTop): void => {
       const narrowTop = this.scale.width < 700;
-      const height = narrowTop ? 38 : 48;
-      const backWidth = narrowTop ? 100 : 150;
-      const menuWidth = narrowTop ? 92 : 138;
-      const gap = narrowTop ? 6 : 9;
-      const iconSize = narrowTop ? 20 : 28;
+      const actionMetrics = getHeaderActionButtonMetrics(narrowTop);
+      const height = actionMetrics.height;
+      const backWidth = actionMetrics.pillWidth;
+      const menuWidth = height;
+      const gap = actionMetrics.gap;
+      const iconSize = actionMetrics.iconSize;
       const y = layout.titleY + insetTop - (narrowTop ? 2 : 0);
       const backX = layout.actionInset + backWidth / 2;
       const menuX = this.scale.width - layout.actionInset - menuWidth / 2;
@@ -368,7 +367,6 @@ export class GameScene extends Phaser.Scene {
       backHit.setPosition(backX, y).setSize(backWidth, height);
       menuHit.setPosition(menuX, y).setSize(menuWidth, height);
       backText.setFontSize(layout.actionFontSize).setText(getBackLabel());
-      menuText.setFontSize(layout.actionFontSize).setText(copy.game.menu);
       backIcon.setDisplaySize(iconSize, iconSize);
       menuIcon.setDisplaySize(iconSize, iconSize);
 
@@ -377,10 +375,7 @@ export class GameScene extends Phaser.Scene {
       backIcon.setPosition(backStartX + iconSize / 2, y);
       backText.setPosition(backStartX + iconSize + gap, y);
 
-      const menuContentWidth = iconSize + gap + menuText.width;
-      const menuStartX = menuX - menuContentWidth / 2;
-      menuIcon.setPosition(menuStartX + iconSize / 2, y);
-      menuText.setPosition(menuStartX + iconSize + gap, y);
+      menuIcon.setPosition(menuX, y);
 
       const titleY = y + (narrowTop ? 28 : 0);
       titleText
@@ -2442,7 +2437,6 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         copy = getUiCopy(language);
         titleText.setText(getTitleLabel());
         backText.setText(getBackLabel());
-        menuText.setText(copy.game.menu);
         layoutTopActions(calculatePuzzleChromeLayout(this.scale.width, this.scale.height), readSafeArea('--safe-area-inset-top'));
         refreshStatusText();
       }
