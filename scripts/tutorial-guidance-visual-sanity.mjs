@@ -13,6 +13,7 @@ assert(boardViewSource.includes('guideCluePulseTween'), 'Guided clue must pulse.
 assert(!boardViewSource.includes("'#f0d28a'"), 'Guided clue must keep the normal red/gray gameplay color state.');
 assert(!boardViewSource.includes('isGuideClue('), 'Tutorial guidance must not override clue color state.');
 assert(gameSceneSource.includes('board?.setTutorialGuideClue(step.guideClue ?? null);'), 'Active onboarding step must drive clue guidance.');
+assert(gameSceneSource.includes('statusText.setVisible(!showTouchToolButtons);'), 'Tutorial onboarding must keep desktop mouse controls visible while touch layouts keep the empty status hidden.');
 
 assert(cellViewSource.includes('guidanceWallGhost'), 'Tutorial WALL cells must keep the original shared ghost preview.');
 assert(cellViewSource.includes('guidanceFloorGhost'), 'Tutorial FLOOR cells must keep the original shared floor-mark preview.');

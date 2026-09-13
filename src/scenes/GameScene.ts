@@ -1559,10 +1559,10 @@ ${copy.game.featuresUnlocked}`
           action: () => {
             if (completionTransitionPending) return;
             const service = this.getCampaignService();
-            const firstLevel = service.getLevels()[0];
-            if (firstLevel === undefined) return;
+            const continueLevel = service.getContinueLevel() ?? service.getLevels()[0];
+            if (continueLevel === undefined) return;
             completionTransitionPending = true;
-            void service.startLevel(firstLevel.id)
+            void service.startLevel(continueLevel.id)
               .then((started) => {
                 if (createVersion !== this.createVersion) return;
                 this.scene.restart(createCampaignGameSceneData(started, service.getProgress()));
@@ -1778,7 +1778,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         return;
       }
 
-      statusText.setVisible(false);
+      statusText.setVisible(!showTouchToolButtons);
       board?.setInputCellTargets(null);
 
       onboardingBlocksInteraction = true;

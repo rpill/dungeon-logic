@@ -91,6 +91,48 @@ export function scoreCandidate(
   return roundScore(score);
 }
 
+export interface CandidateDiversitySignature {
+  readonly size: GeneratorBoardSize;
+  readonly wallDensity: number;
+  readonly thickWallCellRatio: number;
+  readonly wallOpenBoundaryPerWall: number;
+  readonly largestWallComponentRatio: number;
+  readonly monsterCount: number;
+  readonly solution: readonly string[];
+  readonly rooms: readonly PlannedRoom[];
+}
+
+export function createCandidateDiversitySignature(
+  accepted: AcceptedCandidate,
+): CandidateDiversitySignature {
+  const metrics = accepted.quality.metrics;
+
+  return {
+    size: accepted.candidate.size,
+    wallDensity: metrics.wallDensity,
+    thickWallCellRatio:
+      metrics.thickWallCellRatio,
+    wallOpenBoundaryPerWall:
+      metrics.wallOpenBoundaryPerWall,
+    largestWallComponentRatio:
+      metrics.largestWallComponentRatio,
+    monsterCount:
+      accepted.candidate.level.monsters.length,
+    solution: [...accepted.candidate.level.solution],
+    rooms: accepted.candidate.rooms.map(
+      (room) => ({
+        topLeft: { ...room.topLeft },
+        internalEntrance: {
+          ...room.internalEntrance,
+        },
+        externalEntrance: {
+          ...room.externalEntrance,
+        },
+      }),
+    ),
+  };
+}
+
 export function candidateDistance(
   a: AcceptedCandidate,
   b: AcceptedCandidate,
@@ -99,61 +141,58 @@ export function candidateDistance(
     return 0;
   }
 
-  const aMetrics =
-    a.quality.metrics;
+  return candidateDiversityDistance(
+    createCandidateDiversitySignature(a),
+    createCandidateDiversitySignature(b),
+  );
+}
 
-  const bMetrics =
-    b.quality.metrics;
-
+export function candidateDiversityDistance(
+  a: CandidateDiversitySignature,
+  b: CandidateDiversitySignature,
+): number {
   const components = [
     clamp01(
-      Math.abs(
-        a.candidate.size -
-          b.candidate.size,
-      ) / 2,
+      Math.abs(a.size - b.size) / 2,
     ),
     clamp01(
       Math.abs(
-        aMetrics.wallDensity -
-          bMetrics.wallDensity,
+        a.wallDensity - b.wallDensity,
       ) / 0.20,
     ),
     clamp01(
       Math.abs(
-        aMetrics.thickWallCellRatio -
-          bMetrics.thickWallCellRatio,
+        a.thickWallCellRatio -
+          b.thickWallCellRatio,
       ) / 0.40,
     ),
     clamp01(
       Math.abs(
-        aMetrics.wallOpenBoundaryPerWall -
-          bMetrics.wallOpenBoundaryPerWall,
+        a.wallOpenBoundaryPerWall -
+          b.wallOpenBoundaryPerWall,
       ) / 0.80,
     ),
     clamp01(
       Math.abs(
-        aMetrics.largestWallComponentRatio -
-          bMetrics.largestWallComponentRatio,
+        a.largestWallComponentRatio -
+          b.largestWallComponentRatio,
       ) / 0.50,
     ),
     clamp01(
       Math.abs(
-        a.candidate.level.monsters.length -
-          b.candidate.level.monsters.length,
+        a.monsterCount - b.monsterCount,
       ) / 4,
     ),
-    wallMaskDistance(a, b),
+    wallMaskSignatureDistance(a, b),
   ] as const;
 
-  const total =
-    components.reduce(
-      (sum, value) =>
-        sum + value,
-      0,
-    );
+  const total = components.reduce(
+    (sum, value) => sum + value,
+    0,
+  );
 
   const roomDistance =
-    roomSpatialDistance(a, b);
+    roomSpatialSignatureDistance(a, b);
 
   if (roomDistance === null) {
     return clamp01(
@@ -166,9 +205,7 @@ export function candidateDistance(
       total +
       roomDistance * 2
     ) /
-    (
-      components.length + 2
-    ),
+      (components.length + 2),
   );
 }
 
@@ -1371,21 +1408,17 @@ function singleRoomSpatialDistance(
   );
 }
 
-function roomSpatialDistance(
-  a: AcceptedCandidate,
-  b: AcceptedCandidate,
+function roomSpatialSignatureDistance(
+  a: CandidateDiversitySignature,
+  b: CandidateDiversitySignature,
 ): number | null {
-  const aRooms =
-    a.candidate.rooms;
-
-  const bRooms =
-    b.candidate.rooms;
+  const aRooms = a.rooms;
+  const bRooms = b.rooms;
 
   if (
     aRooms.length === 0 ||
     bRooms.length === 0 ||
-    aRooms.length !==
-      bRooms.length
+    aRooms.length !== bRooms.length
   ) {
     return null;
   }
@@ -1395,9 +1428,9 @@ function roomSpatialDistance(
     bRooms.length === 1
   ) {
     return singleRoomSpatialDistance(
-      a.candidate.size,
+      a.size,
       aRooms[0],
-      b.candidate.size,
+      b.size,
       bRooms[0],
     );
   }
@@ -1409,15 +1442,15 @@ function roomSpatialDistance(
     const direct =
       (
         singleRoomSpatialDistance(
-          a.candidate.size,
+          a.size,
           aRooms[0],
-          b.candidate.size,
+          b.size,
           bRooms[0],
         ) +
         singleRoomSpatialDistance(
-          a.candidate.size,
+          a.size,
           aRooms[1],
-          b.candidate.size,
+          b.size,
           bRooms[1],
         )
       ) / 2;
@@ -1425,15 +1458,15 @@ function roomSpatialDistance(
     const swapped =
       (
         singleRoomSpatialDistance(
-          a.candidate.size,
+          a.size,
           aRooms[0],
-          b.candidate.size,
+          b.size,
           bRooms[1],
         ) +
         singleRoomSpatialDistance(
-          a.candidate.size,
+          a.size,
           aRooms[1],
-          b.candidate.size,
+          b.size,
           bRooms[0],
         )
       ) / 2;
@@ -1608,43 +1641,23 @@ function compareSelection(
   );
 }
 
-function wallMaskDistance(
-  a: AcceptedCandidate,
-  b: AcceptedCandidate,
+function wallMaskSignatureDistance(
+  a: CandidateDiversitySignature,
+  b: CandidateDiversitySignature,
 ): number {
-  if (
-    a.candidate.size !==
-    b.candidate.size
-  ) {
+  if (a.size !== b.size) {
     return 1;
   }
 
-  const aSolution =
-    a.candidate.level.solution;
-
-  const bSolution =
-    b.candidate.level.solution;
-
-  const size =
-    a.candidate.size;
-
+  const size = a.size;
   let differentCells = 0;
-  const totalCells =
-    size * size;
+  const totalCells = size * size;
 
-  for (
-    let y = 0;
-    y < size;
-    y += 1
-  ) {
-    for (
-      let x = 0;
-      x < size;
-      x += 1
-    ) {
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
       if (
-        aSolution[y][x] !==
-        bSolution[y][x]
+        a.solution[y][x] !==
+        b.solution[y][x]
       ) {
         differentCells += 1;
       }
@@ -1652,8 +1665,7 @@ function wallMaskDistance(
   }
 
   return clamp01(
-    differentCells /
-      totalCells,
+    differentCells / totalCells,
   );
 }
 
