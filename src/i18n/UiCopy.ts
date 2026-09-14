@@ -57,12 +57,9 @@ export interface UiCopy {
     readonly language: string;
     readonly helpAndInfo: string;
     readonly rules: string;
-    readonly resetProgress: string;
     readonly on: string;
     readonly off: string;
     readonly languageName: Readonly<Record<SupportedLanguage, string>>;
-    readonly resetTitle: string;
-    readonly resetBody: string;
   };
   readonly help: {
     readonly title: string;
@@ -237,12 +234,9 @@ const RU: UiCopy = {
     language: 'ЯЗЫК',
     helpAndInfo: 'ПОМОЩЬ И ИНФОРМАЦИЯ',
     rules: 'ПРАВИЛА',
-    resetProgress: 'СБРОСИТЬ ПРОГРЕСС',
     on: 'ВКЛ',
     off: 'ВЫКЛ',
     languageName: { ru: 'РУССКИЙ', en: 'ENGLISH' },
-    resetTitle: 'СБРОСИТЬ ПРОГРЕСС?',
-    resetBody: 'Кампания, Daily, статистика и подсказки\nбудут удалены. Настройки сохранятся.',
   },
   help: {
     title: 'ПРАВИЛА',
@@ -417,12 +411,9 @@ const EN: UiCopy = {
     language: 'LANGUAGE',
     helpAndInfo: 'HELP & INFORMATION',
     rules: 'RULES',
-    resetProgress: 'RESET PROGRESS',
     on: 'ON',
     off: 'OFF',
     languageName: { ru: 'РУССКИЙ', en: 'ENGLISH' },
-    resetTitle: 'RESET PROGRESS?',
-    resetBody: 'Campaign, Daily, statistics and hints\nwill be deleted. Settings will be kept.',
   },
   help: {
     title: 'RULES',

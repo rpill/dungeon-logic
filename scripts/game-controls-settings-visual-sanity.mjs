@@ -28,13 +28,12 @@ assert(game.includes('createHomeMenuButton(this, {'), 'Game menu must reuse shar
 assert(settings.includes("createSceneBackground(this, 'meta')"), 'Settings must use the meta dungeon background.');
 assert(settings.includes('createControlsPanel('), 'Settings must group Music, Sound, and Language in one controls panel.');
 assert(settings.includes('createToggle('), 'Music and Sound must render switch-style controls.');
-for (const key of ['ui-icon-music', 'ui-icon-sound', 'ui-icon-language', 'ui-icon-levels', 'ui-icon-question', 'ui-icon-reset']) {
+for (const key of ['ui-icon-music', 'ui-icon-sound', 'ui-icon-language', 'ui-icon-levels', 'ui-icon-question']) {
   assert(settings.includes(key), `Settings must use ${key}.`);
 }
 assert(!settings.includes('vibration'), 'Settings UI must not render vibration controls.');
 assert(settings.includes('copy.settings.rules'), 'Settings must expose one Rules entry.');
 assert(settings.includes('launchTutorial'), 'Settings must expose Tutorial replay.');
-assert(settings.includes('0xc96568'), 'Reset progress action must use the softer coral accent.');
 
 assert(uiIcons.includes("levels: 'ui-icon-levels'"), 'Common UI icons must register the levels/book icon for Tutorial replay.');
 assert(uiIcons.includes("assets/ui/icons/levels.svg"), 'Common UI icons must preload levels.svg.');

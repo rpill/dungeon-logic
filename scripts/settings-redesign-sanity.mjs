@@ -11,7 +11,7 @@ const profileTypes = readFileSync(new URL('../src/profile/types.ts', import.meta
 const feedback = readFileSync(new URL('../src/audio/AudioFeedbackService.ts', import.meta.url), 'utf8');
 const copy = readFileSync(new URL('../src/i18n/UiCopy.ts', import.meta.url), 'utf8');
 
-assert(viewModel.includes("'music' | 'sound' | 'language' | 'tutorial' | 'help' | 'reset'"), 'Settings row model must contain Music, Sound, Language, Tutorial, Rules, Reset only.');
+assert(viewModel.includes("'music' | 'sound' | 'language' | 'tutorial' | 'help'"), 'Settings row model must contain Music, Sound, Language, Tutorial, and Rules only.');
 assert(!viewModel.includes("'vibration'"), 'Settings row model must not contain vibration.');
 assert(scene.includes("SETTINGS_ICON_KEYS[id]"), 'Settings rows must use prepared UI icons.');
 assert(scene.includes("'ui-icon-levels'"), 'Tutorial replay must use the existing book/levels icon.');

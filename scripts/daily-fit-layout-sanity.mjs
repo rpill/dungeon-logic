@@ -26,6 +26,12 @@ assert(tiny.contentBottom > 320, 'Exceptionally short viewports may still requir
 const september = calculateDailyHubLayout(1738, 864, 5);
 assert(september.cellSize >= 60, 'A normal desktop five-row month should keep comfortably readable calendar cells.');
 
+const desktopCalendar = calculateDailyHubLayout(1366, 768, 6);
+assert(desktopCalendar.rowGap >= 16, 'Desktop calendar rows should leave enough vertical clearance for the active-day marker above the next row.');
+
+const landscapePhone = calculateDailyHubLayout(844, 390, 6);
+assert(landscapePhone.rowGap === 3, 'Landscape phone calendar spacing should stay compact and unchanged.');
+
 console.info('[Dungeon Logic] Daily fit layout sanity: normal desktop/phone heights fit; only unusually short screens overflow');
 
 import { readFileSync } from 'node:fs';

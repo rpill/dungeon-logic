@@ -161,7 +161,8 @@ export function calculateDailyHubLayout(
     narrow ? 460 : 700,
   );
   const calendarWidth = Math.min(contentWidth, 680);
-  const rowGap = vertical.rowGap + (narrow ? 8 : 0);
+  const desktopRowClearance = !narrow && viewportWidth >= 900 ? 10 : 0;
+  const rowGap = vertical.rowGap + (narrow ? 8 : desktopRowClearance);
   const maxCellFromWidth = Math.floor(
     (calendarWidth - vertical.columnGap * 6) / 7,
   );

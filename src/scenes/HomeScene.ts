@@ -18,6 +18,7 @@ import {
 import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
+  HOME_SCENE_KEY,
   LEVELS_SCENE_KEY,
   SETTINGS_SCENE_KEY,
   getHomeCampaignAction,
@@ -135,7 +136,7 @@ export class HomeScene extends Phaser.Scene {
       size: homeHeaderActionMetrics.iconButtonSize,
       onActivate: (pointer: Phaser.Input.Pointer) => {
         if (!this.pointerGate.canActivate(pointer.id)) return;
-        this.scene.start(SETTINGS_SCENE_KEY);
+        this.scene.start(SETTINGS_SCENE_KEY, { returnSceneKey: HOME_SCENE_KEY });
       },
     });
 

@@ -23,13 +23,11 @@ const SETTINGS_ICON_KEYS: Readonly<Record<SettingsRowId, string>> = {
   language: 'ui-icon-language',
   tutorial: 'ui-icon-levels',
   help: 'ui-icon-question',
-  reset: 'ui-icon-reset',
 };
 
 export class SettingsScene extends Phaser.Scene {
   private readonly pointerGate = new MetaPointerGate();
   private returnSceneKey = HOME_SCENE_KEY;
-  private resetDialogOpen = false;
   private mutationPending = false;
   private launchPending = false;
 
@@ -43,7 +41,6 @@ export class SettingsScene extends Phaser.Scene {
 
   create(): void {
     this.pointerGate.reset();
-    this.resetDialogOpen = false;
     this.mutationPending = false;
     this.launchPending = false;
 
@@ -86,8 +83,19 @@ export class SettingsScene extends Phaser.Scene {
       onActivate: (pointer) => {
         if (!this.canActivate(pointer)) return;
         if (this.returnSceneKey === 'GameScene') {
-          this.scene.resume('GameScene');
-          this.scene.stop();
+          this.time.delayedCall(0, () => {
+            if (!this.scene.isActive()) return;
+            if (this.scene.isPaused('GameScene')) {
+              this.scene.resume('GameScene');
+              this.scene.stop();
+              return;
+            }
+            if (this.scene.isActive('GameScene')) {
+              this.scene.stop();
+              return;
+            }
+            this.scene.start(HOME_SCENE_KEY);
+          });
           return;
         }
         this.scene.start(HOME_SCENE_KEY);
@@ -149,9 +157,6 @@ export class SettingsScene extends Phaser.Scene {
         this.scene.pause();
       },
     );
-
-    const resetY = navStartY + (navRowHeight + navGap) * 2 + (dense ? 22 : 30);
-    this.createResetButton(copy.settings.resetProgress, centerX, resetY, Math.min(contentWidth, narrow ? 260 : 320), dense ? 42 : 46, narrow, settingsService);
 
     const handleResize = (): void => {
       sceneBackground.sync();
@@ -242,13 +247,13 @@ export class SettingsScene extends Phaser.Scene {
 
     const hit = this.add.zone(centerX, y, width, height).setInteractive({ useHandCursor: true });
     hit.on('pointerover', () => {
-      if (this.mutationPending || this.resetDialogOpen || this.launchPending) return;
+      if (this.mutationPending || this.launchPending) return;
       draw(0x254264);
       getAudioFeedback(this).play('ui-hover');
     });
     hit.on('pointerout', () => draw(0x1b3152));
     hit.on('pointerdown', () => {
-      if (!this.mutationPending && !this.resetDialogOpen && !this.launchPending) draw(0x142842);
+      if (!this.mutationPending && !this.launchPending) draw(0x142842);
     });
     hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       draw(0x254264);
@@ -329,13 +334,13 @@ export class SettingsScene extends Phaser.Scene {
 
     const hit = this.add.zone(centerX, y, width, height).setInteractive({ useHandCursor: true });
     hit.on('pointerover', () => {
-      if (this.mutationPending || this.resetDialogOpen || this.launchPending) return;
+      if (this.mutationPending || this.launchPending) return;
       draw(0x254264);
       getAudioFeedback(this).play('ui-hover');
     });
     hit.on('pointerout', () => draw(0x1a2f50));
     hit.on('pointerdown', () => {
-      if (!this.mutationPending && !this.resetDialogOpen && !this.launchPending) draw(0x142842);
+      if (!this.mutationPending && !this.launchPending) draw(0x142842);
     });
     hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       draw(0x254264);
@@ -345,50 +350,8 @@ export class SettingsScene extends Phaser.Scene {
     });
   }
 
-  private createResetButton(
-    label: string,
-    centerX: number,
-    y: number,
-    width: number,
-    height: number,
-    narrow: boolean,
-    service: SettingsService,
-  ): void {
-    const background = this.add.graphics();
-    const draw = (fillAlpha: number): void => {
-      background.clear();
-      background.fillStyle(0x4a2532, fillAlpha);
-      background.fillRoundedRect(centerX - width / 2, y - height / 2, width, height, narrow ? 9 : 10);
-      background.lineStyle(1.5, 0xc96568, 0.9);
-      background.strokeRoundedRect(centerX - width / 2, y - height / 2, width, height, narrow ? 9 : 10);
-    };
-    draw(0.58);
-    const iconSize = narrow ? 20 : 22;
-    this.add.image(centerX - width * 0.32, y, SETTINGS_ICON_KEYS.reset)
-      .setDisplaySize(iconSize, iconSize)
-      .setTint(0xf0b2b4);
-    this.add.text(centerX + 8, y, label, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '14px',
-      color: '#f3c4c5',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    const hit = this.add.zone(centerX, y, width, height).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => {
-      draw(0.78);
-      getAudioFeedback(this).play('ui-hover');
-    });
-    hit.on('pointerout', () => draw(0.58));
-    hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      draw(0.78);
-      if (!this.canActivate(pointer)) return;
-      getAudioFeedback(this).play('ui-click');
-      this.openResetDialog(service, service.getSettings().language);
-    });
-  }
-
   private async activateRow(id: 'music' | 'sound' | 'language', service: SettingsService): Promise<void> {
-    if (this.mutationPending || this.resetDialogOpen || this.launchPending) return;
+    if (this.mutationPending || this.launchPending) return;
     const current = service.getSettings();
     switch (id) {
       case 'music':
@@ -405,7 +368,7 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private async launchTutorial(): Promise<void> {
-    if (this.launchPending || this.mutationPending || this.resetDialogOpen) return;
+    if (this.launchPending || this.mutationPending) return;
     this.launchPending = true;
     try {
       const started = await this.getTutorialService().startEntryLevel();
@@ -429,103 +392,8 @@ export class SettingsScene extends Phaser.Scene {
     }
   }
 
-  private openResetDialog(service: SettingsService, language: SupportedLanguage): void {
-    if (this.resetDialogOpen || this.mutationPending || this.launchPending) return;
-    this.resetDialogOpen = true;
-
-    const copy = getUiCopy(language);
-    const narrow = this.scale.width < 700;
-    const width = Math.min(this.scale.width - 32, narrow ? 350 : 470);
-    const height = narrow ? 250 : 238;
-    const x = this.scale.width / 2;
-    const y = this.scale.height / 2;
-
-    const blocker = this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      0x000000,
-      0.7,
-    ).setDepth(2000).setInteractive();
-    const panel = this.add.graphics().setDepth(2001);
-    panel.fillStyle(0x17213a, 1);
-    panel.fillRoundedRect(x - width / 2, y - height / 2, width, height, 12);
-    panel.lineStyle(2, 0x6d7894, 1);
-    panel.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 12);
-    const title = this.add.text(x, y - height / 2 + 34, copy.settings.resetTitle, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '17px' : '19px',
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(2002);
-    const dialogCopy = this.add.text(x, y - 22, copy.settings.resetBody, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '13px',
-      color: '#aeb6c8',
-      align: 'center',
-      lineSpacing: 4,
-    }).setOrigin(0.5).setDepth(2002);
-
-    const buttonGap = 10;
-    const buttonWidth = (width - 36 - buttonGap) / 2;
-    const buttonHeight = 44;
-    const buttonY = y + height / 2 - 43;
-    const cancelX = x - (buttonWidth + buttonGap) / 2;
-    const resetX = x + (buttonWidth + buttonGap) / 2;
-    const buttons = this.add.graphics().setDepth(2002);
-    buttons.fillStyle(0x263451, 1);
-    buttons.fillRoundedRect(cancelX - buttonWidth / 2, buttonY - buttonHeight / 2, buttonWidth, buttonHeight, 9);
-    buttons.fillStyle(0xc96568, 1);
-    buttons.fillRoundedRect(resetX - buttonWidth / 2, buttonY - buttonHeight / 2, buttonWidth, buttonHeight, 9);
-    const cancelHit = this.add.zone(cancelX, buttonY, buttonWidth, buttonHeight).setDepth(2003).setInteractive({ useHandCursor: true });
-    const confirmHit = this.add.zone(resetX, buttonY, buttonWidth, buttonHeight).setDepth(2003).setInteractive({ useHandCursor: true });
-    const cancelLabel = this.add.text(cancelX, buttonY, copy.common.cancel, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '13px',
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(2003);
-    const confirmLabel = this.add.text(resetX, buttonY, copy.common.reset, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '13px',
-      color: '#fff4df',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(2003);
-
-    const destroyDialog = (): void => {
-      blocker.destroy();
-      panel.destroy();
-      title.destroy();
-      dialogCopy.destroy();
-      buttons.destroy();
-      cancelHit.destroy();
-      confirmHit.destroy();
-      cancelLabel.destroy();
-      confirmLabel.destroy();
-      this.resetDialogOpen = false;
-    };
-
-    cancelHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.pointerGate.canActivate(pointer.id) || this.mutationPending) return;
-      destroyDialog();
-    });
-    confirmHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!this.pointerGate.canActivate(pointer.id) || this.mutationPending) return;
-      this.mutationPending = true;
-      void service.resetProgress().then(() => {
-        if (!this.scene.isActive()) return;
-        this.scene.start(HOME_SCENE_KEY);
-      }).catch((error) => {
-        this.mutationPending = false;
-        console.warn('[Dungeon Logic] Could not reset player progress.', error);
-      });
-    });
-  }
-
   private canActivate(pointer: Phaser.Input.Pointer): boolean {
-    return !this.resetDialogOpen
-      && !this.mutationPending
+    return !this.mutationPending
       && !this.launchPending
       && this.pointerGate.canActivate(pointer.id);
   }

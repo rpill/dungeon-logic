@@ -2326,17 +2326,19 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     };
     keyboard?.on('keydown', handleKeyDown);
 
-    const handleResize = (): void => {
-      if (!this.scene.isActive()) return;
-
+    const relayoutGameViewport = (): void => {
       sceneBackground.sync();
 
       const width = this.scale.width;
       const height = this.scale.height;
       const nextChrome = calculatePuzzleChromeLayout(width, height);
       const nextSafeTop = readSafeArea('--safe-area-inset-top');
-      const nextBoardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve(), nextChrome, nextSafeTop);
-      recalculateToolbarLayout(nextBoardLayout);
+      boardLayout = calculateStableBoardLayout(
+        getCurrentBoardBottomReserve(),
+        nextChrome,
+        nextSafeTop,
+      );
+      recalculateToolbarLayout(boardLayout);
 
       layoutTopActions(nextChrome, nextSafeTop);
 
@@ -2358,7 +2360,6 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         statusText.setWordWrapWidth(Math.max(120, width - 24), true).setAlign('center');
       }
 
-      boardLayout = nextBoardLayout;
       board?.relayout(
         boardLayout.originX,
         boardLayout.originY,
@@ -2370,6 +2371,11 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       if (completionMode) renderCompletionButtons();
       if (gameMenuOpen) renderGameMenu();
       syncToolbar();
+    };
+
+    const handleResize = (): void => {
+      if (!this.scene.isActive()) return;
+      relayoutGameViewport();
     };
 
     const handleVisibilityChange = (): void => {
@@ -2437,9 +2443,9 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         copy = getUiCopy(language);
         titleText.setText(getTitleLabel());
         backText.setText(getBackLabel());
-        layoutTopActions(calculatePuzzleChromeLayout(this.scale.width, this.scale.height), readSafeArea('--safe-area-inset-top'));
         refreshStatusText();
       }
+      relayoutGameViewport();
       if (onboardingOpen) {
         applyOnboardingStep();
         return;

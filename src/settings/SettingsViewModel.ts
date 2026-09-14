@@ -2,7 +2,7 @@ import type { SupportedLanguage } from '../i18n/Language';
 import { getUiCopy } from '../i18n/UiCopy';
 import type { PlayerSettings } from '../profile/types';
 
-export type SettingsRowId = 'music' | 'sound' | 'language' | 'tutorial' | 'help' | 'reset';
+export type SettingsRowId = 'music' | 'sound' | 'language' | 'tutorial' | 'help';
 
 export interface SettingsRowViewModel {
   readonly id: SettingsRowId;
@@ -25,6 +25,5 @@ export function getSettingsRows(
     { id: 'language', label: settingsCopy.language, value: settingsCopy.languageName[settings.language], danger: false },
     { id: 'tutorial', label: copy.common.tutorial, value: null, danger: false },
     { id: 'help', label: settingsCopy.rules, value: null, danger: false },
-    { id: 'reset', label: settingsCopy.resetProgress, value: null, danger: true },
   ];
 }
