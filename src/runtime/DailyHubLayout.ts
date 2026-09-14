@@ -160,6 +160,20 @@ export function calculateDailyHubLayout(
     viewportWidth - (narrow ? 24 : 56),
     narrow ? 460 : 700,
   );
+  const narrowTodayHeight = density === 'ultra'
+    ? 108
+    : density === 'tight'
+      ? 112
+      : density === 'medium'
+        ? 124
+        : 132;
+  const todayHeight = narrow ? Math.max(vertical.todayHeight, narrowTodayHeight) : vertical.todayHeight;
+  const todayHeightDelta = todayHeight - vertical.todayHeight;
+  const archiveTitleY = vertical.archiveTitleY + todayHeightDelta;
+  const archiveProgressY = vertical.archiveProgressY + todayHeightDelta;
+  const monthHeaderY = vertical.monthHeaderY + todayHeightDelta;
+  const weekdaysY = vertical.weekdaysY + todayHeightDelta;
+  const gridTopY = vertical.gridTopY + todayHeightDelta;
   const calendarWidth = Math.min(contentWidth, 680);
   const desktopRowClearance = !narrow && viewportWidth >= 900 ? 10 : 0;
   const rowGap = vertical.rowGap + (narrow ? 8 : desktopRowClearance);
@@ -170,7 +184,7 @@ export function calculateDailyHubLayout(
     (
       viewportHeight
       - vertical.bottomMargin
-      - vertical.gridTopY
+      - gridTopY
       - rows * (vertical.numberGap + vertical.numberHeight)
       - Math.max(0, rows - 1) * rowGap
       - vertical.outsideGap
@@ -182,7 +196,7 @@ export function calculateDailyHubLayout(
     Math.min(vertical.cellCap, maxCellFromWidth, maxCellFromHeight),
   );
   const rowPitch = cellSize + vertical.numberGap + vertical.numberHeight + rowGap;
-  const calendarBottom = vertical.gridTopY
+  const calendarBottom = gridTopY
     + rows * (cellSize + vertical.numberGap + vertical.numberHeight)
     + Math.max(0, rows - 1) * rowGap;
   const outsideRatingY = calendarBottom + vertical.outsideGap;
@@ -197,12 +211,12 @@ export function calculateDailyHubLayout(
     contentWidth,
     todayTitleY: vertical.todayTitleY,
     todayCardTop: vertical.todayCardTop,
-    todayHeight: vertical.todayHeight,
-    archiveTitleY: vertical.archiveTitleY,
-    archiveProgressY: vertical.archiveProgressY,
-    monthHeaderY: vertical.monthHeaderY,
-    weekdaysY: vertical.weekdaysY,
-    gridTopY: vertical.gridTopY,
+    todayHeight,
+    archiveTitleY,
+    archiveProgressY,
+    monthHeaderY,
+    weekdaysY,
+    gridTopY,
     calendarWidth,
     columnGap: vertical.columnGap,
     cellSize,

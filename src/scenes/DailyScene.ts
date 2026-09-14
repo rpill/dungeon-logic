@@ -200,26 +200,34 @@ export class DailyScene extends Phaser.Scene {
     } else {
       const entry = today.entry;
       const solved = today.solved && today.result !== null;
-      const stackedAction = narrow;
-      const actionHeight = density === 'ultra' ? 32 : density === 'tight' ? 36 : narrow ? 34 : 44;
+      const actionHeight = density === 'ultra' ? 32 : density === 'tight' ? 36 : narrow ? 36 : 44;
       const actionGap = density === 'ultra' ? 6 : 8;
-      const playWidth = density === 'ultra' ? 118 : density === 'tight' ? 128 : narrow ? 128 : 148;
-      const leaderboardWidth = density === 'ultra' ? 146 : density === 'tight' ? 158 : narrow ? 164 : 184;
+      const horizontalPadding = density === 'ultra' ? 14 : narrow ? 18 : 24;
+      const contentLeft = centerX - width / 2 + horizontalPadding;
+      const contentRight = centerX + width / 2 - horizontalPadding;
+      const availableActionWidth = contentRight - contentLeft;
+      const playWidth = narrow
+        ? Math.floor((availableActionWidth - actionGap) * 0.44)
+        : 148;
+      const leaderboardWidth = narrow
+        ? availableActionWidth - actionGap - playWidth
+        : 184;
       const actionGroupWidth = playWidth + actionGap + leaderboardWidth;
-      const contentLeft = centerX - width / 2 + (density === 'ultra' ? 14 : narrow ? 20 : 24);
-      const actionGroupRight = stackedAction
-        ? centerX + actionGroupWidth / 2
-        : centerX + width / 2 - (density === 'ultra' ? 12 : 22);
+      const actionGroupRight = narrow
+        ? contentRight
+        : centerX + width / 2 - 22;
       const playX = actionGroupRight - actionGroupWidth + playWidth / 2;
       const leaderboardX = actionGroupRight - leaderboardWidth / 2;
-      const actionY = stackedAction
-        ? todayCardTop + todayHeight - actionHeight / 2 - (density === 'ultra' ? 5 : 7)
+      const actionY = narrow
+        ? todayCardTop + todayHeight - actionHeight / 2 - (density === 'ultra' ? 7 : 10)
         : todayCardCenterY;
-      const statusWidth = stackedAction
-        ? width - 40
-        : width - actionGroupWidth - (density === 'ultra' ? 54 : 76);
-      const dateY = todayCardTop + (density === 'ultra' ? 13 : narrow ? 18 : 30);
-      const statusY = todayCardTop + (density === 'ultra' ? 31 : narrow ? 40 : 58);
+      const statusWidth = narrow
+        ? width - horizontalPadding * 2
+        : width - actionGroupWidth - 76;
+      const dateY = todayCardTop + (density === 'ultra' ? 13 : narrow ? 18 : 28);
+      const statusY = todayCardTop + (density === 'ultra' ? 31 : narrow ? 42 : 54);
+      const rulesY = todayCardTop + (density === 'ultra' ? 48 : density === 'tight' ? 60 : narrow ? 66 : 72);
+      const statusOriginY = narrow ? 0 : 0.5;
 
       this.add.text(contentLeft, dateY, this.formatDate(today.dateKey), {
         fontFamily: 'monospace',
@@ -239,37 +247,49 @@ export class DailyScene extends Phaser.Scene {
         {
           fontFamily: 'monospace',
           fontSize: density === 'ultra' ? '8px' : density === 'tight' ? '9px' : narrow ? '10px' : '12px',
-          color: '#9aa6ba',
+          color: solved ? '#c5cfde' : '#aeb9cb',
           wordWrap: { width: statusWidth },
         },
-      ).setOrigin(0, 0.5);
+      ).setOrigin(0, statusOriginY);
 
-      this.createTodayActionButton(
-        playX,
-        actionY,
-        playWidth,
-        actionHeight,
-        copy.dailyHub.playToday,
-        'play',
-        true,
-        (pointer) => {
+      this.add.text(
+        contentLeft,
+        rulesY,
+        solved ? copy.dailyHub.todayReplayRules : copy.dailyHub.todayAttemptRules,
+        {
+          fontFamily: 'monospace',
+          fontSize: density === 'ultra' ? '7px' : density === 'tight' ? '8px' : narrow ? '9px' : '10px',
+          color: '#718098',
+          wordWrap: { width: statusWidth },
+        },
+      ).setOrigin(0, narrow ? 0 : 0.5);
+
+      this.createTodayActionButton({
+        x: playX,
+        y: actionY,
+        width: playWidth,
+        height: actionHeight,
+        label: solved ? copy.dailyHub.replayToday : copy.dailyHub.playToday,
+        icon: 'play',
+        accentFrame: !solved,
+        onActivate: (pointer) => {
           if (!this.shouldActivatePointer(pointer)) return;
           void this.launchDaily(entry);
         },
-      );
-      this.createTodayActionButton(
-        leaderboardX,
-        actionY,
-        leaderboardWidth,
-        actionHeight,
-        copy.dailyHub.leaderboard,
-        'statistics',
-        false,
-        (pointer) => {
+      });
+      this.createTodayActionButton({
+        x: leaderboardX,
+        y: actionY,
+        width: leaderboardWidth,
+        height: actionHeight,
+        label: copy.dailyHub.leaderboard,
+        icon: 'statistics',
+        accentFrame: solved,
+        onActivate: (pointer) => {
           if (!this.shouldActivatePointer(pointer)) return;
           this.scene.start(LEADERBOARD_SCENE_KEY, { dailyId: entry.id, dateKey: today.dateKey });
         },
-      );
+      });
     }
 
     this.add.text(centerX, viewportTop + shellLayout.archiveTitleY, copy.dailyHub.archiveTitle, {
@@ -406,7 +426,7 @@ export class DailyScene extends Phaser.Scene {
         let previewStatus: 'unstarted' | 'started' | 'completed' | null = null;
 
         if (day.state === 'unavailable') {
-          // A calendar day without a released Daily stays intentionally empty.
+          this.drawDailyUnavailableMarker(calendarContainer, x, cellY, layout.cellSize);
         } else if (day.state === 'future') {
           const iconSize = Math.max(16, Math.floor(layout.cellSize * 0.34));
           const lock = this.add.image(x, cellY, UI_ICON_KEYS.lock)
@@ -658,6 +678,23 @@ export class DailyScene extends Phaser.Scene {
     container.add(marker);
   }
 
+  private drawDailyUnavailableMarker(
+    container: Phaser.GameObjects.Container,
+    x: number,
+    y: number,
+    size: number,
+  ): void {
+    const marker = this.add.rectangle(
+      x,
+      y,
+      Math.max(8, Math.round(size * 0.22)),
+      Math.max(2, Math.round(size * 0.045)),
+      0x52617a,
+      0.72,
+    );
+    container.add(marker);
+  }
+
   private drawDailyCompletedCheck(
     container: Phaser.GameObjects.Container,
     x: number,
@@ -675,27 +712,27 @@ export class DailyScene extends Phaser.Scene {
     container.add([backing, check]);
   }
 
-  private createTodayActionButton(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    label: string,
-    icon: 'play' | 'statistics',
-    accentFrame: boolean,
-    onActivate: (pointer: Phaser.Input.Pointer) => void,
-  ): void {
+  private createTodayActionButton(options: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly label: string;
+    readonly icon: 'play' | 'statistics';
+    readonly accentFrame: boolean;
+    readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
+  }): void {
     createHomeMenuButton(this, {
-      x,
-      y,
-      width,
-      height,
-      label,
-      labelColor: accentFrame ? '#f0d28a' : '#d8d1c4',
-      icon,
+      x: options.x,
+      y: options.y,
+      width: options.width,
+      height: options.height,
+      label: options.label,
+      labelColor: options.accentFrame ? '#f0d28a' : '#d8d1c4',
+      icon: options.icon,
       compact: true,
-      accentFrame,
-      onActivate,
+      accentFrame: options.accentFrame,
+      onActivate: options.onActivate,
     });
   }
 

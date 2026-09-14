@@ -86,7 +86,10 @@ export interface UiCopy {
     readonly todayTitle: string;
     readonly archiveTitle: string;
     readonly playToday: string;
+    readonly replayToday: string;
     readonly leaderboard: string;
+    readonly todayAttemptRules: string;
+    readonly todayReplayRules: string;
     readonly todaySolved: (time: string) => string;
     readonly todaySolvedOutsideRating: (time: string) => string;
     readonly todayUnsolved: string;
@@ -263,7 +266,10 @@ const RU: UiCopy = {
     todayTitle: 'СЕГОДНЯ',
     archiveTitle: 'КАЛЕНДАРЬ',
     playToday: 'ИГРАТЬ СЕГОДНЯ',
+    replayToday: 'ПОВТОРИТЬ',
     leaderboard: 'ТАБЛИЦА ЛИДЕРОВ',
+    todayAttemptRules: 'Время идёт до завершения, даже если выйти.',
+    todayReplayRules: 'Результат уже зафиксирован. Повтор его не изменит.',
     todaySolved: (time) => `Результат зафиксирован · ${time}`,
     todaySolvedOutsideRating: (time) => `Пройдено вне таблицы лидеров · ${time}`,
     todayUnsolved: 'Первое прохождение без подсказок попадёт в таблицу лидеров.',
@@ -440,7 +446,10 @@ const EN: UiCopy = {
     todayTitle: 'TODAY',
     archiveTitle: 'CALENDAR',
     playToday: 'PLAY TODAY',
+    replayToday: 'REPLAY',
     leaderboard: 'LEADERBOARD',
+    todayAttemptRules: 'Time keeps running until completion, even if you leave.',
+    todayReplayRules: 'Your result is already locked. Replays will not change it.',
     todaySolved: (time) => `Result locked · ${time}`,
     todaySolvedOutsideRating: (time) => `Completed outside leaderboard · ${time}`,
     todayUnsolved: 'Your first solve without hints enters the leaderboard.',
