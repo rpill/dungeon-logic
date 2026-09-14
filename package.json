@@ -20,6 +20,7 @@
     "analyze:difficulty-corpus": "tsx src/dev/analyzeDifficultyCorpus.ts",
     "sanity:campaign": "tsx src/dev/campaignSanity.ts",
     "sanity:board-visual": "tsx src/dev/boardTileVisualSanity.ts",
+    "sanity:board-frame": "tsx src/dev/boardFrameLayoutSanity.ts",
     "sanity:puzzle-interaction": "tsx src/dev/puzzleInteractionSanity.ts",
     "campaign:promote": "tsx src/dev/promoteCampaignLevel.ts",
     "sanity:campaign-promotion": "tsx src/dev/campaignPromotionSanity.ts",

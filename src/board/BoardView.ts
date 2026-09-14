@@ -1,4 +1,6 @@
 import type Phaser from 'phaser';
+import { BoardFrameView } from './BoardFrameView';
+import { BOARD_FRAME } from '../view/BoardFrameMetrics';
 
 import { PuzzleInteractionSession, type PuzzleTool } from '../gameplay/PuzzleInteractionSession';
 import { resolvePointerTool } from '../gameplay/PuzzlePointerPolicy';
@@ -19,7 +21,7 @@ type PuzzleCellEditedHandler = (
 ) => void;
 
 const CLUE_FONT_RATIO = 0.5;
-const CLUE_GAP_RATIO = 0.3;
+const CLUE_GAP_RATIO = BOARD_FRAME.clueCenter;
 
 export class BoardView {
   private readonly scene: Phaser.Scene;
@@ -37,6 +39,7 @@ export class BoardView {
   private inputCellTargets: ReadonlySet<string> | null = null;
 
   private readonly cells: CellView[][] = [];
+  private readonly frame: BoardFrameView;
   private readonly rowClues: Phaser.GameObjects.Text[] = [];
   private readonly columnClues: Phaser.GameObjects.Text[] = [];
   private tutorialGuideClue: { readonly axis: 'row' | 'column'; readonly index: number } | null = null;
@@ -63,6 +66,8 @@ export class BoardView {
     this.onEditCommitted = onEditCommitted;
     this.onCellEdited = onCellEdited;
 
+    this.frame = new BoardFrameView(scene, puzzle.level.width, puzzle.level.height);
+    this.frame.relayout(originX, originY, cellSize);
     this.createClues();
     this.createCells();
     this.updateConstraintFeedback();
@@ -201,6 +206,7 @@ export class BoardView {
     this.originX = originX;
     this.originY = originY;
     this.cellSize = cellSize;
+    this.frame.relayout(originX, originY, cellSize);
 
     const level = this.puzzle.level;
     const topCenterY = originY - cellSize * CLUE_GAP_RATIO;
@@ -210,14 +216,14 @@ export class BoardView {
       const centerX = originX + x * cellSize + cellSize / 2;
       this.columnClues[x]
         .setPosition(centerX, topCenterY)
-        .setFontSize(Math.max(16, Math.round(cellSize * CLUE_FONT_RATIO)));
+        .setFontSize(Math.max(1, Math.round(cellSize * CLUE_FONT_RATIO)));
     }
 
     for (let y = 0; y < level.height; y += 1) {
       const centerY = originY + y * cellSize + cellSize / 2;
       this.rowClues[y]
         .setPosition(leftCenterX, centerY)
-        .setFontSize(Math.max(16, Math.round(cellSize * CLUE_FONT_RATIO)));
+        .setFontSize(Math.max(1, Math.round(cellSize * CLUE_FONT_RATIO)));
 
       for (let x = 0; x < level.width; x += 1) {
         const centerX = originX + x * cellSize + cellSize / 2;
@@ -254,7 +260,7 @@ export class BoardView {
         String(value),
         {
           fontFamily: 'monospace',
-          fontSize: `${Math.max(16, Math.round(this.cellSize * CLUE_FONT_RATIO))}px`,
+          fontSize: `${Math.max(1, Math.round(this.cellSize * CLUE_FONT_RATIO))}px`,
           color: WIREFRAME.clueActive,
           fontStyle: 'bold',
         },

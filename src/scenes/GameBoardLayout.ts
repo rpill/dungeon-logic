@@ -1,3 +1,5 @@
+import { BOARD_FRAME } from '../view/BoardFrameMetrics.ts';
+
 export type ViewportClass = 'wide' | 'compact' | 'narrow';
 
 export interface GameBoardLayout {
@@ -24,17 +26,21 @@ export function classifyViewport(width: number): ViewportClass {
   return 'narrow';
 }
 
-function getLayoutReserves(viewportClass: ViewportClass): LayoutReserves {
+export function useInlineTouchToolbar(width: number, height: number): boolean {
+  return width >= 600 && height < 520;
+}
+
+function getLayoutReserves(viewportClass: ViewportClass, touchControls: boolean): LayoutReserves {
   return viewportClass === 'narrow'
     ? {
         margin: 12,
-        headerHeight: 72,
-        toolbarHeight: 132,
+        headerHeight: 104,
+        toolbarHeight: touchControls ? 148 : 132,
       }
     : {
         margin: 24,
-        headerHeight: 92,
-        toolbarHeight: 96,
+        headerHeight: 108,
+        toolbarHeight: touchControls && viewportClass === 'compact' ? 156 : 96,
       };
 }
 
@@ -43,6 +49,8 @@ export function calculateGameBoardLayout(
   viewportHeight: number,
   boardColumns: number,
   boardRows: number,
+  touchControls = false,
+  inlineTouchControls = touchControls && useInlineTouchToolbar(viewportWidth, viewportHeight),
 ): GameBoardLayout {
   if (viewportWidth <= 0 || viewportHeight <= 0) {
     throw new RangeError('Viewport dimensions must be positive.');
@@ -52,27 +60,24 @@ export function calculateGameBoardLayout(
   }
 
   const viewportClass = classifyViewport(viewportWidth);
-  const { margin, headerHeight, toolbarHeight } = getLayoutReserves(viewportClass);
+  const inlineTouch = touchControls && inlineTouchControls;
+  const reserves = getLayoutReserves(viewportClass, touchControls && !inlineTouch);
+  const { margin, headerHeight } = reserves;
+  const toolbarHeight = inlineTouch ? 96 : reserves.toolbarHeight;
 
   const availableHeight = viewportHeight - headerHeight - toolbarHeight;
   if (availableHeight <= 0) {
     throw new RangeError('Viewport is too small for the puzzle header and toolbar reserves.');
   }
 
-  // The gameplay board itself stays horizontally centered on every viewport.
-  // Narrow screens still reserve enough width for the left clue gutter instead
-  // of shifting the whole board to compensate for it.
-  const widthCellDivisor = viewportClass === 'narrow'
-    ? boardColumns + 1.2
-    : boardColumns + 2;
+  // Fit and center the entire framed puzzle, including clues and all four rims.
+  const widthCellDivisor = boardColumns + BOARD_FRAME.left + BOARD_FRAME.right;
   const maxCellFromWidth = Math.floor(
     (viewportWidth - 2 * margin) / widthCellDivisor,
   );
 
-  // Vertically, the safe rectangle contains one clue row plus the gameplay
-  // rows. Center that whole stack between the header and toolbar reserves.
   const maxCellFromHeight = Math.floor(
-    availableHeight / (boardRows + 1),
+    availableHeight / (boardRows + BOARD_FRAME.top + BOARD_FRAME.bottom),
   );
 
   const cellSize = Math.min(
@@ -88,12 +93,13 @@ export function calculateGameBoardLayout(
   const boardWidth = boardColumns * cellSize;
   const boardHeight = boardRows * cellSize;
 
-  const originX = (viewportWidth - boardWidth) / 2;
+  const frameWidth = (boardColumns + BOARD_FRAME.left + BOARD_FRAME.right) * cellSize;
+  const originX = (viewportWidth - frameWidth) / 2 + BOARD_FRAME.left * cellSize;
 
-  const totalPuzzleHeight = (boardRows + 1) * cellSize;
+  const totalPuzzleHeight = (boardRows + BOARD_FRAME.top + BOARD_FRAME.bottom) * cellSize;
   const safeTop = headerHeight;
   const totalTop = safeTop + (availableHeight - totalPuzzleHeight) / 2;
-  const originY = totalTop + cellSize;
+  const originY = totalTop + BOARD_FRAME.top * cellSize;
 
   return {
     cellSize,

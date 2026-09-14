@@ -9,6 +9,8 @@ import {
 import { PuzzleAnalyticsSession, classifyPuzzleAttempt } from '../analytics/PuzzleAnalyticsSession';
 import { NOOP_ANALYTICS_TRANSPORT } from '../analytics/AnalyticsTransport';
 import { BoardView } from '../board/BoardView';
+import { useInlineTouchToolbar } from './GameBoardLayout';
+import { BOARD_FRAME } from '../view/BoardFrameMetrics';
 import { WIREFRAME } from '../board/CellView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type {
@@ -106,6 +108,12 @@ export class GameScene extends Phaser.Scene {
     const sceneBackground = createSceneBackground(this, 'meta');
 
     const getSafeAreaInsets = () => readCssSafeAreaInsets();
+    const showTouchToolButtons = shouldShowTouchToolButtons(
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(any-pointer: coarse)').matches
+        : false,
+      typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
+    );
 
     const readActiveClockMs = (): number => {
       if (typeof performance !== 'undefined') {
@@ -128,6 +136,8 @@ export class GameScene extends Phaser.Scene {
         availableViewport.height,
         launchData.level.width,
         launchData.level.height,
+        showTouchToolButtons,
+        useInlineTouchToolbar(this.scale.width, this.scale.height),
       );
       return {
         ...layout,
@@ -167,11 +177,9 @@ export class GameScene extends Phaser.Scene {
       if (!usesPersistentTutorialLayoutReserve) return layout;
 
       const compactTutorial = this.scale.width < 700 || this.scale.height < 520;
-      const reservedPanelHeight = compactTutorial ? 58 : 74;
+      const reservedPanelHeight = compactTutorial ? 100 : 110;
       const panelGap = compactTutorial ? 10 : 16;
-      const clueFontSize = Math.max(16, Math.round(layout.cellSize * 0.5));
-      const clueCenterY = layout.originY - layout.cellSize * 0.3;
-      const clueTopY = clueCenterY - clueFontSize * 0.65;
+      const clueTopY = layout.originY - layout.cellSize * BOARD_FRAME.top;
       const timerCenterY = safeTopInset
         + chromeLayout.titleY
         + (this.scale.width < 700 ? 28 : 34);
@@ -180,7 +188,7 @@ export class GameScene extends Phaser.Scene {
         + timerFontSize * 0.75
         + (compactTutorial ? 8 : 12);
       const preferredPanelTop = clueTopY - panelGap - reservedPanelHeight;
-      const availableShift = Math.max(0, getTutorialLayoutBottomReserve() - 12);
+      const availableShift = getTutorialLayoutBottomReserve();
       const boardShift = Math.min(
         availableShift,
         Math.max(0, minimumPanelTop - preferredPanelTop),
@@ -572,13 +580,6 @@ export class GameScene extends Phaser.Scene {
       }
     };
 
-    const showTouchToolButtons = shouldShowTouchToolButtons(
-      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-        ? window.matchMedia('(any-pointer: coarse)').matches
-        : false,
-      typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
-    );
-
     type ToolbarVisual = {
       readonly id: PuzzleToolbarButtonId;
       readonly background: Phaser.GameObjects.Graphics;
@@ -721,7 +722,7 @@ export class GameScene extends Phaser.Scene {
       this.scale.height,
       getSafeAreaInsets().bottom,
       showTouchToolButtons,
-      boardLayout.originY + boardLayout.boardHeight,
+      boardLayout.originY + boardLayout.boardHeight + boardLayout.cellSize * BOARD_FRAME.bottom,
       showTouchToolButtons && currentHint !== null,
     );
     const recalculateToolbarLayout = (layout = boardLayout): void => {
@@ -730,7 +731,7 @@ export class GameScene extends Phaser.Scene {
         this.scale.height,
         getSafeAreaInsets().bottom,
         showTouchToolButtons,
-        layout.originY + layout.boardHeight,
+        layout.originY + layout.boardHeight + layout.cellSize * BOARD_FRAME.bottom,
         showTouchToolButtons && currentHint !== null,
       );
     };
@@ -844,10 +845,8 @@ export class GameScene extends Phaser.Scene {
         narrowScreen ? 56 : 68,
         onboardingText.height + verticalPadding * 2,
       );
-      const clueFontSize = Math.max(16, Math.round(boardLayout.cellSize * 0.5));
       const tutorialClueTopY = boardLayout.originY
-        - boardLayout.cellSize * 0.3
-        - clueFontSize * 0.65;
+        - boardLayout.cellSize * BOARD_FRAME.top;
       const panelBottomGap = narrowScreen ? 10 : 16;
       const panelY = tutorialClueTopY - panelBottomGap - panelHeight / 2;
 

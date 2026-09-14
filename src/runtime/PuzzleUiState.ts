@@ -1,7 +1,7 @@
 import type { PuzzleTool } from '../gameplay/PuzzleInteractionSession.ts';
 import type { SupportedLanguage } from '../i18n/Language';
 import { getUiCopy } from '../i18n/UiCopy';
-import { classifyViewport } from '../scenes/GameBoardLayout.ts';
+import { classifyViewport, useInlineTouchToolbar } from '../scenes/GameBoardLayout.ts';
 
 export type PuzzleToolbarButtonId = 'wall' | 'floor' | 'undo' | 'reset' | 'hint';
 
@@ -125,7 +125,7 @@ export function calculatePuzzleToolbarLayout(
     };
   }
 
-  if (showToolButtons && viewportClass !== 'wide') {
+  if (showToolButtons && viewportClass !== 'wide' && !useInlineTouchToolbar(viewportWidth, viewportHeight)) {
     const margin = viewportClass === 'narrow' ? 12 : 18;
     const gapX = 8;
     const gapY = 22;

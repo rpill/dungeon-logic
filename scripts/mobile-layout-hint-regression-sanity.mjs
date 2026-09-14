@@ -28,7 +28,7 @@ assert(metaHeaderLayout.includes('if (narrow) {'), 'Narrow meta headers must use
 assert(metaHeaderLayout.includes('titleY: 64'), 'Tight narrow headers must keep the title clearly below Back.');
 
 assert(puzzleUi.includes('hideHintButton = false'), 'Toolbar layout accepts a pending-hint visibility flag.');
-assert(puzzleUi.includes("if (showToolButtons && viewportClass !== 'wide')"), 'Touch compact/phone viewports keep the two-row tool/action layout.');
+assert(puzzleUi.includes("if (showToolButtons && viewportClass !== 'wide' && !useInlineTouchToolbar(viewportWidth, viewportHeight))"), 'Portrait touch viewports keep two rows; short landscape uses one row.');
 assert(puzzleUi.includes("const actionIds: readonly PuzzleToolbarButtonId[] = hideHintButton\n      ? ['undo', 'reset']\n      : ['undo', 'reset', 'hint'];"), 'Touch toolbar removes Hint from layout while a hint is pending.');
 assert(gameScene.includes('recalculateToolbarLayout'), 'GameScene recalculates toolbar layout when pending hint state changes.');
 assert(gameScene.includes(".setColor('#f4ead7')"), 'Delivered hint copy uses the cream game palette instead of gold.');

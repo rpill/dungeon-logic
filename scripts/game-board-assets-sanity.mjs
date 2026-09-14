@@ -39,10 +39,10 @@ assert(assets.includes('resolveWallTextureKey'), 'Wall variants must have a coor
 const board = read('src/board/BoardView.ts');
 assert(board.includes('resolveFloorTextureKey'), 'BoardView must choose a floor texture per cell.');
 assert(board.includes('resolveWallTextureKey'), 'BoardView must choose a wall texture per cell.');
-assert(!board.includes('createClueBacking'), 'Row/column clues must render as bare text with no backing tiles.');
-assert(!board.includes('clueBackings'), 'BoardView must not keep clue backing rectangles.');
+assert(board.includes('new BoardFrameView'), 'Clue backing and border are provided by the modular frame.');
+assert(board.includes('this.createClues()'), 'Clue numbers must remain independent runtime text.');
 assert(board.includes('CLUE_FONT_RATIO = 0.5'), 'Clue labels must use the larger 0.5 cell-size font ratio.');
-assert(board.includes('CLUE_GAP_RATIO = 0.3'), 'Clue labels must sit 0.3 cell sizes from the board edge.');
+assert(board.includes('CLUE_GAP_RATIO = BOARD_FRAME.clueCenter'), 'Clue labels must align with the frame plaques.');
 
 const cell = read('src/board/CellView.ts');
 assert(cell.includes('Phaser.GameObjects.Image'), 'CellView must render board tiles as images.');
@@ -50,4 +50,4 @@ assert(cell.includes('BOARD_FLOOR_MARK_KEY'), 'CellView must use the floor-mark 
 assert(cell.includes('.setInteractive({ useHandCursor: true })'), 'Floor image remains the pointer target.');
 assert(!cell.includes(".setText('◆')"), 'Normal floor state must no longer render the text diamond.');
 
-console.info('[Dungeon Logic] Game board assets sanity: floor/wall/mark wiring + bare clue labels passed');
+console.info('[Dungeon Logic] Game board assets sanity: floor/wall/mark wiring + framed runtime clues passed');

@@ -9,8 +9,8 @@ const toolbar = readFileSync('src/runtime/PuzzleUiState.ts', 'utf8');
 const game = readFileSync('src/scenes/GameScene.ts', 'utf8');
 
 assert(
-  boardLayout.includes('const originX = (viewportWidth - boardWidth) / 2;'),
-  'Narrow gameplay must center the board itself horizontally.',
+  boardLayout.includes('const originX = (viewportWidth - frameWidth) / 2 + BOARD_FRAME.left * cellSize;'),
+  'Narrow gameplay must center the entire frame, including the clue gutter.',
 );
 assert(
   toolbar.includes('boardBottom?: number'),

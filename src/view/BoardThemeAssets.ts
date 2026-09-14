@@ -37,6 +37,9 @@ export function resolveWallTextureKey(x: number, y: number): BoardWallTextureKey
 }
 
 export function preloadBoardThemeAssets(scene: Phaser.Scene): void {
+  for (const name of ['top', 'bottom-a', 'bottom-b', 'left', 'right-a', 'right-b', 'clue', 'corner-tl', 'corner-tr', 'corner-bl', 'corner-br']) {
+    scene.load.image(`board-frame-${name}`, `assets/board-frame/${name}.png`);
+  }
   BOARD_FLOOR_ASSETS.forEach(({ key, path }) => scene.load.image(key, path));
   BOARD_WALL_ASSETS.forEach(({ key, path }) => scene.load.image(key, path));
   scene.load.image(BOARD_FLOOR_MARK_KEY, 'assets/mark.png');
