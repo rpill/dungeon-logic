@@ -8,6 +8,7 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { createTutorialGameSceneData } from '../runtime/GameLaunch';
 import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
 import { HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
@@ -60,18 +61,23 @@ export class SettingsScene extends Phaser.Scene {
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.screenView('settings');
 
-    const viewportWidth = this.scale.width;
-    const viewportHeight = this.scale.height;
+    const availableViewport = calculateAvailableViewport(
+      this.scale.width,
+      this.scale.height,
+      readCssSafeAreaInsets(),
+    );
+    const viewportWidth = availableViewport.width;
+    const viewportHeight = availableViewport.height;
     const narrow = viewportWidth < 700;
     const dense = viewportHeight < (narrow ? 760 : 680);
     const contentWidth = Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : 536);
-    const centerX = viewportWidth / 2;
+    const centerX = availableViewport.centerX;
 
     const headerActionMetrics = getHeaderActionButtonMetrics(narrow);
     const headerInset = narrow ? 16 : 28;
     createHeaderActionButton(this, {
-      x: headerInset + headerActionMetrics.pillWidth / 2,
-      y: narrow ? 34 : 40,
+      x: availableViewport.x + headerInset + headerActionMetrics.pillWidth / 2,
+      y: availableViewport.y + (narrow ? 34 : 40),
       width: headerActionMetrics.pillWidth,
       height: headerActionMetrics.height,
       radius: headerActionMetrics.radius,
@@ -102,7 +108,7 @@ export class SettingsScene extends Phaser.Scene {
       },
     });
 
-    const titleY = dense ? (narrow ? 88 : 70) : (narrow ? 108 : 84);
+    const titleY = availableViewport.y + (dense ? (narrow ? 88 : 70) : (narrow ? 108 : 84));
     this.add.text(centerX, titleY, copy.settings.title, {
       fontFamily: 'monospace',
       fontSize: dense ? (narrow ? '28px' : '32px') : (narrow ? '32px' : '38px'),

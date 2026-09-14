@@ -55,6 +55,7 @@ import {
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
 import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
+import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   TUTORIAL_SERVICE_REGISTRY_KEY,
@@ -104,14 +105,7 @@ export class GameScene extends Phaser.Scene {
   private createGame(launchData: GameSceneData, createVersion: number): void {
     const sceneBackground = createSceneBackground(this, 'meta');
 
-    const readSafeArea = (name: '--safe-area-inset-top' | '--safe-area-inset-bottom'): number => {
-      if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
-        return 0;
-      }
-      const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-      const value = Number.parseFloat(raw);
-      return Number.isFinite(value) ? Math.max(0, value) : 0;
-    };
+    const getSafeAreaInsets = () => readCssSafeAreaInsets();
 
     const readActiveClockMs = (): number => {
       if (typeof performance !== 'undefined') {
@@ -122,25 +116,27 @@ export class GameScene extends Phaser.Scene {
     };
 
     const calculateSafeBoardLayout = (extraBottomReserve = 0) => {
-      const safeTop = readSafeArea('--safe-area-inset-top');
-      const safeBottom = readSafeArea('--safe-area-inset-bottom');
-      const safeHeight = Math.max(
-        1,
-        this.scale.height - safeTop - safeBottom - Math.max(0, extraBottomReserve),
-      );
+      const safeAreaInsets = getSafeAreaInsets();
+      const availableViewport = calculateAvailableViewport(this.scale.width, this.scale.height, {
+        top: safeAreaInsets.top,
+        right: safeAreaInsets.right,
+        bottom: safeAreaInsets.bottom + Math.max(0, extraBottomReserve),
+        left: safeAreaInsets.left,
+      });
       const layout = calculateGameBoardLayout(
-        this.scale.width,
-        safeHeight,
+        availableViewport.width,
+        availableViewport.height,
         launchData.level.width,
         launchData.level.height,
       );
       return {
         ...layout,
-        originY: layout.originY + safeTop,
+        originX: layout.originX + availableViewport.x,
+        originY: layout.originY + availableViewport.y,
       };
     };
 
-    const safeTop = readSafeArea('--safe-area-inset-top');
+    const safeTop = getSafeAreaInsets().top;
     const chrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
     const profileService = launchData.context.mode === 'dev'
       ? null
@@ -197,7 +193,7 @@ export class GameScene extends Phaser.Scene {
     const calculateStableBoardLayout = (
       extraBottomReserve = 0,
       chromeLayout = calculatePuzzleChromeLayout(this.scale.width, this.scale.height),
-      safeTopInset = readSafeArea('--safe-area-inset-top'),
+      safeTopInset = getSafeAreaInsets().top,
     ) => applyTutorialBoardTopClearance(
       calculateSafeBoardLayout(extraBottomReserve),
       chromeLayout,
@@ -723,7 +719,7 @@ export class GameScene extends Phaser.Scene {
     let toolbarLayout: PuzzleToolbarLayout = calculatePuzzleToolbarLayout(
       this.scale.width,
       this.scale.height,
-      readSafeArea('--safe-area-inset-bottom'),
+      getSafeAreaInsets().bottom,
       showTouchToolButtons,
       boardLayout.originY + boardLayout.boardHeight,
       showTouchToolButtons && currentHint !== null,
@@ -732,7 +728,7 @@ export class GameScene extends Phaser.Scene {
       toolbarLayout = calculatePuzzleToolbarLayout(
         this.scale.width,
         this.scale.height,
-        readSafeArea('--safe-area-inset-bottom'),
+        getSafeAreaInsets().bottom,
         showTouchToolButtons,
         layout.originY + layout.boardHeight,
         showTouchToolButtons && currentHint !== null,
@@ -1242,7 +1238,7 @@ export class GameScene extends Phaser.Scene {
       hintConfirmContainer = null;
       if (!hintConfirmOpen) return;
 
-      const safeBottom = readSafeArea('--safe-area-inset-bottom');
+      const safeBottom = getSafeAreaInsets().bottom;
       const width = Math.min(390, this.scale.width - 24);
       const gap = 10;
       const buttonWidth = Math.floor((width - gap) / 2);
@@ -1351,7 +1347,7 @@ export class GameScene extends Phaser.Scene {
     let completionActions: Array<{ readonly label: string; readonly action: () => void }> = [];
 
     const positionCompletionStatusText = (): void => {
-      const safeBottom = readSafeArea('--safe-area-inset-bottom');
+      const safeBottom = getSafeAreaInsets().bottom;
       const buttonHeight = 48;
       const buttonTop = this.scale.height - safeBottom - 12 - buttonHeight;
       statusText
@@ -1366,7 +1362,7 @@ export class GameScene extends Phaser.Scene {
       if (!completionMode || completionActions.length === 0) return;
       positionCompletionStatusText();
 
-      const safeBottom = readSafeArea('--safe-area-inset-bottom');
+      const safeBottom = getSafeAreaInsets().bottom;
       const count = completionActions.length;
       const gap = count >= 3 ? 8 : 10;
       const maxWidth = Math.min(this.scale.width - 24, count >= 3 ? 560 : 350);
@@ -2332,7 +2328,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       const width = this.scale.width;
       const height = this.scale.height;
       const nextChrome = calculatePuzzleChromeLayout(width, height);
-      const nextSafeTop = readSafeArea('--safe-area-inset-top');
+      const nextSafeTop = getSafeAreaInsets().top;
       boardLayout = calculateStableBoardLayout(
         getCurrentBoardBottomReserve(),
         nextChrome,

@@ -18,6 +18,12 @@ import {
 import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
+  calculateAvailableViewport,
+  readCssSafeAreaInsets,
+  sanitizeViewportInset,
+  STICKY_BOTTOM_INSET_REGISTRY_KEY,
+} from '../runtime/AvailableViewport';
+import {
   HOME_SCENE_KEY,
   LEVELS_SCENE_KEY,
   SETTINGS_SCENE_KEY,
@@ -38,7 +44,6 @@ const HOME_FRAME_SLICE_X = 48;
 const HOME_FRAME_SLICE_Y = 24;
 const HOME_PROGRESS_TRACK_FILL = 0x1f4375;
 const HOME_PROGRESS_FILL = 0xf0bd63;
-const HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY = 'home-bottom-reserved-px';
 
 const HOME_CARD_ICON_KEYS = {
   play: 'home-menu-icon-play',
@@ -117,6 +122,8 @@ export class HomeScene extends Phaser.Scene {
     const viewportClass = classifyViewport(this.scale.width);
     const narrow = viewportClass === 'narrow';
     const compactHeight = this.scale.height < (narrow ? 650 : 590);
+    const safeAreaInsets = readCssSafeAreaInsets();
+    const safeViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeAreaInsets);
     const levels = campaign.getLevels();
     const completedIds = new Set(profile.campaign.completedLevelIds);
     const completedCampaign = levels.reduce(
@@ -124,15 +131,15 @@ export class HomeScene extends Phaser.Scene {
       0,
     );
 
-    const centerX = this.scale.width / 2;
+    const centerX = safeViewport.centerX;
     const logo = this.add.image(centerX, 0, 'home-logo').setOrigin(0.5);
     const logoAspect = logo.width / logo.height;
 
     const homeHeaderActionMetrics = getHeaderActionButtonMetrics(narrow);
     const homeHeaderInset = narrow ? 16 : 28;
     createHomeSettingsButton(this, {
-      x: this.scale.width - homeHeaderInset - homeHeaderActionMetrics.iconButtonSize / 2,
-      y: homeHeaderInset + homeHeaderActionMetrics.iconButtonSize / 2,
+      x: safeViewport.right - homeHeaderInset - homeHeaderActionMetrics.iconButtonSize / 2,
+      y: safeViewport.y + homeHeaderInset + homeHeaderActionMetrics.iconButtonSize / 2,
       size: homeHeaderActionMetrics.iconButtonSize,
       onActivate: (pointer: Phaser.Input.Pointer) => {
         if (!this.pointerGate.canActivate(pointer.id)) return;
@@ -143,7 +150,7 @@ export class HomeScene extends Phaser.Scene {
     // Build Home as one cohesive stack. The whole stack is centered inside the
     // usable viewport and scales down together on short screens instead of
     // letting the bottom cards clip. A future sticky banner can reserve space
-    // by setting HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY before entering Home.
+    // by setting the shared sticky bottom inset before entering Home.
     const naturalCardGap = narrow ? 10 : 16;
     const naturalPrimaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
     const naturalMobileTileHeight = compactHeight ? 102 : 116;
@@ -153,10 +160,10 @@ export class HomeScene extends Phaser.Scene {
 
     const naturalDesktopTileSide = Math.max(200, Math.min(
       260,
-      (this.scale.width - 80 - naturalCardGap) / 2,
+      (safeViewport.width - 80 - naturalCardGap) / 2,
     ));
     const naturalContentWidth = narrow
-      ? Math.min(this.scale.width - 28, 390)
+      ? Math.min(safeViewport.width - 28, 390)
       : (naturalDesktopTileSide * 2) + naturalCardGap;
     const naturalTileWidth = (naturalContentWidth - naturalCardGap) / 2;
     const naturalTileHeight = narrow
@@ -174,13 +181,18 @@ export class HomeScene extends Phaser.Scene {
       + cardSectionGap
       + naturalWideHeight;
 
-    const reservedBottomRaw = this.registry.get(HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY) as unknown;
-    const reservedBottom = typeof reservedBottomRaw === 'number' && Number.isFinite(reservedBottomRaw)
-      ? Math.max(0, reservedBottomRaw)
-      : 0;
-    const topSafeInset = narrow ? 14 : 20;
-    const bottomSafeInset = (narrow ? 18 : 24) + reservedBottom;
-    const availableHeight = Math.max(1, this.scale.height - topSafeInset - bottomSafeInset);
+    // Home explicitly opts in to sticky-banner reservation. Other scenes only
+    // reserve this inset when they choose to read the same registry value.
+    const stickyBottomInset = sanitizeViewportInset(
+      this.registry.get(STICKY_BOTTOM_INSET_REGISTRY_KEY) as unknown,
+    );
+    const contentViewport = calculateAvailableViewport(this.scale.width, this.scale.height, {
+      top: safeAreaInsets.top + (narrow ? 14 : 20),
+      right: safeAreaInsets.right,
+      bottom: safeAreaInsets.bottom + (narrow ? 18 : 24) + stickyBottomInset,
+      left: safeAreaInsets.left,
+    });
+    const availableHeight = contentViewport.height;
     const stackScale = Math.min(1, availableHeight / naturalStackHeight);
 
     const contentWidth = naturalContentWidth * stackScale;
@@ -196,9 +208,9 @@ export class HomeScene extends Phaser.Scene {
     const scaledStackHeight = naturalStackHeight * stackScale;
 
     const desiredCenterRatio = narrow ? 0.47 : 0.5;
-    const desiredCenterY = topSafeInset + availableHeight * desiredCenterRatio;
-    const minCenterY = topSafeInset + scaledStackHeight / 2;
-    const maxCenterY = this.scale.height - bottomSafeInset - scaledStackHeight / 2;
+    const desiredCenterY = contentViewport.y + availableHeight * desiredCenterRatio;
+    const minCenterY = contentViewport.y + scaledStackHeight / 2;
+    const maxCenterY = contentViewport.bottom - scaledStackHeight / 2;
     const stackCenterY = Phaser.Math.Clamp(desiredCenterY, minCenterY, maxCenterY);
     const stackTop = stackCenterY - scaledStackHeight / 2;
 

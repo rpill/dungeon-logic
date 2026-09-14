@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import type { AvailableViewport } from './AvailableViewport';
+import { calculateAvailableViewport } from './AvailableViewport';
 import { createHeaderActionButton, getHeaderActionButtonMetrics } from './HeaderActionButton';
 import { calculateMetaPageHeaderMetrics, type MetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
@@ -11,6 +13,7 @@ export interface MetaPageHeaderOptions {
   readonly backButton?: boolean;
   readonly fixedBack?: boolean;
   readonly metrics?: MetaPageHeaderMetrics;
+  readonly viewport?: AvailableViewport;
 }
 
 export interface MetaPageHeaderHandle {
@@ -22,12 +25,12 @@ export interface MetaPageHeaderHandle {
 function fitTitleBetweenBackAndRightEdge(
   title: Phaser.GameObjects.Text,
   metrics: MetaPageHeaderMetrics,
-  viewportWidth: number,
+  viewport: AvailableViewport,
   backRight: number,
 ): void {
   if (Math.abs(metrics.titleY - metrics.backY) >= 28) return;
-  const symmetricInset = Math.max(backRight + 12, 18);
-  const availableWidth = Math.max(92, viewportWidth - symmetricInset * 2);
+  const symmetricInset = Math.max(backRight - viewport.x + 12, 18);
+  const availableWidth = Math.max(92, viewport.width - symmetricInset * 2);
   if (title.width <= availableWidth) return;
   title.setFontSize(Math.max(18, Math.floor(metrics.titleFontSize * availableWidth / title.width)));
 }
@@ -36,11 +39,18 @@ export function createMetaPageHeader(
   scene: Phaser.Scene,
   options: MetaPageHeaderOptions,
 ): MetaPageHeaderHandle {
-  const metrics = options.metrics ?? calculateMetaPageHeaderMetrics(scene.scale.width, scene.scale.height);
+  const viewport = options.viewport ?? calculateAvailableViewport(scene.scale.width, scene.scale.height);
+  const baseMetrics = options.metrics ?? calculateMetaPageHeaderMetrics(viewport.width, viewport.height);
+  const metrics: MetaPageHeaderMetrics = {
+    ...baseMetrics,
+    backY: viewport.y + baseMetrics.backY,
+    titleY: viewport.y + baseMetrics.titleY,
+    headerHeight: viewport.y + baseMetrics.headerHeight,
+  };
   const fixed = options.fixed ?? false;
   const backButton = options.backButton ?? false;
   const fixedBack = options.fixedBack ?? fixed;
-  const backInset = metrics.narrow ? 16 : 28;
+  const backInset = viewport.x + (metrics.narrow ? 16 : 28);
   const actionMetrics = getHeaderActionButtonMetrics(metrics.narrow);
   const backGap = actionMetrics.gap;
   const titleDepthBase = fixed ? 1001 : 1;
@@ -103,13 +113,13 @@ export function createMetaPageHeader(
   }
 
 
-  const title = scene.add.text(scene.scale.width / 2, metrics.titleY, options.title, {
+  const title = scene.add.text(viewport.centerX, metrics.titleY, options.title, {
     fontFamily: 'monospace',
     fontSize: `${metrics.titleFontSize}px`,
     color: '#f4ead7',
     fontStyle: 'bold',
   }).setOrigin(0.5).setDepth(titleDepthBase + 1);
-  fitTitleBetweenBackAndRightEdge(title, metrics, scene.scale.width, backRight);
+  fitTitleBetweenBackAndRightEdge(title, metrics, viewport, backRight);
 
   const decor = scene.add.graphics().setDepth(titleDepthBase);
   decor.fillStyle(0xf0b14f, 0.95);
@@ -121,8 +131,8 @@ export function createMetaPageHeader(
   const rightDiamondX = title.x + title.width / 2 + gap;
   const maxLineWidth = Math.max(0, Math.min(
     desiredLineWidth,
-    leftDiamondX - sideGap - 8,
-    scene.scale.width - rightDiamondX - sideGap - 8,
+    leftDiamondX - viewport.x - sideGap - 8,
+    viewport.right - rightDiamondX - sideGap - 8,
   ));
   const drawDiamond = (x: number): void => {
     decor.beginPath();

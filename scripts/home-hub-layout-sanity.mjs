@@ -19,7 +19,7 @@ assert(home.includes('const naturalDesktopTileSide'), 'Desktop Home must define 
 assert(home.includes('const naturalStackHeight'), 'Home must treat logo and cards as one cohesive vertical stack.');
 assert(home.includes('const availableHeight'), 'Home must derive layout from the usable viewport height.');
 assert(home.includes('const stackScale = Math.min(1, availableHeight / naturalStackHeight);'), 'Home must scale the whole stack down on short viewports instead of clipping it.');
-assert(home.includes('HOME_BOTTOM_RESERVED_PX_REGISTRY_KEY'), 'Home must reserve an explicit bottom inset hook for a future sticky banner.');
+assert(home.includes('STICKY_BOTTOM_INSET_REGISTRY_KEY'), 'Home must explicitly opt in to the shared sticky bottom inset hook.');
 assert(home.includes("const desiredCenterRatio = narrow ? 0.47 : 0.5;"), 'Home stack must be vertically centered, with a slight optical lift on mobile.');
 assert(home.includes('const cardSectionGap'), 'Home cards must keep a compact shared gap so the stack reads as one unit.');
 assert(home.includes('const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);'), 'Desktop Levels and Daily icons must scale up inside compact square cards.');

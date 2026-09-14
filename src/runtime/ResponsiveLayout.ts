@@ -212,6 +212,32 @@ export function calculateLevelSelectLayout(
   };
 }
 
+export function translateLevelSelectLayout(
+  layout: LevelSelectLayout,
+  offsetX: number,
+  offsetY: number,
+): LevelSelectLayout {
+  if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) {
+    throw new RangeError('Level-select layout offsets must be finite numbers.');
+  }
+
+  return {
+    ...layout,
+    titleY: layout.titleY + offsetY,
+    continueY: layout.continueY + offsetY,
+    progressLabelY: layout.progressLabelY + offsetY,
+    progressBarY: layout.progressBarY + offsetY,
+    headerBottom: layout.headerBottom + offsetY,
+    contentBottom: layout.contentBottom + offsetY,
+    cards: layout.cards.map((card) => ({
+      ...card,
+      x: card.x + offsetX,
+      y: card.y + offsetY,
+      numberY: card.numberY + offsetY,
+    })),
+  };
+}
+
 export function calculatePuzzleChromeLayout(
   viewportWidth: number,
   viewportHeight: number,

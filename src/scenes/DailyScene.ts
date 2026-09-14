@@ -13,6 +13,11 @@ import {
 } from '../daily/DailyService';
 import { getUiCopy, type UiCopy } from '../i18n/UiCopy';
 import {
+  calculateAvailableViewport,
+  readCssSafeAreaInsets,
+  type AvailableViewport,
+} from '../runtime/AvailableViewport';
+import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
@@ -93,7 +98,8 @@ export class DailyScene extends Phaser.Scene {
     const copy = getUiCopy(profile.settings.language);
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.screenView('daily');
-    const shellLayout = calculateDailyHubLayout(this.scale.width, this.scale.height, 6);
+    const availableViewport = this.getAvailableViewport();
+    const shellLayout = calculateDailyHubLayout(availableViewport.width, availableViewport.height, 6);
     const { narrow } = shellLayout;
 
 
@@ -102,17 +108,23 @@ export class DailyScene extends Phaser.Scene {
       backLabel: copy.common.back,
       backButton: true,
       fixedBack: true,
+      viewport: availableViewport,
       onBack: (pointer) => {
         if (!this.shouldActivatePointer(pointer)) return;
         this.scene.start(HOME_SCENE_KEY);
       },
     });
 
-    const loading = this.add.text(this.scale.width / 2, shellLayout.headerHeight + 12, copy.common.loading, {
+    const loading = this.add.text(
+      availableViewport.centerX,
+      availableViewport.y + shellLayout.headerHeight + 12,
+      copy.common.loading,
+      {
       fontFamily: 'monospace',
       fontSize: shellLayout.density === 'ultra' ? '10px' : narrow ? '12px' : '14px',
-      color: '#89929d',
-    }).setOrigin(0.5, 0);
+        color: '#89929d',
+      },
+    ).setOrigin(0.5, 0);
 
     const renderVersion = Date.now();
     this.registry.set('daily-scene-render-version', renderVersion);
@@ -153,12 +165,14 @@ export class DailyScene extends Phaser.Scene {
     dailyProfile: DailyProfileState,
     copy: UiCopy,
   ): void {
-    const shellLayout = calculateDailyHubLayout(this.scale.width, this.scale.height, 6);
+    const availableViewport = this.getAvailableViewport();
+    const shellLayout = calculateDailyHubLayout(availableViewport.width, availableViewport.height, 6);
     const { narrow, density } = shellLayout;
     const width = shellLayout.contentWidth;
-    const centerX = this.scale.width / 2;
+    const centerX = availableViewport.centerX;
+    const viewportTop = availableViewport.y;
 
-    this.add.text(centerX, shellLayout.todayTitleY, copy.dailyHub.todayTitle, {
+    this.add.text(centerX, viewportTop + shellLayout.todayTitleY, copy.dailyHub.todayTitle, {
       fontFamily: 'monospace',
       fontSize: density === 'ultra' ? '11px' : density === 'tight' ? '13px' : narrow ? '15px' : '18px',
       color: '#f0bd63',
@@ -166,7 +180,7 @@ export class DailyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const todayHeight = shellLayout.todayHeight;
-    const todayCardTop = shellLayout.todayCardTop;
+    const todayCardTop = viewportTop + shellLayout.todayCardTop;
     const todayCardCenterY = todayCardTop + todayHeight / 2;
     const panel = this.add.graphics();
     const cardRadius = density === 'ultra' ? 8 : narrow ? 12 : 14;
@@ -258,20 +272,20 @@ export class DailyScene extends Phaser.Scene {
       );
     }
 
-    this.add.text(centerX, shellLayout.archiveTitleY, copy.dailyHub.archiveTitle, {
+    this.add.text(centerX, viewportTop + shellLayout.archiveTitleY, copy.dailyHub.archiveTitle, {
       fontFamily: 'monospace',
       fontSize: density === 'ultra' ? '11px' : density === 'tight' ? '13px' : narrow ? '16px' : '19px',
       color: '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0.5);
     if (today === null) {
-      this.add.text(centerX, shellLayout.monthHeaderY, copy.dailyHub.archiveEmpty, {
+      this.add.text(centerX, viewportTop + shellLayout.monthHeaderY, copy.dailyHub.archiveEmpty, {
         fontFamily: 'monospace',
         fontSize: density === 'ultra' ? '9px' : narrow ? '12px' : '14px',
         color: '#65728a',
       }).setOrigin(0.5);
-      this.contentBottom = shellLayout.monthHeaderY + 48;
-      this.scrollMaxY = getMetaScrollMaxY(this.scale.height, this.contentBottom);
+      this.contentBottom = viewportTop + shellLayout.monthHeaderY + 48;
+      this.scrollMaxY = this.getScrollMaxY(this.contentBottom);
       return;
     }
 
@@ -290,11 +304,11 @@ export class DailyScene extends Phaser.Scene {
       selectedMonth = { year: calendar.year, month: calendar.month };
 
       const calendarRows = getDailyCalendarRowCount(calendar.leadingEmptyDays, calendar.days.length);
-      const layout = calculateDailyHubLayout(this.scale.width, this.scale.height, calendarRows);
+      const layout = calculateDailyHubLayout(availableViewport.width, availableViewport.height, calendarRows);
       const gridWidth = layout.cellSize * 7 + layout.columnGap * 6;
       const monthLabel = `${copy.stats.months[calendar.month - 1]} ${calendar.year}`;
 
-      const monthText = this.add.text(centerX, layout.monthHeaderY, monthLabel, {
+      const monthText = this.add.text(centerX, viewportTop + layout.monthHeaderY, monthLabel, {
         fontFamily: 'monospace',
         fontSize: layout.density === 'ultra' ? '10px' : layout.density === 'tight' ? '12px' : narrow ? '14px' : '17px',
         color: '#f4ead7',
@@ -306,7 +320,7 @@ export class DailyScene extends Phaser.Scene {
         const maxArrowOffset = layout.density === 'ultra' ? 180 : narrow ? 156 : 220;
         const x = centerX + direction * Math.min(Math.max(34, gridWidth / 2 - 12), maxArrowOffset);
         const restingColor = enabled ? '#aeb9cb' : '#46536a';
-        const arrow = this.add.text(x, layout.monthHeaderY, direction < 0 ? '‹' : '›', {
+        const arrow = this.add.text(x, viewportTop + layout.monthHeaderY, direction < 0 ? '‹' : '›', {
           fontFamily: 'monospace',
           fontSize: layout.density === 'ultra' ? '18px' : narrow ? '24px' : '30px',
           color: restingColor,
@@ -339,7 +353,7 @@ export class DailyScene extends Phaser.Scene {
 
       copy.stats.weekdays.forEach((weekday, column) => {
         const x = centerX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
-        const text = this.add.text(x, layout.weekdaysY, weekday, {
+        const text = this.add.text(x, viewportTop + layout.weekdaysY, weekday, {
           fontFamily: 'monospace',
           fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '9px' : '10px',
           color: '#718098',
@@ -353,7 +367,7 @@ export class DailyScene extends Phaser.Scene {
         const column = position % 7;
         const row = Math.floor(position / 7);
         const x = centerX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
-        const cellY = layout.gridTopY + layout.cellSize / 2 + row * layout.rowPitch;
+        const cellY = viewportTop + layout.gridTopY + layout.cellSize / 2 + row * layout.rowPitch;
         const numberY = cellY + layout.cellSize / 2 + layout.numberGap;
         const style = CALENDAR_STATE_STYLE[day.state];
         const radius = Math.min(DAILY_CARD_RADIUS, Math.max(5, Math.floor(layout.cellSize * 0.14)));
@@ -502,15 +516,15 @@ export class DailyScene extends Phaser.Scene {
         }
       });
 
-      const outsideRating = this.add.text(centerX, layout.outsideRatingY, copy.dailyHub.archiveOutsideRating, {
+      const outsideRating = this.add.text(centerX, viewportTop + layout.outsideRatingY, copy.dailyHub.archiveOutsideRating, {
         fontFamily: 'monospace',
         fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '9px' : '11px',
         color: '#65728a',
       }).setOrigin(0.5, 0);
       calendarContainer.add(outsideRating);
 
-      this.contentBottom = layout.contentBottom;
-      this.scrollMaxY = getMetaScrollMaxY(this.scale.height, this.contentBottom);
+      this.contentBottom = viewportTop + layout.contentBottom;
+      this.scrollMaxY = this.getScrollMaxY(this.contentBottom);
       this.cameras.main.setScroll(0, clampMetaScrollY(this.cameras.main.scrollY, this.scrollMaxY));
     };
 
@@ -701,6 +715,22 @@ export class DailyScene extends Phaser.Scene {
     }
   }
 
+  private getAvailableViewport(): AvailableViewport {
+    return calculateAvailableViewport(
+      this.scale.width,
+      this.scale.height,
+      readCssSafeAreaInsets(),
+    );
+  }
+
+  private getScrollMaxY(contentBottom: number): number {
+    const availableViewport = this.getAvailableViewport();
+    return getMetaScrollMaxY(
+      availableViewport.height,
+      Math.max(0, contentBottom - availableViewport.y),
+    );
+  }
+
   private setupPointerOwnership(): void {
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
@@ -712,7 +742,7 @@ export class DailyScene extends Phaser.Scene {
   }
 
   private setupMetaScroll(): void {
-    this.scrollMaxY = getMetaScrollMaxY(this.scale.height, this.contentBottom);
+    this.scrollMaxY = this.getScrollMaxY(this.contentBottom);
 
     const camera = this.cameras.main;
     const handleWheel = (

@@ -14,6 +14,11 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
+import {
+  calculateAvailableViewport,
+  readCssSafeAreaInsets,
+  type AvailableViewport,
+} from '../runtime/AvailableViewport';
 import { createCampaignLevelPreview, type CampaignLevelPreview } from '../runtime/CampaignLevelPreview';
 import {
   createCampaignGameSceneData,
@@ -31,7 +36,12 @@ import {
   isMetaScrollDrag,
   stepMetaScrollInertia,
 } from '../runtime/MetaScroll';
-import { calculateLevelSelectLayout, type LevelCardLayout, type LevelSelectLayout } from '../runtime/ResponsiveLayout';
+import {
+  calculateLevelSelectLayout,
+  translateLevelSelectLayout,
+  type LevelCardLayout,
+  type LevelSelectLayout,
+} from '../runtime/ResponsiveLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
@@ -135,10 +145,11 @@ export class LevelSelectScene extends Phaser.Scene {
     analytics?.screenView('levels');
     const progress = service.getProgress();
     const items = createLevelSelectItems(service.getLevels(), progress, profile.tutorial.completed);
-    const layout = calculateLevelSelectLayout(
-      this.scale.width,
-      this.scale.height,
-      items.length,
+    const availableViewport = this.getAvailableViewport();
+    const layout = translateLevelSelectLayout(
+      calculateLevelSelectLayout(availableViewport.width, availableViewport.height, items.length),
+      availableViewport.x,
+      availableViewport.y,
     );
     const rowUnlock = data.rowUnlock ?? null;
     this.contentBottom = layout.contentBottom;
@@ -148,6 +159,7 @@ export class LevelSelectScene extends Phaser.Scene {
       backLabel: copy.common.back,
       backButton: true,
       fixedBack: true,
+      viewport: availableViewport,
       onBack: (pointer) => {
         if (!this.shouldActivatePointer(pointer)) return;
         this.scene.start(HOME_SCENE_KEY);
@@ -158,7 +170,7 @@ export class LevelSelectScene extends Phaser.Scene {
       const tutorialEntry = tutorial.getContinueLevel() ?? tutorial.getLevels()[0];
       if (tutorialEntry !== undefined) {
         this.createActionButton(
-          this.scale.width / 2,
+          availableViewport.centerX,
           layout.continueY,
           layout.continueWidth,
           layout.continueHeight,
@@ -171,7 +183,7 @@ export class LevelSelectScene extends Phaser.Scene {
       const continueLevel = service.getContinueLevel();
       if (continueLevel !== null) {
         this.createActionButton(
-          this.scale.width / 2,
+          availableViewport.centerX,
           layout.continueY,
           layout.continueWidth,
           layout.continueHeight,
@@ -311,14 +323,15 @@ export class LevelSelectScene extends Phaser.Scene {
     completedCount: number,
     totalCount: number,
   ): void {
-    this.add.text(this.scale.width / 2, layout.progressLabelY, label, {
+    const availableViewport = this.getAvailableViewport();
+    this.add.text(availableViewport.centerX, layout.progressLabelY, label, {
       fontFamily: 'monospace',
       fontSize: `${layout.progressLabelFontSize}px`,
       color: '#e7edf8',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const trackX = this.scale.width / 2 - layout.progressBarWidth / 2;
+    const trackX = availableViewport.centerX - layout.progressBarWidth / 2;
     const radius = layout.progressBarHeight / 2;
     const safeTotal = Math.max(1, totalCount);
     const completedWidth = completedCount <= 0
@@ -372,7 +385,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const totalRows = Math.ceil(itemCount / layout.columns);
     const gridWidth = this.getGridWidth(layout);
     const lineWidth = Math.max(24, (gridWidth - 36) / 2);
-    const centerX = this.scale.width / 2;
+    const centerX = this.getAvailableViewport().centerX;
 
     for (let rowBreak = rowsPerBlock; rowBreak < totalRows; rowBreak += rowsPerBlock) {
       const lastPreviousIndex = Math.min(itemCount, rowBreak * layout.columns) - 1;
@@ -607,7 +620,7 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   private centerActionButtonContent(button: HomeMenuButtonHandle, x: number, y: number): void {
-    const gap = this.scale.width < 700 ? 10 : 12;
+    const gap = this.getAvailableViewport().width < 700 ? 10 : 12;
     const contentWidth = button.icon.displayWidth + gap + button.label.width;
     const startX = x - contentWidth / 2;
     button.icon.setPosition(startX + button.icon.displayWidth / 2, y);
@@ -617,7 +630,8 @@ export class LevelSelectScene extends Phaser.Scene {
   private getRowUnlockInitialScrollY(layout: LevelSelectLayout, nextRowStartSlot: number): number {
     const card = layout.cards[nextRowStartSlot - 1];
     if (card === undefined) return 0;
-    return Math.max(0, card.y - this.scale.height * 0.58);
+    const availableViewport = this.getAvailableViewport();
+    return Math.max(0, card.y - availableViewport.y - availableViewport.height * 0.58);
   }
 
   private playRowUnlockTransition(
@@ -812,7 +826,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const y = Math.round((previousBottom + nextTop) / 2);
     const gridWidth = this.getGridWidth(layout);
     const lineWidth = Math.max(24, (gridWidth - 36) / 2);
-    const centerX = this.scale.width / 2;
+    const centerX = this.getAvailableViewport().centerX;
     const left = this.add.rectangle(centerX - 10 - lineWidth / 2, y, lineWidth, 2, 0xffd98a, 1)
       .setDepth(330)
       .setAlpha(0.15)
@@ -871,6 +885,22 @@ export class LevelSelectScene extends Phaser.Scene {
     return cover;
   }
 
+  private getAvailableViewport(): AvailableViewport {
+    return calculateAvailableViewport(
+      this.scale.width,
+      this.scale.height,
+      readCssSafeAreaInsets(),
+    );
+  }
+
+  private getScrollMaxY(contentBottom: number): number {
+    const availableViewport = this.getAvailableViewport();
+    return getMetaScrollMaxY(
+      availableViewport.height,
+      Math.max(0, contentBottom - availableViewport.y),
+    );
+  }
+
   private setupPointerOwnership(): void {
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
@@ -883,7 +913,7 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   private setupMetaScroll(layout: LevelSelectLayout, initialScrollY = 0): void {
-    this.scrollMaxY = getMetaScrollMaxY(this.scale.height, this.contentBottom);
+    this.scrollMaxY = this.getScrollMaxY(this.contentBottom);
     if (this.scrollMaxY <= 0) {
       this.cameras.main.scrollY = 0;
       return;
@@ -1070,13 +1100,14 @@ export class LevelSelectScene extends Phaser.Scene {
       : layout.cards[0].y - layout.cards[0].height / 2;
     const viewportInset = 18;
     const trackTop = Math.max(gridTop, layout.progressBarY + 28);
-    const trackBottom = this.scale.height - viewportInset;
+    const availableViewport = this.getAvailableViewport();
+    const trackBottom = availableViewport.bottom - viewportInset;
     const trackHeight = Math.max(72, trackBottom - trackTop);
     const trackWidth = 7;
     const thumbWidth = 10;
-    const x = this.scale.width - 15;
-    const totalScrollableHeight = this.scrollMaxY + this.scale.height;
-    const naturalThumbHeight = Math.round(trackHeight * (this.scale.height / totalScrollableHeight));
+    const x = availableViewport.right - 15;
+    const totalScrollableHeight = this.scrollMaxY + availableViewport.height;
+    const naturalThumbHeight = Math.round(trackHeight * (availableViewport.height / totalScrollableHeight));
     const maxThumbHeight = Math.max(32, Math.round(trackHeight * SCROLLBAR_THUMB_MAX_RATIO));
     const thumbHeight = Math.min(maxThumbHeight, Math.max(32, naturalThumbHeight));
 
