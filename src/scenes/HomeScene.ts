@@ -50,9 +50,10 @@ const HOME_CARD_ICON_KEYS = {
   play: 'home-menu-icon-play',
   daily: 'home-menu-icon-daily',
   levels: 'home-menu-icon-levels',
+  endless: 'home-menu-icon-endless',
 } as const;
 
-type HomeCardIcon = keyof typeof HOME_CARD_ICON_KEYS | 'infinity';
+type HomeCardIcon = keyof typeof HOME_CARD_ICON_KEYS;
 type HomeCardVariant = 'primary' | 'tile' | 'wide';
 type HomeCardFrameState = 'normal' | 'hover' | 'pressed';
 
@@ -276,7 +277,7 @@ export class HomeScene extends Phaser.Scene {
       variant: 'wide',
       label: copy.home.endless,
       subtitle: copy.home.endlessSoon,
-      icon: 'infinity',
+      icon: 'endless',
       enabled: false,
       onActivate: () => {},
     }, this.pointerGate);
@@ -638,13 +639,11 @@ function createHomeHubCard(
   } else {
     const iconX = options.x - options.width * (narrow ? 0.31 : 0.32);
     const contentX = options.x + options.width * (narrow ? 0.08 : 0.05);
-    const infinity = scene.add.text(iconX, options.y, '∞', {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: narrow ? '44px' : '58px',
-      color: enabled ? '#f0c86b' : '#8792a8',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    objects.push(infinity);
+    const iconSize = narrow ? 38 : 52;
+    const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
+      .setDisplaySize(iconSize, iconSize)
+      .setTint(enabled ? 0x8792a8 : 0x6a768b);
+    objects.push(icon);
 
     const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
       fontFamily: 'monospace',

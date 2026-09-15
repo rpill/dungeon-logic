@@ -22,6 +22,7 @@ const expectedAssets = [
   'public/assets/ui/icons/daily.svg',
   'public/assets/ui/icons/levels.svg',
   'public/assets/ui/icons/settings.svg',
+  'public/assets/ui/icons/endless.svg',
 ];
 
 for (const relativePath of expectedAssets) {
@@ -36,7 +37,8 @@ assert(
 assert(
   homeSource.includes("play: 'home-menu-icon-play'")
     && homeSource.includes("daily: 'home-menu-icon-daily'")
-    && homeSource.includes("levels: 'home-menu-icon-levels'"),
+    && homeSource.includes("levels: 'home-menu-icon-levels'")
+    && homeSource.includes("endless: 'home-menu-icon-endless'"),
   'Home hub cards must reuse the matching project SVG icons.',
 );
 assert(existsSync(headerActionPath), 'Shared header-action renderer must exist for top navigation controls.');

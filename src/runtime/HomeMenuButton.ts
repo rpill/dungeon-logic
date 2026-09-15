@@ -46,6 +46,7 @@ export function preloadHomeMenuAssets(scene: Phaser.Scene): void {
   scene.load.svg('home-menu-icon-play', 'assets/ui/icons/play.svg', rasterizeConfig);
   scene.load.svg('home-menu-icon-daily', 'assets/ui/icons/daily.svg', rasterizeConfig);
   scene.load.svg('home-menu-icon-levels', 'assets/ui/icons/levels.svg', rasterizeConfig);
+  scene.load.svg('home-menu-icon-endless', 'assets/ui/icons/endless.svg', rasterizeConfig);
   scene.load.svg('home-menu-icon-statistics', 'assets/ui/icons/statistics.svg', rasterizeConfig);
   scene.load.svg('home-menu-icon-settings', 'assets/ui/icons/settings.svg', rasterizeConfig);
 }

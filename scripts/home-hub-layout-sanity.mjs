@@ -13,6 +13,8 @@ assert(home.includes("variant: 'wide'"), 'Home must reserve a wide Endless card.
 assert(home.includes("label: copy.common.levels"), 'Home must keep a Levels card.');
 assert(home.includes("label: 'DAILY'"), 'Home must keep a Daily card.');
 assert(home.includes("label: copy.home.endless"), 'Home must render the Endless card.');
+assert(home.includes("endless: 'home-menu-icon-endless'"), 'Home Endless card must use a dedicated endless icon asset.');
+assert(!home.includes("scene.add.text(iconX, options.y, '∞'"), 'Home Endless card must not render a raw infinity glyph anymore.');
 assert(home.includes('createHomeSettingsButton'), 'Home must expose Settings through a top-right gear button.');
 assert(home.includes('const naturalCardGap = narrow ? 10 : 16'), 'Home must use a compact paired-card gap.');
 assert(home.includes('const naturalDesktopTileSide'), 'Desktop Home must define a natural compact square tile size.');
