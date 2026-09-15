@@ -72,6 +72,7 @@ import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
+import { drawMaterialButtonBackground } from '../runtime/MaterialActionButton';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import {
   calculatePuzzleToolbarLayout,
@@ -616,22 +617,41 @@ export class GameScene extends Phaser.Scene {
       return (r << 16) | (g << 8) | b;
     };
     const redrawToolbarBackground = (visual: ToolbarVisual): void => {
-      const fill = visual.disabled
-        ? visual.baseFill
-        : visual.pressed
-          ? adjustToolbarColor(visual.baseFill, -18)
-          : visual.hovered
-            ? adjustToolbarColor(visual.baseFill, 16)
-            : visual.baseFill;
+      const isToolSelector = visual.id === 'wall' || visual.id === 'floor';
       visual.background.clear();
-      visual.background.fillStyle(fill, 1);
-      visual.background.fillRoundedRect(
-        visual.hitArea.x - visual.width / 2,
-        visual.hitArea.y - visual.height / 2,
-        visual.width,
-        visual.height,
-        getToolbarRadius(visual.id),
-      );
+      if (isToolSelector) {
+        const fill = visual.disabled
+          ? visual.baseFill
+          : visual.pressed
+            ? adjustToolbarColor(visual.baseFill, -18)
+            : visual.hovered
+              ? adjustToolbarColor(visual.baseFill, 16)
+              : visual.baseFill;
+        visual.background.setAlpha(1);
+        visual.background.fillStyle(fill, 1);
+        visual.background.fillRoundedRect(
+          visual.hitArea.x - visual.width / 2,
+          visual.hitArea.y - visual.height / 2,
+          visual.width,
+          visual.height,
+          getToolbarRadius(visual.id),
+        );
+      } else {
+        const state = visual.pressed ? 'pressed' : visual.hovered ? 'hover' : 'normal';
+        drawMaterialButtonBackground(
+          visual.background,
+          {
+            x: visual.hitArea.x,
+            y: visual.hitArea.y,
+            width: visual.width,
+            height: visual.height,
+            radius: getToolbarRadius(visual.id),
+          },
+          visual.id === 'reset' ? 'danger' : 'secondary',
+          state,
+        );
+        visual.background.setAlpha(visual.disabled ? 0.55 : 1);
+      }
       if (visual.guided && !visual.disabled) {
         visual.background.lineStyle(3, 0xf0bd63, 0.98);
         visual.background.strokeRoundedRect(
@@ -1409,6 +1429,8 @@ export class GameScene extends Phaser.Scene {
           labelColor: '#f0d28a',
           compact: count >= 3,
           accentFrame: false,
+          variant: 'secondary',
+          surfaceHeight: 66,
           onActivate: () => definition.action(),
         });
         handle.fill.setDepth(60);
@@ -1957,6 +1979,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         label: copy.common.reset,
         labelColor: '#f4ead7',
         compact: true,
+        variant: 'danger',
         onActivate: () => {
           if (completedReview) {
             resetDialog?.destroy(true);
@@ -1969,7 +1992,6 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           closeResetDialog();
         },
       });
-      confirmButton.fill.setTint(0x8b5661);
 
       container.add([
         shadow, panel, titleAccent, title, dialogCopy,

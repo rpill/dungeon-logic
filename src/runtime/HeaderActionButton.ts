@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import { drawMaterialButtonBackground } from './MaterialActionButton';
 
 export type HeaderActionVisualState = 'normal' | 'hover' | 'pressed';
 
@@ -30,12 +31,6 @@ export function getHeaderActionButtonMetrics(narrow: boolean): HeaderActionButto
 }
 
 export const HEADER_ACTION_COLORS = {
-  normalFill: 0x1d2b4b,
-  hoverFill: 0x2a3d66,
-  pressedFill: 0x17243e,
-  normalStroke: 0x657792,
-  hoverStroke: 0xf0bd63,
-  pressedStroke: 0xd59a46,
   foreground: 0xf4ead7,
 } as const;
 
@@ -44,33 +39,7 @@ export function drawHeaderActionButtonBackground(
   bounds: HeaderActionBounds,
   state: HeaderActionVisualState,
 ): void {
-  const fill = state === 'pressed'
-    ? HEADER_ACTION_COLORS.pressedFill
-    : state === 'hover'
-      ? HEADER_ACTION_COLORS.hoverFill
-      : HEADER_ACTION_COLORS.normalFill;
-  const stroke = state === 'pressed'
-    ? HEADER_ACTION_COLORS.pressedStroke
-    : state === 'hover'
-      ? HEADER_ACTION_COLORS.hoverStroke
-      : HEADER_ACTION_COLORS.normalStroke;
-
-  graphics.fillStyle(fill, 0.96);
-  graphics.fillRoundedRect(
-    bounds.x - bounds.width / 2,
-    bounds.y - bounds.height / 2,
-    bounds.width,
-    bounds.height,
-    bounds.radius,
-  );
-  graphics.lineStyle(2, stroke, 0.95);
-  graphics.strokeRoundedRect(
-    bounds.x - bounds.width / 2,
-    bounds.y - bounds.height / 2,
-    bounds.width,
-    bounds.height,
-    bounds.radius,
-  );
+  drawMaterialButtonBackground(graphics, bounds, 'secondary', state);
 }
 
 export interface HeaderActionButtonOptions {

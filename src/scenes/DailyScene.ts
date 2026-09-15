@@ -747,6 +747,7 @@ export class DailyScene extends Phaser.Scene {
       icon: options.icon,
       compact: true,
       accentFrame: false,
+      variant: 'secondary',
       onActivate: options.onActivate,
     });
   }
