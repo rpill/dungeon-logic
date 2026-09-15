@@ -25,8 +25,8 @@ import {
   createLevelSelectItems,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { createHomeMenuButton, type HomeMenuButtonHandle } from '../runtime/HomeMenuButton';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
@@ -599,32 +599,21 @@ export class LevelSelectScene extends Phaser.Scene {
     width: number,
     height: number,
     label: string,
-    color: string,
+    _color: string,
     onActivate: () => void,
   ): void {
-    const button = createHomeMenuButton(this, {
+    createPrimaryActionButton(this, {
       x,
       y,
       width,
       height,
       label,
-      labelColor: color,
-      icon: 'play',
-      accentFrame: true,
+      iconKey: 'home-menu-icon-play',
       onActivate: (pointer) => {
         if (!this.shouldActivatePointer(pointer)) return;
         onActivate();
       },
     });
-    this.centerActionButtonContent(button, x, y);
-  }
-
-  private centerActionButtonContent(button: HomeMenuButtonHandle, x: number, y: number): void {
-    const gap = this.getAvailableViewport().width < 700 ? 10 : 12;
-    const contentWidth = button.icon.displayWidth + gap + button.label.width;
-    const startX = x - contentWidth / 2;
-    button.icon.setPosition(startX + button.icon.displayWidth / 2, y);
-    button.label.setPosition(startX + button.icon.displayWidth + gap, y);
   }
 
   private getRowUnlockInitialScrollY(layout: LevelSelectLayout, nextRowStartSlot: number): number {

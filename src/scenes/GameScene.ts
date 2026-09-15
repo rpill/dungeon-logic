@@ -72,6 +72,7 @@ import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
+import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -1343,11 +1344,15 @@ export class GameScene extends Phaser.Scene {
       }
     };
 
-    let completionActions: Array<{ readonly label: string; readonly action: () => void }> = [];
+    let completionActions: Array<{
+      readonly label: string;
+      readonly action: () => void;
+      readonly primary?: boolean;
+    }> = [];
 
     const positionCompletionStatusText = (): void => {
       const safeBottom = getSafeAreaInsets().bottom;
-      const buttonHeight = 48;
+      const buttonHeight = 56;
       const buttonTop = this.scale.height - safeBottom - 12 - buttonHeight;
       statusText
         .setOrigin(0.5, 1)
@@ -1365,7 +1370,7 @@ export class GameScene extends Phaser.Scene {
       const count = completionActions.length;
       const gap = count >= 3 ? 8 : 10;
       const maxWidth = Math.min(this.scale.width - 24, count >= 3 ? 560 : 350);
-      const buttonHeight = 48;
+      const buttonHeight = 56;
       const buttonWidth = count === 1
         ? Math.min(190, maxWidth)
         : Math.floor((maxWidth - gap * (count - 1)) / count);
@@ -1375,6 +1380,26 @@ export class GameScene extends Phaser.Scene {
 
       completionActions.forEach((definition, index) => {
         const x = startX + index * (buttonWidth + gap) + buttonWidth / 2;
+        if (definition.primary) {
+          const handle = createPrimaryActionButton(this, {
+            x,
+            y,
+            width: buttonWidth,
+            height: buttonHeight,
+            surfaceHeight: 66,
+            label: definition.label,
+            compact: count >= 3,
+            onActivate: () => definition.action(),
+          });
+          handle.surface.setDepth(60);
+          handle.label.setDepth(62);
+          handle.icon?.setDepth(62);
+          handle.subtitle?.setDepth(62);
+          completionButtons.push(handle.surface, handle.label);
+          if (handle.icon) completionButtons.push(handle.icon);
+          if (handle.subtitle) completionButtons.push(handle.subtitle);
+          return;
+        }
         const handle = createCenteredTextMenuButton(this, {
           x,
           y,
@@ -1474,6 +1499,7 @@ ${copy.game.featuresUnlocked}`
             }
             : {
               label: copy.game.next,
+              primary: true,
               action: continueCampaign,
             },
         ];
@@ -1481,6 +1507,7 @@ ${copy.game.featuresUnlocked}`
         completionActions = [
           {
             label: copy.game.next,
+            primary: true,
             action: continueCampaign,
           },
         ];
@@ -1494,6 +1521,7 @@ ${copy.game.featuresUnlocked}`
         if (result.recommendedNextLevel !== null) {
           completionActions.push({
             label: copy.game.next,
+            primary: true,
             action: continueCampaign,
           });
         }
@@ -1540,6 +1568,7 @@ ${copy.game.featuresUnlocked}`
         const service = this.getTutorialService();
         completionActions.push({
           label: copy.game.next,
+          primary: true,
           action: () => {
             if (completionTransitionPending) return;
             completionTransitionPending = true;

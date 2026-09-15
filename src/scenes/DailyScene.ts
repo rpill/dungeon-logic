@@ -33,6 +33,7 @@ import {
 } from '../runtime/DailyHubLayout';
 import { createDailyGameSceneData } from '../runtime/GameLaunch';
 import { createHomeMenuButton } from '../runtime/HomeMenuButton';
+import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
@@ -722,16 +723,30 @@ export class DailyScene extends Phaser.Scene {
     readonly accentFrame: boolean;
     readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
   }): void {
+    if (options.accentFrame) {
+      createPrimaryActionButton(this, {
+        x: options.x,
+        y: options.y,
+        width: options.width,
+        height: options.height,
+        label: options.label,
+        iconKey: options.icon === 'play' ? 'home-menu-icon-play' : 'home-menu-icon-statistics',
+        compact: true,
+        onActivate: options.onActivate,
+      });
+      return;
+    }
+
     createHomeMenuButton(this, {
       x: options.x,
       y: options.y,
       width: options.width,
       height: options.height,
       label: options.label,
-      labelColor: options.accentFrame ? '#f0d28a' : '#d8d1c4',
+      labelColor: '#d8d1c4',
       icon: options.icon,
       compact: true,
-      accentFrame: options.accentFrame,
+      accentFrame: false,
       onActivate: options.onActivate,
     });
   }

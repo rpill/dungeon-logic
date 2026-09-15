@@ -90,7 +90,7 @@ export function calculateLevelSelectLayout(
     const rowPitch = cardSize + numberGap + numberHeight + gapY;
     const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
     const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
-    const continueHeight = viewport.height < 620 ? 42 : 46;
+    const continueHeight = viewport.height < 620 ? 50 : 54;
     const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 26 : 32);
     const progressLabelY = continueY + continueHeight / 2 + (viewport.height < 620 ? 16 : 18);
     const progressBarY = progressLabelY + 18;
@@ -143,7 +143,7 @@ export function calculateLevelSelectLayout(
   const blockBreakCount = Math.max(0, Math.ceil(rows / rowsPerBlock) - 1);
   const shortViewport = viewport.height < 500;
   const blockGap = shortViewport ? 14 : viewport.height >= 860 ? 34 : viewport.height >= 760 ? 28 : 20;
-  const continueHeight = shortViewport ? 42 : 46;
+  const continueHeight = shortViewport ? 50 : 54;
   const continueY = metaHeader.headerHeight + (shortViewport ? 24 : 25);
   const progressLabelY = continueY + continueHeight / 2 + (shortViewport ? 14 : 16);
   const progressBarY = progressLabelY + 16;

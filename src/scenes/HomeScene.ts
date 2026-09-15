@@ -17,6 +17,7 @@ import {
 } from '../runtime/GameLaunch';
 import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
+import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import {
   calculateAvailableViewport,
   readCssSafeAreaInsets,
@@ -521,6 +522,24 @@ function createHomeHubCard(
 ): HomeHubCardHandle {
   const enabled = options.enabled ?? true;
   const accent = options.accent ?? false;
+
+  if (options.variant === 'primary') {
+    const button = createPrimaryActionButton(scene, {
+      x: options.x,
+      y: options.y,
+      width: options.width,
+      height: options.height,
+      label: options.label,
+      subtitle: options.subtitle,
+      iconKey: HOME_CARD_ICON_KEYS[options.icon as 'play'],
+      enabled,
+      onActivate: (pointer) => {
+        if (pointerGate.canActivate(pointer.id)) options.onActivate();
+      },
+    });
+    return { destroy: () => button.destroy() };
+  }
+
   const objects: Phaser.GameObjects.GameObject[] = [];
 
   const fill = scene.add.nineslice(
@@ -570,32 +589,7 @@ function createHomeHubCard(
     frame.setTexture(HOME_FRAME_NORMAL_KEY);
   };
 
-  if (options.variant === 'primary') {
-    const iconSize = narrow ? 30 : 38;
-    const iconX = options.x - options.width * (narrow ? 0.31 : 0.32);
-    const contentX = options.x + options.width * (narrow ? 0.04 : 0.03);
-    const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon as 'play'])
-      .setDisplaySize(iconSize, iconSize)
-      .setTint(0xf0c86b);
-    objects.push(icon);
-
-    const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '20px' : '26px',
-      color: labelColor,
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    fitHomeText(label, options.width * 0.67, narrow ? 15 : 18);
-    objects.push(label);
-
-    const subtitle = scene.add.text(contentX, options.y + (narrow ? 17 : 21), options.subtitle, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : '15px',
-      color: subtitleColor,
-    }).setOrigin(0.5);
-    fitHomeText(subtitle, options.width * 0.66, narrow ? 10 : 11);
-    objects.push(subtitle);
-  } else if (options.variant === 'tile') {
+  if (options.variant === 'tile') {
     const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
     const iconY = options.y - options.height * 0.22;
     const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
