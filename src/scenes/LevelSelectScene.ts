@@ -19,13 +19,23 @@ import {
   readCssSafeAreaInsets,
   type AvailableViewport,
 } from '../runtime/AvailableViewport';
-import { createCampaignLevelPreview, type CampaignLevelPreview } from '../runtime/CampaignLevelPreview';
+import {
+  createCampaignLevelPreview,
+  type CampaignLevelPreview,
+  type CampaignLevelPreviewProfileState,
+} from '../runtime/CampaignLevelPreview';
 import {
   createCampaignGameSceneData,
   createLevelSelectItems,
   createTutorialGameSceneData,
+  type LevelSelectItem,
 } from '../runtime/GameLaunch';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import {
+  getLevelCardRowStride,
+  getLevelCardVirtualWindowKey,
+  getVirtualizedLevelCardIndices,
+} from '../runtime/LevelSelectVirtualization';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
@@ -82,6 +92,10 @@ const WHEEL_SCROLL_EASE = 0.18;
 const WHEEL_SCROLL_SNAP_EPSILON = 0.15;
 const CARD_RADIUS = 8;
 const CURRENT_GLOW_TEXTURE_SCALE = 3;
+const LEVEL_CARD_PREWARM_MIN_IDLE_MS = 3;
+const LEVEL_CARD_PREWARM_IDLE_TIMEOUT_MS = 120;
+const LEVEL_CARD_PREWARM_FALLBACK_DELAY_MS = 32;
+const LEVEL_CARD_PREWARM_SCROLL_COOLDOWN_MS = 80;
 
 const ROW_UNLOCK_INITIAL_PAUSE_MS = 300;
 const ROW_UNLOCK_ROW_PULSE_DURATION_MS = 170;
@@ -100,6 +114,19 @@ type LevelSelectState = keyof typeof STATE_COLOR;
 
 interface LevelSelectSceneData {
   readonly rowUnlock?: CampaignRowUnlockTransition;
+}
+
+
+interface LevelCardVisual {
+  readonly container: Phaser.GameObjects.Container;
+  setVirtualVisible(visible: boolean): void;
+  destroy(): void;
+}
+
+interface LevelCardVirtualizer {
+  sync(scrollY: number): void;
+  startPrewarm(): void;
+  destroy(): void;
 }
 
 export class LevelSelectScene extends Phaser.Scene {
@@ -202,108 +229,35 @@ export class LevelSelectScene extends Phaser.Scene {
     );
     this.drawLevelSectionDividers(layout, items.length);
 
-    items.forEach((item, index) => {
-      const cardLayout = layout.cards[index];
-      const deferCurrentHighlight = rowUnlock !== null
-        && item.state === 'current'
-        && item.entry.slot === rowUnlock.nextRowStartSlot;
-      const visualState: LevelSelectState = deferCurrentHighlight ? 'unlocked' : item.state;
-      const color = STATE_COLOR[visualState];
-      const preview = createCampaignLevelPreview(item.entry, profile.campaign);
-      const cardTone = STATE_FILL[visualState];
-      const strokeColor = Phaser.Display.Color.HexStringToColor(color).color;
-
-      if (visualState === 'current') {
-        this.drawCurrentGlow(cardLayout, strokeColor);
-      }
-
-      this.drawRoundedCardShape(
-        cardLayout.x,
-        cardLayout.y + 3,
-        cardLayout.width,
-        cardLayout.height,
-        0x040912,
-        visualState === 'locked' ? 0.16 : 0.22,
-        0x000000,
-        0,
-        0,
-        CARD_RADIUS,
-      );
-
-      this.drawRoundedCardShape(
-        cardLayout.x,
-        cardLayout.y,
-        cardLayout.width,
-        cardLayout.height,
-        cardTone.color,
-        cardTone.alpha,
-        strokeColor,
-        visualState === 'locked' ? 0.72 : 0.96,
-        visualState === 'current' ? 3 : 2.5,
-        CARD_RADIUS,
-      );
-
-      this.drawLevelPreview(item.entry, preview, cardLayout, visualState);
-      this.drawLevelStateMarkers(visualState, cardLayout);
-
-      this.add.text(
-        cardLayout.x,
-        cardLayout.numberY,
-        String(item.entry.slot),
-        {
-          fontFamily: 'monospace',
-          fontSize: `${layout.cardTitleFontSize}px`,
-          color,
-          fontStyle: 'bold',
-        },
-      ).setOrigin(0.5);
-
-      if (item.playable) {
-        const hoverOverlay = this.drawRoundedOverlay(
-          cardLayout.x,
-          cardLayout.y,
-          Math.max(1, cardLayout.width - 6),
-          Math.max(1, cardLayout.height - 6),
-          0x40577f,
-          0.16,
-          CARD_RADIUS - 2,
-        ).setVisible(false);
-
-        const cardZone = this.add.zone(
-          cardLayout.x,
-          cardLayout.y,
-          cardLayout.width,
-          cardLayout.height,
-        ).setInteractive({ useHandCursor: true });
-
-        cardZone
-          .on('pointerover', () => {
-            hoverOverlay.setAlpha(0.16).setVisible(true);
-            getAudioFeedback(this).play('ui-hover');
-          })
-          .on('pointerout', () => {
-            hoverOverlay.setVisible(false);
-          })
-          .on('pointerdown', () => {
-            hoverOverlay.setAlpha(0.28).setVisible(true);
-          })
-          .on('pointerup', (pointer: Phaser.Input.Pointer) => {
-            hoverOverlay.setAlpha(0.16).setVisible(true);
-            if (!this.shouldActivatePointer(pointer)) return;
-            getAudioFeedback(this).play('ui-click');
-            void this.launchLevel(service, item.entry);
-          });
-      }
-    });
-
-    this.setupPointerOwnership();
     const initialScrollY = rowUnlock === null
       ? 0
       : this.getRowUnlockInitialScrollY(layout, rowUnlock.nextRowStartSlot);
-    this.setupMetaScroll(layout, initialScrollY);
+    const pinnedCardIndices = rowUnlock === null
+      ? []
+      : items
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => (
+          item.entry.slot >= rowUnlock.completedRowStartSlot
+          && item.entry.slot < rowUnlock.nextRowStartSlot + CAMPAIGN_ROW_SIZE
+        ))
+        .map(({ index }) => index);
+    const cardVirtualizer = this.createLevelCardVirtualizer(
+      layout,
+      items,
+      profile.campaign,
+      service,
+      rowUnlock,
+      pinnedCardIndices,
+    );
+
+    this.setupPointerOwnership();
+    this.setupMetaScroll(layout, initialScrollY, (scrollY) => cardVirtualizer.sync(scrollY));
+    cardVirtualizer.startPrewarm();
     if (rowUnlock !== null) {
       this.playRowUnlockTransition(layout, items, rowUnlock);
     }
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => cardVirtualizer.destroy());
 
     const handleResize = (): void => {
       sceneBackground.sync();
@@ -315,6 +269,297 @@ export class LevelSelectScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
     });
+  }
+
+  private createLevelCardVirtualizer(
+    layout: LevelSelectLayout,
+    items: readonly LevelSelectItem[],
+    campaignPreviewState: CampaignLevelPreviewProfileState,
+    service: CampaignService,
+    rowUnlock: CampaignRowUnlockTransition | null,
+    pinnedIndices: readonly number[],
+  ): LevelCardVirtualizer {
+    const rendered = new Map<number, LevelCardVisual>();
+    const viewport = this.getAvailableViewport();
+    const rowStride = getLevelCardRowStride(layout.cards);
+    const priorityQueue: number[] = [];
+    const priorityQueued = new Set<number>();
+    let currentWanted = new Set<number>();
+    let backgroundCursor = 0;
+    let prewarmStarted = false;
+    let destroyed = false;
+    let idleHandle: number | null = null;
+    let fallbackHandle: number | null = null;
+    let lastScrollY = Number.NaN;
+    let lastWindowKey = Number.NaN;
+    let lastScrollMotionAtMs = Number.NEGATIVE_INFINITY;
+
+    type IdleDeadlineLike = {
+      readonly didTimeout: boolean;
+      timeRemaining(): number;
+    };
+    type IdleWindow = {
+      requestIdleCallback?: (
+        callback: (deadline: IdleDeadlineLike) => void,
+        options?: { readonly timeout: number },
+      ) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const idleWindow = window as unknown as IdleWindow;
+
+    const renderIndex = (index: number): void => {
+      if (rendered.has(index)) return;
+      const item = items[index];
+      const cardLayout = layout.cards[index];
+      if (item === undefined || cardLayout === undefined) return;
+      const visual = this.createLevelCardVisual(
+        item,
+        cardLayout,
+        layout.cardTitleFontSize,
+        campaignPreviewState,
+        service,
+        rowUnlock,
+      );
+      rendered.set(index, visual);
+      visual.setVirtualVisible(currentWanted.has(index));
+    };
+
+    const enqueuePriority = (wanted: ReadonlySet<number>): void => {
+      for (const index of wanted) {
+        if (rendered.has(index) || priorityQueued.has(index)) continue;
+        priorityQueue.push(index);
+        priorityQueued.add(index);
+      }
+    };
+
+    const takeNextPendingIndex = (): number | null => {
+      while (priorityQueue.length > 0) {
+        const index = priorityQueue.shift();
+        if (index === undefined) break;
+        priorityQueued.delete(index);
+        if (!rendered.has(index) && currentWanted.has(index)) return index;
+      }
+
+      while (backgroundCursor < items.length) {
+        const index = backgroundCursor;
+        backgroundCursor += 1;
+        if (!rendered.has(index)) return index;
+      }
+      return null;
+    };
+
+    const isRecentlyScrolling = (): boolean => (
+      performance.now() - lastScrollMotionAtMs < LEVEL_CARD_PREWARM_SCROLL_COOLDOWN_MS
+    );
+
+    const schedulePrewarm = (): void => {
+      if (!prewarmStarted || destroyed || rendered.size >= items.length) return;
+      if (idleHandle !== null || fallbackHandle !== null) return;
+
+      if (typeof idleWindow.requestIdleCallback === 'function') {
+        idleHandle = idleWindow.requestIdleCallback((deadline) => {
+          idleHandle = null;
+          if (destroyed) return;
+
+          const hasIdleBudget = deadline.timeRemaining() >= LEVEL_CARD_PREWARM_MIN_IDLE_MS;
+          const mayUseTimeoutBudget = deadline.didTimeout && !isRecentlyScrolling();
+          if (hasIdleBudget || mayUseTimeoutBudget) {
+            const index = takeNextPendingIndex();
+            if (index === null) return;
+            renderIndex(index);
+          }
+          schedulePrewarm();
+        }, { timeout: LEVEL_CARD_PREWARM_IDLE_TIMEOUT_MS });
+        return;
+      }
+
+      fallbackHandle = window.setTimeout(() => {
+        fallbackHandle = null;
+        if (destroyed) return;
+        if (!isRecentlyScrolling()) {
+          const index = takeNextPendingIndex();
+          if (index === null) return;
+          renderIndex(index);
+        }
+        schedulePrewarm();
+      }, LEVEL_CARD_PREWARM_FALLBACK_DELAY_MS);
+    };
+
+    const sync = (scrollY: number): void => {
+      if (Number.isFinite(lastScrollY) && Math.abs(scrollY - lastScrollY) > 0.1) {
+        lastScrollMotionAtMs = performance.now();
+      }
+      lastScrollY = scrollY;
+
+      const windowKey = getLevelCardVirtualWindowKey(scrollY, rowStride);
+      if (windowKey === lastWindowKey) return;
+      lastWindowKey = windowKey;
+
+      const wanted = new Set(getVirtualizedLevelCardIndices(layout.cards, {
+        scrollY,
+        viewportTop: viewport.y,
+        viewportBottom: viewport.bottom,
+        bufferRows: 2,
+        pinnedIndices,
+      }));
+      currentWanted = wanted;
+
+      for (const [index, visual] of rendered) {
+        visual.setVirtualVisible(wanted.has(index));
+      }
+
+      if (!prewarmStarted) {
+        for (const index of wanted) renderIndex(index);
+        return;
+      }
+
+      enqueuePriority(wanted);
+      schedulePrewarm();
+    };
+
+    return {
+      sync,
+      startPrewarm: () => {
+        if (prewarmStarted || destroyed) return;
+        prewarmStarted = true;
+        enqueuePriority(currentWanted);
+        schedulePrewarm();
+      },
+      destroy: () => {
+        destroyed = true;
+        if (idleHandle !== null && typeof idleWindow.cancelIdleCallback === 'function') {
+          idleWindow.cancelIdleCallback(idleHandle);
+        }
+        if (fallbackHandle !== null) window.clearTimeout(fallbackHandle);
+        idleHandle = null;
+        fallbackHandle = null;
+        priorityQueue.length = 0;
+        priorityQueued.clear();
+        for (const visual of rendered.values()) visual.destroy();
+        rendered.clear();
+      },
+    };
+  }
+
+  private createLevelCardVisual(
+    item: LevelSelectItem,
+    cardLayout: LevelCardLayout,
+    titleFontSize: number,
+    campaignPreviewState: CampaignLevelPreviewProfileState,
+    service: CampaignService,
+    rowUnlock: CampaignRowUnlockTransition | null,
+  ): LevelCardVisual {
+    const objects: Phaser.GameObjects.GameObject[] = [];
+    let cardZone: Phaser.GameObjects.Zone | null = null;
+    const deferCurrentHighlight = rowUnlock !== null
+      && item.state === 'current'
+      && item.entry.slot === rowUnlock.nextRowStartSlot;
+    const visualState: LevelSelectState = deferCurrentHighlight ? 'unlocked' : item.state;
+    const color = STATE_COLOR[visualState];
+    const preview = createCampaignLevelPreview(item.entry, campaignPreviewState);
+    const cardTone = STATE_FILL[visualState];
+    const strokeColor = Phaser.Display.Color.HexStringToColor(color).color;
+
+    if (visualState === 'current') {
+      objects.push(this.drawCurrentGlow(cardLayout, strokeColor));
+    }
+
+    objects.push(this.drawRoundedCardShape(
+      cardLayout.x,
+      cardLayout.y + 3,
+      cardLayout.width,
+      cardLayout.height,
+      0x040912,
+      visualState === 'locked' ? 0.16 : 0.22,
+      0x000000,
+      0,
+      0,
+      CARD_RADIUS,
+    ));
+
+    objects.push(this.drawRoundedCardShape(
+      cardLayout.x,
+      cardLayout.y,
+      cardLayout.width,
+      cardLayout.height,
+      cardTone.color,
+      cardTone.alpha,
+      strokeColor,
+      visualState === 'locked' ? 0.72 : 0.96,
+      visualState === 'current' ? 3 : 2.5,
+      CARD_RADIUS,
+    ));
+
+    objects.push(...this.drawLevelPreview(item.entry, preview, cardLayout, visualState));
+    objects.push(...this.drawLevelStateMarkers(visualState, cardLayout));
+
+    objects.push(this.add.text(
+      cardLayout.x,
+      cardLayout.numberY,
+      String(item.entry.slot),
+      {
+        fontFamily: 'monospace',
+        fontSize: `${titleFontSize}px`,
+        color,
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5));
+
+    if (item.playable) {
+      const hoverOverlay = this.drawRoundedOverlay(
+        cardLayout.x,
+        cardLayout.y,
+        Math.max(1, cardLayout.width - 6),
+        Math.max(1, cardLayout.height - 6),
+        0x40577f,
+        0.16,
+        CARD_RADIUS - 2,
+      ).setVisible(false);
+      objects.push(hoverOverlay);
+
+      cardZone = this.add.zone(
+        cardLayout.x,
+        cardLayout.y,
+        cardLayout.width,
+        cardLayout.height,
+      ).setInteractive({ useHandCursor: true });
+      objects.push(cardZone);
+      const interactiveZone = cardZone;
+
+      interactiveZone
+        .on('pointerover', () => {
+          hoverOverlay.setAlpha(0.16).setVisible(true);
+          getAudioFeedback(this).play('ui-hover');
+        })
+        .on('pointerout', () => {
+          hoverOverlay.setVisible(false);
+        })
+        .on('pointerdown', () => {
+          hoverOverlay.setAlpha(0.28).setVisible(true);
+        })
+        .on('pointerup', (pointer: Phaser.Input.Pointer) => {
+          hoverOverlay.setAlpha(0.16).setVisible(true);
+          if (!this.shouldActivatePointer(pointer)) return;
+          getAudioFeedback(this).play('ui-click');
+          void this.launchLevel(service, item.entry);
+        });
+    }
+
+    const container = this.add.container(0, 0, objects);
+    let virtualVisible = true;
+    return {
+      container,
+      setVirtualVisible: (visible) => {
+        if (visible === virtualVisible) return;
+        virtualVisible = visible;
+        container.setVisible(visible).setActive(visible);
+        if (cardZone !== null) {
+          if (visible) cardZone.setInteractive({ useHandCursor: true });
+          else cardZone.disableInteractive();
+        }
+      },
+      destroy: () => container.destroy(true),
+    };
   }
 
   private drawProgressSummary(
@@ -421,10 +666,10 @@ export class LevelSelectScene extends Phaser.Scene {
     preview: CampaignLevelPreview,
     cardLayout: LevelCardLayout,
     state: LevelSelectState,
-  ): void {
+  ): Phaser.GameObjects.GameObject[] {
     if (preview.status === 'unstarted') {
       const innerTone = INNER_FILL[state];
-      this.drawRoundedCardShape(
+      const inner = this.drawRoundedCardShape(
         cardLayout.x,
         cardLayout.y,
         Math.max(1, cardLayout.width - 6),
@@ -440,14 +685,14 @@ export class LevelSelectScene extends Phaser.Scene {
       const iconKey = state === 'locked' ? UI_ICON_KEYS.lock : UI_ICON_KEYS.question;
       const tint = Phaser.Display.Color.HexStringToColor(STATE_COLOR[state]).color;
       const iconSize = Math.max(18, Math.floor(cardLayout.width * 0.38));
-      this.add.image(cardLayout.x, cardLayout.y, iconKey)
+      const icon = this.add.image(cardLayout.x, cardLayout.y, iconKey)
         .setDisplaySize(iconSize, iconSize)
         .setTint(tint)
         .setAlpha(state === 'locked' ? 0.78 : 0.9);
-      return;
+      return [inner, icon];
     }
 
-    drawLevelThumbnail(
+    return [drawLevelThumbnail(
       this,
       entry.level,
       preview.walls,
@@ -458,7 +703,7 @@ export class LevelSelectScene extends Phaser.Scene {
         height: cardLayout.height,
       },
       { showIncompleteOverlay: preview.showIncompleteOverlay },
-    );
+    )];
   }
 
   private drawCurrentGlow(cardLayout: LevelCardLayout, strokeColor: number): Phaser.GameObjects.Image {
@@ -525,24 +770,26 @@ export class LevelSelectScene extends Phaser.Scene {
   private drawLevelStateMarkers(
     state: LevelSelectState,
     cardLayout: LevelCardLayout,
-  ): void {
+  ): Phaser.GameObjects.GameObject[] {
+    const objects: Phaser.GameObjects.GameObject[] = [];
     if (state === 'completed') {
-      this.drawCompletedCheck(cardLayout);
+      objects.push(...this.drawCompletedCheck(cardLayout));
     }
 
     if (state === 'current') {
-      this.add.rectangle(
+      objects.push(this.add.rectangle(
         cardLayout.x,
         cardLayout.y - cardLayout.height / 2 - 8,
         8,
         8,
         0xf0bd63,
         0.96,
-      ).setRotation(Math.PI / 4);
+      ).setRotation(Math.PI / 4));
     }
+    return objects;
   }
 
-  private drawCompletedCheck(cardLayout: LevelCardLayout): void {
+  private drawCompletedCheck(cardLayout: LevelCardLayout): Phaser.GameObjects.GameObject[] {
     const iconSize = Math.max(19, Math.floor(cardLayout.width * 0.34));
     const x = cardLayout.x + cardLayout.width / 2 - 3;
     const y = cardLayout.y + cardLayout.height / 2 - 3;
@@ -551,10 +798,11 @@ export class LevelSelectScene extends Phaser.Scene {
     // The supplied check-circle SVG uses a transparent check cutout. A dark backing
     // keeps the card border/preview from showing through that cutout without adding
     // any visible outer ring around the icon.
-    this.add.circle(x, y, backingRadius, 0x0d1b2d, 1);
-    this.add.image(x, y, UI_ICON_KEYS.check)
+    const backing = this.add.circle(x, y, backingRadius, 0x0d1b2d, 1);
+    const icon = this.add.image(x, y, UI_ICON_KEYS.check)
       .setDisplaySize(iconSize, iconSize)
       .setTint(0x73d0bd);
+    return [backing, icon];
   }
 
   private drawRoundedCardShape(
@@ -901,15 +1149,21 @@ export class LevelSelectScene extends Phaser.Scene {
     });
   }
 
-  private setupMetaScroll(layout: LevelSelectLayout, initialScrollY = 0): void {
+  private setupMetaScroll(
+    layout: LevelSelectLayout,
+    initialScrollY = 0,
+    onScrollYChanged?: (scrollY: number) => void,
+  ): void {
     this.scrollMaxY = this.getScrollMaxY(this.contentBottom);
     if (this.scrollMaxY <= 0) {
       this.cameras.main.scrollY = 0;
+      onScrollYChanged?.(0);
       return;
     }
 
     const camera = this.cameras.main;
     camera.scrollY = clampMetaScrollY(initialScrollY, this.scrollMaxY);
+    onScrollYChanged?.(camera.scrollY);
     const scrollbar = this.createScrollIndicator(layout);
     let wheelTargetY = camera.scrollY;
     const syncScrollbar = (): void => {
@@ -923,6 +1177,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const applyScrollY = (nextScrollY: number): void => {
       camera.scrollY = clampMetaScrollY(nextScrollY, this.scrollMaxY);
       wheelTargetY = camera.scrollY;
+      onScrollYChanged?.(camera.scrollY);
       syncScrollbar();
     };
 
@@ -1039,6 +1294,7 @@ export class LevelSelectScene extends Phaser.Scene {
         camera.scrollY = inertia.scrollY;
         this.scrollVelocityY = inertia.velocityY;
         wheelTargetY = camera.scrollY;
+        onScrollYChanged?.(camera.scrollY);
         syncScrollbar();
         return;
       }
@@ -1051,6 +1307,7 @@ export class LevelSelectScene extends Phaser.Scene {
       } else if (camera.scrollY !== wheelTargetY) {
         camera.scrollY = wheelTargetY;
       }
+      onScrollYChanged?.(camera.scrollY);
       syncScrollbar();
     };
 

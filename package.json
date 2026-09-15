@@ -105,6 +105,7 @@
     "sanity:endless-catalog": "tsx src/dev/endlessCatalogSanity.ts --allow-missing-production",
     "sanity:endless-production": "tsx src/dev/endlessCatalogSanity.ts",
     "sanity:home-hub": "node scripts/home-hub-layout-sanity.mjs",
+    "sanity:home-mode-cards": "node scripts/home-mode-card-sanity.mjs",
     "sanity:available-viewport": "node --experimental-strip-types scripts/available-viewport-sanity.mjs",
     "sanity:meta-available-viewport": "node scripts/meta-available-viewport-sanity.mjs"
   },

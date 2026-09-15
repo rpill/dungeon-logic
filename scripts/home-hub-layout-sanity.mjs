@@ -8,8 +8,10 @@ const home = readFileSync(new URL('../src/scenes/HomeScene.ts', import.meta.url)
 
 assert(home.includes('createHomeHubCard'), 'Home must use the compact hub-card renderer.');
 assert(home.includes("variant: 'primary'"), 'Home must render a prominent Continue card.');
-assert(home.includes("variant: 'tile'"), 'Home must render Levels and Daily as paired tiles.');
+assert(home.includes("variant: 'tall'"), 'Home must render Levels and Daily as paired material cards.');
 assert(home.includes("variant: 'wide'"), 'Home must reserve a wide Endless card.');
+assert(home.includes('createHomeModeCard'), 'Home must render mode entries through the dedicated material-card renderer.');
+assert(home.includes('activeAccent: !solved'), 'Available unsolved Daily must keep a distinct active accent.');
 assert(home.includes("label: copy.common.levels"), 'Home must keep a Levels card.');
 assert(home.includes("label: 'DAILY'"), 'Home must keep a Daily card.');
 assert(home.includes("label: copy.home.endless"), 'Home must render the Endless card.');

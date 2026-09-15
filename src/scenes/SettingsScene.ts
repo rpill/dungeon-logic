@@ -10,7 +10,7 @@ import {
 } from '../profile/PlayerProfileService';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { createTutorialGameSceneData } from '../runtime/GameLaunch';
-import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
 import { HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createSceneBackground } from '../runtime/SceneBackground';
@@ -73,22 +73,23 @@ export class SettingsScene extends Phaser.Scene {
     const contentWidth = Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : 536);
     const centerX = availableViewport.centerX;
 
-    const headerActionMetrics = getHeaderActionButtonMetrics(availableViewport.width < 700);
+    const headerActionMetrics = getHeaderActionButtonMetrics(narrow);
+    const backPresentation = getHeaderBackButtonPresentation(narrow, copy.common.back);
     const backPlacement = getHeaderActionPlacement(
       availableViewport,
       'left',
-      headerActionMetrics.pillWidth,
+      backPresentation.width,
       headerActionMetrics.height,
     );
     createHeaderActionButton(this, {
       x: backPlacement.x,
       y: backPlacement.y,
-      width: headerActionMetrics.pillWidth,
+      width: backPresentation.width,
       height: headerActionMetrics.height,
       radius: headerActionMetrics.radius,
       iconKey: 'ui-icon-back',
       iconSize: headerActionMetrics.iconSize,
-      label: copy.common.back,
+      label: backPresentation.label,
       fontSize: headerActionMetrics.fontSize,
       gap: headerActionMetrics.gap,
       onActivate: (pointer) => {

@@ -32,6 +32,22 @@ export function getHeaderActionButtonMetrics(narrow: boolean): HeaderActionButto
     : { pillWidth: 150, height: 48, iconButtonSize: 48, radius: 11, iconSize: 28, fontSize: 16, gap: 9 };
 }
 
+export interface HeaderBackButtonPresentation {
+  readonly width: number;
+  readonly label?: string;
+}
+
+export function getHeaderBackButtonPresentation(
+  narrow: boolean,
+  label: string,
+): HeaderBackButtonPresentation {
+  const metrics = getHeaderActionButtonMetrics(narrow);
+  return {
+    width: narrow ? metrics.iconButtonSize : metrics.pillWidth,
+    label: narrow ? undefined : label,
+  };
+}
+
 export interface HeaderActionPlacement {
   readonly x: number;
   readonly y: number;

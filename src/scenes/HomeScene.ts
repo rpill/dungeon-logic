@@ -18,6 +18,7 @@ import {
 import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { createHomeModeCard } from '../runtime/HomeModeCard';
 import {
   calculateAvailableViewport,
   readCssSafeAreaInsets,
@@ -32,17 +33,10 @@ import {
   getHomeDailyAction,
 } from '../runtime/MetaSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
-import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { classifyViewport } from './GameBoardLayout';
 
-const HOME_FILL_KEY = 'home-menu-fill';
-const HOME_FRAME_NORMAL_KEY = 'home-menu-frame-normal';
-const HOME_FRAME_HOVER_KEY = 'home-menu-frame-hover';
-const HOME_FRAME_PRESSED_KEY = 'home-menu-frame-pressed';
-const HOME_FRAME_SLICE_X = 48;
-const HOME_FRAME_SLICE_Y = 24;
 const HOME_PROGRESS_TRACK_FILL = 0x1f4375;
 const HOME_PROGRESS_FILL = 0xf0bd63;
 
@@ -54,8 +48,7 @@ const HOME_CARD_ICON_KEYS = {
 } as const;
 
 type HomeCardIcon = keyof typeof HOME_CARD_ICON_KEYS;
-type HomeCardVariant = 'primary' | 'tile' | 'wide';
-type HomeCardFrameState = 'normal' | 'hover' | 'pressed';
+type HomeCardVariant = 'primary' | 'tall' | 'wide';
 
 interface HomeHubCardOptions {
   readonly x: number;
@@ -71,7 +64,7 @@ interface HomeHubCardOptions {
     readonly total: number;
     readonly label: string;
   };
-  readonly accent?: boolean;
+  readonly activeAccent?: boolean;
   readonly enabled?: boolean;
   readonly onActivate: () => void;
 }
@@ -248,7 +241,6 @@ export class HomeScene extends Phaser.Scene {
       label: primary.label,
       subtitle: primary.subtitle,
       icon: primary.icon,
-      accent: true,
       onActivate: primary.onActivate,
     }, this.pointerGate);
 
@@ -257,7 +249,7 @@ export class HomeScene extends Phaser.Scene {
       y: tileY,
       width: tileWidth,
       height: tileHeight,
-      variant: 'tile',
+      variant: 'tall',
       label: copy.common.levels,
       subtitle: '',
       icon: 'levels',
@@ -402,7 +394,7 @@ export class HomeScene extends Phaser.Scene {
         y,
         width,
         height,
-        variant: 'tile',
+        variant: 'tall',
         label: 'DAILY',
         subtitle: initialCopy.home.dailyLockedShort,
         icon: 'daily',
@@ -417,7 +409,7 @@ export class HomeScene extends Phaser.Scene {
       y,
       width,
       height,
-      variant: 'tile',
+      variant: 'tall',
       label: 'DAILY',
       subtitle: initialCopy.common.loading,
       icon: 'daily',
@@ -444,7 +436,7 @@ export class HomeScene extends Phaser.Scene {
         y,
         width,
         height,
-        variant: 'tile',
+        variant: 'tall',
         label: 'DAILY',
         subtitle: copy.home.dailyLockedShort,
         icon: 'daily',
@@ -460,7 +452,7 @@ export class HomeScene extends Phaser.Scene {
         y,
         width,
         height,
-        variant: 'tile',
+        variant: 'tall',
         label: 'DAILY',
         subtitle: copy.home.dailyUnavailableShort,
         icon: 'daily',
@@ -482,11 +474,11 @@ export class HomeScene extends Phaser.Scene {
       y,
       width,
       height,
-      variant: 'tile',
+      variant: 'tall',
       label: 'DAILY',
       subtitle: streak,
       icon: 'daily',
-      accent: !solved,
+      activeAccent: !solved,
       onActivate: () => this.scene.start(DAILY_SCENE_KEY),
     }, this.pointerGate);
   }
@@ -527,7 +519,7 @@ function createHomeHubCard(
   pointerGate: MetaPointerGate,
 ): HomeHubCardHandle {
   const enabled = options.enabled ?? true;
-  const accent = options.accent ?? false;
+  const activeAccent = options.activeAccent ?? false;
 
   if (options.variant === 'primary') {
     const button = createPrimaryActionButton(scene, {
@@ -546,62 +538,34 @@ function createHomeHubCard(
     return { destroy: () => button.destroy() };
   }
 
+  const card = createHomeModeCard(scene, {
+    x: options.x,
+    y: options.y,
+    width: options.width,
+    height: options.height,
+    variant: options.variant,
+    enabled,
+    activeAccent,
+    onActivate: (pointer) => {
+      if (pointerGate.canActivate(pointer.id)) options.onActivate();
+    },
+  });
   const objects: Phaser.GameObjects.GameObject[] = [];
-
-  const fill = scene.add.nineslice(
-    options.x,
-    options.y,
-    HOME_FILL_KEY,
-    undefined,
-    options.width,
-    options.height,
-    HOME_FRAME_SLICE_X,
-    HOME_FRAME_SLICE_X,
-    HOME_FRAME_SLICE_Y,
-    HOME_FRAME_SLICE_Y,
-  );
-  objects.push(fill);
-
-  const frame = scene.add.nineslice(
-    options.x,
-    options.y,
-    accent ? HOME_FRAME_HOVER_KEY : HOME_FRAME_NORMAL_KEY,
-    undefined,
-    options.width,
-    options.height,
-    HOME_FRAME_SLICE_X,
-    HOME_FRAME_SLICE_X,
-    HOME_FRAME_SLICE_Y,
-    HOME_FRAME_SLICE_Y,
-  );
-  objects.push(frame);
 
   const narrow = scene.scale.width < 700;
   const labelColor = enabled
-    ? (accent ? '#f0c86b' : '#f4ead7')
+    ? (activeAccent ? '#f0c86b' : '#f4ead7')
     : '#8290a7';
   const subtitleColor = enabled ? '#98a5ba' : '#66738a';
 
-  const setFrameState = (state: HomeCardFrameState): void => {
-    frame.clearTint();
-    if (state === 'pressed') {
-      frame.setTexture(HOME_FRAME_PRESSED_KEY);
-      return;
-    }
-    if (state === 'hover' || accent) {
-      frame.setTexture(HOME_FRAME_HOVER_KEY);
-      return;
-    }
-    frame.setTexture(HOME_FRAME_NORMAL_KEY);
-  };
-
-  if (options.variant === 'tile') {
+  if (options.variant === 'tall') {
     const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
     const iconY = options.y - options.height * 0.22;
     const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
     const icon = scene.add.image(options.x, iconY, iconKey)
       .setDisplaySize(iconSize, iconSize)
-      .setTint(accent ? 0xf0c86b : 0xf4ead7);
+      .setTint(activeAccent ? 0xf0c86b : 0xf4ead7)
+      .setAlpha(enabled ? 1 : 0.55);
     objects.push(icon);
 
     const label = scene.add.text(options.x, options.y + options.height * 0.08, options.label, {
@@ -609,7 +573,7 @@ function createHomeHubCard(
       fontSize: narrow ? '16px' : '21px',
       color: labelColor,
       fontStyle: 'bold',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
     fitHomeText(label, options.width - (narrow ? 22 : 32), narrow ? 12 : 14);
     objects.push(label);
 
@@ -619,7 +583,7 @@ function createHomeHubCard(
         fontSize: narrow ? '10px' : '13px',
         color: subtitleColor,
         fontStyle: 'bold',
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
       fitHomeText(progressLabel, options.width - (narrow ? 18 : 28), narrow ? 9 : 10);
       objects.push(progressLabel);
 
@@ -631,13 +595,14 @@ function createHomeHubCard(
         completed: options.progress.completed,
         total: options.progress.total,
       });
+      if (!enabled) progress.setAlpha(0.55);
       objects.push(progress);
     } else {
       const subtitle = scene.add.text(options.x, options.y + options.height * (narrow ? 0.27 : 0.31), options.subtitle, {
         fontFamily: 'monospace',
         fontSize: narrow ? '11px' : '14px',
         color: subtitleColor,
-      }).setOrigin(0.5);
+      }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
       fitHomeText(subtitle, options.width - (narrow ? 18 : 28), narrow ? 9 : 10);
       objects.push(subtitle);
     }
@@ -647,7 +612,8 @@ function createHomeHubCard(
     const iconSize = narrow ? 38 : 52;
     const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
       .setDisplaySize(iconSize, iconSize)
-      .setTint(enabled ? 0x8792a8 : 0x6a768b);
+      .setTint(enabled ? 0x8792a8 : 0x6a768b)
+      .setAlpha(enabled ? 1 : 0.55);
     objects.push(icon);
 
     const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
@@ -655,7 +621,7 @@ function createHomeHubCard(
       fontSize: narrow ? '16px' : '22px',
       color: labelColor,
       fontStyle: 'bold',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
     fitHomeText(label, options.width * 0.68, narrow ? 12 : 15);
     objects.push(label);
 
@@ -663,31 +629,14 @@ function createHomeHubCard(
       fontFamily: 'monospace',
       fontSize: narrow ? '11px' : '14px',
       color: subtitleColor,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
     fitHomeText(subtitle, options.width * 0.67, narrow ? 9 : 10);
     objects.push(subtitle);
   }
 
-  if (enabled) {
-    fill.setInteractive({ useHandCursor: true });
-    fill.on('pointerover', () => {
-      setFrameState('hover');
-      getAudioFeedback(scene).play('ui-hover');
-    });
-    fill.on('pointerout', () => setFrameState('normal'));
-    fill.on('pointerdown', () => setFrameState('pressed'));
-    fill.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      setFrameState('hover');
-      getAudioFeedback(scene).play('ui-click');
-      if (pointerGate.canActivate(pointer.id)) options.onActivate();
-    });
-  } else {
-    fill.setAlpha(0.72);
-    frame.setAlpha(0.72);
-  }
-
   return {
     destroy: () => {
+      card.destroy();
       for (const object of objects) object.destroy();
     },
   };

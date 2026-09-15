@@ -56,7 +56,7 @@ import {
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
+import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
@@ -364,8 +364,9 @@ export class GameScene extends Phaser.Scene {
       const headerViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeInsets);
       const narrowTop = headerViewport.width < 700;
       const actionMetrics = getHeaderActionButtonMetrics(narrowTop);
+      const backPresentation = getHeaderBackButtonPresentation(narrowTop, getBackLabel());
       const height = actionMetrics.height;
-      const backWidth = actionMetrics.pillWidth;
+      const backWidth = backPresentation.width;
       const menuWidth = height;
       const gap = actionMetrics.gap;
       const iconSize = actionMetrics.iconSize;
@@ -379,13 +380,18 @@ export class GameScene extends Phaser.Scene {
       backHit.setPosition(backX, y).setSize(backWidth, height);
       menuHit.setPosition(menuX, menuPlacement.y).setSize(menuWidth, menuWidth);
       backText.setFontSize(actionMetrics.fontSize).setText(getBackLabel());
+      backText.setVisible(backPresentation.label !== undefined);
       backIcon.setDisplaySize(iconSize, iconSize);
       menuIcon.setDisplaySize(iconSize, iconSize);
 
-      const backContentWidth = iconSize + gap + backText.width;
-      const backStartX = backX - backContentWidth / 2;
-      backIcon.setPosition(backStartX + iconSize / 2, contentY);
-      backText.setPosition(backStartX + iconSize + gap, contentY);
+      if (backPresentation.label === undefined) {
+        backIcon.setPosition(backX, contentY);
+      } else {
+        const backContentWidth = iconSize + gap + backText.width;
+        const backStartX = backX - backContentWidth / 2;
+        backIcon.setPosition(backStartX + iconSize / 2, contentY);
+        backText.setPosition(backStartX + iconSize + gap, contentY);
+      }
 
       menuIcon.setPosition(menuX, getMaterialButtonContentY(menuPlacement.y, menuWidth));
 
@@ -1591,6 +1597,7 @@ ${copy.game.featuresUnlocked}`
       } else if (result.tutorialCompleted) {
         completionActions.push({
           label: copy.game.startLevels,
+          primary: true,
           action: () => {
             if (completionTransitionPending) return;
             const service = this.getCampaignService();

@@ -38,6 +38,7 @@ assert(levels.includes('createPrimaryActionButton(this, {'), 'Levels Continue bu
 assert(levels.includes("iconKey: 'home-menu-icon-play'"), 'Levels Continue primary CTA must keep the play icon.');
 assert(game.includes('createPrimaryActionButton(this, {'), 'Game completion overlay must be able to render the yellow primary CTA renderer.');
 assert(game.includes('primary: true') && game.includes('label: copy.game.next'), 'Completion overlay must mark Next as the primary yellow CTA.');
+assert(/label: copy\.game\.startLevels,[\s\S]{0,120}primary: true/.test(game), 'Tutorial completion Start Game action must use the yellow primary CTA.');
 assert(game.includes('surfaceHeight: 66'), 'Completion Next CTA must compensate the yellow artwork padding so it matches the secondary button visual height.');
 
 

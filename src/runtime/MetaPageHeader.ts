@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import type { AvailableViewport } from './AvailableViewport';
 import { calculateAvailableViewport } from './AvailableViewport';
-import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from './HeaderActionButton';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from './HeaderActionButton';
 import { calculateMetaPageHeaderMetrics, type MetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
 export interface MetaPageHeaderOptions {
@@ -55,7 +55,8 @@ export function createMetaPageHeader(
   const backGap = actionMetrics.gap;
   const titleDepthBase = fixed ? 1001 : 1;
   const backDepthBase = fixedBack ? 1101 : titleDepthBase;
-  const buttonWidth = actionMetrics.pillWidth;
+  const backPresentation = getHeaderBackButtonPresentation(metrics.narrow, options.backLabel);
+  const buttonWidth = backPresentation.width;
   const buttonHeight = actionMetrics.height;
   const buttonRadius = actionMetrics.radius;
   const buttonPlacement = getHeaderActionPlacement(viewport, 'left', buttonWidth, buttonHeight);
@@ -72,7 +73,7 @@ export function createMetaPageHeader(
       radius: buttonRadius,
       iconKey: 'ui-icon-back',
       iconSize: actionMetrics.iconSize,
-      label: options.backLabel,
+      label: backPresentation.label,
       fontSize: actionMetrics.fontSize,
       gap: backGap,
       fixed: fixedBack,

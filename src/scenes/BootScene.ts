@@ -32,6 +32,7 @@ import { createTutorialGameSceneData } from '../runtime/GameLaunch';
 import { preloadSceneBackgrounds } from '../runtime/SceneBackground';
 import { preloadHomeMenuAssets } from '../runtime/HomeMenuButton';
 import { preloadPrimaryActionButtonAssets } from '../runtime/PrimaryActionButton';
+import { preloadHomeModeCardAssets } from '../runtime/HomeModeCard';
 import { preloadCommonUiIcons } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { preloadBoardThemeAssets } from '../view/BoardThemeAssets';
@@ -56,6 +57,7 @@ export class BootScene extends Phaser.Scene {
     preloadAudioFeedbackAssets(this);
     preloadHomeMenuAssets(this);
     preloadPrimaryActionButtonAssets(this);
+    preloadHomeModeCardAssets(this);
     preloadCommonUiIcons(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
