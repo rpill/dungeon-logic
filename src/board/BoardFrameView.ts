@@ -16,15 +16,25 @@ export class BoardFrameView {
       this.parts.push({ image: scene.add.image(0, 0, `board-frame-${key}`), x, y, w, h });
     };
     const { left, top, right, bottom, clueCenter, clueSize } = BOARD_FRAME;
+    // Bury the end of each rail beneath the corner's irregular silhouette.
+    // A butt joint exposes the rectangular crop whenever a corner has a notch.
+    const cornerUnderlap = 0.24;
+    const railSpan = (index: number, count: number): { center: number; size: number } => {
+      const start = index - (index === 0 ? cornerUnderlap : 0.0075);
+      const end = index + 1 + (index === count - 1 ? cornerUnderlap : 0.0075);
+      return { center: (start + end) / 2, size: end - start };
+    };
     // Repeat one section per cell. No stretching a complete frame across boards.
     for (let x = 0; x < columns; x += 1) {
-      add('top', x + 0.5, -top + 0.13, 1.015, 0.26);
-      add(x % 2 === 0 ? 'bottom-a' : 'bottom-b', x + 0.5, rows + bottom / 2, 1.015, bottom);
+      const span = railSpan(x, columns);
+      add('top', span.center, -top + 0.13, span.size, 0.26);
+      add(x % 2 === 0 ? 'bottom-a' : 'bottom-b', span.center, rows + bottom / 2, span.size, bottom);
       add('clue', x + 0.5, -clueCenter, 1, clueSize);
     }
     for (let y = 0; y < rows; y += 1) {
-      add('left', -left + 0.12, y + 0.5, 0.24, 1.015);
-      add(y % 2 === 0 ? 'right-a' : 'right-b', columns + right / 2, y + 0.5, right, 1.015);
+      const span = railSpan(y, rows);
+      add('left', -left + 0.12, span.center, 0.24, span.size);
+      add(y % 2 === 0 ? 'right-a' : 'right-b', columns + right / 2, span.center, right, span.size);
       add('clue', -clueCenter, y + 0.5, clueSize, 1);
     }
     add('corner-tl', -left / 2, -top / 2, left, top);
