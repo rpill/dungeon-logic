@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import type { AvailableViewport } from './AvailableViewport';
 import { calculateAvailableViewport } from './AvailableViewport';
-import { createHeaderActionButton, getHeaderActionButtonMetrics } from './HeaderActionButton';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from './HeaderActionButton';
 import { calculateMetaPageHeaderMetrics, type MetaPageHeaderMetrics } from './MetaPageHeaderLayout';
 
 export interface MetaPageHeaderOptions {
@@ -27,8 +27,9 @@ function fitTitleBetweenBackAndRightEdge(
   metrics: MetaPageHeaderMetrics,
   viewport: AvailableViewport,
   backRight: number,
+  backY: number,
 ): void {
-  if (Math.abs(metrics.titleY - metrics.backY) >= 28) return;
+  if (Math.abs(metrics.titleY - backY) >= 28) return;
   const symmetricInset = Math.max(backRight - viewport.x + 12, 18);
   const availableWidth = Math.max(92, viewport.width - symmetricInset * 2);
   if (title.width <= availableWidth) return;
@@ -50,61 +51,62 @@ export function createMetaPageHeader(
   const fixed = options.fixed ?? false;
   const backButton = options.backButton ?? false;
   const fixedBack = options.fixedBack ?? fixed;
-  const backInset = viewport.x + (metrics.narrow ? 16 : 28);
   const actionMetrics = getHeaderActionButtonMetrics(metrics.narrow);
   const backGap = actionMetrics.gap;
   const titleDepthBase = fixed ? 1001 : 1;
   const backDepthBase = fixedBack ? 1101 : titleDepthBase;
   const buttonWidth = actionMetrics.pillWidth;
-  const buttonHeight = metrics.density === 'ultra' ? 38 : actionMetrics.height;
+  const buttonHeight = actionMetrics.height;
   const buttonRadius = actionMetrics.radius;
-  const buttonX = backInset + buttonWidth / 2;
+  const buttonPlacement = getHeaderActionPlacement(viewport, 'left', buttonWidth, buttonHeight);
+  const buttonX = buttonPlacement.x;
 
   let backHit: Phaser.GameObjects.Zone;
   let backRight: number;
   if (backButton) {
     const action = createHeaderActionButton(scene, {
       x: buttonX,
-      y: metrics.backY,
+      y: buttonPlacement.y,
       width: buttonWidth,
       height: buttonHeight,
       radius: buttonRadius,
       iconKey: 'ui-icon-back',
-      iconSize: metrics.backIconSize,
+      iconSize: actionMetrics.iconSize,
       label: options.backLabel,
-      fontSize: metrics.backFontSize,
+      fontSize: actionMetrics.fontSize,
       gap: backGap,
       fixed: fixedBack,
       depth: backDepthBase + 1,
       onActivate: options.onBack,
     });
     backHit = action.hit;
-    backRight = backInset + buttonWidth;
+    backRight = buttonX + buttonWidth / 2;
   } else {
-    const backIcon = scene.add.image(backInset + metrics.backIconSize / 2, metrics.backY, 'ui-icon-back')
-      .setDisplaySize(metrics.backIconSize, metrics.backIconSize)
+    const plainLeft = buttonPlacement.x - buttonWidth / 2;
+    const backIcon = scene.add.image(plainLeft + actionMetrics.iconSize / 2, buttonPlacement.y, 'ui-icon-back')
+      .setDisplaySize(actionMetrics.iconSize, actionMetrics.iconSize)
       .setTint(0xf4ead7)
       .setDepth(backDepthBase + 2);
     const backText = scene.add.text(
-      backInset + metrics.backIconSize + backGap,
-      metrics.backY,
+      plainLeft + actionMetrics.iconSize + backGap,
+      buttonPlacement.y,
       options.backLabel.replace(/^←\s*/, ''),
       {
         fontFamily: 'monospace',
-        fontSize: `${metrics.backFontSize}px`,
+        fontSize: `${actionMetrics.fontSize}px`,
         color: '#f4ead7',
         fontStyle: 'bold',
       },
     ).setOrigin(0, 0.5).setDepth(backDepthBase + 2);
-    const backWidth = metrics.backIconSize + backGap + backText.width;
+    const backWidth = actionMetrics.iconSize + backGap + backText.width;
     backHit = scene.add.zone(
-      backInset + backWidth / 2,
-      metrics.backY,
+      plainLeft + backWidth / 2,
+      buttonPlacement.y,
       backWidth,
-      Math.max(42, metrics.backIconSize + 10),
+      actionMetrics.height,
     ).setDepth(backDepthBase + 3).setInteractive({ useHandCursor: true });
     backHit.on('pointerup', options.onBack);
-    backRight = backInset + backWidth;
+    backRight = plainLeft + backWidth;
     if (fixedBack) {
       backIcon.setScrollFactor(0);
       backText.setScrollFactor(0);
@@ -119,7 +121,7 @@ export function createMetaPageHeader(
     color: '#f4ead7',
     fontStyle: 'bold',
   }).setOrigin(0.5).setDepth(titleDepthBase + 1);
-  fitTitleBetweenBackAndRightEdge(title, metrics, viewport, backRight);
+  fitTitleBetweenBackAndRightEdge(title, metrics, viewport, backRight, buttonPlacement.y);
 
   const decor = scene.add.graphics().setDepth(titleDepthBase);
   decor.fillStyle(0xf0b14f, 0.95);

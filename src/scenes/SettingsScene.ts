@@ -10,7 +10,7 @@ import {
 } from '../profile/PlayerProfileService';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { createTutorialGameSceneData } from '../runtime/GameLaunch';
-import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createSceneBackground } from '../runtime/SceneBackground';
@@ -73,11 +73,16 @@ export class SettingsScene extends Phaser.Scene {
     const contentWidth = Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : 536);
     const centerX = availableViewport.centerX;
 
-    const headerActionMetrics = getHeaderActionButtonMetrics(narrow);
-    const headerInset = narrow ? 16 : 28;
+    const headerActionMetrics = getHeaderActionButtonMetrics(availableViewport.width < 700);
+    const backPlacement = getHeaderActionPlacement(
+      availableViewport,
+      'left',
+      headerActionMetrics.pillWidth,
+      headerActionMetrics.height,
+    );
     createHeaderActionButton(this, {
-      x: availableViewport.x + headerInset + headerActionMetrics.pillWidth / 2,
-      y: availableViewport.y + (narrow ? 34 : 40),
+      x: backPlacement.x,
+      y: backPlacement.y,
       width: headerActionMetrics.pillWidth,
       height: headerActionMetrics.height,
       radius: headerActionMetrics.radius,

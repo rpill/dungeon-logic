@@ -1,20 +1,27 @@
 import Phaser from 'phaser';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import { isTouchLikePointer } from './PointerInput';
 
 export type MaterialButtonVariant = 'secondary' | 'danger';
 type MaterialButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 
 const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
-  secondary: 'material-button-secondary',
-  danger: 'material-button-danger',
+  secondary: 'material-button-secondary-normal',
+  danger: 'material-button-danger-normal',
 };
+
 
 // These values intentionally mirror the approved yellow primary CTA so all
 // button families keep identical end caps, bevel proportions and rivet shape.
 export const MATERIAL_BUTTON_SLICE_X = 56;
 const MATERIAL_BUTTON_FRAME = 'button-body';
 export const MATERIAL_BUTTON_FRAME_INSET = 24;
+export const MATERIAL_BUTTON_CONTENT_Y_RATIO = 0.045;
+
+export function getMaterialButtonContentY(y: number, height: number): number {
+  return y - height * MATERIAL_BUTTON_CONTENT_Y_RATIO;
+}
 
 const MATERIAL_BUTTON_TEXT_COLOR = '#f4ead7';
 const MATERIAL_BUTTON_ICON_TINT = 0xf4ead7;
@@ -40,6 +47,7 @@ export function preloadMaterialActionButtonAssets(scene: Phaser.Scene): void {
   scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/secondary_button_normal.webp');
   scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/danger_button_normal.webp');
 }
+
 
 export interface MaterialActionButtonOptions {
   readonly x: number;
@@ -102,7 +110,7 @@ export function createMaterialActionButton(
   const gap = compact ? 7 : 10;
   const padding = Math.max(10, options.height * 0.25);
   const textMaxWidth = Math.max(24, options.width - padding * 2 - (hasIcon ? iconSize + gap : 0));
-  const contentY = options.y - options.height * 0.035;
+  const contentY = getMaterialButtonContentY(options.y, options.height);
   const label = scene.add.text(options.x, contentY, options.label, {
     fontFamily: 'monospace',
     fontSize: `${baseFontSize}px`,
@@ -125,17 +133,20 @@ export function createMaterialActionButton(
     const activeState = enabled ? state : 'disabled';
     surface.clearTint();
     surface.setAlpha(1);
-    label.setAlpha(1);
-    icon?.setAlpha(1);
+
     if (activeState === 'hover') {
-      surface.setTint(options.variant === 'danger' ? 0x1c0808 : 0x101521).setTintMode(Phaser.TintModes.ADD);
+      const hoverTint = options.variant === 'danger' ? 0x180808 : 0x101522;
+      surface.setTint(hoverTint).setTintMode(Phaser.TintModes.ADD);
     } else if (activeState === 'pressed') {
-      surface.setTint(options.variant === 'danger' ? 0xdac8c8 : 0xd8dce4);
+      const pressedTint = options.variant === 'danger' ? 0xd8c0c2 : 0xd3d9e4;
+      surface.setTint(pressedTint);
     } else if (activeState === 'disabled') {
-      surface.setTint(0x858b95).setAlpha(0.62);
-      label.setAlpha(0.55);
-      icon?.setAlpha(0.55);
+      surface.setTint(options.variant === 'danger' ? 0x927f82 : 0x7e8796);
+      surface.setAlpha(0.82);
     }
+
+    label.setAlpha(activeState === 'disabled' ? 0.55 : 1);
+    icon?.setAlpha(activeState === 'disabled' ? 0.55 : 1);
   };
   setState('normal');
 
@@ -148,10 +159,11 @@ export function createMaterialActionButton(
     surface.on('pointerout', () => setState('normal'));
     surface.on('pointerdown', () => setState('pressed'));
     surface.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      setState('hover');
+      setState(isTouchLikePointer(pointer) ? 'normal' : 'hover');
       getAudioFeedback(scene).play('ui-click');
       options.onActivate(pointer);
     });
+    surface.on('pointerupoutside', () => setState('normal'));
   }
 
   return {

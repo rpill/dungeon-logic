@@ -9,27 +9,40 @@ import {
 } from '../daily/DailyLeaderboard';
 import { getUiCopy } from '../i18n/UiCopy';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
-import type { LeaderboardPlayerView, PlatformServices } from '../platform/services';
+import type { LeaderboardPlayerView, LeaderboardSnapshot, PlatformServices } from '../platform/services';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
 import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
+import {
+  reindexDateFilteredLeaderboardRows,
+  type DateFilteredLeaderboardRow,
+  type DateFilteredLeaderboardSourceRow,
+} from '../runtime/DailyLeaderboardPresentation';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
 
 export const LEADERBOARD_SCENE_KEY = 'LeaderboardScene';
 
+const LEADERBOARD_CACHE_TTL_MS = 30_000;
+const LEADERBOARD_STALE_FALLBACK_MS = 5 * 60_000;
+
+interface CachedLeaderboardSnapshot {
+  readonly snapshot: LeaderboardSnapshot;
+  readonly fetchedAtMs: number;
+}
+
+const leaderboardSnapshotCache = new Map<string, CachedLeaderboardSnapshot>();
+
 export interface LeaderboardSceneData {
   readonly dailyId: string;
   readonly dateKey: string;
 }
 
-interface DecodedLeaderboardRow {
-  readonly entry: LeaderboardPlayerView;
-  readonly timeMs: number;
-}
+type DecodedLeaderboardRow = DateFilteredLeaderboardRow<LeaderboardPlayerView>;
+type DecodedLeaderboardSourceRow = DateFilteredLeaderboardSourceRow<LeaderboardPlayerView>;
 
 interface LeaderboardLayout {
   readonly narrow: boolean;
@@ -176,8 +189,37 @@ export class LeaderboardScene extends Phaser.Scene {
     const authorized = await services.leaderboards.isAuthorized();
     if (!this.isCurrent(version)) return;
 
-    let current: LeaderboardPlayerView | null = null;
-    if (authorized && fixedScoreMs !== null) {
+    const cacheKey = `${leaderboardName}:${data.dateKey}:${authorized ? 'auth' : 'anon'}`;
+    const nowMs = Date.now();
+    const cached = leaderboardSnapshotCache.get(cacheKey) ?? null;
+    const cachedAgeMs = cached === null ? Number.POSITIVE_INFINITY : nowMs - cached.fetchedAtMs;
+
+    let table: LeaderboardSnapshot | null = cached !== null && cachedAgeMs <= LEADERBOARD_CACHE_TTL_MS
+      ? cached.snapshot
+      : await services.leaderboards.getEntries(leaderboardName, {
+          quantityTop: 10,
+          quantityAround: 2,
+          includeUser: authorized,
+        });
+    if (!this.isCurrent(version)) return;
+
+    if (table !== null && (cached === null || table !== cached.snapshot)) {
+      leaderboardSnapshotCache.set(cacheKey, { snapshot: table, fetchedAtMs: nowMs });
+    } else if (
+      table === null
+      && cached !== null
+      && cachedAgeMs <= LEADERBOARD_STALE_FALLBACK_MS
+    ) {
+      table = cached.snapshot;
+    }
+
+    let rawCurrent = table?.currentPlayer ?? null;
+    if (authorized && rawCurrent === null && table === null) {
+      rawCurrent = await services.leaderboards.getPlayerEntry(leaderboardName);
+      if (!this.isCurrent(version)) return;
+    }
+
+    if (authorized && fixedScoreMs !== null && !this.entryMatchesDate(rawCurrent, data.dateKey)) {
       const packedScore = encodeDailyLeaderboardScore(data.dateKey, fixedScoreMs);
       const submit = await services.leaderboards.submitScore(
         leaderboardName,
@@ -189,27 +231,23 @@ export class LeaderboardScene extends Phaser.Scene {
         }),
       );
       if (submit === 'submitted') {
-        current = await services.leaderboards.getPlayerEntry(leaderboardName);
+        rawCurrent = await services.leaderboards.getPlayerEntry(leaderboardName);
       }
+      if (!this.isCurrent(version)) return;
     }
-    if (!this.isCurrent(version)) return;
 
-    const table = await services.leaderboards.getEntries(leaderboardName, {
-      quantityTop: 10,
-      quantityAround: 2,
-      includeUser: authorized,
-    });
-    if (!this.isCurrent(version)) return;
-
-    const decodedRows = table === null ? [] : this.decodeRowsForDate(table.entries, data.dateKey);
-    const rawCurrent = current ?? table?.currentPlayer ?? null;
-    const decodedCurrent = rawCurrent === null ? null : this.decodeRowForDate(rawCurrent, data.dateKey);
+    const rawRows = table === null ? [] : [...table.entries];
+    if (rawCurrent !== null && !rawRows.some((entry) => entry.isCurrentPlayer)) {
+      rawRows.push(rawCurrent);
+    }
+    const decodedRows = this.decodeRowsForDate(rawRows, data.dateKey);
+    const decodedCurrent = decodedRows.find((row) => row.entry.isCurrentPlayer) ?? null;
 
     const detailBottomY = this.renderPlayerSummary(
       layout,
       savedResultMs,
       minHintsUsed,
-      decodedCurrent?.entry.place ?? null,
+      decodedCurrent?.displayPlace ?? null,
     );
 
     let tableStartY = layout.tableStartY;
@@ -224,12 +262,8 @@ export class LeaderboardScene extends Phaser.Scene {
       return;
     }
 
-    if (table === null) {
-      status.setText(copy.leaderboard.unavailable);
-      return;
-    }
     if (decodedRows.length === 0) {
-      status.setText(copy.leaderboard.noEntries);
+      status.setText(table === null ? copy.leaderboard.unavailable : copy.leaderboard.noEntries);
       return;
     }
 
@@ -318,24 +352,21 @@ export class LeaderboardScene extends Phaser.Scene {
     return authButtonY + buttonHeight / 2;
   }
 
+  private entryMatchesDate(entry: LeaderboardPlayerView | null, dateKey: string): boolean {
+    if (entry === null) return false;
+    return decodeDailyLeaderboardScore(entry.score)?.dateKey === dateKey;
+  }
+
   private decodeRowsForDate(
     rawEntries: readonly LeaderboardPlayerView[],
     dateKey: string,
   ): readonly DecodedLeaderboardRow[] {
-    return rawEntries.flatMap((entry) => {
+    const decodedRows: DecodedLeaderboardSourceRow[] = rawEntries.flatMap((entry) => {
       const decoded = decodeDailyLeaderboardScore(entry.score);
       if (decoded === null || decoded.dateKey !== dateKey) return [];
       return [{ entry, timeMs: decoded.timeMs }];
     });
-  }
-
-  private decodeRowForDate(
-    entry: LeaderboardPlayerView,
-    dateKey: string,
-  ): DecodedLeaderboardRow | null {
-    const decoded = decodeDailyLeaderboardScore(entry.score);
-    if (decoded === null || decoded.dateKey !== dateKey) return null;
-    return { entry, timeMs: decoded.timeMs };
+    return reindexDateFilteredLeaderboardRows(decodedRows);
   }
 
   private renderRows(
@@ -345,11 +376,7 @@ export class LeaderboardScene extends Phaser.Scene {
     layout: LeaderboardLayout,
     tableStartY: number,
   ): void {
-    const unique = new Map<number, DecodedLeaderboardRow>();
-    for (const row of rawEntries) unique.set(row.entry.place, row);
-    const entries = [...unique.values()]
-      .sort((left, right) => left.entry.place - right.entry.place)
-      .slice(0, 10);
+    const entries = rawEntries.slice(0, 10);
     const left = layout.panelX - layout.panelWidth / 2 + (layout.narrow ? 20 : 30);
     const right = layout.panelX + layout.panelWidth / 2 - (layout.narrow ? 20 : 30);
     const rowWidth = right - left;
@@ -369,7 +396,7 @@ export class LeaderboardScene extends Phaser.Scene {
         highlight.fillRoundedRect(left - 8, y - rowGap * 0.42, rowWidth + 16, rowGap * 0.84, 6);
       }
       const name = entry.publicName.trim().length > 0 ? entry.publicName : fallbackName;
-      this.add.text(left, y, `#${entry.place}  ${name}${current ? currentSuffix : ''}`, {
+      this.add.text(left, y, `#${row.displayPlace}  ${name}${current ? currentSuffix : ''}`, {
         fontFamily: 'monospace',
         fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
         color: current ? '#f0d28a' : '#d8e0ed',

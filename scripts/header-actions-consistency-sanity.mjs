@@ -21,6 +21,24 @@ assert(home.includes("from '../runtime/HeaderActionButton'"), 'Home Settings ico
 assert(home.includes('getHeaderActionButtonMetrics'), 'Home Settings icon must use shared header action metrics.');
 assert(game.includes("from '../runtime/HeaderActionButton'"), 'Game top actions must share the same header-action visual style.');
 assert(game.includes('getHeaderActionButtonMetrics'), 'Game top actions must use shared header action metrics.');
+
+assert(metaHeader.includes('iconSize: actionMetrics.iconSize,'), 'Meta Back button icon size must come from shared header metrics, not page density.');
+assert(metaHeader.includes('fontSize: actionMetrics.fontSize,'), 'Meta Back button font size must come from shared header metrics, not page density.');
+assert(metaHeader.includes('const buttonHeight = actionMetrics.height;'), 'Meta Back button height must not shrink on short viewports.');
+assert(!metaHeader.includes('iconSize: metrics.backIconSize,'), 'Meta Back button must not use density-dependent backIconSize.');
+assert(!metaHeader.includes('fontSize: metrics.backFontSize,'), 'Meta Back button must not use density-dependent backFontSize.');
+assert(game.includes('backText.setFontSize(actionMetrics.fontSize).setText(getBackLabel());'), 'Game Back label must use shared header font size.');
+assert(!game.includes('backText.setFontSize(layout.actionFontSize)'), 'Game Back label must not use puzzle chrome font size.');
+
+assert(metaHeader.includes('getHeaderActionPlacement'), 'Meta headers must use the shared header-action placement helper.');
+assert(settings.includes('getHeaderActionPlacement'), 'Settings Back must use the shared header-action placement helper.');
+assert(home.includes('getHeaderActionPlacement'), 'Home Settings must use the shared header-action placement helper.');
+assert(game.includes('getHeaderActionPlacement'), 'Game Back/Menu must use the shared header-action placement helper.');
+assert(!settings.includes('const headerInset = narrow ? 16 : 28;'), 'Settings must not keep a bespoke header inset formula.');
+assert(!metaHeader.includes('const backInset = viewport.x + (metrics.narrow ? 16 : 28);'), 'Meta headers must not keep a bespoke Back inset formula.');
+assert(metaHeader.includes('fitTitleBetweenBackAndRightEdge(title, metrics, viewport, backRight, buttonPlacement.y);'), 'Meta title fitting must compare against the actual shared Back anchor Y.');
+assert(!game.includes('const backX = layout.actionInset + backWidth / 2;'), 'Game Back must not derive its anchor from puzzle title/chrome layout.');
+assert(!game.includes('const menuX = this.scale.width - layout.actionInset - menuWidth / 2;'), 'Game Menu must not derive its anchor from puzzle title/chrome layout.');
 assert(!game.includes('const menuText ='), 'Game top-right menu action must be icon-only.');
 assert(/const menuWidth = height;/.test(game), 'Game menu action must be a square icon button.');
 assert(!settings.includes('private createBackButton('), 'Settings must not keep a separate bespoke Back button implementation.');

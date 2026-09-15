@@ -15,7 +15,7 @@ import {
   createCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { createHeaderActionButton, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import {
@@ -137,11 +137,16 @@ export class HomeScene extends Phaser.Scene {
     const logo = this.add.image(centerX, 0, 'home-logo').setOrigin(0.5);
     const logoAspect = logo.width / logo.height;
 
-    const homeHeaderActionMetrics = getHeaderActionButtonMetrics(narrow);
-    const homeHeaderInset = narrow ? 16 : 28;
+    const homeHeaderActionMetrics = getHeaderActionButtonMetrics(safeViewport.width < 700);
+    const homeSettingsPlacement = getHeaderActionPlacement(
+      safeViewport,
+      'right',
+      homeHeaderActionMetrics.iconButtonSize,
+      homeHeaderActionMetrics.iconButtonSize,
+    );
     createHomeSettingsButton(this, {
-      x: safeViewport.right - homeHeaderInset - homeHeaderActionMetrics.iconButtonSize / 2,
-      y: safeViewport.y + homeHeaderInset + homeHeaderActionMetrics.iconButtonSize / 2,
+      x: homeSettingsPlacement.x,
+      y: homeSettingsPlacement.y,
       size: homeHeaderActionMetrics.iconButtonSize,
       onActivate: (pointer: Phaser.Input.Pointer) => {
         if (!this.pointerGate.canActivate(pointer.id)) return;

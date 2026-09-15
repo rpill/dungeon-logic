@@ -56,7 +56,7 @@ import {
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics } from '../runtime/HeaderActionButton';
+import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
@@ -70,9 +70,10 @@ import { LEADERBOARD_SCENE_KEY } from './LeaderboardScene';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
+import { isTouchLikePointer } from '../runtime/PointerInput';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
-import { drawMaterialButtonBackground } from '../runtime/MaterialActionButton';
+import { drawMaterialButtonBackground, getMaterialButtonContentY } from '../runtime/MaterialActionButton';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import {
   calculatePuzzleToolbarLayout,
@@ -331,7 +332,7 @@ export class GameScene extends Phaser.Scene {
     const backIcon = this.add.image(0, 0, 'ui-icon-back').setTint(0xf4ead7);
     const backText = this.add.text(0, 0, getBackLabel(), {
       fontFamily: 'monospace',
-      fontSize: `${chrome.actionFontSize}px`,
+      fontSize: `${getHeaderActionButtonMetrics(this.scale.width < 700).fontSize}px`,
       color: '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
@@ -359,31 +360,36 @@ export class GameScene extends Phaser.Scene {
     };
 
     const layoutTopActions = (layout = chrome, insetTop = safeTop): void => {
-      const narrowTop = this.scale.width < 700;
+      const safeInsets = getSafeAreaInsets();
+      const headerViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeInsets);
+      const narrowTop = headerViewport.width < 700;
       const actionMetrics = getHeaderActionButtonMetrics(narrowTop);
       const height = actionMetrics.height;
       const backWidth = actionMetrics.pillWidth;
       const menuWidth = height;
       const gap = actionMetrics.gap;
       const iconSize = actionMetrics.iconSize;
-      const y = layout.titleY + insetTop - (narrowTop ? 2 : 0);
-      const backX = layout.actionInset + backWidth / 2;
-      const menuX = this.scale.width - layout.actionInset - menuWidth / 2;
+      const backPlacement = getHeaderActionPlacement(headerViewport, 'left', backWidth, height);
+      const menuPlacement = getHeaderActionPlacement(headerViewport, 'right', menuWidth, menuWidth);
+      const y = backPlacement.y;
+      const contentY = getMaterialButtonContentY(y, height);
+      const backX = backPlacement.x;
+      const menuX = menuPlacement.x;
 
       backHit.setPosition(backX, y).setSize(backWidth, height);
-      menuHit.setPosition(menuX, y).setSize(menuWidth, height);
-      backText.setFontSize(layout.actionFontSize).setText(getBackLabel());
+      menuHit.setPosition(menuX, menuPlacement.y).setSize(menuWidth, menuWidth);
+      backText.setFontSize(actionMetrics.fontSize).setText(getBackLabel());
       backIcon.setDisplaySize(iconSize, iconSize);
       menuIcon.setDisplaySize(iconSize, iconSize);
 
       const backContentWidth = iconSize + gap + backText.width;
       const backStartX = backX - backContentWidth / 2;
-      backIcon.setPosition(backStartX + iconSize / 2, y);
-      backText.setPosition(backStartX + iconSize + gap, y);
+      backIcon.setPosition(backStartX + iconSize / 2, contentY);
+      backText.setPosition(backStartX + iconSize + gap, contentY);
 
-      menuIcon.setPosition(menuX, y);
+      menuIcon.setPosition(menuX, getMaterialButtonContentY(menuPlacement.y, menuWidth));
 
-      const titleY = y + (narrowTop ? 28 : 0);
+      const titleY = layout.titleY + insetTop + (narrowTop ? 26 : 0);
       titleText
         .setPosition(this.scale.width / 2, titleY)
         .setFontSize(layout.titleFontSize)
@@ -591,6 +597,7 @@ export class GameScene extends Phaser.Scene {
       width: number;
       height: number;
       baseFill: number;
+      active: boolean;
       disabled: boolean;
       hovered: boolean;
       pressed: boolean;
@@ -610,48 +617,22 @@ export class GameScene extends Phaser.Scene {
         ? (this.scale.width < 700 ? 7 : 8)
         : (this.scale.width < 700 ? 9 : 10)
     );
-    const adjustToolbarColor = (color: number, amount: number): number => {
-      const r = Math.max(0, Math.min(255, ((color >> 16) & 0xff) + amount));
-      const g = Math.max(0, Math.min(255, ((color >> 8) & 0xff) + amount));
-      const b = Math.max(0, Math.min(255, (color & 0xff) + amount));
-      return (r << 16) | (g << 8) | b;
-    };
     const redrawToolbarBackground = (visual: ToolbarVisual): void => {
-      const isToolSelector = visual.id === 'wall' || visual.id === 'floor';
       visual.background.clear();
-      if (isToolSelector) {
-        const fill = visual.disabled
-          ? visual.baseFill
-          : visual.pressed
-            ? adjustToolbarColor(visual.baseFill, -18)
-            : visual.hovered
-              ? adjustToolbarColor(visual.baseFill, 16)
-              : visual.baseFill;
-        visual.background.setAlpha(1);
-        visual.background.fillStyle(fill, 1);
-        visual.background.fillRoundedRect(
-          visual.hitArea.x - visual.width / 2,
-          visual.hitArea.y - visual.height / 2,
-          visual.width,
-          visual.height,
-          getToolbarRadius(visual.id),
-        );
-      } else {
-        const state = visual.pressed ? 'pressed' : visual.hovered ? 'hover' : 'normal';
-        drawMaterialButtonBackground(
-          visual.background,
-          {
-            x: visual.hitArea.x,
-            y: visual.hitArea.y,
-            width: visual.width,
-            height: visual.height,
-            radius: getToolbarRadius(visual.id),
-          },
-          visual.id === 'reset' ? 'danger' : 'secondary',
-          state,
-        );
-        visual.background.setAlpha(visual.disabled ? 0.55 : 1);
-      }
+      const state = visual.pressed ? 'pressed' : visual.hovered || visual.active ? 'hover' : 'normal';
+      drawMaterialButtonBackground(
+        visual.background,
+        {
+          x: visual.hitArea.x,
+          y: visual.hitArea.y,
+          width: visual.width,
+          height: visual.height,
+          radius: getToolbarRadius(visual.id),
+        },
+        visual.id === 'reset' ? 'danger' : 'secondary',
+        state,
+      );
+      visual.background.setAlpha(visual.disabled ? 0.55 : 1);
       if (visual.guided && !visual.disabled) {
         visual.background.lineStyle(3, 0xf0bd63, 0.98);
         visual.background.strokeRoundedRect(
@@ -718,6 +699,7 @@ export class GameScene extends Phaser.Scene {
       visual.width = width;
       visual.height = height;
       visual.hitArea.setPosition(x, y).setSize(width, height);
+      const contentY = getMaterialButtonContentY(y, height);
       const narrowToolbar = this.scale.width < 700;
       const floorMarkIconSize = Math.max(1, boardLayout.cellSize - WIREFRAME.gap);
       const iconSize = visual.id === 'wall'
@@ -726,15 +708,15 @@ export class GameScene extends Phaser.Scene {
           ? floorMarkIconSize
           : (narrowToolbar ? 22 : 28);
       if (visual.icon === null) {
-        visual.label.setPosition(x, y).setOrigin(0.5);
+        visual.label.setPosition(x, contentY).setOrigin(0.5);
       } else {
         visual.icon.setDisplaySize(iconSize, iconSize);
         const gap = narrowToolbar ? 8 : 10;
         fitToolbarLabelToButton(visual, width, iconSize, gap);
         const totalWidth = iconSize + gap + visual.label.width;
         const startX = x - totalWidth / 2;
-        visual.icon.setPosition(startX + iconSize / 2, y);
-        visual.label.setPosition(startX + iconSize + gap, y).setOrigin(0, 0.5);
+        visual.icon.setPosition(startX + iconSize / 2, contentY);
+        visual.label.setPosition(startX + iconSize + gap, contentY).setOrigin(0, 0.5);
       }
       redrawToolbarBackground(visual);
     };
@@ -1088,6 +1070,7 @@ export class GameScene extends Phaser.Scene {
         const buttonVisible = toolbarVisible && buttonLayout !== undefined;
 
         visual.baseFill = fill;
+        visual.active = buttonState.active;
         visual.disabled = disabled;
         visual.guided = guided;
         visual.pressed = false;
@@ -2265,6 +2248,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         width: buttonLayout.width,
         height: buttonLayout.height,
         baseFill: buttonState.id === 'reset' ? 0xc96568 : 0x1f2c4a,
+        active: buttonState.active,
         disabled: buttonState.disabled,
         hovered: false,
         pressed: false,
@@ -2287,11 +2271,17 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           visual.pressed = true;
           redrawToolbarBackground(visual);
         })
-        .on('pointerup', () => {
+        .on('pointerup', (pointer: Phaser.Input.Pointer) => {
           if (visual.disabled) return;
           visual.pressed = false;
+          if (isTouchLikePointer(pointer)) visual.hovered = false;
           redrawToolbarBackground(visual);
           toolbarActions[buttonState.id]();
+        })
+        .on('pointerupoutside', () => {
+          visual.hovered = false;
+          visual.pressed = false;
+          redrawToolbarBackground(visual);
         });
       toolbarVisuals.set(buttonState.id, visual);
       layoutToolbarContent(
@@ -2334,13 +2324,29 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       };
       void leave();
     };
-    backHit.on('pointerup', handleBackAction);
+    backHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      backHovered = !isTouchLikePointer(pointer);
+      redrawTopActions();
+      handleBackAction();
+    });
+    backHit.on('pointerupoutside', () => {
+      backHovered = false;
+      redrawTopActions();
+    });
 
     const handleMenuAction = (): void => {
       feedback.play('ui-click');
       openGameMenu();
     };
-    menuHit.on('pointerup', handleMenuAction);
+    menuHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      menuHovered = !isTouchLikePointer(pointer);
+      redrawTopActions();
+      handleMenuAction();
+    });
+    menuHit.on('pointerupoutside', () => {
+      menuHovered = false;
+      redrawTopActions();
+    });
 
     const keyboard = this.input.keyboard;
     const handleKeyDown = (event: KeyboardEvent): void => {

@@ -24,6 +24,9 @@ assert(puzzleUi.includes('const gapY = 22;'), 'Touch tool selectors must sit abo
 assert(game.includes("wall: 'board-wall-01'"), 'Wall selector must use a real wall-tile icon.');
 assert(game.includes("floor: 'board-floor-mark'"), 'Floor selector must use the coral diamond icon.');
 assert(game.includes('createHomeMenuButton(this, {'), 'Game menu must reuse shared menu buttons.');
+assert(game.includes('active: boolean;'), 'Toolbar visuals must track whether WALL/FLOOR is the active tool.');
+assert(game.includes("const state = visual.pressed ? 'pressed' : visual.hovered || visual.active ? 'hover' : 'normal';"), 'WALL/FLOOR must use the same material button background, with active tool shown as the raised/hover state.');
+assert(!game.includes('visual.background.fillRoundedRect(\n          visual.hitArea.x - visual.width / 2'), 'WALL/FLOOR must not keep the old flat rounded-rectangle renderer.');
 
 assert(settings.includes("createSceneBackground(this, 'meta')"), 'Settings must use the meta dungeon background.');
 assert(settings.includes('createControlsPanel('), 'Settings must group Music, Sound, and Language in one controls panel.');

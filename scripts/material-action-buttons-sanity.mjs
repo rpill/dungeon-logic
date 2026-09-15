@@ -19,13 +19,21 @@ for (const asset of [
   assert(existsSync(resolve(root, asset)), `Material button asset must exist: ${asset}`);
 }
 
+
 assert(existsSync(materialPath), 'Shared MaterialActionButton renderer must exist.');
 const material = readFileSync(materialPath, 'utf8');
 assert(material.includes("type MaterialButtonVariant = 'secondary' | 'danger'"), 'Material buttons must expose secondary and danger variants.');
 assert(material.includes('MATERIAL_BUTTON_SLICE_X = 56'), 'Material buttons must preserve the primary CTA end-cap geometry.');
 assert(material.includes('MATERIAL_BUTTON_FRAME_INSET = 24'), 'Material buttons must preserve the primary CTA crop geometry.');
-assert(material.includes("assets/ui/secondary_button_normal.webp"), 'Secondary asset must preload through the shared renderer.');
-assert(material.includes("assets/ui/danger_button_normal.webp"), 'Danger asset must preload through the shared renderer.');
+assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/secondary_button_normal.webp')"), 'Secondary must preload one stable normal texture.');
+assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/danger_button_normal.webp')"), 'Danger must preload one stable normal texture.');
+assert(!material.includes("material-button-secondary-hover"), 'Secondary states must not swap independently drawn textures.');
+assert(!material.includes("material-button-danger-hover"), 'Danger states must not swap independently drawn textures.');
+assert(material.includes('setTintMode(Phaser.TintModes.ADD)'), 'Material buttons must use tint-based hover feedback on one stable texture.');
+assert(!material.includes('surface.setTexture('), 'Material button states must never swap surface textures.');
+assert(material.includes('MATERIAL_BUTTON_CONTENT_Y_RATIO = 0.045'), 'Material button content must use the same optical lift as the approved primary CTA.');
+assert(header.includes('getMaterialButtonContentY'), 'Header action icon/text must use the shared optical content center.');
+assert(game.includes('getMaterialButtonContentY'), 'Gameplay toolbar and top actions must use the shared optical content center.');
 
 assert(homeMenu.includes('createMaterialActionButton'), 'Legacy menu-button API must render with the new filled material button system.');
 assert(!homeMenu.includes('HOME_MENU_FRAME_KEYS[state]'), 'Action buttons must no longer depend on the old outline frame state renderer.');
