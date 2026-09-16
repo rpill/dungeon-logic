@@ -196,11 +196,12 @@ assert.ok(
   getEndlessProgressionTarget(1).targetScore <
     getEndlessProgressionTarget(20).targetScore,
 );
-assert.ok(
-  getEndlessProgressionTarget(60).allowedBands.includes(
-    DifficultyBand.Medium,
-  ),
-);
+assert.deepEqual(getEndlessProgressionTarget(1).allowedSizes, [6]);
+assert.deepEqual(getEndlessProgressionTarget(29).allowedSizes, [6]);
+assert.deepEqual(getEndlessProgressionTarget(30).allowedSizes, [8]);
+assert.deepEqual(getEndlessProgressionTarget(60).allowedSizes, [8]);
+assert.deepEqual(getEndlessProgressionTarget(60).allowedBands, [DifficultyBand.Easy]);
+assert.deepEqual(getEndlessProgressionTarget(61).allowedBands, [DifficultyBand.Medium]);
 assert.ok(
   getEndlessProgressionTarget(300).allowedBands.includes(
     DifficultyBand.Hard,
@@ -494,10 +495,10 @@ assert.deepEqual(
     ]),
   ),
   {
-    easy: 20,
-    'easy|medium': 40,
-    'medium|hard': 25_115,
-    hard: 47_676,
+    easy: 60,
+    medium: 90,
+    'medium|hard': 24_875,
+    hard: 47_826,
     'hard|expert': 23_001,
     expert: 4_148,
   },
@@ -505,7 +506,7 @@ assert.deepEqual(
 );
 
 const resumedCoverageCounts = {
-  easy: 29,
+  easy: 60,
   medium: 2_484,
   hard: 70_791,
   expert: 20_099,
@@ -515,7 +516,7 @@ assert.equal(
     resumedCoverageCounts,
     productionCoveragePlan,
   ),
-  93_403,
+  93_434,
   'Existing flexible-band candidates must count toward coverage instead of being discarded as score-band oversupply.',
 );
 assert.equal(
@@ -529,7 +530,7 @@ assert.equal(
   calculateEndlessReservoirCoverage(
     {
       ...resumedCoverageCounts,
-      hard: resumedCoverageCounts.hard + 6_597,
+      hard: resumedCoverageCounts.hard + 6_566,
     },
     productionCoveragePlan,
   ),
@@ -540,7 +541,7 @@ assert.equal(
   reservoirCoverageSatisfied(
     {
       ...resumedCoverageCounts,
-      hard: resumedCoverageCounts.hard + 6_597,
+      hard: resumedCoverageCounts.hard + 6_566,
     },
     productionCoveragePlan,
   ),
@@ -1319,20 +1320,21 @@ try {
 }
 
 const syntheticReservoir: EndlessReservoirEntry[] = Array.from(
-  { length: 120 },
+  { length: 140 },
   (_, index) => {
-    const easy = index < 50;
+    const easy = index < 80;
     const archetypes = [
       GeneratorArchetype.MonsterOnly,
       GeneratorArchetype.ChestOneRoom,
       GeneratorArchetype.MixedOneRoom,
     ] as const;
-    const sizes = [6, 7, 8] as const;
     const archetype = archetypes[index % archetypes.length];
-    const size = sizes[index % sizes.length];
+    const size = easy
+      ? (index < 40 ? 6 : 8)
+      : 7;
     const difficultyScore = easy
-      ? 8 + (index % 28)
-      : 32 + (index % 28);
+      ? (size === 6 ? 4 + (index % 5) : 14 + (index % 7))
+      : 30 + (index % 15);
     const solution = Array.from(
       { length: size },
       (_, y) => Array.from(
@@ -1395,13 +1397,8 @@ assert.ok(
     ),
   ) <= 3,
 );
-assert.ok(
-  maxRun(
-    syntheticSelectedA.map(
-      (entry) => entry.size,
-    ),
-  ) <= 3,
-);
+assert.ok(syntheticSelectedA.slice(0, 29).every((entry) => entry.size === 6));
+assert.ok(syntheticSelectedA.slice(29, 50).every((entry) => entry.size === 8));
 for (const entry of syntheticSelectedA) {
   assert.ok(
     getEndlessProgressionTarget(entry.ordinal).allowedBands.includes(
@@ -1416,29 +1413,30 @@ const appendScarcityEntries = (
   count: number,
   difficultyScore: number,
   qualityScore: number,
+  size: 6 | 7 | 8 = 8,
 ): void => {
   for (let index = 0; index < count; index += 1) {
-    const id = `scarcity-${band}-${String(index).padStart(4, '0')}`;
+    const id = `scarcity-${band}-${size}-${String(index).padStart(4, '0')}`;
     scarcityReservoir.push({
       laneIndex: 0,
-      laneId: 'monster-only:8',
+      laneId: `monster-only:${size}`,
       attempt: scarcityReservoir.length,
       seed: 10_000 + scarcityReservoir.length,
       candidateId: id,
       archetype: GeneratorArchetype.MonsterOnly,
-      size: 8,
+      size,
       difficultyScore,
       difficultyBand: band,
       qualityScore,
       structuralFingerprint: `scarcity-fp-${id}`,
       diversity: {
-        size: 8,
+        size,
         wallDensity: 0.35,
         thickWallCellRatio: 0.25,
         wallOpenBoundaryPerWall: 1.5,
         largestWallComponentRatio: 0.45,
         monsterCount: 2,
-        solution: Array.from({ length: 8 }, () => '........'),
+        solution: Array.from({ length: size }, () => '.'.repeat(size)),
         rooms: [],
       },
     });
@@ -1446,12 +1444,13 @@ const appendScarcityEntries = (
 };
 
 // This reservoir has exactly enough material for the first 501 progression
-// slots, but the single Hard entry must be preserved for ordinal 501, which
-// is Hard-only. A greedy selector spends it earlier on a flexible slot.
-appendScarcityEntries(DifficultyBand.Easy, 20, 20, 80);
-appendScarcityEntries(DifficultyBand.Medium, 280, 49, 80);
-appendScarcityEntries(DifficultyBand.Hard, 1, 62, 200);
-appendScarcityEntries(DifficultyBand.Expert, 200, 75, 10);
+// slots. After the 150 Hard-only campaign-ramp slots, one Hard entry must
+// remain for ordinal 501; the flexible Hard|Expert phase should consume Expert instead.
+appendScarcityEntries(DifficultyBand.Easy, 29, 6, 80, 6);
+appendScarcityEntries(DifficultyBand.Easy, 31, 17, 80, 8);
+appendScarcityEntries(DifficultyBand.Medium, 90, 36, 80, 7);
+appendScarcityEntries(DifficultyBand.Hard, 151, 62, 200, 8);
+appendScarcityEntries(DifficultyBand.Expert, 200, 82, 10, 8);
 
 const scarcitySelected = selectEndlessCatalog(
   scarcityReservoir,

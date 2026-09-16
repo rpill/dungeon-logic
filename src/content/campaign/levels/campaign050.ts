@@ -7,23 +7,27 @@ export const level: LevelDefinition = {
   "height": 7,
   "rowClues": [
     2,
+    3,
     1,
-    4,
+    5,
     3,
-    2,
     3,
-    5
-  ],
-  "columnClues": [
-    2,
-    2,
-    2,
-    3,
-    4,
-    4,
     3
   ],
+  "columnClues": [
+    5,
+    4,
+    2,
+    3,
+    1,
+    3,
+    2
+  ],
   "monsters": [
+    {
+      "x": 0,
+      "y": 0
+    },
     {
       "x": 4,
       "y": 0
@@ -33,15 +37,11 @@ export const level: LevelDefinition = {
       "y": 0
     },
     {
-      "x": 5,
+      "x": 0,
       "y": 2
     },
     {
-      "x": 6,
-      "y": 5
-    },
-    {
-      "x": 0,
+      "x": 2,
       "y": 6
     }
   ],
@@ -49,19 +49,19 @@ export const level: LevelDefinition = {
   "blockers": [],
   "doors": [],
   "solution": [
-    "...#.#.",
-    ".#.....",
-    ".#.##.#",
-    "....###",
-    "#.#....",
-    "#...##.",
-    "..#####"
+    "..#..#.",
+    "#.#.#..",
+    "......#",
+    "##.#.##",
+    "##.#...",
+    "##...#.",
+    "##.#..."
   ]
 };
 
 export const provenance: CampaignLevelProvenance = {
-  "sourceSeed": 20260908,
-  "sourceCandidateId": "generated-monster-only-7-1100635727",
+  "sourceSeed": 1449551244,
+  "sourceCandidateId": "generated-monster-only-7-1449551244",
   "sourceArchetype": "monster-only",
   "difficulty": "hard",
   "difficultyScore": 69,

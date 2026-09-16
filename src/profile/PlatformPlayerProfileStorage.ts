@@ -1,7 +1,7 @@
 import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type { PlayerStorage } from '../platform/services';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV4 } from './types';
+import type { PlayerProfileV5 } from './types';
 
 export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
   private readonly platformStorage: PlayerStorage;
@@ -41,7 +41,7 @@ export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
     return localValue;
   }
 
-  async save(profile: PlayerProfileV4): Promise<void> {
+  async save(profile: PlayerProfileV5): Promise<void> {
     await this.platformStorage.save(profile);
   }
 

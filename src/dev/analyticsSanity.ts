@@ -40,6 +40,13 @@ const daily: AnalyticsPuzzleContext = {
   archive: false,
 };
 
+
+const endless: AnalyticsPuzzleContext = {
+  mode: 'endless',
+  puzzleId: 'generated-monster-only-6-123',
+  ordinal: 42,
+};
+
 const transport = new RecordingTransport();
 const analytics = new AnalyticsService(transport);
 
@@ -92,6 +99,13 @@ assert(transport.events.filter((event) => event.name === 'puzzle_complete').leng
 const complete = transport.events.find((event) => event.name === 'puzzle_complete');
 assert(complete?.params.time_sec === 20, 'Puzzle time is floored to integer seconds.');
 assert(complete?.params.persisted === false, 'Completion records failed persistence without dropping the solve.');
+
+const endlessTransport = new RecordingTransport();
+const endlessAnalytics = new AnalyticsService(endlessTransport);
+endlessAnalytics.puzzleStart(endless, 'resume');
+const endlessStart = endlessTransport.events.at(-1);
+assert(endlessStart?.name === 'puzzle_start', 'Endless uses the shared puzzle_start goal.');
+assert(endlessStart?.params.mode === 'endless' && endlessStart.params.ordinal === 42, 'Endless analytics includes mode and one-based ordinal.');
 
 const replay = new PuzzleAnalyticsSession(analytics, daily, 'replay');
 replay.start();

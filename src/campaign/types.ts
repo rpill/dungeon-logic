@@ -45,6 +45,7 @@ export type GameLaunchContext =
   | { readonly mode: 'campaign'; readonly campaignLevelId: string; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'tutorial'; readonly tutorialLevelId: TutorialLevelId; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string; readonly ranked: boolean; readonly archive: boolean; readonly elapsedMsAtLaunch: number; readonly analyticsAttempt?: GameAnalyticsAttempt }
+  | { readonly mode: 'endless'; readonly ordinal: number; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'dev' };
 
 export interface GameSceneData {

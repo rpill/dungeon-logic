@@ -7,7 +7,7 @@ import { createOnboardingFlow } from '../onboarding/OnboardingFlow';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV4 } from '../profile/types';
+import type { PlayerProfileV5 } from '../profile/types';
 import { createPuzzleToolbarState } from '../runtime/PuzzleUiState';
 import { getSettingsRows } from '../settings/SettingsViewModel';
 
@@ -46,7 +46,7 @@ class MemoryStorage implements PlayerProfileStorage {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV4): Promise<void> {
+  async save(profile: PlayerProfileV5): Promise<void> {
     this.raw = profile;
   }
 }
@@ -105,6 +105,11 @@ async function main(): Promise<void> {
   assert(enCopy.game.tutorialTitle(2, 5) === 'TUTORIAL 2 / 5', 'English Tutorial title is localized.');
   assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.', 'Russian Tutorial completion copy is localized.');
   assert(enCopy.game.tutorialComplete === 'TUTORIAL COMPLETE\nYou know every dungeon rule.', 'English Tutorial completion copy is localized.');
+  assert(ruCopy.home.endlessProgress(7, 100000) === 'Уровень 7 / 100000', 'Russian Endless Home progress is localized.');
+  assert(enCopy.home.endlessProgress(7, 100000) === 'Level 7 / 100000', 'English Endless Home progress is localized.');
+  assert(ruCopy.game.endlessTitle(7) === 'БЕСКОНЕЧНЫЙ · 7', 'Russian Endless game title is localized.');
+  assert(enCopy.game.endlessTitle(7) === 'ENDLESS · 7', 'English Endless game title is localized.');
+  assert(ruCopy.game.endlessCatalogComplete !== enCopy.game.endlessCatalogComplete, 'Endless terminal copy is localized.');
 
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');

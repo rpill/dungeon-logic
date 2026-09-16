@@ -6,7 +6,7 @@ import { validatePuzzle } from '../puzzle/LevelValidator';
 import { CellState } from '../puzzle/types';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV4 } from '../profile/types';
+import type { PlayerProfileV5 } from '../profile/types';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { TutorialService } from '../tutorial/TutorialService';
 import { createLevelSelectItems, createTutorialGameSceneData } from '../runtime/GameLaunch';
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
   class MemoryStorage implements PlayerProfileStorage {
     raw: unknown = null;
     async load(): Promise<unknown | null> { return this.raw; }
-    async save(profile: PlayerProfileV4): Promise<void> { this.raw = profile; }
+    async save(profile: PlayerProfileV5): Promise<void> { this.raw = profile; }
   }
 
   const storage = new MemoryStorage();

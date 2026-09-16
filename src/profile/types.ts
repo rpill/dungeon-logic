@@ -2,7 +2,7 @@ import type { SupportedLanguage } from '../i18n/Language';
 import type { CellState } from '../puzzle/types';
 
 export interface SerializedPuzzleState {
-  readonly mode: 'campaign' | 'daily' | 'tutorial';
+  readonly mode: 'campaign' | 'daily' | 'tutorial' | 'endless';
   readonly puzzleId: string;
   readonly cells: readonly (readonly CellState[])[];
   readonly activePlayMs: number;
@@ -48,6 +48,15 @@ export interface DailyProfileState {
 export interface TutorialProfileState {
   readonly completedLevelIds: readonly string[];
   readonly completed: boolean;
+  readonly activePuzzle: SerializedPuzzleState | null;
+}
+
+
+export interface EndlessProfileState {
+  /** Zero-based catalog index. Stays at the final index once the catalog is complete. */
+  readonly ordinal: number;
+  /** Number of catalog puzzles completed, clamped to the catalog size. */
+  readonly completed: number;
   readonly activePuzzle: SerializedPuzzleState | null;
 }
 
@@ -159,3 +168,31 @@ export interface PlayerProfileV4 {
     readonly activePlayMs: number;
   };
 }
+
+/** Current profile schema: adds persistent Endless progression and one active Endless draft. */
+export interface PlayerProfileV5 {
+  readonly schemaVersion: 5;
+  readonly tutorial: TutorialProfileState;
+  readonly campaign: {
+    readonly completedLevelIds: readonly string[];
+    readonly lastPlayedLevelId: string | null;
+    readonly levelResults: Readonly<Record<string, CampaignLevelResult>>;
+    readonly drafts: Readonly<Record<string, SerializedPuzzleState>>;
+  };
+  readonly daily: DailyProfileState;
+  readonly endless: EndlessProfileState;
+  readonly settings: PlayerSettings;
+  readonly hints: {
+    readonly freeRemaining: number;
+    readonly totalUsed: number;
+    readonly rechargeAnchorMs?: number | null;
+  };
+  readonly ads: {
+    readonly campaignCompletionsSinceOpportunity: number;
+    readonly lastInterstitialAtMs: number | null;
+  };
+  readonly totals: {
+    readonly activePlayMs: number;
+  };
+}
+

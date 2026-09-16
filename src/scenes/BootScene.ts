@@ -8,6 +8,8 @@ import { initializeBackgroundMusic } from '../audio/MusicService';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
 import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
+import { loadEndlessCatalog } from '../content/endless/EndlessCatalogLoader';
+import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
 import { TUTORIAL_MANIFEST } from '../content/tutorial/manifest';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import { runLevelQualitySanityChecks } from '../dev/levelQualitySanity';
@@ -180,10 +182,13 @@ export class BootScene extends Phaser.Scene {
       profileService,
       platformServices.clock,
     );
+    const endlessCatalog = await loadEndlessCatalog();
+    const endlessService = EndlessService.create(endlessCatalog, profileService);
     this.registry.set(PLAYER_PROFILE_SERVICE_REGISTRY_KEY, profileService);
     this.registry.set(TUTORIAL_SERVICE_REGISTRY_KEY, tutorialService);
     this.registry.set(CAMPAIGN_SERVICE_REGISTRY_KEY, campaignService);
     this.registry.set(DAILY_SERVICE_REGISTRY_KEY, dailyService);
+    this.registry.set(ENDLESS_SERVICE_REGISTRY_KEY, endlessService);
     const profile = profileService.getProfile();
     analytics.gameReady({
       platform: platformServices.kind,

@@ -4,6 +4,7 @@ import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analyt
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
+import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
 import { getUiCopy } from '../i18n/UiCopy';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { PlatformServices } from '../platform/services';
@@ -13,6 +14,7 @@ import {
 } from '../profile/PlayerProfileService';
 import {
   createCampaignGameSceneData,
+  createEndlessGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
 import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
@@ -107,6 +109,7 @@ export class HomeScene extends Phaser.Scene {
 
     const campaign = this.getCampaignService();
     const tutorial = this.getTutorialService();
+    const endless = this.getEndlessService();
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
     const copy = getUiCopy(profile.settings.language);
@@ -266,6 +269,8 @@ export class HomeScene extends Phaser.Scene {
       createVersion,
     );
 
+    const endlessComplete = endless.isCatalogComplete();
+    const endlessOrdinal = endless.getCurrentOrdinal();
     createHomeHubCard(this, {
       x: centerX,
       y: wideY,
@@ -273,10 +278,13 @@ export class HomeScene extends Phaser.Scene {
       height: wideHeight,
       variant: 'wide',
       label: copy.home.endless,
-      subtitle: copy.home.endlessSoon,
+      subtitle: endlessComplete
+        ? copy.home.endlessComplete
+        : copy.home.endlessProgress(endlessOrdinal + 1, endless.getCatalogLength()),
       icon: 'endless',
-      enabled: false,
-      onActivate: () => {},
+      enabled: !endlessComplete,
+      activeAccent: !endlessComplete,
+      onActivate: () => void this.launchEndless(endless),
     }, this.pointerGate);
 
     const handleResize = (): void => {
@@ -364,6 +372,14 @@ export class HomeScene extends Phaser.Scene {
     const service = this.registry.get(TUTORIAL_SERVICE_REGISTRY_KEY) as unknown;
     if (!(service instanceof TutorialService)) {
       throw new Error('HomeScene requires TutorialService in Phaser registry.');
+    }
+    return service;
+  }
+
+  private getEndlessService(): EndlessService {
+    const service = this.registry.get(ENDLESS_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof EndlessService)) {
+      throw new Error('HomeScene requires EndlessService in Phaser registry.');
     }
     return service;
   }
@@ -493,6 +509,27 @@ export class HomeScene extends Phaser.Scene {
     } catch (error) {
       this.launchPending = false;
       console.error('[Dungeon Logic] Could not start Tutorial from Home.', error);
+    }
+  }
+
+  private async launchEndless(service: EndlessService): Promise<void> {
+    if (this.launchPending) return;
+    this.launchPending = true;
+
+    try {
+      const launch = service.beginCurrent();
+      if (launch === null) {
+        this.launchPending = false;
+        return;
+      }
+      this.scene.start('GameScene', createEndlessGameSceneData(
+        launch.level,
+        launch.ordinal,
+        launch.attempt,
+      ));
+    } catch (error) {
+      this.launchPending = false;
+      console.error('[Dungeon Logic] Could not start Endless from Home.', error);
     }
   }
 

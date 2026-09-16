@@ -25,6 +25,7 @@ import {
   type DailyCompletionResult,
 } from '../daily/DailyService';
 import { encodeDailyLeaderboardScore, getDailyLeaderboardName } from '../daily/DailyLeaderboard';
+import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
 import { chooseHint, requestHint, type PuzzleHint } from '../gameplay/HintService';
 import { RANKED_DAILY_HINT_UNLOCK_MS } from '../gameplay/HintEconomy';
 import { MonetizationService } from '../monetization/MonetizationService';
@@ -53,6 +54,7 @@ import {
   completeGameLaunch,
   createCampaignGameSceneData,
   createCampaignReplayGameSceneData,
+  createEndlessGameSceneData,
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
@@ -213,6 +215,10 @@ export class GameScene extends Phaser.Scene {
     const dailyContext = launchData.context.mode === 'daily'
       ? launchData.context
       : null;
+    const endlessContext = launchData.context.mode === 'endless'
+      ? launchData.context
+      : null;
+    const endlessService = endlessContext === null ? null : this.getEndlessService();
     const rankedDaily = dailyContext?.ranked === true;
     const dailyAlreadySolved = dailyContext !== null && profileService !== null
       ? profileService.getProfile().daily.results[dailyContext.dateKey] !== undefined
@@ -251,7 +257,13 @@ export class GameScene extends Phaser.Scene {
               ranked: dailyContext.ranked,
               archive: dailyContext.archive,
             }
-          : null;
+          : endlessContext !== null
+            ? {
+                mode: 'endless',
+                puzzleId: launchData.level.id,
+                ordinal: endlessContext.ordinal + 1,
+              }
+            : null;
     const hasCompatibleDraft = campaignContext !== null
       ? campaignPlayState?.mode === 'active' && campaignPlayState.savedPuzzle !== undefined
       : tutorialContext !== null && profileAtStart !== null
@@ -261,8 +273,16 @@ export class GameScene extends Phaser.Scene {
             launchData.level.id,
             profileAtStart.tutorial.activePuzzle ?? undefined,
           )
-        : false;
+        : endlessContext !== null && profileAtStart !== null
+          ? isCompatiblePuzzleSnapshot(
+              launchData.level,
+              'endless',
+              launchData.level.id,
+              profileAtStart.endless.activePuzzle ?? undefined,
+            )
+          : false;
     const analyticsAttempt = dailyContext?.analyticsAttempt
+      ?? endlessContext?.analyticsAttempt
       ?? classifyPuzzleAttempt({
         explicitReplay: launchData.context.mode !== 'dev'
           && launchData.context.analyticsAttempt === 'replay',
@@ -298,6 +318,7 @@ export class GameScene extends Phaser.Scene {
         return copy.game.tutorialTitle(tutorialEntry.slot, tutorialLevelTotal);
       }
       if (launchData.context.mode === 'daily') return copy.game.dailyTitle;
+      if (endlessContext !== null) return copy.game.endlessTitle(endlessContext.ordinal + 1);
       return 'Dungeon Logic';
     };
 
@@ -477,7 +498,13 @@ export class GameScene extends Phaser.Scene {
               dailyContext.dateKey,
               profileService.getProfile().daily.drafts[dailyContext.dateKey],
             )
-            : null;
+            : endlessContext !== null
+              ? PuzzleSessionService.createEndless(
+                launchData.level,
+                profileService,
+                profileService.getProfile().endless.activePuzzle ?? undefined,
+              )
+              : null;
     const puzzle = completedReview
       ? createCompletedReviewPuzzle(launchData.level)
       : puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
@@ -2116,6 +2143,44 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         return;
       }
 
+      if (launchData.context.mode === 'endless') {
+        statusText.setText('').setVisible(false);
+        puzzleSession?.clearActivePuzzle();
+        const service = endlessService;
+        if (service === null) return;
+        void service.completeCurrent(launchData.context.ordinal).then((result) => {
+          if (createVersion !== this.createVersion) return;
+          puzzleAnalytics?.complete({
+            elapsedMs: metadata.bestTimeMs,
+            hintsUsed: metadata.minHintsUsed,
+            firstClear: true,
+            persisted: result.persisted,
+          });
+
+          const next = result.next;
+          if (next !== null) {
+            this.time.delayedCall(350, () => {
+              if (createVersion !== this.createVersion) return;
+              this.scene.restart(createEndlessGameSceneData(
+                next.level,
+                next.ordinal,
+                next.attempt,
+              ));
+            });
+            return;
+          }
+
+          completionMode = true;
+          statusText
+            .setText(copy.game.endlessCatalogComplete)
+            .setColor('#f0bd63')
+            .setVisible(true);
+        }).catch((error) => {
+          console.error('[Dungeon Logic] Could not complete Endless level.', error);
+        });
+        return;
+      }
+
       const previousResult = profileService?.getProfile().campaign.levelResults[launchData.context.campaignLevelId];
       const newBestTime = previousResult === undefined || metadata.bestTimeMs < previousResult.bestTimeMs;
       statusText.setText('').setVisible(false);
@@ -2319,7 +2384,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         }
         if (this.scene.isActive()) {
           this.scene.start(
-            launchData.context.mode === 'daily' || launchData.context.mode === 'tutorial'
+            launchData.context.mode === 'daily' || launchData.context.mode === 'tutorial' || launchData.context.mode === 'endless'
               ? HOME_SCENE_KEY
               : LEVELS_SCENE_KEY,
           );
@@ -2655,6 +2720,14 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     const service = this.registry.get(DAILY_SERVICE_REGISTRY_KEY) as unknown;
     if (!(service instanceof DailyService)) {
       throw new Error('Daily GameScene requires DailyService in Phaser registry.');
+    }
+    return service;
+  }
+
+  private getEndlessService(): EndlessService {
+    const service = this.registry.get(ENDLESS_SERVICE_REGISTRY_KEY) as unknown;
+    if (!(service instanceof EndlessService)) {
+      throw new Error('Endless GameScene requires EndlessService in Phaser registry.');
     }
     return service;
   }

@@ -49,6 +49,8 @@ export interface UiCopy {
     readonly dailyStreak: (streak: number) => string;
     readonly endless: string;
     readonly endlessSoon: string;
+    readonly endlessProgress: (ordinal: number, total: number) => string;
+    readonly endlessComplete: string;
   };
   readonly settings: {
     readonly title: string;
@@ -125,6 +127,8 @@ export interface UiCopy {
     readonly back: string;
     readonly levelTitle: (slot: number) => string;
     readonly dailyTitle: string;
+    readonly endlessTitle: (ordinal: number) => string;
+    readonly endlessCatalogComplete: string;
     readonly tutorialTitle: (slot: number, total: number) => string;
     readonly tutorialComplete: string;
     readonly startLevels: string;
@@ -229,6 +233,8 @@ const RU: UiCopy = {
     dailyStreak: (streak) => `Серия: ${streak}`,
     endless: 'БЕСКОНЕЧНЫЙ РЕЖИМ',
     endlessSoon: 'СКОРО',
+    endlessProgress: (ordinal, total) => `Уровень ${ordinal} / ${total}`,
+    endlessComplete: 'КАТАЛОГ ПРОЙДЕН',
   },
   settings: {
     title: 'НАСТРОЙКИ',
@@ -305,6 +311,8 @@ const RU: UiCopy = {
     back: '← НАЗАД',
     levelTitle: (slot) => `УРОВЕНЬ ${slot}`,
     dailyTitle: 'DAILY',
+    endlessTitle: (ordinal) => `БЕСКОНЕЧНЫЙ · ${ordinal}`,
+    endlessCatalogComplete: 'КАТАЛОГ ПРОЙДЕН',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
     startLevels: 'НАЧАТЬ ИГРУ',
@@ -409,6 +417,8 @@ const EN: UiCopy = {
     dailyStreak: (streak) => `Streak: ${streak}`,
     endless: 'ENDLESS MODE',
     endlessSoon: 'COMING SOON',
+    endlessProgress: (ordinal, total) => `Level ${ordinal} / ${total}`,
+    endlessComplete: 'CATALOG COMPLETE',
   },
   settings: {
     title: 'SETTINGS',
@@ -485,6 +495,8 @@ const EN: UiCopy = {
     back: '← BACK',
     levelTitle: (slot) => `LEVEL ${slot}`,
     dailyTitle: 'DAILY',
+    endlessTitle: (ordinal) => `ENDLESS · ${ordinal}`,
+    endlessCatalogComplete: 'CATALOG COMPLETE',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
     startLevels: 'START GAME',

@@ -109,21 +109,21 @@ assertEqual(evaluateDailyReleaseEligibility({ ...dailyBase, difficultyBand: 'har
 
 const generated = generateCandidate({
   archetype: GeneratorArchetype.MonsterOnly,
-  size: 8,
-  seed: 2_111_257_584,
+  size: 7,
+  seed: 2_111_257_597,
 });
 assertTrue(generated.ok, generated.ok ? undefined : generated.reason);
 
-const validA = cloneCandidate(generated.candidate, 'release-valid-a', 2_111_257_584);
-const validB = cloneCandidate(generated.candidate, 'release-valid-b', 2_111_257_585);
-const invalid = cloneCandidate(generated.candidate, 'release-invalid', 2_111_257_586);
+const validA = cloneCandidate(generated.candidate, 'release-valid-a', 2_111_257_597);
+const validB = cloneCandidate(generated.candidate, 'release-valid-b', 2_111_257_598);
+const invalid = cloneCandidate(generated.candidate, 'release-invalid', 2_111_257_599);
 invalid.level.rowClues = [99, ...invalid.level.rowClues.slice(1)];
 const twoRoomMetadata = {
-  ...cloneCandidate(generated.candidate, 'release-two-room', 2_111_257_587),
+  ...cloneCandidate(generated.candidate, 'release-two-room', 2_111_257_600),
   archetype: GeneratorArchetype.ChestTwoRooms,
 } satisfies GeneratedCandidate;
 
-const duplicateA = cloneCandidate(generated.candidate, 'release-valid-a', 2_111_257_599);
+const duplicateA = cloneCandidate(generated.candidate, 'release-valid-a', 2_111_257_611);
 const forward = analyzeReleaseCandidates([validB, duplicateA, invalid, twoRoomMetadata, validA]);
 const reverse = analyzeReleaseCandidates([validA, twoRoomMetadata, invalid, duplicateA, validB]);
 
@@ -141,7 +141,7 @@ assertTrue(forward.rejected.some((entry) => entry.candidateId === 'release-two-r
 const analyzedBase = forward.accepted[0];
 assertTrue(analyzedBase !== undefined);
 assertEqual(analyzedBase.accepted.difficulty.band, 'medium');
-assertEqual(analyzedBase.accepted.difficulty.score, 34);
+assertEqual(analyzedBase.accepted.difficulty.score, 43);
 assertEqual(analyzedBase.dailyEligibility.eligible, true);
 
 const bulk = Array.from({ length: 250 }, (_, index) => cloneAnalysis(analyzedBase, index));

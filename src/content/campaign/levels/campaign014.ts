@@ -6,68 +6,64 @@ export const level: LevelDefinition = {
   "width": 7,
   "height": 7,
   "rowClues": [
-    3,
     5,
+    4,
     3,
     1,
     3,
     2,
-    5
+    4
   ],
   "columnClues": [
+    4,
+    6,
     3,
-    4,
-    4,
-    3,
-    4,
+    5,
     1,
-    3
+    3,
+    0
   ],
   "monsters": [
     {
-      "x": 3,
+      "x": 5,
       "y": 0
     },
     {
-      "x": 1,
+      "x": 2,
       "y": 1
     },
     {
-      "x": 3,
-      "y": 2
-    },
-    {
-      "x": 6,
-      "y": 4
+      "x": 4,
+      "y": 1
     },
     {
       "x": 0,
-      "y": 6
+      "y": 5
     },
     {
-      "x": 5,
-      "y": 6
+      "x": 2,
+      "y": 5
     }
   ],
   "chests": [],
   "blockers": [],
   "doors": [],
   "solution": [
-    "###....",
-    "#.####.",
-    "#.#.#..",
-    "......#",
-    ".#.##..",
-    ".#....#",
-    ".####.#"
+    "#####..",
+    "##.#.#.",
+    "##.#...",
+    ".....#.",
+    ".###...",
+    ".#...#.",
+    "####..."
   ]
 };
 
 export const provenance: CampaignLevelProvenance = {
-  "sourceSeed": 20260908,
-  "sourceCandidateId": "generated-monster-only-7-1660428563",
+  "sourceSeed": 3673121597,
+  "sourceCandidateId": "generated-monster-only-7-3673121597",
   "sourceArchetype": "monster-only",
-  "difficulty": "hard",
-  "difficultyScore": 56,
+  "difficulty": "medium",
+  "difficultyScore": 32,
   "humanStatus": "solved-with-contradiction"
 };

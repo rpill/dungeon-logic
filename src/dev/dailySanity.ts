@@ -9,7 +9,7 @@ import {
 } from '../runtime/GameLaunch';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV4 } from '../profile/types';
+import type { PlayerProfileV5 } from '../profile/types';
 import type { TrustedClock } from '../platform/services';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -75,13 +75,13 @@ assert(!recentHistory[2].solved, 'Recent Daily history must preserve missed date
 assert(recentHistory[4].solved, 'Recent Daily history must mark Dec 31 across the year boundary.');
 
 class MemoryProfileStorage implements PlayerProfileStorage {
-  value: PlayerProfileV4 | null = null;
+  value: PlayerProfileV5 | null = null;
 
   async load(): Promise<unknown | null> {
     return this.value;
   }
 
-  async save(profile: PlayerProfileV4): Promise<void> {
+  async save(profile: PlayerProfileV5): Promise<void> {
     this.value = profile;
   }
 }

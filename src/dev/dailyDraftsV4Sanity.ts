@@ -17,7 +17,7 @@ class MemoryStorage implements PlayerProfileStorage {
 
 async function main(): Promise<void> {
   const fresh = createFreshPlayerProfile([]);
-  assert(fresh.schemaVersion === 4, 'Fresh profile must use schema v4.');
+  assert(fresh.schemaVersion === 5, 'Fresh profile must use schema v5.');
   assert(Object.keys(fresh.daily.drafts).length === 0, 'Fresh Daily profile starts with no per-date drafts.');
 
   const legacyCells: CellStateValue[][] = DAILY_RELEASE_ENTRIES[0].level.solution.map((row) => [...row].map(() => CellState.Unknown));
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
       activePuzzle: legacySnapshot,
     },
   }, []);
-  assert(normalized.schemaVersion === 4, 'Schema v3 profile must migrate to schema v4.');
+  assert(normalized.schemaVersion === 5, 'Schema v3 profile must migrate to schema v5.');
   assert(
     normalized.daily.drafts['2026-09-09']?.puzzleId === 'daily-001',
     'Legacy Daily activePuzzle must migrate to the matching UTC-date draft.',

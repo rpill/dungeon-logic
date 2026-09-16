@@ -6,48 +6,48 @@ export const level: LevelDefinition = {
   "width": 7,
   "height": 7,
   "rowClues": [
-    4,
     3,
+    3,
+    3,
+    4,
     2,
-    4,
     1,
-    4,
     4
   ],
   "columnClues": [
-    2,
+    4,
+    1,
+    3,
     4,
     2,
-    6,
-    2,
-    2,
-    4
+    5,
+    1
   ],
   "monsters": [],
   "chests": [
     {
-      "x": 6,
-      "y": 5
+      "x": 1,
+      "y": 6
     }
   ],
   "blockers": [],
   "doors": [],
   "solution": [
-    "...####",
-    ".#...##",
-    "...#..#",
-    ".#.##.#",
+    "###....",
+    "#...##.",
+    "#.#..#.",
+    "#.##.#.",
+    "...#.#.",
     "...#...",
-    "####...",
-    "####..."
+    "...####"
   ]
 };
 
 export const provenance: CampaignLevelProvenance = {
-  "sourceSeed": 20260908,
-  "sourceCandidateId": "generated-chest-one-room-7-4260164457",
+  "sourceSeed": 2353903757,
+  "sourceCandidateId": "generated-chest-one-room-7-2353903757",
   "sourceArchetype": "chest-one-room",
   "difficulty": "hard",
-  "difficultyScore": 63,
+  "difficultyScore": 66,
   "humanStatus": "solved-with-contradiction"
 };

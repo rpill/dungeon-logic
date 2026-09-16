@@ -3,51 +3,75 @@ import type { LevelDefinition } from '../../../puzzle/types';
 
 export const level: LevelDefinition = {
   "id": "campaign-058",
-  "width": 7,
-  "height": 7,
+  "width": 8,
+  "height": 8,
   "rowClues": [
-    1,
-    1,
-    2,
     3,
     3,
+    1,
     4,
-    3
+    3,
+    5,
+    1,
+    6
   ],
   "columnClues": [
     3,
     3,
     1,
     3,
-    2,
-    1,
-    4
+    3,
+    4,
+    4,
+    5
   ],
-  "monsters": [],
+  "monsters": [
+    {
+      "x": 0,
+      "y": 0
+    },
+    {
+      "x": 4,
+      "y": 0
+    },
+    {
+      "x": 6,
+      "y": 6
+    },
+    {
+      "x": 0,
+      "y": 7
+    },
+    {
+      "x": 2,
+      "y": 7
+    }
+  ],
   "chests": [
     {
-      "x": 5,
-      "y": 0
+      "x": 6,
+      "y": 1
     }
   ],
   "blockers": [],
   "doors": [],
   "solution": [
-    "...#...",
-    ".#.....",
-    ".#.#...",
-    "....###",
-    "#.#...#",
-    "#..##.#",
-    "##....#"
+    ".....###",
+    "#.#.#...",
+    "#.......",
+    "##.##...",
+    ".....###",
+    ".#.#.###",
+    ".......#",
+    ".#.#####"
   ]
 };
 
 export const provenance: CampaignLevelProvenance = {
-  "sourceSeed": 20260908,
-  "sourceCandidateId": "generated-chest-one-room-7-1996532405",
-  "sourceArchetype": "chest-one-room",
-  "difficulty": "medium",
-  "difficultyScore": 33,
+  "sourceSeed": 1673161259,
+  "sourceCandidateId": "generated-mixed-one-room-8-1673161259",
+  "sourceArchetype": "mixed-one-room",
+  "difficulty": "hard",
+  "difficultyScore": 71,
   "humanStatus": "solved-with-contradiction"
 };

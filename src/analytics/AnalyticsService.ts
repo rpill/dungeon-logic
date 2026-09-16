@@ -23,6 +23,7 @@ export type HintAnalyticsSource = 'free' | 'rewarded';
 export type AnalyticsPuzzleContext =
   | { readonly mode: 'campaign'; readonly puzzleId: string; readonly slot: number }
   | { readonly mode: 'tutorial'; readonly puzzleId: string }
+  | { readonly mode: 'endless'; readonly puzzleId: string; readonly ordinal: number }
   | {
       readonly mode: 'daily';
       readonly puzzleId: string;
@@ -66,6 +67,9 @@ function puzzleParams(context: AnalyticsPuzzleContext): AnalyticsParams {
   }
   if (context.mode === 'tutorial') {
     return { mode: 'tutorial', puzzle_id: context.puzzleId };
+  }
+  if (context.mode === 'endless') {
+    return { mode: 'endless', puzzle_id: context.puzzleId, ordinal: context.ordinal };
   }
   return {
     mode: 'daily',

@@ -1,5 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { PlayerProfileV4 } from '../profile/types';
+import type { PlayerProfileV5 } from '../profile/types';
 import type { DailyEntry } from '../content/daily/types';
 import type { DailyTodaySnapshot } from '../daily/DailyService';
 import type { DailyResultSummary } from '../profile/types';
@@ -39,7 +39,7 @@ export type HomeDailyAction =
 
 export function getHomeCampaignAction(
   campaign: MetaCampaignPort,
-  profile: PlayerProfileV4,
+  profile: PlayerProfileV5,
 ): HomeCampaignAction {
   if (!profile.tutorial.completed) return { kind: 'tutorial' };
 
@@ -61,26 +61,26 @@ export function getHomeCampaignAction(
   return { kind: 'continue', levelId: continueLevel.id };
 }
 
-export function shouldShowDailyEntry(_profile: PlayerProfileV4): boolean {
+export function shouldShowDailyEntry(_profile: PlayerProfileV5): boolean {
   return true;
 }
 
-export function isDailyUnlocked(profile: PlayerProfileV4): boolean {
+export function isDailyUnlocked(profile: PlayerProfileV5): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
 }
 
-export function shouldAutoStartTutorial(profile: PlayerProfileV4): boolean {
+export function shouldAutoStartTutorial(profile: PlayerProfileV5): boolean {
   return !profile.tutorial.completed
     && profile.tutorial.completedLevelIds.length === 0
     && profile.tutorial.activePuzzle === null;
 }
 
-export function shouldShowSettingsEntry(_profile: PlayerProfileV4): boolean {
+export function shouldShowSettingsEntry(_profile: PlayerProfileV5): boolean {
   return true;
 }
 
 export function getHomeDailyAction(
-  profile: PlayerProfileV4,
+  profile: PlayerProfileV5,
   today: DailyTodaySnapshot | null,
 ): HomeDailyAction {
   if (!isDailyUnlocked(profile)) return { kind: 'locked' };

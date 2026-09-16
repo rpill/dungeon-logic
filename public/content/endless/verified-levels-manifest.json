@@ -8,7 +8,7 @@
   "solverSourceHash": "c086999218d5e3f99a0ae0c25bfa3ac0e746749dd5b2d8ae669a46e8c3664f49",
   "generatorSourceHash": "74c8a24a16f83108a5b23d8fdc4075d5e197d67d4d79fbc8cab66e16f862e9f1",
   "gameRulesSourceHash": "0f9e49ea5aa4c4c16841f847a749acebb0ea0a966265b91f9a3273dda0520fba",
-  "campaignContentHash": "44f96f122f6a9a78a96fb77a86db4759b4135d6f69a559c1fa7c2b8ce903ad81",
+  "campaignContentHash": "19c4a94f8cef69ed366943f7a7964d4f4371b7ca104f53600d2dc230f7b7f365",
   "dailyContentHash": "f839fef55348a29fa919f73acd4c7979818ea4ddf49c1963429ef2733f10f377",
   "sourceScanPlan": [
     {
@@ -229,5 +229,5 @@
     11,
     0
   ],
-  "productionAssetHash": "c756e16f561f1c1f30bed5bf7752f103e4e4c512e5018f4bd71c0712ae54625b"
+  "productionAssetHash": "1b70792aa2610bc2a5ab1d3a5fd32bff605b419fbf2ba59cba7bcee989fc10c7"
 }

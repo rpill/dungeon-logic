@@ -3,13 +3,14 @@ import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { SerializedPuzzleState } from '../profile/types';
 import { PuzzleSessionState } from './PuzzleSessionState';
 
-type PersistedSessionMode = 'campaign' | 'tutorial' | 'daily';
+type PersistedSessionMode = 'campaign' | 'tutorial' | 'daily' | 'endless';
 
 export class PuzzleSessionService {
   private readonly state: PuzzleSessionState;
   private readonly profileService: PlayerProfileService;
   private readonly persistenceMode: PersistedSessionMode;
   private readonly dailyDateKey: string | null;
+  private sealed = false;
 
   private constructor(
     state: PuzzleSessionState,
@@ -64,6 +65,20 @@ export class PuzzleSessionService {
     );
   }
 
+
+  static createEndless(
+    level: LevelDefinition,
+    profileService: PlayerProfileService,
+    saved?: SerializedPuzzleState,
+    nowMs = Date.now(),
+  ): PuzzleSessionService {
+    return new PuzzleSessionService(
+      PuzzleSessionState.create(level, 'endless', level.id, saved, nowMs),
+      profileService,
+      'endless',
+    );
+  }
+
   getPuzzle() {
     return this.state.puzzle;
   }
@@ -74,6 +89,7 @@ export class PuzzleSessionService {
 
   saveNow(): SerializedPuzzleState {
     const snapshot = this.snapshot();
+    if (this.sealed) return snapshot;
     this.profileService.update((profile) => {
       if (this.persistenceMode === 'campaign') {
         return {
@@ -96,6 +112,15 @@ export class PuzzleSessionService {
           },
         };
       }
+      if (this.persistenceMode === 'endless') {
+        return {
+          ...profile,
+          endless: {
+            ...profile.endless,
+            activePuzzle: snapshot,
+          },
+        };
+      }
       if (this.dailyDateKey === null) return profile;
       return {
         ...profile,
@@ -112,6 +137,7 @@ export class PuzzleSessionService {
   }
 
   clearActivePuzzle(): void {
+    this.sealed = true;
     this.profileService.update((profile) => {
       if (this.persistenceMode === 'campaign') {
         return {
@@ -130,6 +156,15 @@ export class PuzzleSessionService {
           ...profile,
           tutorial: {
             ...profile.tutorial,
+            activePuzzle: null,
+          },
+        };
+      }
+      if (this.persistenceMode === 'endless') {
+        return {
+          ...profile,
+          endless: {
+            ...profile.endless,
             activePuzzle: null,
           },
         };

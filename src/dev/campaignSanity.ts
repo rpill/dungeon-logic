@@ -13,7 +13,7 @@ import { promotedCampaignLevels } from '../content/campaign/levels';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
-import type { PlayerProfileV4 } from '../profile/types';
+import type { PlayerProfileV5 } from '../profile/types';
 import { CellState, type LevelDefinition } from '../puzzle/types';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { validatePuzzle } from '../puzzle/LevelValidator';
@@ -162,7 +162,7 @@ function runReleaseContentChecks(): void {
 runReleaseContentChecks();
 
 class FakeProfileStorage implements PlayerProfileStorage {
-  value: PlayerProfileV4 | null = null;
+  value: PlayerProfileV5 | null = null;
   failSave = false;
   saveCalls = 0;
 
@@ -170,7 +170,7 @@ class FakeProfileStorage implements PlayerProfileStorage {
     return this.value;
   }
 
-  async save(profile: PlayerProfileV4): Promise<void> {
+  async save(profile: PlayerProfileV5): Promise<void> {
     this.saveCalls += 1;
     if (this.failSave) throw new Error('save failed');
     this.value = profile;

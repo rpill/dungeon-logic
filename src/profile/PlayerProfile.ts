@@ -1,5 +1,6 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
+import { ENDLESS_TARGET_COUNT } from '../content/endless/CatalogFormat';
 import { isSupportedLanguage, type SupportedLanguage } from '../i18n/Language';
 import { CellState } from '../puzzle/types';
 import type { CampaignProgressV1 } from '../campaign/types';
@@ -7,7 +8,7 @@ import type {
   CampaignLevelResult,
   DailyProfileState,
   DailyResultSummary,
-  PlayerProfileV4,
+  PlayerProfileV5,
   PlayerSettings,
   SerializedPuzzleState,
   TutorialProfileState,
@@ -156,7 +157,7 @@ function normalizeDaily(value: unknown, schemaVersion: number): DailyProfileStat
     : null;
 
   const drafts: Record<string, SerializedPuzzleState> = {};
-  if (schemaVersion === 4 && isRecord(raw.drafts)) {
+  if (schemaVersion >= 4 && isRecord(raw.drafts)) {
     for (const [dateKey, candidate] of Object.entries(raw.drafts)) {
       if (!DATE_PATTERN.test(dateKey) || results[dateKey] !== undefined) continue;
       const draft = normalizeSerializedPuzzleState(candidate, 'daily');
@@ -181,6 +182,26 @@ function normalizeDaily(value: unknown, schemaVersion: number): DailyProfileStat
     solvedDates,
     results,
   };
+}
+
+function normalizeEndless(value: unknown, schemaVersion: number) {
+  if (schemaVersion < 5 || !isRecord(value)) {
+    return { ordinal: 0, completed: 0, activePuzzle: null } as const;
+  }
+
+  const completed = Math.min(
+    ENDLESS_TARGET_COUNT,
+    nonNegativeInteger(value.completed),
+  );
+  const ordinal = Math.min(
+    ENDLESS_TARGET_COUNT - 1,
+    nonNegativeInteger(value.ordinal, Math.min(completed, ENDLESS_TARGET_COUNT - 1)),
+  );
+  const activePuzzle = completed >= ENDLESS_TARGET_COUNT
+    ? null
+    : normalizeSerializedPuzzleState(value.activePuzzle, 'endless');
+
+  return { ordinal, completed, activePuzzle } as const;
 }
 
 function normalizeTutorial(value: unknown): TutorialProfileState {
@@ -211,9 +232,9 @@ function normalizeTutorial(value: unknown): TutorialProfileState {
 export function createFreshPlayerProfile(
   _manifest: readonly CampaignLevelEntry[] = [],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV4 {
+): PlayerProfileV5 {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     tutorial: {
       completedLevelIds: [],
       completed: false,
@@ -233,6 +254,11 @@ export function createFreshPlayerProfile(
       totalSolved: 0,
       solvedDates: [],
       results: {},
+    },
+    endless: {
+      ordinal: 0,
+      completed: 0,
+      activePuzzle: null,
     },
     settings: {
       musicEnabled: true,
@@ -258,8 +284,8 @@ export function normalizePlayerProfile(
   raw: unknown,
   manifest: readonly CampaignLevelEntry[],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV4 {
-  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2 && raw.schemaVersion !== 3 && raw.schemaVersion !== 4)) {
+): PlayerProfileV5 {
+  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2 && raw.schemaVersion !== 3 && raw.schemaVersion !== 4 && raw.schemaVersion !== 5)) {
     return createFreshPlayerProfile(manifest, defaultLanguage);
   }
 
@@ -291,7 +317,7 @@ export function normalizePlayerProfile(
   }
 
   const campaignDrafts: Record<string, SerializedPuzzleState> = {};
-  if ((raw.schemaVersion === 3 || raw.schemaVersion === 4) && isRecord(rawCampaign.drafts)) {
+  if ((raw.schemaVersion === 3 || raw.schemaVersion === 4 || raw.schemaVersion === 5) && isRecord(rawCampaign.drafts)) {
     for (const [levelId, candidate] of Object.entries(rawCampaign.drafts)) {
       if (!knownIds.has(levelId)) continue;
       const draft = normalizeSerializedPuzzleState(candidate, 'campaign', knownIds);
@@ -307,7 +333,7 @@ export function normalizePlayerProfile(
       campaignDrafts[legacyActivePuzzle.puzzleId] = legacyActivePuzzle;
     }
   }
-  const tutorial = raw.schemaVersion === 2 || raw.schemaVersion === 3 || raw.schemaVersion === 4
+  const tutorial = raw.schemaVersion === 2 || raw.schemaVersion === 3 || raw.schemaVersion === 4 || raw.schemaVersion === 5
     ? normalizeTutorial(raw.tutorial)
     : {
       completedLevelIds: [],
@@ -322,7 +348,7 @@ export function normalizePlayerProfile(
   const rawTotals = isRecord(raw.totals) ? raw.totals : {};
 
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     tutorial,
     campaign: {
       completedLevelIds,
@@ -331,6 +357,7 @@ export function normalizePlayerProfile(
       drafts: campaignDrafts,
     },
     daily: normalizeDaily(raw.daily, raw.schemaVersion),
+    endless: normalizeEndless(raw.endless, raw.schemaVersion),
     settings: normalizeSettings(raw.settings, defaultLanguage),
     hints: {
       freeRemaining: Math.min(3, nonNegativeInteger(rawHints.freeRemaining, fresh.hints.freeRemaining)),
@@ -360,7 +387,7 @@ export function migrateLegacyCampaignProgress(
   legacy: unknown,
   manifest: readonly CampaignLevelEntry[],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV4 {
+): PlayerProfileV5 {
   const fresh = createFreshPlayerProfile(manifest, defaultLanguage);
   if (!looksLikeLegacyCampaignProgress(legacy)) return fresh;
 

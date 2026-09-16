@@ -11,10 +11,11 @@ import type {
 
 const RECENT_DIVERSITY_WINDOW = 4;
 const CANDIDATES_PER_SCORE_BUCKET = 6;
-const PREFERRED_SCORE_WINDOWS = [8, 14, 100] as const;
-const DIFFICULTY_BONUS = 30;
-const DIFFICULTY_WEIGHT = 2;
-const DIVERSITY_WEIGHT = 24;
+const PREFERRED_SCORE_WINDOWS = [2, 4, 8, 14, 100] as const;
+const DIFFICULTY_BONUS = 48;
+const DIFFICULTY_WEIGHT = 6;
+const DIVERSITY_WEIGHT = 12;
+const OPENING_MONOTONIC_PHASES = [[1, 29], [30, 60]] as const;
 
 const SELECTOR_BANDS = [
   'easy',
@@ -79,6 +80,7 @@ export function selectEndlessCatalog(
         usedCandidateIds,
         usedFingerprints,
         allowedBands: safeBands,
+        allowedSizes: progression.allowedSizes,
         targetScore: progression.targetScore,
         scoreWindow,
       });
@@ -156,7 +158,80 @@ export function selectEndlessCatalog(
     });
   }
 
-  return selected;
+  return normalizeOpeningDifficultyOrder(selected);
+}
+
+function normalizeOpeningDifficultyOrder(
+  selected: readonly EndlessSelectedEntry[],
+): readonly EndlessSelectedEntry[] {
+  if (selected.length < 2) return selected;
+
+  const reordered = [...selected];
+  for (const [startOrdinal, endOrdinal] of OPENING_MONOTONIC_PHASES) {
+    const startIndex = startOrdinal - 1;
+    if (startIndex >= reordered.length) continue;
+    const endIndex = Math.min(endOrdinal, reordered.length);
+    const phase = orderMonotonicPhase(
+      reordered.slice(startIndex, endIndex),
+      reordered.slice(0, startIndex),
+    );
+    reordered.splice(startIndex, phase.length, ...phase);
+  }
+
+  const rebuilt: EndlessSelectedEntry[] = [];
+  for (let index = 0; index < reordered.length; index += 1) {
+    const entry = reordered[index];
+    const ordinal = index + 1;
+    const progression = getEndlessProgressionTarget(ordinal);
+    const recent = rebuilt.slice(-RECENT_DIVERSITY_WINDOW);
+    const previous = rebuilt.at(-1);
+    rebuilt.push({
+      ...entry,
+      ordinal,
+      targetScore: progression.targetScore,
+      selectionScore: calculateSelectionScore(
+        entry,
+        recent,
+        progression.targetScore,
+      ),
+      previousDistance:
+        previous === undefined
+          ? null
+          : candidateDiversityDistance(
+              entry.diversity,
+              previous.diversity,
+            ),
+    });
+  }
+
+  return rebuilt;
+}
+
+function orderMonotonicPhase(
+  phase: readonly EndlessSelectedEntry[],
+  prefix: readonly EndlessSelectedEntry[],
+): readonly EndlessSelectedEntry[] {
+  const scores = [...new Set(phase.map((entry) => entry.difficultyScore))].sort(
+    (left, right) => left - right,
+  );
+  const ordered: EndlessSelectedEntry[] = [];
+
+  for (const score of scores) {
+    const remaining = phase
+      .filter((entry) => entry.difficultyScore === score)
+      .sort((left, right) => left.ordinal - right.ordinal);
+
+    while (remaining.length > 0) {
+      const context = [...prefix, ...ordered];
+      const preferred = applyAntiStreakPreference(remaining, context);
+      const picked = preferred[0];
+      ordered.push(picked);
+      const index = remaining.indexOf(picked);
+      remaining.splice(index, 1);
+    }
+  }
+
+  return ordered;
 }
 
 interface CandidateWindowOptions {
@@ -164,6 +239,7 @@ interface CandidateWindowOptions {
   readonly usedCandidateIds: ReadonlySet<string>;
   readonly usedFingerprints: ReadonlySet<string>;
   readonly allowedBands: readonly SelectorBand[];
+  readonly allowedSizes: readonly EndlessReservoirEntry['size'][];
   readonly targetScore: number;
   readonly scoreWindow: number;
 }
@@ -200,7 +276,8 @@ function collectCandidateWindow(
           ) ||
           options.usedFingerprints.has(
             entry.structuralFingerprint,
-          )
+          ) ||
+          !options.allowedSizes.includes(entry.size)
         ) {
           continue;
         }
@@ -337,10 +414,10 @@ function bandBit(band: SelectorBand): number {
   return 1 << index;
 }
 
-function applyAntiStreakPreference(
-  candidates: readonly EndlessReservoirEntry[],
+function applyAntiStreakPreference<T extends EndlessReservoirEntry>(
+  candidates: readonly T[],
   selected: readonly EndlessSelectedEntry[],
-): readonly EndlessReservoirEntry[] {
+): readonly T[] {
   if (selected.length < 3) return candidates;
 
   const lastThree = selected.slice(-3);

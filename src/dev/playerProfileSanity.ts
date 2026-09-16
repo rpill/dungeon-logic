@@ -9,7 +9,7 @@ import { LocalPlayerProfileStorage, PLAYER_PROFILE_STORAGE_KEY } from '../profil
 import { PlatformPlayerProfileStorage } from '../profile/PlatformPlayerProfileStorage';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV4 } from '../profile/types';
+import type { PlayerProfileV5 } from '../profile/types';
 
 function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -113,7 +113,7 @@ async function main(): Promise<void> {
   const manifest = [entry(1), entry(2), entry(3), entry(4), entry(5), entry(6), entry(7)];
 
   const fresh = normalizePlayerProfile({ nonsense: true }, manifest);
-  assert(fresh.schemaVersion === 4, 'Invalid profile input falls back to schema v4.');
+  assert(fresh.schemaVersion === 5, 'Invalid profile input falls back to schema v5.');
   assert(Object.keys(fresh.campaign.drafts).length === 0, 'Fresh Campaign starts with no saved level drafts.');
   assert(!fresh.tutorial.completed, 'Fresh profile requires Tutorial before Campaign.');
   assert(fresh.tutorial.completedLevelIds.length === 0, 'Fresh Tutorial progress starts empty.');
@@ -122,6 +122,7 @@ async function main(): Promise<void> {
   assert(fresh.hints.totalUsed === 0, 'Fresh profile starts with zero used hints.');
   assert(Object.keys(fresh.daily.drafts).length === 0, 'Fresh profile has no saved Daily drafts.');
   assert(fresh.daily.currentStreak === 0 && fresh.daily.bestStreak === 0, 'Fresh profile starts with empty Daily streaks.');
+  assert(fresh.endless.ordinal === 0 && fresh.endless.completed === 0 && fresh.endless.activePuzzle === null, 'Fresh profile starts with empty Endless progress.');
   assert(fresh.ads.campaignCompletionsSinceOpportunity === 0, 'Fresh profile starts with zero ad opportunity completions.');
   assert(fresh.totals.activePlayMs === 0, 'Fresh profile starts with zero active play time.');
   assert(fresh.settings.musicEnabled && fresh.settings.soundEnabled, 'Fresh settings enable music and sound.');
@@ -202,7 +203,7 @@ async function main(): Promise<void> {
     ads: createFreshPlayerProfile(manifest).ads,
     totals: createFreshPlayerProfile(manifest).totals,
   }, manifest);
-  assert(migratedV2.schemaVersion === 4, 'Schema v2 profile migrates to current schema v4.');
+  assert(migratedV2.schemaVersion === 5, 'Schema v2 profile migrates to current schema v5.');
   assert(
     migratedV2.campaign.drafts['campaign-003']?.activePlayMs === 321,
     'Schema v2 active Campaign puzzle migrates into the matching per-level draft.',
@@ -281,11 +282,11 @@ async function main(): Promise<void> {
   class CountingStorage implements PlayerProfileStorage {
     raw: unknown = null;
     legacy: unknown = null;
-    saves: PlayerProfileV4[] = [];
+    saves: PlayerProfileV5[] = [];
 
     async load(): Promise<unknown | null> { return this.raw; }
     async loadLegacyCampaignProgress(): Promise<unknown | null> { return this.legacy; }
-    async save(profile: PlayerProfileV4): Promise<void> {
+    async save(profile: PlayerProfileV5): Promise<void> {
       this.raw = profile;
       this.saves.push(profile);
     }

@@ -16,65 +16,63 @@ export const CAMPAIGN_RELEASE_SCAN_PLAN = [
 ] as const satisfies readonly CampaignReleaseScanPlanEntry[];
 
 export const CAMPAIGN_RELEASE_TARGET_SCORES: Readonly<Record<number, number>> = {
-  5: 14,
-  7: 15,
-  8: 30,
-  9: 31,
-  10: 30,
-  11: 32,
-  12: 43,
-  13: 44,
-  14: 55,
-  15: 44,
-  16: 57,
-  17: 45,
-  18: 58,
-  19: 56,
-  20: 60,
-  21: 59,
-  22: 62,
-  23: 57,
-  24: 61,
-  25: 60,
-  26: 62,
-  27: 64,
-  28: 64,
-  29: 66,
-  30: 69,
-  31: 56,
-  32: 59,
-  33: 64,
-  34: 61,
-  35: 59,
-  36: 59,
-  37: 64,
-  38: 67,
-  39: 59,
+  8: 18,
+  9: 20,
+  10: 28,
+  11: 29,
+  12: 30,
+  13: 31,
+  14: 32,
+  15: 34,
+  16: 35,
+  17: 34,
+  18: 35,
+  19: 39,
+  20: 40,
+  21: 41,
+  22: 43,
+  23: 45,
+  24: 47,
+  25: 53,
+  26: 54,
+  27: 55,
+  28: 56,
+  29: 57,
+  30: 58,
+  31: 59,
+  32: 60,
+  33: 59,
+  34: 60,
+  35: 61,
+  36: 62,
+  37: 63,
+  38: 64,
+  39: 65,
   40: 66,
-  41: 62,
-  42: 58,
-  43: 63,
-  44: 64,
-  45: 59,
-  46: 62,
-  47: 56,
-  48: 44,
-  49: 66,
+  41: 64,
+  42: 65,
+  43: 66,
+  44: 67,
+  45: 67,
+  46: 68,
+  47: 69,
+  48: 70,
+  49: 68,
   50: 69,
   51: 69,
-  52: 56,
-  53: 67,
-  54: 68,
-  55: 44,
-  56: 44,
-  57: 62,
-  58: 33,
-  59: 32,
-  60: 31,
-  61: 44,
-  62: 41,
-  63: 57,
-  64: 45,
+  52: 70,
+  53: 70,
+  54: 71,
+  55: 71,
+  56: 72,
+  57: 70,
+  58: 71,
+  59: 71,
+  60: 72,
+  61: 72,
+  62: 73,
+  63: 73,
+  64: 73,
 };
 
 import { getCampaignCurationRule } from '../campaign/curationPlan';
@@ -99,7 +97,7 @@ const CAMPAIGN_RELEASE_DIVERSITY_WEIGHT = 24;
 
 export function selectCampaignReleaseSlots(
   reservoir: readonly AcceptedCandidate[],
-  slots: readonly number[] = [5, ...Array.from({ length: 58 }, (_, index) => index + 7)],
+  slots: readonly number[] = Array.from({ length: 57 }, (_, index) => index + 8),
 ): readonly CampaignReleaseSelectionEntry[] {
   const orderedSlots = [...slots];
   const seenSlots = new Set<number>();
@@ -108,8 +106,8 @@ export function selectCampaignReleaseSlots(
   const selected: CampaignReleaseSelectionEntry[] = [];
 
   for (const slot of orderedSlots) {
-    if (!Number.isInteger(slot) || slot < 5 || slot > 64 || slot === 6) {
-      throw new RangeError(`Campaign release slot must be 5 or an integer from 7 to 64; got ${slot}.`);
+    if (!Number.isInteger(slot) || slot < 8 || slot > 64) {
+      throw new RangeError(`Campaign release slot must be an integer from 8 to 64; got ${slot}.`);
     }
     if (seenSlots.has(slot)) {
       throw new Error(`Duplicate campaign release slot: ${slot}.`);
@@ -132,12 +130,24 @@ export function selectCampaignReleaseSlots(
       throw new Error(`No eligible release candidates for campaign slot ${slot}.`);
     }
 
+    const bestDifficultyDelta = Math.min(
+      ...eligible.map((candidate) => Math.abs((candidate.difficulty.score ?? 100) - targetScore)),
+    );
+    if (bestDifficultyDelta > 2) {
+      throw new Error(
+        `Campaign release corpus cannot satisfy slot ${slot}: nearest difficulty is ${bestDifficultyDelta} points from target ${targetScore}.`,
+      );
+    }
+    const difficultyMatched = eligible.filter(
+      (candidate) => Math.abs((candidate.difficulty.score ?? 100) - targetScore) <= bestDifficultyDelta,
+    );
+
     const previous = selected.at(-1)?.candidate ?? null;
-    let candidates = eligible;
+    let candidates = difficultyMatched;
     let usedDiversityFallback = false;
 
     if (previous !== null) {
-      const diverse = eligible.filter(
+      const diverse = difficultyMatched.filter(
         (candidate) => candidateDistance(candidate, previous) >= CAMPAIGN_RELEASE_MIN_NEIGHBOR_DISTANCE,
       );
       if (diverse.length > 0) {

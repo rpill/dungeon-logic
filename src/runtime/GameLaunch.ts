@@ -4,6 +4,7 @@ import type {
   CampaignCompletionMetadata,
   CampaignCompletionResult,
   CampaignProgressSnapshot,
+  GameAnalyticsAttempt,
   GameSceneData,
 } from '../campaign/types';
 import type {
@@ -75,6 +76,24 @@ export function createTutorialGameSceneData(entry: TutorialLevelEntry): GameScen
     },
     onboarding: [],
     contextualOnboarding: true,
+  };
+}
+
+
+export function createEndlessGameSceneData(
+  level: LevelDefinition,
+  ordinal: number,
+  analyticsAttempt?: GameAnalyticsAttempt,
+): GameSceneData {
+  return {
+    level,
+    context: {
+      mode: 'endless',
+      ordinal,
+      analyticsAttempt,
+    },
+    onboarding: [],
+    contextualOnboarding: false,
   };
 }
 

@@ -4,10 +4,14 @@ import {
 import type {
   RatedDifficultyBand,
 } from './CatalogFormat';
+import type {
+  GeneratorBoardSize,
+} from '../../puzzle/generator/types';
 
 export interface EndlessProgressionTarget {
   readonly targetScore: number;
   readonly allowedBands: readonly RatedDifficultyBand[];
+  readonly allowedSizes: readonly GeneratorBoardSize[];
   readonly recovery: boolean;
 }
 
@@ -51,31 +55,43 @@ export function getEndlessProgressionTarget(
     );
   }
 
-  if (ordinal <= 20) {
+  if (ordinal <= 29) {
     return {
-      targetScore: interpolate(ordinal, 1, 20, 8, 24),
+      targetScore: interpolate(ordinal, 1, 29, 4, 8),
       allowedBands: EASY_ONLY,
+      allowedSizes: [6],
       recovery: false,
     };
   }
   if (ordinal <= 60) {
     return {
-      targetScore: interpolate(ordinal, 21, 60, 22, 42),
-      allowedBands: EASY_MEDIUM,
+      targetScore: interpolate(ordinal, 30, 60, 14, 20),
+      allowedBands: EASY_ONLY,
+      allowedSizes: [8],
+      recovery: false,
+    };
+  }
+  if (ordinal <= 90) {
+    return {
+      targetScore: interpolate(ordinal, 61, 90, 28, 32),
+      allowedBands: [DifficultyBand.Medium],
+      allowedSizes: [6, 7],
       recovery: false,
     };
   }
   if (ordinal <= 150) {
     return {
-      targetScore: interpolate(ordinal, 61, 150, 38, 58),
-      allowedBands: MEDIUM_HARD,
+      targetScore: interpolate(ordinal, 91, 150, 31, 44),
+      allowedBands: [DifficultyBand.Medium],
+      allowedSizes: [7, 8],
       recovery: false,
     };
   }
   if (ordinal <= 300) {
     return {
       targetScore: interpolate(ordinal, 151, 300, 50, 72),
-      allowedBands: MEDIUM_HARD,
+      allowedBands: [DifficultyBand.Hard],
+      allowedSizes: [7, 8],
       recovery: false,
     };
   }
@@ -89,6 +105,7 @@ export function getEndlessProgressionTarget(
       allowedBands: expertPeak
         ? EXPERT_ONLY
         : HARD_EXPERT,
+      allowedSizes: [7, 8],
       recovery: false,
     };
   }
@@ -116,6 +133,7 @@ export function getEndlessProgressionTarget(
         : targetScore < 75
           ? HARD_ONLY
           : HARD_EXPERT,
+    allowedSizes: [7, 8],
     recovery,
   };
 }

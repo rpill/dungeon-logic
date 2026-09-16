@@ -3,25 +3,27 @@ import type { LevelDefinition } from '../../../puzzle/types';
 
 export const level: LevelDefinition = {
   "id": "campaign-055",
-  "width": 7,
-  "height": 7,
+  "width": 8,
+  "height": 8,
   "rowClues": [
-    2,
-    2,
-    3,
-    0,
-    4,
-    3,
-    6
-  ],
-  "columnClues": [
-    3,
-    3,
-    3,
-    3,
     1,
     3,
-    4
+    2,
+    3,
+    2,
+    4,
+    6,
+    7
+  ],
+  "columnClues": [
+    4,
+    4,
+    2,
+    3,
+    4,
+    2,
+    4,
+    5
   ],
   "monsters": [
     {
@@ -29,45 +31,39 @@ export const level: LevelDefinition = {
       "y": 0
     },
     {
-      "x": 2,
-      "y": 0
-    },
-    {
-      "x": 6,
-      "y": 0
-    },
-    {
-      "x": 6,
+      "x": 7,
       "y": 2
     },
     {
-      "x": 1,
-      "y": 5
-    },
-    {
-      "x": 4,
-      "y": 6
+      "x": 3,
+      "y": 7
     }
   ],
-  "chests": [],
+  "chests": [
+    {
+      "x": 6,
+      "y": 5
+    }
+  ],
   "blockers": [],
   "doors": [],
   "solution": [
-    ".#.#...",
-    ".....##",
-    ".#.#.#.",
-    ".......",
-    "#.#.#.#",
-    "#.#...#",
-    "####.##"
+    "....#...",
+    "#.#...#.",
+    "....#.#.",
+    ".#.#...#",
+    "...#...#",
+    "##.#...#",
+    "##..####",
+    "###.####"
   ]
 };
 
 export const provenance: CampaignLevelProvenance = {
-  "sourceSeed": 20260908,
-  "sourceCandidateId": "generated-monster-only-7-2010294335",
-  "sourceArchetype": "monster-only",
-  "difficulty": "medium",
-  "difficultyScore": 44,
+  "sourceSeed": 1006091771,
+  "sourceCandidateId": "generated-mixed-one-room-8-1006091771",
+  "sourceArchetype": "mixed-one-room",
+  "difficulty": "hard",
+  "difficultyScore": 71,
   "humanStatus": "solved-with-contradiction"
 };
