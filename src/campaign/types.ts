@@ -22,7 +22,7 @@ export interface CampaignProgressSnapshot {
 
 export type CampaignLevelState = 'completed' | 'current' | 'unlocked' | 'locked';
 
-export type FeatureUnlockId = 'daily' | 'statistics';
+export type FeatureUnlockId = 'daily' | 'endless' | 'statistics';
 export type GameAnalyticsAttempt = 'new' | 'resume' | 'replay';
 
 export interface CampaignRowUnlockTransition {

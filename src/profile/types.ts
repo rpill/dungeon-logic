@@ -53,9 +53,9 @@ export interface TutorialProfileState {
 
 
 export interface EndlessProfileState {
-  /** Zero-based catalog index. Stays at the final index once the catalog is complete. */
+  /** Zero-based logical Endless puzzle number. The finite verified catalog is an internal pool. */
   readonly ordinal: number;
-  /** Number of catalog puzzles completed, clamped to the catalog size. */
+  /** Total Endless puzzles solved. This count is intentionally unbounded. */
   readonly completed: number;
   readonly activePuzzle: SerializedPuzzleState | null;
 }

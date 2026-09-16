@@ -1,6 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
-import { ENDLESS_TARGET_COUNT } from '../content/endless/CatalogFormat';
 import { isSupportedLanguage, type SupportedLanguage } from '../i18n/Language';
 import { CellState } from '../puzzle/types';
 import type { CampaignProgressV1 } from '../campaign/types';
@@ -189,17 +188,12 @@ function normalizeEndless(value: unknown, schemaVersion: number) {
     return { ordinal: 0, completed: 0, activePuzzle: null } as const;
   }
 
-  const completed = Math.min(
-    ENDLESS_TARGET_COUNT,
-    nonNegativeInteger(value.completed),
+  const completed = nonNegativeInteger(value.completed);
+  const ordinal = Math.max(
+    completed,
+    nonNegativeInteger(value.ordinal, completed),
   );
-  const ordinal = Math.min(
-    ENDLESS_TARGET_COUNT - 1,
-    nonNegativeInteger(value.ordinal, Math.min(completed, ENDLESS_TARGET_COUNT - 1)),
-  );
-  const activePuzzle = completed >= ENDLESS_TARGET_COUNT
-    ? null
-    : normalizeSerializedPuzzleState(value.activePuzzle, 'endless');
+  const activePuzzle = normalizeSerializedPuzzleState(value.activePuzzle, 'endless');
 
   return { ordinal, completed, activePuzzle } as const;
 }

@@ -1,66 +1,52 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
-import { decodeEndlessCatalog, type EndlessCatalogManifest } from '../content/endless/CatalogFormat';
 import { getEndlessProgressionTarget } from '../content/endless/ProgressionPolicy';
 
-function allowedSizes(ordinal: number): readonly number[] {
-  const target = getEndlessProgressionTarget(ordinal) as ReturnType<typeof getEndlessProgressionTarget> & {
-    readonly allowedSizes?: readonly number[];
-  };
-  return target.allowedSizes ?? [];
-}
+const opening = Array.from({ length: 12 }, (_, index) =>
+  getEndlessProgressionTarget(index + 1).targetScore,
+);
 
-for (let ordinal = 1; ordinal <= 29; ordinal += 1) {
-  assert.deepEqual(
-    allowedSizes(ordinal),
-    [6],
-    `Endless ${ordinal} must stay on 6x6 during the opening runway.`,
+assert.ok(opening[0] <= 6, `Endless must open gently; got ${opening[0]}.`);
+for (let index = 1; index < opening.length; index += 1) {
+  assert.ok(
+    opening[index] - opening[index - 1] <= 6,
+    `Opening Endless must not spike suddenly: ${opening[index - 1]} -> ${opening[index]} at ${index + 1}.`,
   );
 }
 
-assert.deepEqual(allowedSizes(30), [8], 'Endless 30 starts the easy 8x8 phase.');
-assert.deepEqual(allowedSizes(60), [8], 'Endless 60 finishes the easy 8x8 phase.');
+const longRun = Array.from({ length: 240 }, (_, index) =>
+  getEndlessProgressionTarget(index + 13).targetScore,
+);
+
+const localPeaks = longRun.filter((score, index) =>
+  index > 0 && index < longRun.length - 1 && score > longRun[index - 1] && score > longRun[index + 1],
+);
+const localTroughs = longRun.filter((score, index) =>
+  index > 0 && index < longRun.length - 1 && score < longRun[index - 1] && score < longRun[index + 1],
+);
+
+assert.ok(localPeaks.length >= 6, `Endless long run must repeatedly rise and fall; peaks=${localPeaks.length}.`);
+assert.ok(localTroughs.length >= 6, `Endless long run must repeatedly recover; troughs=${localTroughs.length}.`);
+assert.ok(Math.max(...longRun) >= 72, 'Endless waves must reach genuinely hard peaks.');
+assert.ok(Math.min(...longRun) <= 32, 'Endless waves must return to noticeably easier recovery levels.');
+
+const firstCycle = longRun.slice(0, 28);
+const secondCycle = longRun.slice(28, 56);
+assert.notDeepEqual(firstCycle, secondCycle, 'Adjacent Endless waves must not be identical copies.');
+
+const earlyAverage = longRun.slice(0, 56).reduce((sum, value) => sum + value, 0) / 56;
+const lateAverage = longRun.slice(-56).reduce((sum, value) => sum + value, 0) / 56;
 assert.ok(
-  getEndlessProgressionTarget(29).targetScore <= 8,
-  'Opening runway must remain at the low end of Easy.',
-);
-assert.ok(
-  getEndlessProgressionTarget(30).targetScore >= 14,
-  '8x8 phase starts only after the small-board runway.',
+  Math.abs(lateAverage - earlyAverage) <= 8,
+  `Endless must not trend upward forever; early=${earlyAverage.toFixed(1)} late=${lateAverage.toFixed(1)}.`,
 );
 
-const manifest = JSON.parse(
-  readFileSync('public/content/endless/verified-levels-manifest.json', 'utf8'),
-) as EndlessCatalogManifest;
-const catalog = decodeEndlessCatalog(
-  readFileSync('public/content/endless/verified-levels.bin'),
-  manifest,
-);
-
-for (let index = 0; index < 29; index += 1) {
-  assert.equal(catalog[index]?.size, 6, `Packed Endless ${index + 1} must be 6x6.`);
-  assert.equal(catalog[index]?.difficultyBand, 'easy', `Packed Endless ${index + 1} must be Easy.`);
-}
-for (let index = 29; index < 60; index += 1) {
-  assert.equal(catalog[index]?.size, 8, `Packed Endless ${index + 1} must be 8x8.`);
-  assert.equal(catalog[index]?.difficultyBand, 'easy', `Packed Endless ${index + 1} must remain Easy.`);
-}
-
-const firstTwelve = catalog.slice(0, 12).map((entry) => entry.difficultyScore);
-assert.ok(
-  Math.max(...firstTwelve) - Math.min(...firstTwelve) <= 4,
-  `First 12 Endless levels must have a tight score spread; got ${firstTwelve.join(',')}.`,
-);
-
-for (const [start, end] of [[0, 29], [29, 60]] as const) {
-  const scores = catalog.slice(start, end).map((entry) => entry.difficultyScore);
-  for (let index = 1; index < scores.length; index += 1) {
-    assert.ok(
-      scores[index] >= scores[index - 1],
-      `Endless opening phase ${start + 1}-${end} must not regress: ${scores[index - 1]} -> ${scores[index]} at ordinal ${start + index + 1}.`,
-    );
-  }
+for (let ordinal = 1; ordinal <= 400; ordinal += 1) {
+  assert.deepEqual(
+    getEndlessProgressionTarget(ordinal),
+    getEndlessProgressionTarget(ordinal),
+    `Endless progression must be deterministic at ordinal ${ordinal}.`,
+  );
 }
 
-console.info('[Dungeon Logic] Endless progression sanity: opening size/score runway passed');
+console.info('[Dungeon Logic] Endless progression sanity: gentle opening + deterministic pseudo-random waves passed');

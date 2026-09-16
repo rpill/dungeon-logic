@@ -105,12 +105,11 @@ async function main(): Promise<void> {
   assert(enCopy.game.tutorialTitle(2, 5) === 'TUTORIAL 2 / 5', 'English Tutorial title is localized.');
   assert(ruCopy.game.tutorialComplete === 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.', 'Russian Tutorial completion copy is localized.');
   assert(enCopy.game.tutorialComplete === 'TUTORIAL COMPLETE\nYou know every dungeon rule.', 'English Tutorial completion copy is localized.');
-  assert(ruCopy.home.endlessProgress(7, 100000) === 'Уровень 7 / 100000', 'Russian Endless Home progress is localized.');
-  assert(enCopy.home.endlessProgress(7, 100000) === 'Level 7 / 100000', 'English Endless Home progress is localized.');
+  assert(ruCopy.home.endlessSolved(7) === 'Решено: 7', 'Russian Endless solved count is localized.');
+  assert(enCopy.home.endlessSolved(7) === 'Solved: 7', 'English Endless solved count is localized.');
   assert(ruCopy.game.endlessTitle(7) === 'БЕСКОНЕЧНЫЙ · 7', 'Russian Endless game title is localized.');
   assert(enCopy.game.endlessTitle(7) === 'ENDLESS · 7', 'English Endless game title is localized.');
-  assert(ruCopy.game.endlessCatalogComplete !== enCopy.game.endlessCatalogComplete, 'Endless terminal copy is localized.');
-
+  
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');
   assert(ruRules.map((rule) => rule.id).join(',') === enRules.map((rule) => rule.id).join(','), 'Help rule IDs/order are locale invariant.');

@@ -49,8 +49,8 @@ export interface UiCopy {
     readonly dailyStreak: (streak: number) => string;
     readonly endless: string;
     readonly endlessSoon: string;
-    readonly endlessProgress: (ordinal: number, total: number) => string;
-    readonly endlessComplete: string;
+    readonly endlessLockedAfterLevel: string;
+    readonly endlessSolved: (completed: number) => string;
   };
   readonly settings: {
     readonly title: string;
@@ -128,7 +128,6 @@ export interface UiCopy {
     readonly levelTitle: (slot: number) => string;
     readonly dailyTitle: string;
     readonly endlessTitle: (ordinal: number) => string;
-    readonly endlessCatalogComplete: string;
     readonly tutorialTitle: (slot: number, total: number) => string;
     readonly tutorialComplete: string;
     readonly startLevels: string;
@@ -165,6 +164,7 @@ export interface UiCopy {
     readonly hintsCount: (count: number) => string;
     readonly newRecord: string;
     readonly featuresUnlocked: string;
+    readonly endlessUnlocked: string;
     readonly solvedCampaign: (time: string, hintCopy: string, recordCopy: string, unlockCopy: string) => string;
     readonly next: string;
     readonly solvedDaily: (time: string, hintCopy: string, recordCopy: string) => string;
@@ -233,8 +233,8 @@ const RU: UiCopy = {
     dailyStreak: (streak) => `Серия: ${streak}`,
     endless: 'БЕСКОНЕЧНЫЙ РЕЖИМ',
     endlessSoon: 'СКОРО',
-    endlessProgress: (ordinal, total) => `Уровень ${ordinal} / ${total}`,
-    endlessComplete: 'КАТАЛОГ ПРОЙДЕН',
+    endlessLockedAfterLevel: 'ПОСЛЕ УРОВНЯ 8',
+    endlessSolved: (completed) => `Решено: ${completed}`,
   },
   settings: {
     title: 'НАСТРОЙКИ',
@@ -312,7 +312,6 @@ const RU: UiCopy = {
     levelTitle: (slot) => `УРОВЕНЬ ${slot}`,
     dailyTitle: 'DAILY',
     endlessTitle: (ordinal) => `БЕСКОНЕЧНЫЙ · ${ordinal}`,
-    endlessCatalogComplete: 'КАТАЛОГ ПРОЙДЕН',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
     startLevels: 'НАЧАТЬ ИГРУ',
@@ -349,6 +348,7 @@ const RU: UiCopy = {
     hintsCount: (count) => `ПОДСКАЗОК: ${count}`,
     newRecord: '  ·  НОВЫЙ РЕКОРД',
     featuresUnlocked: 'ОТКРЫТО: DAILY\nМожно открыть сейчас или продолжить кампанию.',
+    endlessUnlocked: 'ОТКРЫТО: БЕСКОНЕЧНЫЙ РЕЖИМ\nМожно открыть сейчас или продолжить кампанию.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ РЕШЕНО  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     next: 'ДАЛЬШЕ',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY РЕШЁН  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
@@ -417,8 +417,8 @@ const EN: UiCopy = {
     dailyStreak: (streak) => `Streak: ${streak}`,
     endless: 'ENDLESS MODE',
     endlessSoon: 'COMING SOON',
-    endlessProgress: (ordinal, total) => `Level ${ordinal} / ${total}`,
-    endlessComplete: 'CATALOG COMPLETE',
+    endlessLockedAfterLevel: 'AFTER LEVEL 8',
+    endlessSolved: (completed) => `Solved: ${completed}`,
   },
   settings: {
     title: 'SETTINGS',
@@ -496,7 +496,6 @@ const EN: UiCopy = {
     levelTitle: (slot) => `LEVEL ${slot}`,
     dailyTitle: 'DAILY',
     endlessTitle: (ordinal) => `ENDLESS · ${ordinal}`,
-    endlessCatalogComplete: 'CATALOG COMPLETE',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
     startLevels: 'START GAME',
@@ -533,6 +532,7 @@ const EN: UiCopy = {
     hintsCount: (count) => `HINTS: ${count}`,
     newRecord: '  ·  NEW RECORD',
     featuresUnlocked: 'UNLOCKED: DAILY\nOpen it now or continue the Campaign.',
+    endlessUnlocked: 'UNLOCKED: ENDLESS MODE\nOpen it now or continue the Campaign.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     next: 'NEXT',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}`,

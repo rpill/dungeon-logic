@@ -48,10 +48,25 @@ async function main(): Promise<void> {
     'Replaying campaign-005 never announces the same feature unlock again.',
   );
 
-  const six = await campaign.completeLevel('campaign-006');
-  assert(six.unlockedFeatures.length === 0, 'Later campaign completions do not repeat the level-5 unlock announcement.');
+  const endlessAccess = campaign as unknown as { isEndlessUnlocked?: () => boolean };
+  assert(typeof endlessAccess.isEndlessUnlocked === 'function', 'Campaign service must expose the Endless unlock gate.');
 
-  console.info('[Dungeon Logic] Feature unlock sanity: level-5 Daily announcement is one-shot passed');
+  const six = await campaign.completeLevel('campaign-006');
+  assert(six.unlockedFeatures.length === 0, 'Campaign-006 does not unlock another feature.');
+  await campaign.completeLevel('campaign-007');
+  assert(!endlessAccess.isEndlessUnlocked!(), 'Endless stays locked until the full first campaign row is solved.');
+
+  const eight = await campaign.completeLevel('campaign-008');
+  assert(
+    eight.unlockedFeatures.join(',') === 'endless',
+    'Solving the final level of the first campaign row announces Endless exactly once.',
+  );
+  assert(endlessAccess.isEndlessUnlocked!(), 'Endless unlocks after campaign levels 1-8 are complete.');
+
+  const replayEight = await campaign.completeLevel('campaign-008');
+  assert(replayEight.unlockedFeatures.length === 0, 'Replaying campaign-008 never repeats the Endless unlock announcement.');
+
+  console.info('[Dungeon Logic] Feature unlock sanity: Daily at 5 + Endless after first campaign row passed');
 }
 
 void main();

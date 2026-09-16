@@ -1,5 +1,5 @@
 import {
-  getEndlessProgressionTarget,
+  getEndlessCatalogSelectionTarget,
 } from '../../content/endless/ProgressionPolicy';
 import {
   candidateDiversityDistance,
@@ -61,7 +61,7 @@ export function selectEndlessCatalog(
     ordinal += 1
   ) {
     const progression =
-      getEndlessProgressionTarget(ordinal);
+      getEndlessCatalogSelectionTarget(ordinal);
     const currentAllowedMask = bandMask(
       progression.allowedBands,
     );
@@ -182,7 +182,7 @@ function normalizeOpeningDifficultyOrder(
   for (let index = 0; index < reordered.length; index += 1) {
     const entry = reordered[index];
     const ordinal = index + 1;
-    const progression = getEndlessProgressionTarget(ordinal);
+    const progression = getEndlessCatalogSelectionTarget(ordinal);
     const recent = rebuilt.slice(-RECENT_DIVERSITY_WINDOW);
     const previous = rebuilt.at(-1);
     rebuilt.push({
@@ -347,7 +347,7 @@ function buildFutureDemandByAllowedMask(
 ): number[] {
   const demand = Array<number>(1 << SELECTOR_BANDS.length).fill(0);
   for (let ordinal = 1; ordinal <= targetCount; ordinal += 1) {
-    const progression = getEndlessProgressionTarget(ordinal);
+    const progression = getEndlessCatalogSelectionTarget(ordinal);
     demand[bandMask(progression.allowedBands)] += 1;
   }
   return demand;

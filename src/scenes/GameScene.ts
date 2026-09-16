@@ -1463,6 +1463,20 @@ export class GameScene extends Phaser.Scene {
       this.scene.start(DAILY_SCENE_KEY);
     };
 
+    const launchUnlockedEndless = (): void => {
+      if (completionTransitionPending) return;
+      const campaign = this.getCampaignService();
+      if (!campaign.isEndlessUnlocked()) return;
+      completionTransitionPending = true;
+      pauseActiveTimer();
+      const launch = this.getEndlessService().beginCurrent();
+      this.scene.start('GameScene', createEndlessGameSceneData(
+        launch.level,
+        launch.ordinal,
+        launch.attempt,
+      ));
+    };
+
     const showCompletionState = (
       result: CampaignCompletionResult,
       metadata: CampaignCompletionMetadata,
@@ -1487,10 +1501,16 @@ export class GameScene extends Phaser.Scene {
         recordCopy,
         unlockCopy,
       );
-      const featureUnlockCopy = result.unlockedFeatures.length > 0
+      const unlockedDaily = result.unlockedFeatures.includes('daily');
+      const unlockedEndless = result.unlockedFeatures.includes('endless');
+      const featureUnlockMessages = [
+        ...(unlockedDaily ? [copy.game.featuresUnlocked] : []),
+        ...(unlockedEndless ? [copy.game.endlessUnlocked] : []),
+      ];
+      const featureUnlockCopy = featureUnlockMessages.length > 0
         ? `
 
-${copy.game.featuresUnlocked}`
+${featureUnlockMessages.join('\n')}`
         : '';
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
@@ -1521,11 +1541,20 @@ ${copy.game.featuresUnlocked}`
       };
 
       if (result.unlockedFeatures.length > 0) {
-        completionActions = [
-          {
+        completionActions = [];
+        if (result.unlockedFeatures.includes('daily')) {
+          completionActions.push({
             label: copy.game.dailyTitle,
             action: launchUnlockedDaily,
-          },
+          });
+        }
+        if (result.unlockedFeatures.includes('endless')) {
+          completionActions.push({
+            label: copy.home.endless,
+            action: launchUnlockedEndless,
+          });
+        }
+        completionActions.push(
           result.recommendedNextLevel === null
             ? {
               label: copy.game.home,
@@ -1536,7 +1565,7 @@ ${copy.game.featuresUnlocked}`
               primary: true,
               action: continueCampaign,
             },
-        ];
+        );
       } else if (result.rowUnlock !== null && result.recommendedNextLevel !== null) {
         completionActions = [
           {
@@ -1560,6 +1589,43 @@ ${copy.game.featuresUnlocked}`
           });
         }
       }
+      renderCompletionButtons();
+    };
+
+    const showEndlessCompletionState = (completed: number): void => {
+      completionMode = true;
+      currentHint = null;
+      board?.setHintCellTarget(null);
+      setToolbarVisible(false);
+      statusText
+        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
+        .setAlign('center')
+        .setText(`✓ ${copy.common.solved}\n${copy.home.endlessSolved(completed)}`)
+        .setColor('#d8d1c4')
+        .setVisible(true);
+
+      completionActions = [
+        {
+          label: copy.game.home,
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+        {
+          label: copy.game.next,
+          primary: true,
+          action: () => {
+            if (completionTransitionPending) return;
+            const service = endlessService;
+            if (service === null) return;
+            completionTransitionPending = true;
+            const next = service.beginCurrent();
+            this.scene.restart(createEndlessGameSceneData(
+              next.level,
+              next.ordinal,
+              next.attempt,
+            ));
+          },
+        },
+      ];
       renderCompletionButtons();
     };
 
@@ -2156,25 +2222,10 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
             firstClear: true,
             persisted: result.persisted,
           });
-
-          const next = result.next;
-          if (next !== null) {
-            this.time.delayedCall(350, () => {
-              if (createVersion !== this.createVersion) return;
-              this.scene.restart(createEndlessGameSceneData(
-                next.level,
-                next.ordinal,
-                next.attempt,
-              ));
-            });
-            return;
-          }
-
-          completionMode = true;
-          statusText
-            .setText(copy.game.endlessCatalogComplete)
-            .setColor('#f0bd63')
-            .setVisible(true);
+          this.time.delayedCall(500, () => {
+            if (createVersion !== this.createVersion) return;
+            showEndlessCompletionState(result.completed);
+          });
         }).catch((error) => {
           console.error('[Dungeon Logic] Could not complete Endless level.', error);
         });

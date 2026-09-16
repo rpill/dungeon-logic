@@ -18,8 +18,9 @@ assert(!home.includes("subtitle: copy.home.endlessSoon,\n      icon: 'endless',\
 assert(game.includes("launchData.context.mode === 'endless'"), 'GameScene must recognize Endless mode.');
 assert(game.includes('PuzzleSessionService.createEndless('), 'GameScene must restore/persist Endless sessions.');
 assert(game.includes('service.completeCurrent(launchData.context.ordinal)'), 'GameScene must commit Endless progression on solve.');
-assert(game.includes('this.scene.restart(createEndlessGameSceneData('), 'GameScene must auto-open the next Endless puzzle.');
-assert(game.includes('copy.game.endlessCatalogComplete'), 'GameScene must render the terminal catalog-complete state.');
+assert(!game.includes('result.next'), 'Endless completion must not auto-open a precomputed next puzzle.');
+assert(game.includes('showEndlessCompletionState'), 'GameScene must show a dedicated Endless victory state.');
+assert(game.includes('service.beginCurrent()'), 'Endless Next action must request the next puzzle only after the player presses it.');
 assert(sessions.includes('if (this.sealed) return snapshot;') && sessions.includes('this.sealed = true;'), 'PuzzleSessionService must seal completed sessions against stale re-save.');
 assert(types.includes('readonly schemaVersion: 5;') && types.includes('readonly endless: EndlessProfileState;'), 'Current profile type must be schema v5 with Endless state.');
 assert(profile.includes('schemaVersion: 5') && profile.includes('normalizeEndless(raw.endless, raw.schemaVersion)'), 'Profile normalization must migrate to schema v5 and normalize Endless state.');

@@ -128,6 +128,7 @@ export class HomeScene extends Phaser.Scene {
       (count, entry) => count + (completedIds.has(entry.id) ? 1 : 0),
       0,
     );
+    const endlessUnlocked = campaign.isEndlessUnlocked();
 
     const centerX = safeViewport.centerX;
     const logo = this.add.image(centerX, 0, 'home-logo').setOrigin(0.5);
@@ -269,8 +270,6 @@ export class HomeScene extends Phaser.Scene {
       createVersion,
     );
 
-    const endlessComplete = endless.isCatalogComplete();
-    const endlessOrdinal = endless.getCurrentOrdinal();
     createHomeHubCard(this, {
       x: centerX,
       y: wideY,
@@ -278,13 +277,13 @@ export class HomeScene extends Phaser.Scene {
       height: wideHeight,
       variant: 'wide',
       label: copy.home.endless,
-      subtitle: endlessComplete
-        ? copy.home.endlessComplete
-        : copy.home.endlessProgress(endlessOrdinal + 1, endless.getCatalogLength()),
+      subtitle: endlessUnlocked
+        ? copy.home.endlessSolved(endless.getCompletedCount())
+        : copy.home.endlessLockedAfterLevel,
       icon: 'endless',
-      enabled: !endlessComplete,
-      activeAccent: !endlessComplete,
-      onActivate: () => void this.launchEndless(endless),
+      enabled: endlessUnlocked,
+      activeAccent: endlessUnlocked,
+      onActivate: () => void this.launchEndless(endless, campaign),
     }, this.pointerGate);
 
     const handleResize = (): void => {
@@ -512,16 +511,13 @@ export class HomeScene extends Phaser.Scene {
     }
   }
 
-  private async launchEndless(service: EndlessService): Promise<void> {
+  private async launchEndless(service: EndlessService, campaign: CampaignService): Promise<void> {
+    if (!campaign.isEndlessUnlocked()) return;
     if (this.launchPending) return;
     this.launchPending = true;
 
     try {
       const launch = service.beginCurrent();
-      if (launch === null) {
-        this.launchPending = false;
-        return;
-      }
       this.scene.start('GameScene', createEndlessGameSceneData(
         launch.level,
         launch.ordinal,

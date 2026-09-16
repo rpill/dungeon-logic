@@ -4,6 +4,7 @@ import { isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { SerializedPuzzleState } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
+import { EndlessLevelPicker } from './EndlessLevelPicker';
 
 export const ENDLESS_SERVICE_REGISTRY_KEY = 'endless-service';
 
@@ -17,18 +18,18 @@ export interface EndlessLaunch {
 export interface EndlessCompletionResult {
   readonly completedOrdinal: number;
   readonly completed: number;
-  readonly catalogComplete: boolean;
-  readonly next: EndlessLaunch | null;
   readonly persisted: boolean;
 }
 
 export class EndlessService {
   private readonly catalog: EndlessCatalog;
   private readonly profileService: PlayerProfileService;
+  private readonly picker: EndlessLevelPicker;
 
   private constructor(catalog: EndlessCatalog, profileService: PlayerProfileService) {
     this.catalog = catalog;
     this.profileService = profileService;
+    this.picker = new EndlessLevelPicker(catalog);
   }
 
   static create(catalog: EndlessCatalog, profileService: PlayerProfileService): EndlessService {
@@ -40,23 +41,22 @@ export class EndlessService {
     return this.catalog.length;
   }
 
-  isCatalogComplete(): boolean {
-    return this.profileService.getProfile().endless.completed >= this.catalog.length;
-  }
-
   getCurrentOrdinal(): number {
-    const state = this.profileService.getProfile().endless;
-    return Math.min(Math.max(0, state.ordinal), this.catalog.length - 1);
+    return Math.max(0, this.profileService.getProfile().endless.ordinal);
   }
 
-  beginCurrent(): EndlessLaunch | null {
-    if (this.isCatalogComplete()) return null;
+  getCompletedCount(): number {
+    return Math.max(0, this.profileService.getProfile().endless.completed);
+  }
+
+  beginCurrent(): EndlessLaunch {
     return this.createLaunch(this.getCurrentOrdinal());
   }
 
   createLaunch(ordinal: number): EndlessLaunch {
     this.requireOrdinal(ordinal);
-    const level = this.catalog.createLevel(ordinal);
+    const catalogIndex = this.picker.pickCatalogIndex(ordinal);
+    const level = this.catalog.createLevel(catalogIndex);
     const active = this.profileService.getProfile().endless.activePuzzle ?? undefined;
     const compatible = isCompatiblePuzzleSnapshot(level, 'endless', level.id, active);
     return {
@@ -74,15 +74,12 @@ export class EndlessService {
       throw new Error(`Endless completion ordinal mismatch: expected ${current}, got ${ordinal}.`);
     }
 
-    const lastOrdinal = this.catalog.length - 1;
-    const catalogComplete = ordinal >= lastOrdinal;
-    const nextOrdinal = catalogComplete ? lastOrdinal : ordinal + 1;
-
+    const nextOrdinal = ordinal + 1;
     this.profileService.update((profile) => ({
       ...profile,
       endless: {
         ordinal: nextOrdinal,
-        completed: Math.min(this.catalog.length, Math.max(profile.endless.completed, ordinal + 1)),
+        completed: Math.max(profile.endless.completed, nextOrdinal),
         activePuzzle: null,
       },
     }));
@@ -98,15 +95,13 @@ export class EndlessService {
     return {
       completedOrdinal: ordinal,
       completed: this.profileService.getProfile().endless.completed,
-      catalogComplete,
-      next: catalogComplete ? null : this.createLaunch(nextOrdinal),
       persisted,
     };
   }
 
   private requireOrdinal(ordinal: number): void {
-    if (!Number.isInteger(ordinal) || ordinal < 0 || ordinal >= this.catalog.length) {
-      throw new RangeError(`Endless ordinal ${ordinal} is out of range 0..${this.catalog.length - 1}.`);
+    if (!Number.isInteger(ordinal) || ordinal < 0) {
+      throw new RangeError(`Endless ordinal ${ordinal} must be a non-negative integer.`);
     }
   }
 }

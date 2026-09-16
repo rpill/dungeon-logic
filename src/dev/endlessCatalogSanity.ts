@@ -58,7 +58,7 @@ import {
   type EndlessCatalogManifest,
 } from '../content/endless/CatalogFormat';
 import {
-  getEndlessProgressionTarget,
+  getEndlessCatalogSelectionTarget,
 } from '../content/endless/ProgressionPolicy';
 import {
   DifficultyBand,
@@ -193,22 +193,22 @@ assert.deepEqual(
 assert.equal(ENDLESS_CATALOG_VERSION, 1);
 
 assert.ok(
-  getEndlessProgressionTarget(1).targetScore <
-    getEndlessProgressionTarget(20).targetScore,
+  getEndlessCatalogSelectionTarget(1).targetScore <
+    getEndlessCatalogSelectionTarget(20).targetScore,
 );
-assert.deepEqual(getEndlessProgressionTarget(1).allowedSizes, [6]);
-assert.deepEqual(getEndlessProgressionTarget(29).allowedSizes, [6]);
-assert.deepEqual(getEndlessProgressionTarget(30).allowedSizes, [8]);
-assert.deepEqual(getEndlessProgressionTarget(60).allowedSizes, [8]);
-assert.deepEqual(getEndlessProgressionTarget(60).allowedBands, [DifficultyBand.Easy]);
-assert.deepEqual(getEndlessProgressionTarget(61).allowedBands, [DifficultyBand.Medium]);
+assert.deepEqual(getEndlessCatalogSelectionTarget(1).allowedSizes, [6]);
+assert.deepEqual(getEndlessCatalogSelectionTarget(29).allowedSizes, [6]);
+assert.deepEqual(getEndlessCatalogSelectionTarget(30).allowedSizes, [8]);
+assert.deepEqual(getEndlessCatalogSelectionTarget(60).allowedSizes, [8]);
+assert.deepEqual(getEndlessCatalogSelectionTarget(60).allowedBands, [DifficultyBand.Easy]);
+assert.deepEqual(getEndlessCatalogSelectionTarget(61).allowedBands, [DifficultyBand.Medium]);
 assert.ok(
-  getEndlessProgressionTarget(300).allowedBands.includes(
+  getEndlessCatalogSelectionTarget(300).allowedBands.includes(
     DifficultyBand.Hard,
   ),
 );
 assert.ok(
-  getEndlessProgressionTarget(500).allowedBands.includes(
+  getEndlessCatalogSelectionTarget(500).allowedBands.includes(
     DifficultyBand.Expert,
   ),
 );
@@ -219,7 +219,7 @@ for (
   ordinal += 1
 ) {
   const target =
-    getEndlessProgressionTarget(ordinal);
+    getEndlessCatalogSelectionTarget(ordinal);
   assert.ok(
     target.targetScore >= 45 &&
       target.targetScore <= 92,
@@ -230,7 +230,7 @@ const forcedExpertOrdinals = Array.from(
   { length: 1_500 },
   (_, index) => index + 501,
 ).filter((ordinal) => {
-  const target = getEndlessProgressionTarget(ordinal);
+  const target = getEndlessCatalogSelectionTarget(ordinal);
   return (
     target.allowedBands.length === 1 &&
     target.allowedBands[0] === DifficultyBand.Expert
@@ -242,7 +242,7 @@ assert.ok(
 );
 
 assert.throws(
-  () => getEndlessProgressionTarget(0),
+  () => getEndlessCatalogSelectionTarget(0),
   RangeError,
 );
 assert.throws(
@@ -1401,7 +1401,7 @@ assert.ok(syntheticSelectedA.slice(0, 29).every((entry) => entry.size === 6));
 assert.ok(syntheticSelectedA.slice(29, 50).every((entry) => entry.size === 8));
 for (const entry of syntheticSelectedA) {
   assert.ok(
-    getEndlessProgressionTarget(entry.ordinal).allowedBands.includes(
+    getEndlessCatalogSelectionTarget(entry.ordinal).allowedBands.includes(
       entry.difficultyBand,
     ),
   );

@@ -59,6 +59,15 @@ export class CampaignService {
     );
   }
 
+  isEndlessUnlocked(): boolean {
+    const completed = new Set(this.profileService.getProfile().campaign.completedLevelIds);
+    const firstRow = this.levels
+      .filter((entry) => entry.slot >= 1 && entry.slot <= CAMPAIGN_ROW_SIZE)
+      .sort((left, right) => left.slot - right.slot);
+    return firstRow.length === CAMPAIGN_ROW_SIZE
+      && firstRow.every((entry) => completed.has(entry.id));
+  }
+
   getPlayableLevels(): readonly CampaignLevelEntry[] {
     if (!this.profileService.getProfile().tutorial.completed) return [];
 
@@ -128,6 +137,7 @@ export class CampaignService {
     const beforeProfile = this.profileService.getProfile();
     const beforeCompleted = beforeProfile.campaign.completedLevelIds;
     const wasCompleted = beforeCompleted.includes(id);
+    const wasEndlessUnlocked = this.isEndlessUnlocked();
 
     this.profileService.update((profile) => {
       const completedLevelIds = wasCompleted
@@ -164,9 +174,10 @@ export class CampaignService {
       progress,
       recommendedNextLevel: this.getRecommendedNextLevel(entry, progress),
       rowUnlock: this.getRowUnlockTransition(entry, beforeCompleted, progress),
-      unlockedFeatures: !wasCompleted && id === 'campaign-005'
-        ? ['daily']
-        : [],
+      unlockedFeatures: [
+        ...(!wasCompleted && id === 'campaign-005' ? ['daily' as const] : []),
+        ...(!wasEndlessUnlocked && this.isEndlessUnlocked() ? ['endless' as const] : []),
+      ],
       persisted,
     };
   }

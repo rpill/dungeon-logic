@@ -82,40 +82,41 @@ async function main(): Promise<void> {
   const profile = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
   const endless = EndlessService.create(fakeCatalog(3), profile);
   const first = endless.beginCurrent();
-  assert(first !== null && first.ordinal === 0 && first.attempt === 'new', 'First Endless launch must be ordinal 0/new.');
+  assert(first.ordinal === 0 && first.attempt === 'new', 'First Endless launch must be ordinal 0/new.');
 
   const session = PuzzleSessionService.createEndless(first.level, profile, first.savedPuzzle, 1000);
   const firstSnapshot = session.saveNow();
   assert(profile.getProfile().endless.activePuzzle?.mode === 'endless', 'Endless session must persist under endless.activePuzzle.');
 
   const resumed = endless.beginCurrent();
-  assert(resumed?.attempt === 'resume', 'Compatible Endless draft must resume.');
-  const roundTrip = PuzzleSessionService.createEndless(resumed!.level, profile, resumed!.savedPuzzle, 2000);
+  assert(resumed.attempt === 'resume', 'Compatible Endless draft must resume.');
+  const roundTrip = PuzzleSessionService.createEndless(resumed.level, profile, resumed.savedPuzzle, 2000);
   assert(roundTrip.snapshot().puzzleId === firstSnapshot.puzzleId, 'Endless draft must round-trip through PuzzleSessionService.');
 
   session.clearActivePuzzle();
   session.saveNow();
   assert(profile.getProfile().endless.activePuzzle === null, 'A sealed Endless session must not resurrect its cleared draft.');
 
-  const firstCompletion = await endless.completeCurrent(0);
-  assert(firstCompletion.persisted, 'Endless completion should persist with in-memory storage.');
-  assert(firstCompletion.next?.ordinal === 1, 'Completing ordinal 0 must advance to ordinal 1.');
-  assert(profile.getProfile().endless.ordinal === 1, 'Profile must advance Endless ordinal.');
-  assert(profile.getProfile().endless.completed === 1, 'Profile must count the completed Endless puzzle.');
-  assert(profile.getProfile().endless.activePuzzle === null, 'Completion must leave no stale Endless draft.');
+  for (let ordinal = 0; ordinal < 7; ordinal += 1) {
+    const launch = endless.beginCurrent();
+    assert(launch.ordinal === ordinal, `Logical Endless ordinal must advance without catalog terminal at ${ordinal}.`);
+    const result = await endless.completeCurrent(ordinal);
+    assert(result.completed === ordinal + 1, `Endless completion count must be unbounded at ${ordinal}.`);
+  }
 
-  profile.update((current) => ({
-    ...current,
-    endless: { ordinal: 2, completed: 2, activePuzzle: null },
-  }));
-  const terminal = await endless.completeCurrent(2);
-  assert(terminal.catalogComplete, 'Last catalog puzzle must produce terminal completion.');
-  assert(terminal.next === null, 'Last catalog puzzle must not wrap to ordinal 0.');
-  assert(profile.getProfile().endless.ordinal === 2, 'Terminal profile ordinal must remain on the last catalog entry.');
-  assert(profile.getProfile().endless.completed === 3, 'Terminal completion must count the full catalog.');
-  assert(endless.beginCurrent() === null, 'Completed catalog must not start again from the beginning.');
+  assert(profile.getProfile().endless.ordinal === 7, 'Endless ordinal must advance beyond the finite catalog length.');
+  assert(profile.getProfile().endless.completed === 7, 'Endless solved count must advance beyond the finite catalog length.');
+  assert(endless.beginCurrent().ordinal === 7, 'Endless must always provide another puzzle after catalog wrap.');
 
-  console.info('[Dungeon Logic] Endless runtime sanity: schema + migration + draft roundtrip + sealing + progression + terminal passed');
+  const hugeRaw = {
+    ...profile.getProfile(),
+    endless: { ordinal: 125_000, completed: 125_000, activePuzzle: null },
+  };
+  const huge = await PlayerProfileService.create([], new MemoryStorage(hugeRaw), { saveDelayMs: 60_000 });
+  assert(huge.getProfile().endless.ordinal === 125_000, 'Profile normalization must not clamp Endless ordinal to catalog size.');
+  assert(huge.getProfile().endless.completed === 125_000, 'Profile normalization must not clamp Endless solved count to catalog size.');
+
+  console.info('[Dungeon Logic] Endless runtime sanity: infinite logical progression + draft roundtrip + no terminal passed');
 }
 
 void main();

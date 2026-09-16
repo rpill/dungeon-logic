@@ -6,7 +6,7 @@ import {
   TARGETED_POOL_SIZE,
 } from '../../puzzle/generator/DifficultyTargetPolicy';
 import {
-  getEndlessProgressionTarget,
+  getEndlessCatalogSelectionTarget,
 } from '../../content/endless/ProgressionPolicy';
 import type {
   RatedDifficultyBand,
@@ -111,7 +111,7 @@ export function buildEndlessReservoirTargets(
     ordinal <= targetCount;
     ordinal += 1
   ) {
-    const target = getEndlessProgressionTarget(ordinal);
+    const target = getEndlessCatalogSelectionTarget(ordinal);
     demand[bandForScore(target.targetScore)] += 1;
   }
 
@@ -157,7 +157,7 @@ export function buildEndlessCoveragePlan(
     ordinal += 1
   ) {
     const allowedBands =
-      getEndlessProgressionTarget(ordinal).allowedBands;
+      getEndlessCatalogSelectionTarget(ordinal).allowedBands;
     const key = coverageBucketKey(allowedBands);
     const existing = bucketMap.get(key);
     if (existing === undefined) {
