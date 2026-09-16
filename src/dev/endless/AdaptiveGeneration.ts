@@ -19,13 +19,16 @@ import {
 } from './CrossPoolFingerprints';
 import {
   buildEndlessBandDiversitySnapshot,
+  buildEndlessCoveragePlan,
   buildEndlessReservoirTargets,
+  calculateEndlessReservoirCoverage,
   chooseNextAdaptiveLane,
   countReservoirBands,
   createEmptyEndlessBandCounts,
-  reservoirTargetsSatisfied,
+  reservoirCoverageSatisfied,
   type EndlessBandCounts,
   type EndlessBandDiversitySnapshot,
+  type EndlessCoveragePlan,
 } from './AdaptiveScanPolicy';
 import {
   readReservoirChunks,
@@ -71,8 +74,8 @@ export interface AdaptiveEndlessGenerationState {
   readonly maxAttemptsPerLane: number;
   readonly chunkAttempts: number;
   readonly nextAttemptByLane: Readonly<Record<string, number>>;
-  // Added compatibly to v1 state. Older in-progress scans may omit these and
-  // resume with a fresh streak counter.
+  // Retained compatibly in v1 state so existing in-progress reservoirs can
+  // resume without migration. Yield-only scheduling no longer reads these.
   readonly lastLaneId?: string | null;
   readonly consecutiveLaneChunks?: number;
 }
@@ -84,6 +87,8 @@ export interface AdaptiveEndlessGenerationProgress {
   readonly reservoirCount: number;
   readonly counts: Readonly<EndlessBandCounts>;
   readonly targets: Readonly<EndlessBandCounts>;
+  readonly coveredCount: number;
+  readonly coverageTarget: number;
   readonly chunksWritten: number;
   readonly hardDiversity: EndlessBandDiversitySnapshot;
   readonly expertDiversity: EndlessBandDiversitySnapshot;
@@ -99,6 +104,8 @@ export interface AdaptiveEndlessGenerationReport {
   readonly demand: Readonly<EndlessBandCounts>;
   readonly targets: Readonly<EndlessBandCounts>;
   readonly counts: Readonly<EndlessBandCounts>;
+  readonly coveredCount: number;
+  readonly coverageTarget: number;
   readonly attemptsByLane: Readonly<Record<string, number>>;
   readonly entries: readonly EndlessReservoirEntry[];
 }
@@ -159,13 +166,18 @@ export function runAdaptiveEndlessGeneration(
     options.reservePercent,
   );
 
+  const coveragePlan = buildEndlessCoveragePlan(
+    options.targetCount,
+    options.reservePercent,
+  );
+
   let chunksWritten = 0;
   let attemptsProcessed = 0;
 
   while (
-    !reservoirTargetsSatisfied(
+    !reservoirCoverageSatisfied(
       counts,
-      targetPlan.targets,
+      coveragePlan,
     )
   ) {
     if (
@@ -180,6 +192,7 @@ export function runAdaptiveEndlessGeneration(
         attemptsProcessed,
         targetPlan.demand,
         targetPlan.targets,
+        coveragePlan,
         attemptsByLane,
       );
     }
@@ -189,7 +202,7 @@ export function runAdaptiveEndlessGeneration(
       attemptsByLane,
       acceptedByLane,
       counts,
-      targets: targetPlan.targets,
+      coveragePlan,
       warmupAttemptsPerLane:
         options.warmupAttemptsPerLane,
       maxAttemptsPerLane:
@@ -208,6 +221,7 @@ export function runAdaptiveEndlessGeneration(
         attemptsProcessed,
         targetPlan.demand,
         targetPlan.targets,
+        coveragePlan,
         attemptsByLane,
       );
     }
@@ -237,10 +251,10 @@ export function runAdaptiveEndlessGeneration(
       seenStructuralFingerprints,
     });
 
-    const persistedEntries = trimAcceptedToTargets(
+    const persistedEntries = trimAcceptedToCoverage(
       result.accepted,
       counts,
-      targetPlan.targets,
+      coveragePlan,
       seenCandidateIds,
       seenStructuralFingerprints,
     );
@@ -290,6 +304,11 @@ export function runAdaptiveEndlessGeneration(
       reservoirCount: sumBandCounts(counts),
       counts: { ...counts },
       targets: { ...targetPlan.targets },
+      coveredCount: calculateEndlessReservoirCoverage(
+        counts,
+        coveragePlan,
+      ),
+      coverageTarget: coveragePlan.totalTarget,
       chunksWritten,
       hardDiversity:
         buildEndlessBandDiversitySnapshot(
@@ -314,38 +333,46 @@ export function runAdaptiveEndlessGeneration(
     attemptsProcessed,
     targetPlan.demand,
     targetPlan.targets,
+    coveragePlan,
     attemptsByLane,
   );
 }
 
-function trimAcceptedToTargets(
+function trimAcceptedToCoverage(
   accepted: readonly EndlessReservoirEntry[],
   counts: Readonly<EndlessBandCounts>,
-  targets: Readonly<EndlessBandCounts>,
+  coveragePlan: EndlessCoveragePlan,
   seenCandidateIds: Set<string>,
   seenStructuralFingerprints: Set<string>,
 ): readonly EndlessReservoirEntry[] {
-  const acceptedThisChunk =
-    createEmptyEndlessBandCounts();
+  const workingCounts: EndlessBandCounts = {
+    ...counts,
+  };
+  let covered = calculateEndlessReservoirCoverage(
+    workingCounts,
+    coveragePlan,
+  );
   const persisted: EndlessReservoirEntry[] = [];
 
   for (const entry of accepted) {
     const band = entry.difficultyBand;
-    const remaining =
-      targets[band] -
-      counts[band] -
-      acceptedThisChunk[band];
+    workingCounts[band] += 1;
+    const nextCovered = calculateEndlessReservoirCoverage(
+      workingCounts,
+      coveragePlan,
+    );
 
-    if (remaining > 0) {
+    if (nextCovered > covered) {
       persisted.push(entry);
-      acceptedThisChunk[band] += 1;
+      covered = nextCovered;
       continue;
     }
 
+    workingCounts[band] -= 1;
+
     // scanEndlessLane marks accepted entries as seen. Entries discarded
-    // because their band reservoir is already full must not influence the
-    // rest of the scan, otherwise an interrupted/resumed run could diverge
-    // from an uninterrupted run.
+    // because their band cannot improve progression coverage must not
+    // influence resumed scanning.
     seenCandidateIds.delete(entry.candidateId);
     seenStructuralFingerprints.delete(
       entry.structuralFingerprint,
@@ -627,6 +654,7 @@ function buildReport(
   attemptsProcessed: number,
   demand: Readonly<EndlessBandCounts>,
   targets: Readonly<EndlessBandCounts>,
+  coveragePlan: EndlessCoveragePlan,
   attemptsByLane: Readonly<Record<string, number>>,
 ): AdaptiveEndlessGenerationReport {
   const entries = readReservoirChunks(rootDir);
@@ -653,6 +681,11 @@ function buildReport(
     demand: { ...demand },
     targets: { ...targets },
     counts,
+    coveredCount: calculateEndlessReservoirCoverage(
+      counts,
+      coveragePlan,
+    ),
+    coverageTarget: coveragePlan.totalTarget,
     attemptsByLane: stableAttempts,
     entries,
   };
@@ -718,14 +751,6 @@ function validateResumeOptions(
   if (options.targetCount < state.targetCount) {
     throw new Error(
       `Adaptive Endless resume cannot reduce targetCount from ${state.targetCount} to ${options.targetCount}.`,
-    );
-  }
-  if (
-    options.reservePercent <
-    state.reservePercent
-  ) {
-    throw new Error(
-      `Adaptive Endless resume cannot reduce reservePercent from ${state.reservePercent} to ${options.reservePercent}.`,
     );
   }
   if (

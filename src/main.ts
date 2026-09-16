@@ -7,7 +7,6 @@ import { GameScene } from './scenes/GameScene';
 import { HomeScene } from './scenes/HomeScene';
 import { LevelSelectScene } from './scenes/LevelSelectScene';
 import { HelpScene } from './scenes/HelpScene';
-import { StatsScene } from './scenes/StatsScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { DailyScene } from './scenes/DailyScene';
 import { SettingsScene } from './scenes/SettingsScene';
@@ -41,7 +40,6 @@ const config: Phaser.Types.Core.GameConfig = {
     BootScene,
     HomeScene,
     LevelSelectScene,
-    StatsScene,
     DailyScene,
     LeaderboardScene,
     GameScene,

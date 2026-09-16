@@ -369,7 +369,10 @@ function createYandexLeaderboards(
     async submitScore(name, score, extraData) {
       if (!Number.isFinite(score) || score < 0) return 'unavailable';
       if (!await authorized()) return 'unauthorized';
-      if (!await methodAvailable('leaderboards.setScore')) return 'unavailable';
+      if (!await methodAvailable('leaderboards.setScore')) {
+        console.warn('[Dungeon Logic] Yandex leaderboard setScore method is unavailable.', { name, score });
+        return 'unavailable';
+      }
       try {
         const sdk = await sdkPromise;
         const setScore = sdk.leaderboards?.setScore;
@@ -378,7 +381,7 @@ function createYandexLeaderboards(
         return 'submitted';
       } catch (error) {
         reportTechnicalError('leaderboard_submit_failed', 'leaderboard');
-        console.warn('[Dungeon Logic] Could not submit leaderboard score.', error);
+        console.warn('[Dungeon Logic] Could not submit leaderboard score.', { name, score, error });
         return 'unavailable';
       }
     },
@@ -392,8 +395,9 @@ function createYandexLeaderboards(
         if (typeof getPlayerEntry !== 'function') return null;
         const raw = await getPlayerEntry.call(sdk.leaderboards, name);
         return normalizeLeaderboardEntry(raw, currentUniqueIdFrom(raw));
-      } catch {
+      } catch (error) {
         reportTechnicalError('leaderboard_load_failed', 'leaderboard');
+        console.warn('[Dungeon Logic] Could not load current leaderboard player entry.', { name, error });
         return null;
       }
     },

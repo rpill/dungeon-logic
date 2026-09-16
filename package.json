@@ -107,7 +107,8 @@
     "sanity:home-hub": "node scripts/home-hub-layout-sanity.mjs",
     "sanity:home-mode-cards": "node scripts/home-mode-card-sanity.mjs",
     "sanity:available-viewport": "node --experimental-strip-types scripts/available-viewport-sanity.mjs",
-    "sanity:meta-available-viewport": "node scripts/meta-available-viewport-sanity.mjs"
+    "sanity:meta-available-viewport": "node scripts/meta-available-viewport-sanity.mjs",
+    "sanity:endless-verifier-parallel": "node scripts/endless-verifier-parallel-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

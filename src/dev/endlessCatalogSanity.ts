@@ -96,9 +96,13 @@ import {
   runEndlessProbe,
 } from './endless/Probe';
 import {
+  buildEndlessBandDiversitySnapshot,
+  buildEndlessCoveragePlan,
   buildEndlessReservoirTargets,
+  calculateEndlessReservoirCoverage,
   chooseNextAdaptiveLane,
   createEmptyEndlessBandCounts,
+  reservoirCoverageSatisfied,
 } from './endless/AdaptiveScanPolicy';
 import {
   readAdaptiveGenerationState,
@@ -474,6 +478,75 @@ assert.ok(
     productionReservoirTargets.targets.medium,
 );
 
+const productionCoveragePlan = buildEndlessCoveragePlan(
+  ENDLESS_TARGET_COUNT,
+  0,
+);
+assert.equal(
+  productionCoveragePlan.totalTarget,
+  ENDLESS_TARGET_COUNT,
+);
+assert.deepEqual(
+  Object.fromEntries(
+    productionCoveragePlan.buckets.map((bucket) => [
+      bucket.allowedBands.join('|'),
+      bucket.count,
+    ]),
+  ),
+  {
+    easy: 20,
+    'easy|medium': 40,
+    'medium|hard': 25_115,
+    hard: 47_676,
+    'hard|expert': 23_001,
+    expert: 4_148,
+  },
+  'Coverage demand must follow progression allowedBands rather than targetScore bands.',
+);
+
+const resumedCoverageCounts = {
+  easy: 29,
+  medium: 2_484,
+  hard: 70_791,
+  expert: 20_099,
+} as const;
+assert.equal(
+  calculateEndlessReservoirCoverage(
+    resumedCoverageCounts,
+    productionCoveragePlan,
+  ),
+  93_403,
+  'Existing flexible-band candidates must count toward coverage instead of being discarded as score-band oversupply.',
+);
+assert.equal(
+  reservoirCoverageSatisfied(
+    resumedCoverageCounts,
+    productionCoveragePlan,
+  ),
+  false,
+);
+assert.equal(
+  calculateEndlessReservoirCoverage(
+    {
+      ...resumedCoverageCounts,
+      hard: resumedCoverageCounts.hard + 6_597,
+    },
+    productionCoveragePlan,
+  ),
+  ENDLESS_TARGET_COUNT,
+  'Hard candidates must be able to satisfy Hard|Expert slots after Hard-only demand is covered.',
+);
+assert.equal(
+  reservoirCoverageSatisfied(
+    {
+      ...resumedCoverageCounts,
+      hard: resumedCoverageCounts.hard + 6_597,
+    },
+    productionCoveragePlan,
+  ),
+  true,
+);
+
 const adaptivePlan = buildEndlessScanPlan(
   20260913,
   1_000,
@@ -486,6 +559,62 @@ const adaptiveLaneB = adaptivePlan.find(
 );
 assert.ok(adaptiveLaneA !== undefined);
 assert.ok(adaptiveLaneB !== undefined);
+if (adaptiveLaneB !== undefined) {
+  const expertFocusedLane = adaptivePlan.find(
+    (lane) => lane.id === 'chest-one-room:8',
+  );
+  assert.ok(expertFocusedLane !== undefined);
+  if (expertFocusedLane !== undefined) {
+    const coveragePick = chooseNextAdaptiveLane({
+      lanes: [adaptiveLaneB, expertFocusedLane],
+      attemptsByLane: {
+        [adaptiveLaneB.id]: 100_000,
+        [expertFocusedLane.id]: 100_000,
+      },
+      acceptedByLane: {
+        [adaptiveLaneB.id]: {
+          easy: 0,
+          medium: 0,
+          hard: 7_000,
+          expert: 1_400,
+        },
+        [expertFocusedLane.id]: {
+          easy: 0,
+          medium: 0,
+          hard: 0,
+          expert: 5_000,
+        },
+      },
+      counts: resumedCoverageCounts,
+      coveragePlan: productionCoveragePlan,
+      warmupAttemptsPerLane: 0,
+      maxAttemptsPerLane: 1_000_000,
+    });
+    assert.equal(
+      coveragePick?.id,
+      adaptiveLaneB.id,
+      'Coverage-aware scheduling must value Hard yield while Hard can satisfy flexible Hard|Expert slots.',
+    );
+  }
+
+  const diversitySnapshot = buildEndlessBandDiversitySnapshot(
+    [adaptiveLaneB],
+    {
+      [adaptiveLaneB.id]: {
+        easy: 0,
+        medium: 0,
+        hard: 12,
+        expert: 3,
+      },
+    },
+    'hard',
+  );
+  assert.equal(
+    diversitySnapshot.byLane[adaptiveLaneB.id],
+    12,
+    'Adaptive generation must keep diversity telemetry even though diversity no longer drives lane scheduling.',
+  );
+}
 if (
   adaptiveLaneA !== undefined &&
   adaptiveLaneB !== undefined
@@ -601,8 +730,8 @@ if (
     });
     assert.equal(
       diversityPick?.id,
-      diversityLane.id,
-      'Adaptive scan must stop one high-yield lane from monopolizing the reservoir once that lane is already heavily represented.',
+      adaptiveLaneB.id,
+      'Adaptive scan must keep prioritizing missing-band yield even when the highest-yield lane is already heavily represented.',
     );
 
     const monsterSevenLane = adaptivePlan.find(
@@ -654,8 +783,8 @@ if (
       });
       assert.equal(
         resumedDiversityPick?.id,
-        diversityLane.id,
-        'Adaptive scan must diversify across archetypes instead of replacing monster-only:8 with a long monster-only:7 run.',
+        adaptiveLaneB.id,
+        'Adaptive scan must not spend resumed generation time balancing reservoir archetypes when monster-only:8 has the best missing-band yield.',
       );
 
       const productiveMixedLane = adaptivePlan.find(
@@ -749,8 +878,8 @@ if (
         });
         assert.equal(
           yieldAwarePick?.id,
-          productiveMixedLane.id,
-          'Adaptive scan must prefer a productive under-represented lane over a much weaker lane chosen only for diversity.',
+          adaptiveLaneB.id,
+          'Adaptive scan must choose the strongest empirical missing-band yield regardless of archetype representation.',
         );
       }
     }
@@ -799,8 +928,8 @@ if (
       });
       assert.equal(
         rotationPick?.id,
-        rotationLane.id,
-        'Adaptive scan must rotate away from one lane after three consecutive chunks when a meaningful alternative exists.',
+        adaptiveLaneB.id,
+        'Adaptive scan must not force lane rotation when the current lane still has the strongest missing-band yield.',
       );
     }
   }
@@ -814,7 +943,7 @@ try {
     rootDir: adaptiveGenerationRoot,
     masterSeed: 20260913,
     targetCount: 20,
-    reservePercent: 0,
+    reservePercent: 15,
     warmupAttemptsPerLane: 0,
     maxAttemptsPerLane: 500,
     chunkAttempts: 5,
@@ -1280,6 +1409,60 @@ for (const entry of syntheticSelectedA) {
     ),
   );
 }
+
+const scarcityReservoir: EndlessReservoirEntry[] = [];
+const appendScarcityEntries = (
+  band: EndlessReservoirEntry['difficultyBand'],
+  count: number,
+  difficultyScore: number,
+  qualityScore: number,
+): void => {
+  for (let index = 0; index < count; index += 1) {
+    const id = `scarcity-${band}-${String(index).padStart(4, '0')}`;
+    scarcityReservoir.push({
+      laneIndex: 0,
+      laneId: 'monster-only:8',
+      attempt: scarcityReservoir.length,
+      seed: 10_000 + scarcityReservoir.length,
+      candidateId: id,
+      archetype: GeneratorArchetype.MonsterOnly,
+      size: 8,
+      difficultyScore,
+      difficultyBand: band,
+      qualityScore,
+      structuralFingerprint: `scarcity-fp-${id}`,
+      diversity: {
+        size: 8,
+        wallDensity: 0.35,
+        thickWallCellRatio: 0.25,
+        wallOpenBoundaryPerWall: 1.5,
+        largestWallComponentRatio: 0.45,
+        monsterCount: 2,
+        solution: Array.from({ length: 8 }, () => '........'),
+        rooms: [],
+      },
+    });
+  }
+};
+
+// This reservoir has exactly enough material for the first 501 progression
+// slots, but the single Hard entry must be preserved for ordinal 501, which
+// is Hard-only. A greedy selector spends it earlier on a flexible slot.
+appendScarcityEntries(DifficultyBand.Easy, 20, 20, 80);
+appendScarcityEntries(DifficultyBand.Medium, 280, 49, 80);
+appendScarcityEntries(DifficultyBand.Hard, 1, 62, 200);
+appendScarcityEntries(DifficultyBand.Expert, 200, 75, 10);
+
+const scarcitySelected = selectEndlessCatalog(
+  scarcityReservoir,
+  501,
+);
+assert.equal(scarcitySelected.length, 501);
+assert.equal(
+  scarcitySelected[500].difficultyBand,
+  DifficultyBand.Hard,
+  'Selector must preserve scarce Hard candidates for future Hard-only progression slots.',
+);
 
 const generationExtendedFullRoot = mkdtempSync(
   join(tmpdir(), 'dungeon-logic-endless-extended-full-'),

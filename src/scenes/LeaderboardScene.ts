@@ -231,9 +231,25 @@ export class LeaderboardScene extends Phaser.Scene {
         }),
       );
       if (submit === 'submitted') {
-        rawCurrent = await services.leaderboards.getPlayerEntry(leaderboardName);
+        rawCurrent = this.makeOptimisticCurrentEntry(
+          table?.entries ?? [],
+          data.dateKey,
+          packedScore,
+          copy.leaderboard.playerFallback,
+        );
+        table = table === null
+          ? { entries: [], currentPlayer: rawCurrent }
+          : { ...table, currentPlayer: rawCurrent };
+        leaderboardSnapshotCache.set(cacheKey, { snapshot: table, fetchedAtMs: Date.now() });
+        void this.refreshLeaderboardCacheAfterSubmit(services, leaderboardName, cacheKey, authorized);
+      } else {
+        console.warn('[Dungeon Logic] Daily leaderboard score submission was not accepted.', {
+          leaderboardName,
+          dateKey: data.dateKey,
+          score: packedScore,
+          submit,
+        });
       }
-      if (!this.isCurrent(version)) return;
     }
 
     const rawRows = table === null ? [] : [...table.entries];
@@ -275,6 +291,51 @@ export class LeaderboardScene extends Phaser.Scene {
       layout,
       tableStartY,
     );
+  }
+
+
+  private makeOptimisticCurrentEntry(
+    entries: readonly LeaderboardPlayerView[],
+    dateKey: string,
+    score: number,
+    fallbackName: string,
+  ): LeaderboardPlayerView {
+    const sameDate = entries
+      .filter((entry) => this.entryMatchesDate(entry, dateKey))
+      .sort((left, right) => right.score - left.score);
+    const insertionIndex = sameDate.findIndex((entry) => score > entry.score);
+    const index = insertionIndex < 0 ? sameDate.length : insertionIndex;
+
+    let place = 1;
+    if (sameDate.length > 0) {
+      if (index === 0) place = sameDate[0]!.place - 0.5;
+      else if (index === sameDate.length) place = sameDate[sameDate.length - 1]!.place + 0.5;
+      else place = (sameDate[index - 1]!.place + sameDate[index]!.place) / 2;
+    }
+
+    return {
+      place,
+      score,
+      publicName: fallbackName,
+      avatarUrl: null,
+      isCurrentPlayer: true,
+    };
+  }
+
+  private async refreshLeaderboardCacheAfterSubmit(
+    services: PlatformServices,
+    leaderboardName: string,
+    cacheKey: string,
+    includeUser: boolean,
+  ): Promise<void> {
+    const refreshed = await services.leaderboards.getEntries(leaderboardName, {
+      quantityTop: 10,
+      quantityAround: 2,
+      includeUser,
+    });
+    if (refreshed !== null) {
+      leaderboardSnapshotCache.set(cacheKey, { snapshot: refreshed, fetchedAtMs: Date.now() });
+    }
   }
 
   private renderPlayerSummary(

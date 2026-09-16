@@ -80,3 +80,16 @@ export interface EndlessVerificationReport {
   readonly dailyCollisionCount: number;
   readonly failures: readonly EndlessVerificationFailure[];
 }
+
+export interface EndlessVerificationCheckpointChunk {
+  readonly chunkIndex: number;
+  readonly failures: readonly EndlessVerificationFailure[];
+}
+
+export interface EndlessVerificationCheckpoint {
+  readonly version: 1;
+  readonly selectionHash: string;
+  readonly entryCount: number;
+  readonly chunkSize: number;
+  readonly completed: readonly EndlessVerificationCheckpointChunk[];
+}

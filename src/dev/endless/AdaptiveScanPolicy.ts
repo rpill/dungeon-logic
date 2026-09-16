@@ -5,10 +5,6 @@ import {
   TARGETED_ARCHETYPE_QUOTAS,
   TARGETED_POOL_SIZE,
 } from '../../puzzle/generator/DifficultyTargetPolicy';
-import type {
-  GeneratorArchetype,
-  GeneratorBoardSize,
-} from '../../puzzle/generator/types';
 import {
   getEndlessProgressionTarget,
 } from '../../content/endless/ProgressionPolicy';
@@ -32,6 +28,18 @@ export interface EndlessReservoirTargetPlan {
   readonly totalTarget: number;
 }
 
+export interface EndlessCoverageBucket {
+  readonly allowedBands: readonly RatedDifficultyBand[];
+  readonly count: number;
+}
+
+export interface EndlessCoveragePlan {
+  readonly targetCount: number;
+  readonly reservePercent: number;
+  readonly buckets: readonly EndlessCoverageBucket[];
+  readonly totalTarget: number;
+}
+
 export interface ChooseNextAdaptiveLaneOptions {
   readonly lanes: readonly EndlessScanLane[];
   readonly attemptsByLane: Readonly<Record<string, number>>;
@@ -39,7 +47,8 @@ export interface ChooseNextAdaptiveLaneOptions {
     Record<string, Readonly<EndlessBandCounts>>
   >;
   readonly counts: Readonly<EndlessBandCounts>;
-  readonly targets: Readonly<EndlessBandCounts>;
+  readonly coveragePlan?: EndlessCoveragePlan;
+  readonly targets?: Readonly<EndlessBandCounts>;
   readonly warmupAttemptsPerLane: number;
   readonly maxAttemptsPerLane: number;
   readonly recentLaneId?: string | null;
@@ -56,75 +65,10 @@ const RATED_BANDS: readonly RatedDifficultyBand[] = [
 const PRIOR_ATTEMPTS = 100;
 const PRIOR_SUCCESS_SCALE = 2;
 
-// Once a band has enough accepted candidates to make composition meaningful,
-// steer toward a target archetype mix without ever turning diversity into a
-// hard gate. Archetype balance is the primary signal; board size is only a
-// soft secondary nudge because difficult candidates naturally skew toward 8x8.
-const DIVERSITY_PRESSURE_START_COUNT = 250;
-const MAX_CONSECUTIVE_LANE_CHUNKS = 3;
-const MIN_ROTATION_UTILITY_RATIO = 0.60;
-
-const ARCHETYPE_SHARE_FLOOR = 0.03;
-const ARCHETYPE_SHARE_MAX_BOOST = 16;
-const ARCHETYPE_SHARE_POWER = 4;
-const SIZE_SHARE_FLOOR = 0.65;
-const SIZE_SHARE_MAX_BOOST = 1.50;
-const SIZE_SHARE_POWER = 1.5;
-
-type ArchetypeSharePlan = Readonly<
-  Record<GeneratorArchetype, number>
->;
-
-type SizeSharePlan = Readonly<
-  Record<GeneratorBoardSize, number>
->;
-
-const ARCHETYPE_TARGET_SHARES: Readonly<
-  Record<RatedDifficultyBand, ArchetypeSharePlan>
-> = {
-  easy: {
-    'monster-only': 0.36,
-    'mixed-one-room': 0.32,
-    'mixed-two-rooms': 0.20,
-    'chest-two-rooms': 0.08,
-    'chest-one-room': 0.04,
-  },
-  medium: {
-    'monster-only': 0.20,
-    'mixed-one-room': 0.20,
-    'mixed-two-rooms': 0.32,
-    'chest-two-rooms': 0.16,
-    'chest-one-room': 0.12,
-  },
-  hard: {
-    // Hard is still mostly open monster labyrinths, but mixed layouts must
-    // form a substantial minority. Pure chest layouts are deliberately rare
-    // here because the probe showed a very low Hard yield for those lanes.
-    'monster-only': 0.50,
-    'mixed-one-room': 0.34,
-    'mixed-two-rooms': 0.14,
-    'chest-one-room': 0.01,
-    'chest-two-rooms': 0.01,
-  },
-  expert: {
-    // Expert has several productive 8x8 sources, so preserve a much broader
-    // archetype mix without forcing effectively impossible 6x6 Experts.
-    'monster-only': 0.45,
-    'chest-one-room': 0.30,
-    'mixed-one-room': 0.20,
-    'chest-two-rooms': 0.03,
-    'mixed-two-rooms': 0.02,
-  },
-};
-
-const SIZE_TARGET_SHARES: Readonly<
-  Record<RatedDifficultyBand, SizeSharePlan>
-> = {
-  easy: { 6: 0.45, 7: 0.35, 8: 0.20 },
-  medium: { 6: 0.20, 7: 0.40, 8: 0.40 },
-  hard: { 6: 0.05, 7: 0.30, 8: 0.65 },
-  expert: { 6: 0.00, 7: 0.15, 8: 0.85 },
-};
+// Reservoir composition is diagnostic only. The generator scheduler is
+// intentionally yield-driven: diversity is enforced later by Selector.ts,
+// where it can improve the final sequence without turning rare generation
+// lanes into a time sink.
 
 interface EndlessDiversityContext {
   readonly acceptedByArchetype: Readonly<
@@ -189,6 +133,167 @@ export function buildEndlessReservoirTargets(
   };
 }
 
+export function buildEndlessCoveragePlan(
+  targetCount: number,
+  reservePercent: number,
+): EndlessCoveragePlan {
+  validateNonNegativeInteger(targetCount, 'Endless targetCount');
+  validateNonNegativeInteger(
+    reservePercent,
+    'Endless reservePercent',
+  );
+
+  const bucketMap = new Map<
+    string,
+    {
+      allowedBands: readonly RatedDifficultyBand[];
+      count: number;
+    }
+  >();
+
+  for (
+    let ordinal = 1;
+    ordinal <= targetCount;
+    ordinal += 1
+  ) {
+    const allowedBands =
+      getEndlessProgressionTarget(ordinal).allowedBands;
+    const key = coverageBucketKey(allowedBands);
+    const existing = bucketMap.get(key);
+    if (existing === undefined) {
+      bucketMap.set(key, {
+        allowedBands: [...allowedBands],
+        count: 1,
+      });
+    } else {
+      existing.count += 1;
+    }
+  }
+
+  const scale = (100 + reservePercent) / 100;
+  const buckets = [...bucketMap.values()]
+    .map((bucket) => ({
+      allowedBands: bucket.allowedBands,
+      count: Math.ceil(bucket.count * scale),
+    }))
+    .sort(compareCoverageBuckets);
+
+  return {
+    targetCount,
+    reservePercent,
+    buckets,
+    totalTarget: buckets.reduce(
+      (sum, bucket) => sum + bucket.count,
+      0,
+    ),
+  };
+}
+
+export function calculateEndlessReservoirCoverage(
+  counts: Readonly<EndlessBandCounts>,
+  plan: EndlessCoveragePlan,
+): number {
+  validateCoveragePlan(plan);
+  for (const band of RATED_BANDS) {
+    validateNonNegativeInteger(
+      counts[band],
+      `Endless ${band} reservoir count`,
+    );
+  }
+
+  const bandCount = RATED_BANDS.length;
+  const bucketCount = plan.buckets.length;
+  const source = 0;
+  const firstBandNode = 1;
+  const firstBucketNode = firstBandNode + bandCount;
+  const sink = firstBucketNode + bucketCount;
+  const nodeCount = sink + 1;
+  const capacity = Array.from(
+    { length: nodeCount },
+    () => Array<number>(nodeCount).fill(0),
+  );
+
+  for (let index = 0; index < bandCount; index += 1) {
+    const band = RATED_BANDS[index];
+    capacity[source][firstBandNode + index] = counts[band];
+  }
+
+  for (let bucketIndex = 0; bucketIndex < bucketCount; bucketIndex += 1) {
+    const bucket = plan.buckets[bucketIndex];
+    const bucketNode = firstBucketNode + bucketIndex;
+    capacity[bucketNode][sink] = bucket.count;
+    for (let bandIndex = 0; bandIndex < bandCount; bandIndex += 1) {
+      const band = RATED_BANDS[bandIndex];
+      if (bucket.allowedBands.includes(band)) {
+        capacity[firstBandNode + bandIndex][bucketNode] =
+          plan.totalTarget;
+      }
+    }
+  }
+
+  const residual = capacity.map((row) => [...row]);
+  let flow = 0;
+
+  while (true) {
+    const parent = Array<number>(nodeCount).fill(-1);
+    parent[source] = source;
+    const queue = [source];
+
+    for (
+      let cursor = 0;
+      cursor < queue.length && parent[sink] === -1;
+      cursor += 1
+    ) {
+      const node = queue[cursor];
+      for (let next = 0; next < nodeCount; next += 1) {
+        if (
+          parent[next] === -1 &&
+          residual[node][next] > 0
+        ) {
+          parent[next] = node;
+          queue.push(next);
+          if (next === sink) break;
+        }
+      }
+    }
+
+    if (parent[sink] === -1) break;
+
+    let augment = Number.POSITIVE_INFINITY;
+    for (
+      let node = sink;
+      node !== source;
+      node = parent[node]
+    ) {
+      const previous = parent[node];
+      augment = Math.min(augment, residual[previous][node]);
+    }
+
+    for (
+      let node = sink;
+      node !== source;
+      node = parent[node]
+    ) {
+      const previous = parent[node];
+      residual[previous][node] -= augment;
+      residual[node][previous] += augment;
+    }
+    flow += augment;
+  }
+
+  return flow;
+}
+
+export function reservoirCoverageSatisfied(
+  counts: Readonly<EndlessBandCounts>,
+  plan: EndlessCoveragePlan,
+): boolean {
+  return (
+    calculateEndlessReservoirCoverage(counts, plan) >=
+    plan.totalTarget
+  );
+}
+
 export function bandForScore(
   score: number,
 ): RatedDifficultyBand {
@@ -233,11 +338,12 @@ export function chooseNextAdaptiveLane(
   options: ChooseNextAdaptiveLaneOptions,
 ): EndlessScanLane | null {
   validateAdaptiveLaneOptions(options);
+  const coveragePlan = resolveCoveragePlan(options);
 
   if (
-    reservoirTargetsSatisfied(
+    reservoirCoverageSatisfied(
       options.counts,
-      options.targets,
+      coveragePlan,
     )
   ) {
     return null;
@@ -259,15 +365,8 @@ export function chooseNextAdaptiveLane(
     }
   }
 
-  const diversityContext = buildDiversityContext(
-    lanes,
-    options.acceptedByLane,
-  );
-
   let bestLane: EndlessScanLane | null = null;
   let bestUtility = Number.NEGATIVE_INFINITY;
-  let bestAlternativeLane: EndlessScanLane | null = null;
-  let bestAlternativeUtility = Number.NEGATIVE_INFINITY;
 
   for (const lane of lanes) {
     const attempts =
@@ -284,23 +383,8 @@ export function chooseNextAdaptiveLane(
       attempts,
       accepted,
       options.counts,
-      options.targets,
-      diversityContext,
+      coveragePlan,
     );
-
-    if (lane.id !== options.recentLaneId) {
-      if (
-        utility > bestAlternativeUtility ||
-        (
-          utility === bestAlternativeUtility &&
-          bestAlternativeLane !== null &&
-          lane.index < bestAlternativeLane.index
-        )
-      ) {
-        bestAlternativeLane = lane;
-        bestAlternativeUtility = utility;
-      }
-    }
 
     if (
       utility > bestUtility ||
@@ -313,102 +397,6 @@ export function chooseNextAdaptiveLane(
       bestLane = lane;
       bestUtility = utility;
     }
-  }
-
-  if (bestLane !== null && bestUtility > 0) {
-    return applyLaneRotation(
-      bestLane,
-      bestUtility,
-      bestAlternativeLane,
-      bestAlternativeUtility,
-      options,
-    );
-  }
-
-  // Diversity is a content-quality preference, never a hard generation gate.
-  // If weighted utility ever collapses to zero, fall back to raw
-  // yield/deficit utility so the reservoir can still finish.
-  bestLane = null;
-  bestUtility = Number.NEGATIVE_INFINITY;
-  bestAlternativeLane = null;
-  bestAlternativeUtility = Number.NEGATIVE_INFINITY;
-  for (const lane of lanes) {
-    const attempts = options.attemptsByLane[lane.id] ?? 0;
-    if (attempts >= options.maxAttemptsPerLane) continue;
-    const accepted =
-      options.acceptedByLane[lane.id] ??
-      createEmptyEndlessBandCounts();
-    const utility = calculateLaneUtility(
-      lane,
-      attempts,
-      accepted,
-      options.counts,
-      options.targets,
-      diversityContext,
-      false,
-    );
-    if (lane.id !== options.recentLaneId) {
-      if (
-        utility > bestAlternativeUtility ||
-        (
-          utility === bestAlternativeUtility &&
-          bestAlternativeLane !== null &&
-          lane.index < bestAlternativeLane.index
-        )
-      ) {
-        bestAlternativeLane = lane;
-        bestAlternativeUtility = utility;
-      }
-    }
-    if (
-      utility > bestUtility ||
-      (
-        utility === bestUtility &&
-        bestLane !== null &&
-        lane.index < bestLane.index
-      )
-    ) {
-      bestLane = lane;
-      bestUtility = utility;
-    }
-  }
-
-  if (bestLane === null) return null;
-  return applyLaneRotation(
-    bestLane,
-    bestUtility,
-    bestAlternativeLane,
-    bestAlternativeUtility,
-    options,
-  );
-}
-
-function applyLaneRotation(
-  bestLane: EndlessScanLane,
-  bestUtility: number,
-  alternativeLane: EndlessScanLane | null,
-  alternativeUtility: number,
-  options: ChooseNextAdaptiveLaneOptions,
-): EndlessScanLane {
-  const consecutive =
-    options.consecutiveLaneChunks ?? 0;
-  if (
-    options.recentLaneId === null ||
-    options.recentLaneId === undefined ||
-    bestLane.id !== options.recentLaneId ||
-    consecutive < MAX_CONSECUTIVE_LANE_CHUNKS ||
-    alternativeLane === null ||
-    alternativeUtility <= 0
-  ) {
-    return bestLane;
-  }
-
-  if (
-    bestUtility <= 0 ||
-    alternativeUtility >=
-      bestUtility * MIN_ROTATION_UTILITY_RATIO
-  ) {
-    return alternativeLane;
   }
 
   return bestLane;
@@ -430,122 +418,38 @@ function calculateLaneUtility(
   attempts: number,
   accepted: Readonly<EndlessBandCounts>,
   counts: Readonly<EndlessBandCounts>,
-  targets: Readonly<EndlessBandCounts>,
-  diversityContext: EndlessDiversityContext,
-  applyDiversity = true,
+  coveragePlan: EndlessCoveragePlan,
 ): number {
   let utility = 0;
+  const currentCoverage =
+    calculateEndlessReservoirCoverage(
+      counts,
+      coveragePlan,
+    );
 
   for (const band of RATED_BANDS) {
-    const yieldRate = smoothedYield(
-      lane,
-      band,
-      attempts,
-      accepted[band],
-    );
-    const target = targets[band];
-    const deficit = Math.max(
-      0,
-      target - counts[band],
-    );
+    const nextCounts = {
+      ...counts,
+      [band]: counts[band] + 1,
+    };
+    const marginalCoverage =
+      calculateEndlessReservoirCoverage(
+        nextCounts,
+        coveragePlan,
+      ) - currentCoverage;
+    if (marginalCoverage <= 0) continue;
 
-    if (deficit > 0) {
-      const normalizedDeficit =
-        target === 0 ? 0 : deficit / target;
-      const archetypeAccepted =
-        diversityContext.acceptedByArchetype[
-          lane.archetype
-        ]?.[band] ?? 0;
-      const sizeAccepted =
-        diversityContext.acceptedBySize[
-          String(lane.size)
-        ]?.[band] ?? 0;
-      const diversityFactor = applyDiversity
-        ? calculateLaneDiversityFactor(
-            band,
-            counts[band],
-            lane.archetype,
-            lane.size,
-            archetypeAccepted,
-            sizeAccepted,
-          )
-        : 1;
-      utility +=
-        normalizedDeficit *
-        yieldRate *
-        diversityFactor;
-    }
+    utility +=
+      marginalCoverage *
+      smoothedYield(
+        lane,
+        band,
+        attempts,
+        accepted[band],
+      );
   }
 
   return roundMetric(utility);
-}
-
-function calculateLaneDiversityFactor(
-  band: RatedDifficultyBand,
-  totalAcceptedInBand: number,
-  archetype: GeneratorArchetype,
-  size: GeneratorBoardSize,
-  archetypeAcceptedInBand: number,
-  sizeAcceptedInBand: number,
-): number {
-  if (
-    totalAcceptedInBand <
-    DIVERSITY_PRESSURE_START_COUNT
-  ) {
-    return 1;
-  }
-
-  if (totalAcceptedInBand === 0) {
-    return 1;
-  }
-
-  const archetypeTarget =
-    ARCHETYPE_TARGET_SHARES[band][archetype];
-  const sizeTarget = SIZE_TARGET_SHARES[band][size];
-  const archetypeFactor = targetShareFactor(
-    archetypeAcceptedInBand / totalAcceptedInBand,
-    archetypeTarget,
-    ARCHETYPE_SHARE_FLOOR,
-    ARCHETYPE_SHARE_MAX_BOOST,
-    ARCHETYPE_SHARE_POWER,
-  );
-  const sizeFactor = targetShareFactor(
-    sizeAcceptedInBand / totalAcceptedInBand,
-    sizeTarget,
-    SIZE_SHARE_FLOOR,
-    SIZE_SHARE_MAX_BOOST,
-    SIZE_SHARE_POWER,
-  );
-
-  return archetypeFactor * sizeFactor;
-}
-
-function targetShareFactor(
-  actualShare: number,
-  targetShare: number,
-  floor: number,
-  maxBoost: number,
-  power: number,
-): number {
-  if (targetShare <= 0) {
-    return actualShare <= 0 ? 1 : floor;
-  }
-
-  // Compare the desired share with the observed share directly. Raising the
-  // ratio to a power gives badly under-represented archetypes enough pressure
-  // to beat a much higher raw-yield lane, while the maxBoost prevents rare
-  // lanes from becoming an unbounded time sink. A small pseudo-share keeps a
-  // brand-new archetype finite and deterministic.
-  const pseudoShare = Math.max(
-    actualShare,
-    targetShare * 0.05,
-  );
-  const ratio = targetShare / pseudoShare;
-  const weighted = Math.pow(ratio, power);
-  return Math.max(
-    floor,
-    Math.min(maxBoost, weighted),
-  );
 }
 
 function buildDiversityContext(
@@ -691,14 +595,29 @@ function validateAdaptiveLaneOptions(
     );
   }
 
+  if (
+    options.coveragePlan === undefined &&
+    options.targets === undefined
+  ) {
+    throw new RangeError(
+      'Adaptive Endless lane selection requires coveragePlan or targets.',
+    );
+  }
+  if (options.coveragePlan !== undefined) {
+    validateCoveragePlan(options.coveragePlan);
+  }
+  if (options.targets !== undefined) {
+    for (const band of RATED_BANDS) {
+      validateNonNegativeInteger(
+        options.targets[band],
+        `Endless ${band} reservoir target`,
+      );
+    }
+  }
   for (const band of RATED_BANDS) {
     validateNonNegativeInteger(
       options.counts[band],
       `Endless ${band} reservoir count`,
-    );
-    validateNonNegativeInteger(
-      options.targets[band],
-      `Endless ${band} reservoir target`,
     );
   }
 
@@ -723,6 +642,106 @@ function validateAdaptiveLaneOptions(
         `Endless ${band} accepted count for ${lane.id}`,
       );
     }
+  }
+}
+
+function resolveCoveragePlan(
+  options: ChooseNextAdaptiveLaneOptions,
+): EndlessCoveragePlan {
+  if (options.coveragePlan !== undefined) {
+    return options.coveragePlan;
+  }
+
+  const targets = options.targets;
+  if (targets === undefined) {
+    throw new RangeError(
+      'Adaptive Endless lane selection requires coveragePlan or targets.',
+    );
+  }
+
+  const buckets = RATED_BANDS
+    .filter((band) => targets[band] > 0)
+    .map((band) => ({
+      allowedBands: [band] as readonly RatedDifficultyBand[],
+      count: targets[band],
+    }));
+  const totalTarget = sumBandCounts(targets);
+  return {
+    targetCount: totalTarget,
+    reservePercent: 0,
+    buckets,
+    totalTarget,
+  };
+}
+
+function coverageBucketKey(
+  bands: readonly RatedDifficultyBand[],
+): string {
+  return bands.join('|');
+}
+
+function compareCoverageBuckets(
+  left: EndlessCoverageBucket,
+  right: EndlessCoverageBucket,
+): number {
+  const order = new Map<string, number>([
+    ['easy', 0],
+    ['easy|medium', 1],
+    ['medium|hard', 2],
+    ['hard', 3],
+    ['hard|expert', 4],
+    ['expert', 5],
+  ]);
+  return (
+    (order.get(coverageBucketKey(left.allowedBands)) ?? 100) -
+      (order.get(coverageBucketKey(right.allowedBands)) ?? 100) ||
+    coverageBucketKey(left.allowedBands).localeCompare(
+      coverageBucketKey(right.allowedBands),
+    )
+  );
+}
+
+function validateCoveragePlan(
+  plan: EndlessCoveragePlan,
+): void {
+  validateNonNegativeInteger(
+    plan.targetCount,
+    'Endless coverage targetCount',
+  );
+  validateNonNegativeInteger(
+    plan.reservePercent,
+    'Endless coverage reservePercent',
+  );
+  validateNonNegativeInteger(
+    plan.totalTarget,
+    'Endless coverage totalTarget',
+  );
+
+  let total = 0;
+  for (const bucket of plan.buckets) {
+    validateNonNegativeInteger(
+      bucket.count,
+      'Endless coverage bucket count',
+    );
+    if (bucket.allowedBands.length === 0) {
+      throw new RangeError(
+        'Endless coverage bucket must allow at least one band.',
+      );
+    }
+    for (const band of bucket.allowedBands) {
+      if (!RATED_BANDS.includes(band)) {
+        throw new RangeError(
+          `Endless coverage bucket contains unsupported band ${band}.`,
+        );
+      }
+    }
+    total += bucket.count;
+  }
+
+  if (total !== plan.totalTarget) {
+    throw new RangeError(
+      'Endless coverage totalTarget must equal the sum of bucket counts.',
+    );
   }
 }
 

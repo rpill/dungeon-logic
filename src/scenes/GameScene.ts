@@ -58,7 +58,7 @@ import {
 } from '../runtime/GameLaunch';
 import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
-import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY, STATS_SCENE_KEY } from '../runtime/MetaSelectors';
+import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
   TUTORIAL_SERVICE_REGISTRY_KEY,
   TutorialService,
@@ -1498,10 +1498,6 @@ ${copy.game.featuresUnlocked}`
           {
             label: copy.game.dailyTitle,
             action: launchUnlockedDaily,
-          },
-          {
-            label: copy.common.statistics,
-            action: () => this.scene.start(STATS_SCENE_KEY),
           },
           result.recommendedNextLevel === null
             ? {

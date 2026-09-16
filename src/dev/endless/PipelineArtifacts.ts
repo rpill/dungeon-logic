@@ -3,6 +3,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import {
@@ -20,11 +21,14 @@ import {
 import type {
   EndlessSelectedEntry,
   EndlessSelectionRecord,
+  EndlessVerificationCheckpoint,
+  EndlessVerificationFailure,
   EndlessVerificationReport,
 } from './types';
 
 export const ENDLESS_SELECTION_FILE = 'selection.jsonl';
 export const ENDLESS_VERIFICATION_FILE = 'verification.json';
+export const ENDLESS_VERIFICATION_CHECKPOINT_FILE = 'verification.checkpoint.json';
 
 export function writeEndlessSelection(
   rootDir: string,
@@ -104,6 +108,45 @@ export function readEndlessVerification(
     readFileSync(path, 'utf8'),
   );
   return parseVerificationReport(value);
+}
+
+export function writeEndlessVerificationCheckpoint(
+  rootDir: string,
+  checkpoint: EndlessVerificationCheckpoint,
+): string {
+  const path = join(
+    rootDir,
+    ENDLESS_VERIFICATION_CHECKPOINT_FILE,
+  );
+  writeAtomicReplace(
+    path,
+    `${JSON.stringify(checkpoint, null, 2)}\n`,
+  );
+  return path;
+}
+
+export function readEndlessVerificationCheckpoint(
+  rootDir: string,
+): EndlessVerificationCheckpoint | null {
+  const path = join(
+    rootDir,
+    ENDLESS_VERIFICATION_CHECKPOINT_FILE,
+  );
+  if (!existsSync(path)) return null;
+  const value: unknown = JSON.parse(
+    readFileSync(path, 'utf8'),
+  );
+  return parseVerificationCheckpoint(value);
+}
+
+export function removeEndlessVerificationCheckpoint(
+  rootDir: string,
+): void {
+  const path = join(
+    rootDir,
+    ENDLESS_VERIFICATION_CHECKPOINT_FILE,
+  );
+  if (existsSync(path)) unlinkSync(path);
 }
 
 function toSelectionRecord(
@@ -263,6 +306,80 @@ function parseVerificationReport(
     );
   }
   return value as EndlessVerificationReport;
+}
+
+function parseVerificationCheckpoint(
+  value: unknown,
+): EndlessVerificationCheckpoint {
+  if (
+    typeof value !== 'object' ||
+    value === null
+  ) {
+    throw new Error(
+      'Endless verification checkpoint must be an object.',
+    );
+  }
+  const checkpoint = value as Record<string, unknown>;
+  if (
+    checkpoint.version !== 1 ||
+    typeof checkpoint.selectionHash !== 'string' ||
+    !Number.isInteger(checkpoint.entryCount) ||
+    !Number.isInteger(checkpoint.chunkSize) ||
+    !Array.isArray(checkpoint.completed)
+  ) {
+    throw new Error(
+      'Invalid Endless verification checkpoint schema.',
+    );
+  }
+
+  for (const chunkValue of checkpoint.completed) {
+    if (
+      typeof chunkValue !== 'object' ||
+      chunkValue === null
+    ) {
+      throw new Error(
+        'Invalid Endless verification checkpoint chunk.',
+      );
+    }
+    const chunk = chunkValue as Record<string, unknown>;
+    if (
+      !Number.isInteger(chunk.chunkIndex) ||
+      (chunk.chunkIndex as number) < 0 ||
+      !Array.isArray(chunk.failures)
+    ) {
+      throw new Error(
+        'Invalid Endless verification checkpoint chunk schema.',
+      );
+    }
+    for (const failure of chunk.failures) {
+      assertVerificationFailure(failure);
+    }
+  }
+
+  return value as EndlessVerificationCheckpoint;
+}
+
+function assertVerificationFailure(
+  value: unknown,
+): asserts value is EndlessVerificationFailure {
+  if (
+    typeof value !== 'object' ||
+    value === null
+  ) {
+    throw new Error(
+      'Invalid Endless verification failure.',
+    );
+  }
+  const failure = value as Record<string, unknown>;
+  if (
+    !Number.isInteger(failure.ordinal) ||
+    typeof failure.candidateId !== 'string' ||
+    typeof failure.reason !== 'string'
+  ) {
+    throw new Error(
+      'Invalid Endless verification failure schema.',
+    );
+  }
 }
 
 function writeAtomicReplace(

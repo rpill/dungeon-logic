@@ -51,6 +51,7 @@ import {
 } from './Selector';
 import {
   verifyEndlessSelection,
+  verifyEndlessSelectionParallel,
 } from './Verifier';
 
 const DEFAULT_MASTER_SEED = 20260913;
@@ -426,6 +427,83 @@ export function runEndlessCli(
   }
 }
 
+export async function runEndlessVerifyCli(
+  args: readonly string[],
+  hooks: EndlessCliHooks = {},
+): Promise<string> {
+  if (args[0] !== 'verify') {
+    throw new Error(
+      'runEndlessVerifyCli only accepts the verify command.',
+    );
+  }
+  const tokens = parseTokens(args.slice(1));
+  assertAllowed(
+    tokens,
+    ['--target', '--root', '--jobs'],
+    ['--resume'],
+  );
+
+  const rootDir = readPath(
+    tokens.values,
+    '--root',
+    DEFAULT_ROOT_DIR,
+  );
+  const target = readInteger(
+    tokens.values,
+    '--target',
+    ENDLESS_TARGET_COUNT,
+    1,
+  );
+  const jobs = readInteger(
+    tokens.values,
+    '--jobs',
+    4,
+    1,
+  );
+  const selection = readEndlessSelection(
+    rootDir,
+  );
+  if (selection.length !== target) {
+    throw new Error(
+      `Endless selection has ${selection.length} entries; expected ${target}.`,
+    );
+  }
+
+  const report = await verifyEndlessSelectionParallel(
+    selection,
+    buildCrossPoolFingerprints(),
+    {
+      rootDir,
+      jobs,
+      resume: tokens.booleans.has('--resume'),
+      progress: hooks.progress,
+    },
+  );
+  const verificationPath =
+    writeEndlessVerification(
+      rootDir,
+      report,
+    );
+  if (!report.ok) {
+    const sample = report.failures
+      .slice(0, 5)
+      .map(
+        (failure) =>
+          `${failure.ordinal}:${failure.reason}`,
+      )
+      .join(', ');
+    throw new Error(
+      `Endless verification failed for ${report.rejectedVerificationCount} records (${sample}).`,
+    );
+  }
+  return [
+    'ENDLESS VERIFY',
+    `verified=${report.verifiedCount}`,
+    `rejected=${report.rejectedVerificationCount}`,
+    `verification=${verificationPath}`,
+  ].join('\n');
+}
+
 function formatAdaptiveProgress(
   progress: AdaptiveEndlessGenerationProgress,
 ): string {
@@ -623,16 +701,16 @@ function isMainModule(): boolean {
   return import.meta.url === pathToFileURL(entryPath).href;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
-    console.info(
-      runEndlessCli(
-        process.argv.slice(2),
-        {
-          progress: (line) => console.info(line),
-        },
-      ),
-    );
+    const args = process.argv.slice(2);
+    const hooks: EndlessCliHooks = {
+      progress: (line) => console.info(line),
+    };
+    const output = args[0] === 'verify'
+      ? await runEndlessVerifyCli(args, hooks)
+      : runEndlessCli(args, hooks);
+    console.info(output);
   } catch (error: unknown) {
     console.error(error);
     process.exitCode = 1;
@@ -640,5 +718,5 @@ function main(): void {
 }
 
 if (isMainModule()) {
-  main();
+  void main();
 }

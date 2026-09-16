@@ -16,6 +16,16 @@ const DIFFICULTY_BONUS = 30;
 const DIFFICULTY_WEIGHT = 2;
 const DIVERSITY_WEIGHT = 24;
 
+const SELECTOR_BANDS = [
+  'easy',
+  'medium',
+  'hard',
+  'expert',
+] as const satisfies readonly EndlessReservoirEntry['difficultyBand'][];
+
+type SelectorBand = (typeof SELECTOR_BANDS)[number];
+type SelectorBandCounts = Record<SelectorBand, number>;
+
 export function selectEndlessCatalog(
   reservoir: readonly EndlessReservoirEntry[],
   targetCount: number,
@@ -36,6 +46,10 @@ export function selectEndlessCatalog(
 
   validateReservoirUniqueness(reservoir);
   const buckets = buildBuckets(reservoir);
+  const remainingBandCounts = countBands(reservoir);
+  const futureDemandByAllowedMask = buildFutureDemandByAllowedMask(
+    targetCount,
+  );
   const selected: EndlessSelectedEntry[] = [];
   const usedCandidateIds = new Set<string>();
   const usedFingerprints = new Set<string>();
@@ -47,6 +61,16 @@ export function selectEndlessCatalog(
   ) {
     const progression =
       getEndlessProgressionTarget(ordinal);
+    const currentAllowedMask = bandMask(
+      progression.allowedBands,
+    );
+    futureDemandByAllowedMask[currentAllowedMask] -= 1;
+
+    const safeBands = getCoverageSafeBands(
+      progression.allowedBands,
+      remainingBandCounts,
+      futureDemandByAllowedMask,
+    );
 
     let candidates: readonly EndlessReservoirEntry[] = [];
     for (const scoreWindow of PREFERRED_SCORE_WINDOWS) {
@@ -54,7 +78,7 @@ export function selectEndlessCatalog(
         buckets,
         usedCandidateIds,
         usedFingerprints,
-        allowedBands: progression.allowedBands,
+        allowedBands: safeBands,
         targetScore: progression.targetScore,
         scoreWindow,
       });
@@ -122,6 +146,7 @@ export function selectEndlessCatalog(
     usedFingerprints.add(
       picked.structuralFingerprint,
     );
+    remainingBandCounts[picked.difficultyBand] -= 1;
     selected.push({
       ...picked,
       ordinal,
@@ -138,7 +163,7 @@ interface CandidateWindowOptions {
   readonly buckets: ReadonlyMap<string, readonly EndlessReservoirEntry[]>;
   readonly usedCandidateIds: ReadonlySet<string>;
   readonly usedFingerprints: ReadonlySet<string>;
-  readonly allowedBands: readonly string[];
+  readonly allowedBands: readonly SelectorBand[];
   readonly targetScore: number;
   readonly scoreWindow: number;
 }
@@ -223,6 +248,93 @@ function buildBuckets(
   }
 
   return buckets;
+}
+
+function countBands(
+  reservoir: readonly EndlessReservoirEntry[],
+): SelectorBandCounts {
+  const counts: SelectorBandCounts = {
+    easy: 0,
+    medium: 0,
+    hard: 0,
+    expert: 0,
+  };
+  for (const entry of reservoir) {
+    counts[entry.difficultyBand] += 1;
+  }
+  return counts;
+}
+
+function buildFutureDemandByAllowedMask(
+  targetCount: number,
+): number[] {
+  const demand = Array<number>(1 << SELECTOR_BANDS.length).fill(0);
+  for (let ordinal = 1; ordinal <= targetCount; ordinal += 1) {
+    const progression = getEndlessProgressionTarget(ordinal);
+    demand[bandMask(progression.allowedBands)] += 1;
+  }
+  return demand;
+}
+
+function getCoverageSafeBands(
+  allowedBands: readonly SelectorBand[],
+  remainingBandCounts: Readonly<SelectorBandCounts>,
+  futureDemandByAllowedMask: readonly number[],
+): readonly SelectorBand[] {
+  const maskCount = 1 << SELECTOR_BANDS.length;
+  const supplyByMask = Array<number>(maskCount).fill(0);
+  const requiredByMask = Array<number>(maskCount).fill(0);
+
+  for (let mask = 1; mask < maskCount; mask += 1) {
+    for (let index = 0; index < SELECTOR_BANDS.length; index += 1) {
+      const bit = 1 << index;
+      if ((mask & bit) !== 0) {
+        supplyByMask[mask] +=
+          remainingBandCounts[SELECTOR_BANDS[index]];
+      }
+    }
+
+    for (
+      let allowedMask = 1;
+      allowedMask < futureDemandByAllowedMask.length;
+      allowedMask += 1
+    ) {
+      if ((allowedMask & ~mask) === 0) {
+        requiredByMask[mask] +=
+          futureDemandByAllowedMask[allowedMask];
+      }
+    }
+  }
+
+  return allowedBands.filter((band) => {
+    const pickedBit = bandBit(band);
+    for (let mask = 1; mask < maskCount; mask += 1) {
+      const supplyAfterPick =
+        supplyByMask[mask] -
+        ((mask & pickedBit) !== 0 ? 1 : 0);
+      if (requiredByMask[mask] > supplyAfterPick) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+function bandMask(
+  bands: readonly SelectorBand[],
+): number {
+  return bands.reduce(
+    (mask, band) => mask | bandBit(band),
+    0,
+  );
+}
+
+function bandBit(band: SelectorBand): number {
+  const index = SELECTOR_BANDS.indexOf(band);
+  if (index < 0) {
+    throw new Error(`Unsupported Endless difficulty band ${band}.`);
+  }
+  return 1 << index;
 }
 
 function applyAntiStreakPreference(
