@@ -25,6 +25,7 @@ import {
   createLevelSelectItems,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
+import { createHeaderActionButton } from '../runtime/HeaderActionButton';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
@@ -38,6 +39,7 @@ import {
 } from '../runtime/MetaScroll';
 import {
   calculateLevelSelectLayout,
+  calculateMobilePagedLevelSelectLayout,
   translateLevelSelectLayout,
   type LevelCardLayout,
   type LevelSelectLayout,
@@ -82,6 +84,9 @@ const WHEEL_SCROLL_EASE = 0.18;
 const WHEEL_SCROLL_SNAP_EPSILON = 0.15;
 const CARD_RADIUS = 8;
 const CURRENT_GLOW_TEXTURE_SCALE = 3;
+const MOBILE_LEVELS_PER_PAGE = CAMPAIGN_ROW_SIZE;
+const MOBILE_PAGE_SWIPE_THRESHOLD = 48;
+const MOBILE_PAGE_DRAG_THRESHOLD = 14;
 
 const ROW_UNLOCK_INITIAL_PAUSE_MS = 300;
 const ROW_UNLOCK_ROW_PULSE_DURATION_MS = 170;
@@ -100,6 +105,42 @@ type LevelSelectState = keyof typeof STATE_COLOR;
 
 interface LevelSelectSceneData {
   readonly rowUnlock?: CampaignRowUnlockTransition;
+  readonly mobilePageIndex?: number;
+}
+
+function shouldUseMobileLevelPaging(viewportWidth: number): boolean {
+  if (viewportWidth < 700) return true;
+  const coarsePointer = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(pointer: coarse)').matches;
+  const touchCapable = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+  return viewportWidth < 1024 && (coarsePointer || touchCapable);
+}
+
+function resolveMobileLevelPageIndex(
+  items: ReturnType<typeof createLevelSelectItems>,
+  rowUnlock: CampaignRowUnlockTransition | null,
+  requestedPageIndex: number | undefined,
+  pageCount: number,
+): number {
+  const clampPage = (page: number): number => Math.max(0, Math.min(pageCount - 1, Math.floor(page)));
+  if (requestedPageIndex !== undefined && Number.isFinite(requestedPageIndex)) {
+    return clampPage(requestedPageIndex);
+  }
+  if (rowUnlock !== null) {
+    return clampPage((rowUnlock.nextRowStartSlot - 1) / MOBILE_LEVELS_PER_PAGE);
+  }
+
+  const currentIndex = items.findIndex((item) => item.state === 'current');
+  if (currentIndex >= 0) return clampPage(currentIndex / MOBILE_LEVELS_PER_PAGE);
+
+  let latestPlayableIndex = -1;
+  for (let index = 0; index < items.length; index += 1) {
+    if (items[index]?.playable) latestPlayableIndex = index;
+  }
+  return latestPlayableIndex >= 0
+    ? clampPage(latestPlayableIndex / MOBILE_LEVELS_PER_PAGE)
+    : 0;
 }
 
 export class LevelSelectScene extends Phaser.Scene {
@@ -115,6 +156,10 @@ export class LevelSelectScene extends Phaser.Scene {
   private lastScrollSampleAtMs = 0;
   private lastDraggedPointerId: number | null = null;
   private lastDragEndedAtMs = 0;
+  private mobileSwipePointerId: number | null = null;
+  private mobileSwipeStartX = 0;
+  private mobileSwipeStartY = 0;
+  private mobileSwipeDragged = false;
   private readonly pointerGate = new MetaPointerGate();
 
   constructor() {
@@ -133,6 +178,8 @@ export class LevelSelectScene extends Phaser.Scene {
     this.lastScrollSampleAtMs = 0;
     this.lastDraggedPointerId = null;
     this.lastDragEndedAtMs = 0;
+    this.mobileSwipePointerId = null;
+    this.mobileSwipeDragged = false;
     this.cameras.main.setScroll(0, 0);
 
     const sceneBackground = createSceneBackground(this, 'meta');
@@ -146,12 +193,27 @@ export class LevelSelectScene extends Phaser.Scene {
     const progress = service.getProgress();
     const items = createLevelSelectItems(service.getLevels(), progress, profile.tutorial.completed);
     const availableViewport = this.getAvailableViewport();
+    const rowUnlock = data.rowUnlock ?? null;
+    const mobilePaged = shouldUseMobileLevelPaging(availableViewport.width);
+    const mobilePageCount = Math.max(1, Math.ceil(items.length / MOBILE_LEVELS_PER_PAGE));
+    const mobilePageIndex = mobilePaged
+      ? resolveMobileLevelPageIndex(items, rowUnlock, data.mobilePageIndex, mobilePageCount)
+      : 0;
+    const mobilePageStart = mobilePageIndex * MOBILE_LEVELS_PER_PAGE;
+    const visibleItems = mobilePaged
+      ? items.slice(mobilePageStart, mobilePageStart + MOBILE_LEVELS_PER_PAGE)
+      : items;
     const layout = translateLevelSelectLayout(
-      calculateLevelSelectLayout(availableViewport.width, availableViewport.height, items.length),
+      mobilePaged
+        ? calculateMobilePagedLevelSelectLayout(
+            availableViewport.width,
+            availableViewport.height,
+            visibleItems.length,
+          )
+        : calculateLevelSelectLayout(availableViewport.width, availableViewport.height, items.length),
       availableViewport.x,
       availableViewport.y,
     );
-    const rowUnlock = data.rowUnlock ?? null;
     this.contentBottom = layout.contentBottom;
 
     createMetaPageHeader(this, {
@@ -200,9 +262,9 @@ export class LevelSelectScene extends Phaser.Scene {
       progress.completedLevelIds.length,
       items.length,
     );
-    this.drawLevelSectionDividers(layout, items.length);
+    this.drawLevelSectionDividers(layout, visibleItems.length);
 
-    items.forEach((item, index) => {
+    visibleItems.forEach((item, index) => {
       const cardLayout = layout.cards[index];
       const deferCurrentHighlight = rowUnlock !== null
         && item.state === 'current'
@@ -297,12 +359,26 @@ export class LevelSelectScene extends Phaser.Scene {
     });
 
     this.setupPointerOwnership();
-    const initialScrollY = rowUnlock === null
-      ? 0
-      : this.getRowUnlockInitialScrollY(layout, rowUnlock.nextRowStartSlot);
-    this.setupMetaScroll(layout, initialScrollY);
-    if (rowUnlock !== null) {
-      this.playRowUnlockTransition(layout, items, rowUnlock);
+    if (mobilePaged) {
+      this.createMobileLevelPager(
+        layout,
+        mobilePageIndex,
+        mobilePageCount,
+        mobilePageStart + 1,
+        mobilePageStart + visibleItems.length,
+      );
+      this.setupMobileLevelPaging(mobilePageIndex, mobilePageCount);
+      if (rowUnlock !== null) {
+        this.playMobileRowUnlockTransition(layout, visibleItems, rowUnlock, mobilePageStart);
+      }
+    } else {
+      const initialScrollY = rowUnlock === null
+        ? 0
+        : this.getRowUnlockInitialScrollY(layout, rowUnlock.nextRowStartSlot);
+      this.setupMetaScroll(layout, initialScrollY);
+      if (rowUnlock !== null) {
+        this.playRowUnlockTransition(layout, items, rowUnlock);
+      }
     }
 
     const handleResize = (): void => {
@@ -613,6 +689,205 @@ export class LevelSelectScene extends Phaser.Scene {
         if (!this.shouldActivatePointer(pointer)) return;
         onActivate();
       },
+    });
+  }
+
+  private createMobileLevelPager(
+    layout: LevelSelectLayout,
+    pageIndex: number,
+    pageCount: number,
+    firstSlot: number,
+    lastSlot: number,
+  ): void {
+    const viewport = this.getAvailableViewport();
+    const lastCard = layout.cards[layout.cards.length - 1];
+    const naturalY = (lastCard?.numberY ?? layout.headerBottom) + 43;
+    const pagerY = Math.min(viewport.bottom - 25, naturalY);
+    const centerX = viewport.centerX;
+    const arrowOffset = Math.min(150, viewport.width * 0.39);
+    const arrowButtonSize = 42;
+    const labelY = pagerY - 19;
+    const dotsY = pagerY + 12;
+
+    this.add.text(centerX, labelY, `${firstSlot}–${lastSlot}`, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#d7dfed',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+
+    const createArrow = (direction: -1 | 1): void => {
+      const enabled = direction < 0 ? pageIndex > 0 : pageIndex < pageCount - 1;
+      const x = centerX + direction * arrowOffset;
+      const button = createHeaderActionButton(this, {
+        x,
+        y: pagerY,
+        width: arrowButtonSize,
+        height: arrowButtonSize,
+        radius: 10,
+        iconKey: UI_ICON_KEYS.back,
+        iconSize: 22,
+        fixed: true,
+        depth: 20,
+        onActivate: (pointer) => {
+          if (!enabled || !this.shouldActivatePointer(pointer)) return;
+          this.goToMobileLevelPage(pageIndex + direction, pageCount);
+        },
+      });
+
+      if (direction > 0) button.icon.setRotation(Math.PI);
+      if (!enabled) {
+        button.background.setAlpha(0.34);
+        button.icon.setAlpha(0.38);
+        button.hit.disableInteractive();
+      }
+    };
+
+    createArrow(-1);
+    createArrow(1);
+
+    const dotGap = 18;
+    const dotStartX = centerX - ((pageCount - 1) * dotGap) / 2;
+    for (let index = 0; index < pageCount; index += 1) {
+      const x = dotStartX + index * dotGap;
+      const current = index === pageIndex;
+      const dot = this.add.rectangle(
+        x,
+        dotsY,
+        current ? 8 : 6,
+        current ? 8 : 6,
+        current ? PROGRESS_FILL : 0x60708a,
+        current ? 1 : 0.72,
+      ).setRotation(Math.PI / 4);
+      if (current) continue;
+
+      const hit = this.add.zone(x, dotsY, 20, 24).setInteractive({ useHandCursor: true });
+      hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if (!this.shouldActivatePointer(pointer)) return;
+        getAudioFeedback(this).play('ui-click');
+        this.goToMobileLevelPage(index, pageCount);
+      });
+      void dot;
+    }
+  }
+
+  private setupMobileLevelPaging(pageIndex: number, pageCount: number): void {
+    const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
+      this.mobileSwipePointerId = pointer.id;
+      this.mobileSwipeStartX = pointer.x;
+      this.mobileSwipeStartY = pointer.y;
+      this.mobileSwipeDragged = false;
+    };
+    const handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
+      if (this.mobileSwipePointerId !== pointer.id || !pointer.isDown) return;
+      const deltaX = pointer.x - this.mobileSwipeStartX;
+      const deltaY = pointer.y - this.mobileSwipeStartY;
+      if (
+        Math.abs(deltaX) >= MOBILE_PAGE_DRAG_THRESHOLD
+        && Math.abs(deltaX) > Math.abs(deltaY) * 1.15
+      ) {
+        this.mobileSwipeDragged = true;
+      }
+    };
+    const handlePointerUp = (pointer: Phaser.Input.Pointer): void => {
+      if (this.mobileSwipePointerId !== pointer.id) return;
+      const deltaX = pointer.x - this.mobileSwipeStartX;
+      const deltaY = pointer.y - this.mobileSwipeStartY;
+      const dragged = this.mobileSwipeDragged;
+
+      if (dragged) {
+        this.lastDraggedPointerId = pointer.id;
+        this.lastDragEndedAtMs = Date.now();
+        if (
+          Math.abs(deltaX) >= MOBILE_PAGE_SWIPE_THRESHOLD
+          && Math.abs(deltaX) > Math.abs(deltaY) * 1.15
+        ) {
+          const direction = deltaX < 0 ? 1 : -1;
+          const targetPage = Phaser.Math.Clamp(pageIndex + direction, 0, pageCount - 1);
+          if (targetPage !== pageIndex) {
+            getAudioFeedback(this).play('ui-click');
+            this.goToMobileLevelPage(targetPage, pageCount);
+          }
+        }
+      }
+
+      this.mobileSwipePointerId = null;
+      this.mobileSwipeDragged = false;
+    };
+
+    this.input.on('pointerdown', handlePointerDown);
+    this.input.on('pointermove', handlePointerMove);
+    this.input.on('pointerup', handlePointerUp);
+    this.input.on('pointerupoutside', handlePointerUp);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.off('pointerdown', handlePointerDown);
+      this.input.off('pointermove', handlePointerMove);
+      this.input.off('pointerup', handlePointerUp);
+      this.input.off('pointerupoutside', handlePointerUp);
+    });
+  }
+
+  private goToMobileLevelPage(pageIndex: number, pageCount: number): void {
+    const safePage = Phaser.Math.Clamp(Math.floor(pageIndex), 0, Math.max(0, pageCount - 1));
+    this.scene.restart({ mobilePageIndex: safePage });
+  }
+
+  private playMobileRowUnlockTransition(
+    layout: LevelSelectLayout,
+    visibleItems: ReturnType<typeof createLevelSelectItems>,
+    transition: CampaignRowUnlockTransition,
+    mobilePageStart: number,
+  ): void {
+    const newlyPlayable = visibleItems
+      .map((item, localIndex) => ({ item, localIndex }))
+      .filter(({ item }) => (
+        item.entry.slot >= transition.nextRowStartSlot
+        && item.entry.slot < transition.nextRowStartSlot + CAMPAIGN_ROW_SIZE
+        && item.playable
+        && item.state !== 'completed'
+      ));
+    const unlockStartDelay = ROW_UNLOCK_INITIAL_PAUSE_MS;
+    const unlockWaveEnd = (
+      unlockStartDelay
+      + Math.max(0, newlyPlayable.length - 1) * ROW_UNLOCK_CARD_STAGGER_MS
+      + ROW_UNLOCK_CARD_DURATION_MS
+    );
+    const currentRevealStart = unlockWaveEnd + ROW_UNLOCK_CURRENT_REVEAL_DELAY_MS;
+    const transitionDuration = currentRevealStart + ROW_UNLOCK_CURRENT_REVEAL_DURATION_MS;
+
+    this.launchPending = true;
+    this.time.delayedCall(transitionDuration + ROW_UNLOCK_PHASE_GAP_MS, () => {
+      if (this.scene.isActive()) this.launchPending = false;
+    });
+
+    newlyPlayable.forEach(({ localIndex }, unlockIndex) => {
+      const card = layout.cards[localIndex];
+      if (card === undefined) return;
+      const cover = this.createTemporaryUnlockCover(card);
+      this.tweens.add({
+        targets: cover,
+        alpha: 0,
+        scaleX: 1.06,
+        scaleY: 1.06,
+        duration: ROW_UNLOCK_CARD_DURATION_MS,
+        delay: unlockStartDelay + unlockIndex * ROW_UNLOCK_CARD_STAGGER_MS,
+        ease: 'Cubic.easeOut',
+        onStart: () => getAudioFeedback(this).play('campaign-unlock'),
+        onComplete: () => cover.destroy(true),
+      });
+    });
+
+    this.time.delayedCall(currentRevealStart, () => {
+      if (!this.scene.isActive()) return;
+      const currentLocalIndex = transition.nextRowStartSlot - 1 - mobilePageStart;
+      const currentCard = layout.cards[currentLocalIndex];
+      if (currentCard !== undefined) {
+        this.revealCurrentLevelHighlight(
+          currentCard,
+          transition.nextRowStartSlot,
+          layout.cardTitleFontSize,
+        );
+      }
     });
   }
 
@@ -1170,6 +1445,7 @@ export class LevelSelectScene extends Phaser.Scene {
   private shouldActivatePointer(pointer: Phaser.Input.Pointer): boolean {
     if (!this.pointerGate.canActivate(pointer.id)) return false;
     if (this.scrollPointerId === pointer.id && this.scrollGestureDragged) return false;
+    if (this.mobileSwipePointerId === pointer.id && this.mobileSwipeDragged) return false;
     return !(
       this.lastDraggedPointerId === pointer.id
       && Date.now() - this.lastDragEndedAtMs < 160

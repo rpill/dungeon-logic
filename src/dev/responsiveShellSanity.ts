@@ -1,5 +1,6 @@
 import {
   calculateLevelSelectLayout,
+  calculateMobilePagedLevelSelectLayout,
   calculatePuzzleChromeLayout,
   getInitialViewportSize,
 } from '../runtime/ResponsiveLayout';
@@ -12,20 +13,17 @@ function assert(condition: boolean, message: string): asserts condition {
 const initial = getInitialViewportSize(390, 844);
 assert(initial.width === 390 && initial.height === 844, 'Game boots at the real viewport size.');
 
-const phone = calculateLevelSelectLayout(390, 844, 64);
+const phone = calculateMobilePagedLevelSelectLayout(390, 844, 8);
 assert(phone.viewportClass === 'narrow', '390px viewport uses narrow Level Select layout.');
-assert(phone.columns === 4, 'Narrow portrait Level Select uses four compact columns.');
-assert(phone.cards.length === 64, 'All 64 release level cards are positioned.');
-assert(phone.headerBottom > phone.continueY + phone.continueHeight / 2, 'Scrollable cards start below the fixed Level Select header.');
+assert(phone.columns === 2, 'Narrow portrait mobile page uses two large columns across four rows.');
+assert(phone.cards.length === 8, 'Mobile Level Select renders only one 8-level page.');
+assert(phone.headerBottom > phone.continueY + phone.continueHeight / 2, 'Paged cards start below the Level Select header.');
 for (const card of phone.cards) {
-  assert(card.x - card.width / 2 >= 16, 'Card stays inside the left mobile safe margin.');
-  assert(card.x + card.width / 2 <= 390 - 16, 'Card stays inside the right mobile safe margin.');
+  assert(card.x - card.width / 2 >= 12, 'Card stays inside the left mobile safe margin.');
+  assert(card.x + card.width / 2 <= 390 - 12, 'Card stays inside the right mobile safe margin.');
   assert(card.numberY > card.y + card.height / 2, 'Level number sits below the preview square.');
 }
-const phoneScrollMax = getMetaScrollMaxY(844, phone.contentBottom);
-assert(phoneScrollMax > 0, 'Sixty-four phone cards require vertical scrolling.');
-const phoneLast = phone.cards.at(-1)!;
-assert(phoneLast.y + phoneLast.height / 2 - phoneScrollMax <= 844 - 16, 'Maximum phone scroll exposes the final card.');
+assert(getMetaScrollMaxY(844, phone.contentBottom) === 0, 'Portrait mobile page fits without vertical scrolling.');
 
 const desktop = calculateLevelSelectLayout(1280, 720, 64);
 assert(desktop.viewportClass === 'wide', '1280px viewport uses wide Level Select layout.');
@@ -46,9 +44,10 @@ const chrome = calculatePuzzleChromeLayout(390, 844);
 assert(chrome.modalWidth <= 358, 'Puzzle modal fits inside a 390px phone with 16px margins.');
 assert(chrome.titleFontSize <= 30, 'Puzzle title is compact on narrow screens.');
 
-const landscapePhone = calculateLevelSelectLayout(844, 390, 64);
-assert(landscapePhone.viewportClass === 'compact', '844px landscape phone uses compact Level Select layout.');
-assert(landscapePhone.columns === 8, 'Landscape phone keeps eight levels per row.');
-assert(getMetaScrollMaxY(390, landscapePhone.contentBottom) > 0, 'Landscape phone may scroll vertically for the 8x8 grid.');
+const landscapePhone = calculateMobilePagedLevelSelectLayout(844, 390, 8);
+assert(landscapePhone.viewportClass === 'compact', '844px landscape phone keeps compact viewport classification.');
+assert(landscapePhone.columns === 8, 'Landscape mobile page shows one 8-level row.');
+assert(landscapePhone.cards.length === 8, 'Landscape mobile page renders only eight levels.');
+assert(getMetaScrollMaxY(390, landscapePhone.contentBottom) === 0, 'Landscape mobile page fits without vertical scrolling.');
 
-console.info('[Dungeon Logic] Responsive shell sanity: 64-level 8x8 desktop/landscape grid + 4-column portrait fallback passed');
+console.info('[Dungeon Logic] Responsive shell sanity: paged mobile Levels + unchanged 8x8 desktop grid passed');

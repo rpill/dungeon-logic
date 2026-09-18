@@ -8,7 +8,7 @@ import {
   normalizePlayerProfile,
 } from './PlayerProfile';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV5 } from './types';
+import type { PlayerProfileV6 } from './types';
 
 export const PLAYER_PROFILE_SERVICE_REGISTRY_KEY = 'player-profile-service';
 
@@ -25,7 +25,7 @@ export class PlayerProfileService {
   private readonly defaultLanguage: SupportedLanguage;
   private readonly reportTechnicalError: TechnicalErrorReporter;
 
-  private profile: PlayerProfileV5;
+  private profile: PlayerProfileV6;
   private dirty = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private flushPromise: Promise<void> | null = null;
@@ -33,7 +33,7 @@ export class PlayerProfileService {
   private constructor(
     manifest: readonly CampaignLevelEntry[],
     storage: PlayerProfileStorage,
-    profile: PlayerProfileV5,
+    profile: PlayerProfileV6,
     saveDelayMs: number,
     defaultLanguage: SupportedLanguage,
     reportTechnicalError: TechnicalErrorReporter,
@@ -110,13 +110,13 @@ export class PlayerProfileService {
     return service;
   }
 
-  getProfile(): PlayerProfileV5 {
+  getProfile(): PlayerProfileV6 {
     return this.profile;
   }
 
   update(
-    mutator: (profile: PlayerProfileV5) => PlayerProfileV5,
-  ): PlayerProfileV5 {
+    mutator: (profile: PlayerProfileV6) => PlayerProfileV6,
+  ): PlayerProfileV6 {
     const safeCurrent = normalizePlayerProfile(this.profile, this.manifest, this.defaultLanguage);
     const candidate = mutator(safeCurrent);
     this.profile = normalizePlayerProfile(candidate, this.manifest, this.defaultLanguage);
@@ -226,7 +226,7 @@ export class PlayerProfileService {
     }));
   }
 
-  replaceProfileForPlatformMerge(profile: PlayerProfileV5): PlayerProfileV5 {
+  replaceProfileForPlatformMerge(profile: PlayerProfileV6): PlayerProfileV6 {
     this.profile = normalizePlayerProfile(profile, this.manifest, this.defaultLanguage);
     this.dirty = true;
     this.scheduleSave();

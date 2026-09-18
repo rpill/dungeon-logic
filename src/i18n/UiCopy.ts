@@ -1,3 +1,4 @@
+import type { MasteryRankId } from '../mastery/MasteryProgress';
 import type { SupportedLanguage } from './Language';
 
 export type LevelSelectState = 'completed' | 'current' | 'unlocked' | 'locked';
@@ -51,6 +52,22 @@ export interface UiCopy {
     readonly endlessSoon: string;
     readonly endlessLockedAfterLevel: string;
     readonly endlessSolved: (completed: number) => string;
+    readonly endlessStreak: (current: number, best: number) => string;
+  };
+  readonly mastery: {
+    readonly title: string;
+    readonly homeTitle: (rank: MasteryRankId) => string;
+    readonly homeNext: (rank: MasteryRankId, remaining: number) => string;
+    readonly maxRank: string;
+    readonly nextRank: string;
+    readonly newRank: string;
+    readonly continue: string;
+    readonly rankLabel: (rank: MasteryRankId, title: string) => string;
+    readonly campaign: string;
+    readonly daily: string;
+    readonly endless: string;
+    readonly rankTitles: Readonly<Record<MasteryRankId, string>>;
+    readonly rankDescriptions: Readonly<Record<MasteryRankId, string>>;
   };
   readonly settings: {
     readonly title: string;
@@ -128,6 +145,7 @@ export interface UiCopy {
     readonly levelTitle: (slot: number) => string;
     readonly dailyTitle: string;
     readonly endlessTitle: (ordinal: number) => string;
+    readonly endlessCleanStreak: (streak: number) => string;
     readonly tutorialTitle: (slot: number, total: number) => string;
     readonly tutorialComplete: string;
     readonly startLevels: string;
@@ -231,10 +249,53 @@ const RU: UiCopy = {
     dailyNewShort: 'СЕГОДНЯ НОВАЯ',
     dailySolvedShort: 'СЕГОДНЯ РЕШЕНО',
     dailyStreak: (streak) => `Серия: ${streak}`,
-    endless: 'БЕСКОНЕЧНЫЙ РЕЖИМ',
+    endless: 'ИСПЫТАНИЕ',
     endlessSoon: 'СКОРО',
     endlessLockedAfterLevel: 'ПОСЛЕ УРОВНЯ 8',
     endlessSolved: (completed) => `Решено: ${completed}`,
+    endlessStreak: (current, best) => `Чистая серия: ${current} · рекорд ${best}`,
+  },
+  mastery: {
+    title: 'МАСТЕРСТВО',
+    homeTitle: (rank) => `МАСТЕРСТВО ${rank}`,
+    homeNext: (rank, remaining) => {
+      const suffix = remaining % 10 === 1 && remaining % 100 !== 11
+        ? 'условие'
+        : remaining % 10 >= 2 && remaining % 10 <= 4 && (remaining % 100 < 12 || remaining % 100 > 14)
+          ? 'условия'
+          : 'условий';
+      return `До ранга ${rank}: ${remaining} ${suffix}`;
+    },
+    maxRank: 'МАКСИМАЛЬНЫЙ РАНГ',
+    nextRank: 'ДО СЛЕДУЮЩЕГО РАНГА',
+    newRank: 'НОВЫЙ РАНГ',
+    continue: 'ПРОДОЛЖИТЬ',
+    rankLabel: (rank, title) => `РАНГ ${rank} — ${title}`,
+    campaign: 'Кампания',
+    daily: 'Daily: серия',
+    endless: 'Испытание: чистая серия',
+    rankTitles: {
+      I: 'УЧЕНИК',
+      II: 'ИССЛЕДОВАТЕЛЬ',
+      III: 'ТАКТИК',
+      IV: 'СТРАТЕГ',
+      V: 'АРХИТЕКТОР',
+      VI: 'АНАЛИТИК',
+      VII: 'ЭКСПЕРТ',
+      VIII: 'ГРОССМЕЙСТЕР',
+      MASTER: 'МАСТЕР ЛАБИРИНТА',
+    },
+    rankDescriptions: {
+      I: 'Вы начинаете читать язык лабиринта.',
+      II: 'Базовые правила уже работают на вас.',
+      III: 'Вы видите больше и думаете глубже.',
+      IV: 'Сложные задачи больше не пугают.',
+      V: 'Вы строите решение целиком.',
+      VI: 'Закономерности видны раньше подсказок.',
+      VII: 'Редкие сочетания правил стали привычными.',
+      VIII: 'Вы решаете точно и без лишних ходов.',
+      MASTER: 'Лабиринт больше не скрывает свою логику.',
+    },
   },
   settings: {
     title: 'НАСТРОЙКИ',
@@ -311,7 +372,8 @@ const RU: UiCopy = {
     back: '← НАЗАД',
     levelTitle: (slot) => `УРОВЕНЬ ${slot}`,
     dailyTitle: 'DAILY',
-    endlessTitle: (ordinal) => `БЕСКОНЕЧНЫЙ · ${ordinal}`,
+    endlessTitle: (ordinal) => `ИСПЫТАНИЕ · ${ordinal}`,
+    endlessCleanStreak: (streak) => `ЧИСТАЯ СЕРИЯ: ${streak}`,
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
     startLevels: 'НАЧАТЬ ИГРУ',
@@ -348,7 +410,7 @@ const RU: UiCopy = {
     hintsCount: (count) => `ПОДСКАЗОК: ${count}`,
     newRecord: '  ·  НОВЫЙ РЕКОРД',
     featuresUnlocked: 'ОТКРЫТО: DAILY\nМожно открыть сейчас или продолжить кампанию.',
-    endlessUnlocked: 'ОТКРЫТО: БЕСКОНЕЧНЫЙ РЕЖИМ\nМожно открыть сейчас или продолжить кампанию.',
+    endlessUnlocked: 'ОТКРЫТО: ИСПЫТАНИЕ\nМожно открыть сейчас или продолжить кампанию.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ РЕШЕНО  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     next: 'ДАЛЬШЕ',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY РЕШЁН  ·  ${time}  ·  ${hintCopy}${recordCopy}`,
@@ -415,10 +477,46 @@ const EN: UiCopy = {
     dailyNewShort: 'NEW TODAY',
     dailySolvedShort: 'SOLVED TODAY',
     dailyStreak: (streak) => `Streak: ${streak}`,
-    endless: 'ENDLESS MODE',
+    endless: 'CHALLENGE',
     endlessSoon: 'COMING SOON',
     endlessLockedAfterLevel: 'AFTER LEVEL 8',
     endlessSolved: (completed) => `Solved: ${completed}`,
+    endlessStreak: (current, best) => `Clean streak: ${current} · best ${best}`,
+  },
+  mastery: {
+    title: 'MASTERY',
+    homeTitle: (rank) => `MASTERY ${rank}`,
+    homeNext: (rank, remaining) => `To rank ${rank}: ${remaining} ${remaining === 1 ? 'condition' : 'conditions'}`,
+    maxRank: 'MAXIMUM RANK',
+    nextRank: 'TO THE NEXT RANK',
+    newRank: 'NEW RANK',
+    continue: 'CONTINUE',
+    rankLabel: (rank, title) => `RANK ${rank} — ${title}`,
+    campaign: 'Campaign',
+    daily: 'Daily: streak',
+    endless: 'Challenge: clean streak',
+    rankTitles: {
+      I: 'APPRENTICE',
+      II: 'EXPLORER',
+      III: 'TACTICIAN',
+      IV: 'STRATEGIST',
+      V: 'ARCHITECT',
+      VI: 'ANALYST',
+      VII: 'EXPERT',
+      VIII: 'GRANDMASTER',
+      MASTER: 'LABYRINTH MASTER',
+    },
+    rankDescriptions: {
+      I: 'You are learning the language of the labyrinth.',
+      II: 'The basic rules now work in your favor.',
+      III: 'You see more and think deeper.',
+      IV: 'Harder puzzles no longer intimidate you.',
+      V: 'You build the whole solution, not just moves.',
+      VI: 'Patterns appear before hints are needed.',
+      VII: 'Rare rule combinations feel familiar.',
+      VIII: 'You solve precisely and without wasted moves.',
+      MASTER: 'The labyrinth no longer hides its logic.',
+    },
   },
   settings: {
     title: 'SETTINGS',
@@ -495,7 +593,8 @@ const EN: UiCopy = {
     back: '← BACK',
     levelTitle: (slot) => `LEVEL ${slot}`,
     dailyTitle: 'DAILY',
-    endlessTitle: (ordinal) => `ENDLESS · ${ordinal}`,
+    endlessTitle: (ordinal) => `CHALLENGE · ${ordinal}`,
+    endlessCleanStreak: (streak) => `CLEAN STREAK: ${streak}`,
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
     startLevels: 'START GAME',
@@ -532,7 +631,7 @@ const EN: UiCopy = {
     hintsCount: (count) => `HINTS: ${count}`,
     newRecord: '  ·  NEW RECORD',
     featuresUnlocked: 'UNLOCKED: DAILY\nOpen it now or continue the Campaign.',
-    endlessUnlocked: 'UNLOCKED: ENDLESS MODE\nOpen it now or continue the Campaign.',
+    endlessUnlocked: 'UNLOCKED: CHALLENGE\nOpen it now or continue the Campaign.',
     solvedCampaign: (time, hintCopy, recordCopy, unlockCopy) => `✓ SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}${unlockCopy}`,
     next: 'NEXT',
     solvedDaily: (time, hintCopy, recordCopy) => `✓ DAILY SOLVED  ·  ${time}  ·  ${hintCopy}${recordCopy}`,

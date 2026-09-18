@@ -46,6 +46,11 @@ import {
 import { HELP_SCENE_KEY } from '../help/HelpNavigation';
 import { getUiCopy } from '../i18n/UiCopy';
 import {
+  compareMastery,
+  type MasteryProgressSource,
+  type MasteryTransition,
+} from '../mastery/MasteryTransition';
+import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
@@ -77,6 +82,8 @@ import { createSceneBackground } from '../runtime/SceneBackground';
 import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
 import { drawMaterialButtonBackground, getMaterialButtonContentY } from '../runtime/MaterialActionButton';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { formatMasteryProgressNote } from '../runtime/MasteryCompletion';
+import { showMasteryRankUpOverlay } from '../runtime/MasteryRankUpOverlay';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -346,6 +353,17 @@ export class GameScene extends Phaser.Scene {
       },
     ).setOrigin(0.5);
 
+    let displayedChallengeStreak = profileAtStart?.endless.currentCleanStreak ?? 0;
+    const challengeStreakBackground = endlessContext === null ? null : this.add.graphics();
+    const challengeStreakText = endlessContext === null
+      ? null
+      : this.add.text(this.scale.width / 2, 0, copy.game.endlessCleanStreak(displayedChallengeStreak), {
+          fontFamily: 'monospace',
+          fontSize: `${Math.max(11, chrome.statusFontSize)}px`,
+          color: '#f0e6d2',
+          fontStyle: 'bold',
+        }).setOrigin(0.5);
+
     const getBackLabel = (): string => copy.game.back.replace(/^←\s*/, '');
     const topActionBackground = this.add.graphics();
     const backHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
@@ -429,6 +447,34 @@ export class GameScene extends Phaser.Scene {
       timerText
         .setPosition(this.scale.width / 2, titleText.y + (narrowTop ? 24 : 34))
         .setFontSize(Math.max(12, layout.statusFontSize));
+
+      if (challengeStreakText !== null && challengeStreakBackground !== null) {
+        challengeStreakText
+          .setText(copy.game.endlessCleanStreak(displayedChallengeStreak))
+          .setFontSize(Math.max(11, layout.statusFontSize))
+          .setPosition(this.scale.width / 2, timerText.y + (narrowTop ? 25 : 30));
+        const padX = narrowTop ? 14 : 18;
+        const padY = narrowTop ? 6 : 7;
+        const badgeWidth = challengeStreakText.width + padX * 2;
+        const badgeHeight = challengeStreakText.height + padY * 2;
+        challengeStreakBackground.clear();
+        challengeStreakBackground.fillStyle(0x101c31, 0.94);
+        challengeStreakBackground.lineStyle(1.5, 0x4f77aa, 0.95);
+        challengeStreakBackground.fillRoundedRect(
+          challengeStreakText.x - badgeWidth / 2,
+          challengeStreakText.y - badgeHeight / 2,
+          badgeWidth,
+          badgeHeight,
+          badgeHeight / 2,
+        );
+        challengeStreakBackground.strokeRoundedRect(
+          challengeStreakText.x - badgeWidth / 2,
+          challengeStreakText.y - badgeHeight / 2,
+          badgeWidth,
+          badgeHeight,
+          badgeHeight / 2,
+        );
+      }
 
       redrawTopActions();
     };
@@ -531,6 +577,22 @@ export class GameScene extends Phaser.Scene {
       return completionMode && this.scale.height < 520 ? 40 : 0;
     };
     let completionTransitionPending = false;
+    let masteryRankUpShown = false;
+
+    const showMasteryRankUpIfNeeded = (
+      transition: MasteryTransition | null,
+      source: MasteryProgressSource,
+    ): void => {
+      if (transition === null || !transition.rankAdvanced || masteryRankUpShown) return;
+      masteryRankUpShown = true;
+      analytics?.masteryRankUp(transition.fromRank, transition.toRank, source);
+      showMasteryRankUpOverlay(this, {
+        fromRank: transition.fromRank,
+        toRank: transition.toRank,
+        copy: copy.mastery,
+        onContinue: () => {},
+      });
+    };
     const completionButtons: Phaser.GameObjects.GameObject[] = [];
     const initialTimerMs = completedReview
       ? campaignPlayState?.displayTimeMs ?? 0
@@ -1224,6 +1286,10 @@ export class GameScene extends Phaser.Scene {
       }
       const hintsUsedInAttempt = puzzleSession?.getHintsUsed() ?? transientHintsUsed;
       puzzleAnalytics?.hintGranted(source, hintsUsedInAttempt);
+      if (endlessContext !== null && hintsUsedInAttempt > 0) {
+        displayedChallengeStreak = 0;
+        layoutTopActions();
+      }
       currentHint = hint;
       feedback.play('hint');
       board?.setHintCellTarget(hint);
@@ -1481,6 +1547,7 @@ export class GameScene extends Phaser.Scene {
       result: CampaignCompletionResult,
       metadata: CampaignCompletionMetadata,
       newBestTime: boolean,
+      masteryNote: string = '',
     ): void => {
       completionMode = true;
       currentHint = null;
@@ -1515,7 +1582,7 @@ ${featureUnlockMessages.join('\n')}`
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
-        .setText(`${solvedCopy}${featureUnlockCopy}`)
+        .setText(`${solvedCopy}${masteryNote ? `\n${masteryNote}` : ''}${featureUnlockCopy}`)
         .setColor('#d8d1c4')
         .setVisible(true);
 
@@ -1592,7 +1659,7 @@ ${featureUnlockMessages.join('\n')}`
       renderCompletionButtons();
     };
 
-    const showEndlessCompletionState = (completed: number): void => {
+    const showEndlessCompletionState = (completed: number, masteryNote: string = ''): void => {
       completionMode = true;
       currentHint = null;
       board?.setHintCellTarget(null);
@@ -1600,7 +1667,7 @@ ${featureUnlockMessages.join('\n')}`
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
-        .setText(`✓ ${copy.common.solved}\n${copy.home.endlessSolved(completed)}`)
+        .setText(`✓ ${copy.common.solved}\n${copy.home.endlessSolved(completed)}${masteryNote ? `\n${masteryNote}` : ''}`)
         .setColor('#d8d1c4')
         .setVisible(true);
 
@@ -1711,6 +1778,7 @@ ${featureUnlockMessages.join('\n')}`
     const showDailyCompletionState = (
       result: DailyCompletionResult,
       leaderboardEntry: LeaderboardPlayerView | null,
+      masteryNote: string = '',
     ): void => {
       completionMode = true;
       currentHint = null;
@@ -1739,6 +1807,8 @@ ${featureUnlockMessages.join('\n')}`
         .setText(
           `${rankingCopy}
 ${copy.game.solvedDaily(formatActiveTime(result.result.bestTimeMs), copy.game.withoutHints, '')}`
+          + (masteryNote ? `
+${masteryNote}` : '')
           + `
 ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         )
@@ -2156,6 +2226,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
 
       if (launchData.context.mode === 'daily') {
         statusText.setText('').setVisible(false);
+        const masteryBeforeDaily = profileService?.getProfile() ?? null;
         void this.finishDailyLevel(
           launchData,
           createVersion,
@@ -2168,6 +2239,11 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
             firstClear: result.wasFirstSolve,
             persisted: result.persisted,
           });
+          const masteryDailyTransition = masteryBeforeDaily !== null && profileService !== null
+            && result.ranked && result.wasFirstSolve
+            ? compareMastery(masteryBeforeDaily, profileService.getProfile(), 'daily')
+            : null;
+          const masteryDailyNote = formatMasteryProgressNote(masteryDailyTransition, copy.mastery);
 
           if (!result.wasFirstSolve) {
             this.time.delayedCall(350, () => {
@@ -2195,7 +2271,10 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
             .then((entry) => {
               if (createVersion !== this.createVersion) return;
               leaderboardEntry = entry;
-              if (resultShown) showDailyCompletionState(result, leaderboardEntry);
+              if (resultShown) {
+                showDailyCompletionState(result, leaderboardEntry, masteryDailyNote);
+                showMasteryRankUpIfNeeded(masteryDailyTransition, 'daily');
+              }
             })
             .catch((error) => {
               console.warn('[Dungeon Logic] Could not submit ranked Daily result yet.', error);
@@ -2203,7 +2282,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           this.time.delayedCall(500, () => {
             if (createVersion !== this.createVersion) return;
             resultShown = true;
-            showDailyCompletionState(result, leaderboardEntry);
+            showDailyCompletionState(result, leaderboardEntry, masteryDailyNote);
+            showMasteryRankUpIfNeeded(masteryDailyTransition, 'daily');
           });
         });
         return;
@@ -2211,11 +2291,16 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
 
       if (launchData.context.mode === 'endless') {
         statusText.setText('').setVisible(false);
+        const masteryBeforeEndless = profileService?.getProfile() ?? null;
         puzzleSession?.clearActivePuzzle();
         const service = endlessService;
         if (service === null) return;
-        void service.completeCurrent(launchData.context.ordinal).then((result) => {
+        void service.completeCurrent(launchData.context.ordinal, metadata.minHintsUsed).then((result) => {
           if (createVersion !== this.createVersion) return;
+          const masteryEndlessTransition = masteryBeforeEndless !== null && profileService !== null
+            ? compareMastery(masteryBeforeEndless, profileService.getProfile(), 'endless')
+            : null;
+          const masteryEndlessNote = formatMasteryProgressNote(masteryEndlessTransition, copy.mastery);
           puzzleAnalytics?.complete({
             elapsedMs: metadata.bestTimeMs,
             hintsUsed: metadata.minHintsUsed,
@@ -2224,7 +2309,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           });
           this.time.delayedCall(500, () => {
             if (createVersion !== this.createVersion) return;
-            showEndlessCompletionState(result.completed);
+            showEndlessCompletionState(result.completed, masteryEndlessNote);
+            showMasteryRankUpIfNeeded(masteryEndlessTransition, 'endless');
           });
         }).catch((error) => {
           console.error('[Dungeon Logic] Could not complete Endless level.', error);
@@ -2232,6 +2318,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         return;
       }
 
+      const masteryBeforeCampaign = profileService?.getProfile() ?? null;
       const previousResult = profileService?.getProfile().campaign.levelResults[launchData.context.campaignLevelId];
       const newBestTime = previousResult === undefined || metadata.bestTimeMs < previousResult.bestTimeMs;
       statusText.setText('').setVisible(false);
@@ -2249,9 +2336,14 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           firstClear: !alreadySolvedAtStart,
           persisted: result.persisted,
         });
+        const masteryCampaignTransition = masteryBeforeCampaign !== null && profileService !== null
+          ? compareMastery(masteryBeforeCampaign, profileService.getProfile(), 'campaign')
+          : null;
+        const masteryCampaignNote = formatMasteryProgressNote(masteryCampaignTransition, copy.mastery);
         this.time.delayedCall(500, () => {
           if (createVersion !== this.createVersion) return;
-          showCompletionState(result, metadata, newBestTime);
+          showCompletionState(result, metadata, newBestTime, masteryCampaignNote);
+          showMasteryRankUpIfNeeded(masteryCampaignTransition, 'campaign');
         });
       });
     };

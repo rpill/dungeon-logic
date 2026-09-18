@@ -11,7 +11,9 @@ export type AnalyticsGoalName =
   | 'tutorial_complete'
   | 'ad_interstitial_result'
   | 'ad_rewarded_result'
-  | 'tech_error';
+  | 'tech_error'
+  | 'mastery_open'
+  | 'mastery_rank_up';
 
 export interface AnalyticsTransport {
   sendGoal(name: AnalyticsGoalName, params: AnalyticsParams): void;

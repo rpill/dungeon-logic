@@ -1,5 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { PlayerProfileV5 } from '../profile/types';
+import type { PlayerProfileV6 } from '../profile/types';
 import type { DailyEntry } from '../content/daily/types';
 import type { DailyTodaySnapshot } from '../daily/DailyService';
 import type { DailyResultSummary } from '../profile/types';
@@ -8,6 +8,7 @@ export const HOME_SCENE_KEY = 'HomeScene';
 export const LEVELS_SCENE_KEY = 'LevelSelectScene';
 export const STATS_SCENE_KEY = 'StatsScene';
 export const SETTINGS_SCENE_KEY = 'SettingsScene';
+export const MASTERY_SCENE_KEY = 'MasteryScene';
 
 export interface MetaCampaignPort {
   getLevels(): readonly CampaignLevelEntry[];
@@ -39,7 +40,7 @@ export type HomeDailyAction =
 
 export function getHomeCampaignAction(
   campaign: MetaCampaignPort,
-  profile: PlayerProfileV5,
+  profile: PlayerProfileV6,
 ): HomeCampaignAction {
   if (!profile.tutorial.completed) return { kind: 'tutorial' };
 
@@ -61,26 +62,26 @@ export function getHomeCampaignAction(
   return { kind: 'continue', levelId: continueLevel.id };
 }
 
-export function shouldShowDailyEntry(_profile: PlayerProfileV5): boolean {
+export function shouldShowDailyEntry(_profile: PlayerProfileV6): boolean {
   return true;
 }
 
-export function isDailyUnlocked(profile: PlayerProfileV5): boolean {
+export function isDailyUnlocked(profile: PlayerProfileV6): boolean {
   return profile.campaign.completedLevelIds.includes('campaign-005');
 }
 
-export function shouldAutoStartTutorial(profile: PlayerProfileV5): boolean {
+export function shouldAutoStartTutorial(profile: PlayerProfileV6): boolean {
   return !profile.tutorial.completed
     && profile.tutorial.completedLevelIds.length === 0
     && profile.tutorial.activePuzzle === null;
 }
 
-export function shouldShowSettingsEntry(_profile: PlayerProfileV5): boolean {
+export function shouldShowSettingsEntry(_profile: PlayerProfileV6): boolean {
   return true;
 }
 
 export function getHomeDailyAction(
-  profile: PlayerProfileV5,
+  profile: PlayerProfileV6,
   today: DailyTodaySnapshot | null,
 ): HomeDailyAction {
   if (!isDailyUnlocked(profile)) return { kind: 'locked' };

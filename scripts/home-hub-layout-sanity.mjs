@@ -10,7 +10,7 @@ assert(home.includes('createHomeHubCard'), 'Home must use the compact hub-card r
 assert(home.includes("variant: 'primary'"), 'Home must render a prominent Continue card.');
 assert(home.includes("variant: 'tall'"), 'Home must render Levels and Daily as paired material cards.');
 assert(home.includes("variant: 'wide'"), 'Home must reserve a wide Endless card.');
-assert(home.includes('createHomeModeCard'), 'Home must render mode entries through the dedicated material-card renderer.');
+assert(home.includes('createHomeHubModeCard'), 'Home must render mode entries through the new Home-only material-card renderer.');
 assert(home.includes('activeAccent: !solved'), 'Available unsolved Daily must keep a distinct active accent.');
 assert(home.includes("label: copy.common.levels"), 'Home must keep a Levels card.');
 assert(home.includes("label: 'DAILY'"), 'Home must keep a Daily card.');
@@ -27,10 +27,8 @@ assert(home.includes('STICKY_BOTTOM_INSET_REGISTRY_KEY'), 'Home must explicitly 
 assert(home.includes("const desiredCenterRatio = narrow ? 0.47 : 0.5;"), 'Home stack must be vertically centered, with a slight optical lift on mobile.');
 assert(home.includes('const cardSectionGap'), 'Home cards must keep a compact shared gap so the stack reads as one unit.');
 assert(home.includes('const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);'), 'Desktop Levels and Daily icons must scale up inside compact square cards.');
-assert(home.includes('const naturalTileHeight = narrow'), 'Home must keep mobile tile height independent from desktop square tiles.');
-assert(home.includes('const naturalMobileTileHeight = compactHeight ? 102 : 116;'), 'Mobile Levels and Daily cards must keep their comfortable natural height before stack scaling.');
-assert(home.includes('y: options.y + options.height * (narrow ? 0.35 : 0.41),'), 'Mobile Levels progress bar must sit higher to preserve bottom inset inside the card.');
-assert(home.includes(': naturalTileWidth;'), 'Desktop Levels and Daily cards must be square before responsive stack scaling.');
+assert(home.includes('y: options.y + cardHeight * (narrow ? 0.31 : 0.35),'), 'Levels progress bar must sit higher and closer to the progress label.');
+assert(home.includes('const naturalTileHeight = naturalTileWidth;'), 'Levels and Daily cards must keep the approved square Home layout while using the shared button material.');
 assert(!home.includes('STATS_SCENE_KEY'), 'Home must no longer include the Statistics entry.');
 assert(!home.includes('copy.common.tutorial'), 'Home must no longer show a standalone Tutorial button.');
 assert(!home.includes('copy.common.howToPlay'), 'Home must no longer show a standalone How to Play button.');
@@ -39,6 +37,7 @@ assert(home.includes('subtitle: entry === undefined\n        ? `${completedCampa
 assert(home.includes('progress: { completed: completedCampaign, total: levels.length, label: copy.levelSelect.progress(completedCampaign, levels.length) }'), 'Levels card must receive completed/total progress data and localized progress text.');
 assert(home.includes('drawHomeCardProgress'), 'Levels card must render a dedicated progress bar.');
 assert(home.includes('HOME_PROGRESS_FILL = 0xf0bd63'), 'Home Levels progress must use the yellow campaign fill.');
+assert(home.includes('HOME_PROGRESS_TRACK_FILL = 0x090d16'), 'Home Levels progress track must be a near-black dark slot.');
 assert(!home.includes('HOME_PROGRESS_AVAILABLE_FILL'), 'Home Levels progress must not render the green available-reach segment.');
 
 console.info('[Dungeon Logic] Home hub layout sanity: PASS');

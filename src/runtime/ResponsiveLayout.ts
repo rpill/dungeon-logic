@@ -138,9 +138,7 @@ export function calculateLevelSelectLayout(
   const gapX = viewportClass === 'wide' ? 16 : 14;
   const gapY = viewportClass === 'wide' ? 4 : 5;
   const columns = Math.min(8, Math.max(1, itemCount));
-  const rows = columns === 0 ? 0 : Math.ceil(itemCount / columns);
   const rowsPerBlock = Math.max(1, Math.ceil(8 / columns));
-  const blockBreakCount = Math.max(0, Math.ceil(rows / rowsPerBlock) - 1);
   const shortViewport = viewport.height < 500;
   const blockGap = shortViewport ? 14 : viewport.height >= 860 ? 34 : viewport.height >= 760 ? 28 : 20;
   const continueHeight = shortViewport ? 50 : 54;
@@ -157,21 +155,10 @@ export function calculateLevelSelectLayout(
   const maxCardFromWidth = Math.floor(
     (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
   );
-  const maxCardFromHeight = rows === 0
-    ? 72
-    : Math.floor(
-        (
-          viewport.height
-          - gridTop
-          - rows * (numberGap + numberHeight)
-          - gapY * Math.max(0, rows - 1)
-          - blockGap * blockBreakCount
-        ) / rows,
-      );
   const minimumReadableCard = shortViewport ? 46 : viewport.height < 760 ? 39 : 48;
   const cardSize = Math.max(
     minimumReadableCard,
-    Math.min(72, maxCardFromWidth, maxCardFromHeight),
+    Math.min(108, maxCardFromWidth),
   );
   const rowPitch = cardSize + numberGap + numberHeight + gapY;
   const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
@@ -205,6 +192,106 @@ export function calculateLevelSelectLayout(
     progressBarHeight,
     headerBottom,
     contentBottom: cards.length === 0 ? headerBottom : cards[cards.length - 1].numberY + numberHeight / 2,
+    columns,
+    cardTitleFontSize: numberFontSize,
+    cardStateFontSize: 10,
+    cards,
+  };
+}
+
+
+export function calculateMobilePagedLevelSelectLayout(
+  viewportWidth: number,
+  viewportHeight: number,
+  itemCount: number,
+): LevelSelectLayout {
+  const viewport = getInitialViewportSize(viewportWidth, viewportHeight);
+  if (!Number.isInteger(itemCount) || itemCount < 0 || itemCount > 8) {
+    throw new RangeError('Mobile paged Level Select item count must be between 0 and 8.');
+  }
+
+  const viewportClass = classifyViewport(viewport.width);
+  const metaHeader = calculateMetaPageHeaderMetrics(viewport.width, viewport.height);
+  const portrait = viewport.height >= viewport.width;
+  const portraitSideMargin = 12;
+  const margin = portrait ? portraitSideMargin : 18;
+  const gapX = portrait ? 28 : 12;
+  const gapY = portrait ? 18 : 10;
+  const columns = portrait ? 2 : Math.min(8, Math.max(1, itemCount));
+  const rows = Math.ceil(itemCount / columns);
+  const portraitRows = 4;
+  const sizingRows = portrait ? portraitRows : rows;
+  const continueHeight = viewport.height < 620 ? 48 : 52;
+  const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 24 : 28);
+  const progressLabelY = continueY + continueHeight / 2 + 15;
+  const progressBarY = progressLabelY + 17;
+  const progressBarWidth = Math.min(viewport.width - margin * 2 - 44, 208);
+  const progressBarHeight = 6;
+  const headerBottom = progressBarY + progressBarHeight / 2 + 20;
+  const pagerReserve = portrait ? 64 : 44;
+  const gridTop = headerBottom + (portrait ? 14 : 10);
+  const numberGap = 4;
+  const numberFontSize = portrait ? 12 : 10;
+  const numberHeight = numberFontSize + 3;
+  const maxCardFromWidth = Math.floor(
+    (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
+  );
+  const availableGridHeight = Math.max(
+    1,
+    viewport.height - gridTop - pagerReserve - margin,
+  );
+  const maxCardFromHeight = sizingRows === 0
+    ? 120
+    : Math.floor(
+        (
+          availableGridHeight
+          - sizingRows * (numberGap + numberHeight)
+          - gapY * Math.max(0, sizingRows - 1)
+        ) / sizingRows,
+      );
+  const rawCardSize = Math.max(
+    portrait ? 78 : 42,
+    Math.min(portrait ? 132 : 70, maxCardFromWidth, maxCardFromHeight),
+  );
+  const portraitCardScale = 0.93;
+  const cardSize = portrait
+    ? Math.max(74, Math.floor(rawCardSize * portraitCardScale))
+    : rawCardSize;
+  const rowPitch = cardSize + numberGap + numberHeight + gapY;
+  const effectiveGapX = gapX;
+  const totalWidth = columns * cardSize + Math.max(0, columns - 1) * effectiveGapX;
+  const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
+  const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const y = gridTop + cardSize / 2 + row * rowPitch;
+    return {
+      x: startX + column * (cardSize + effectiveGapX),
+      y,
+      width: cardSize,
+      height: cardSize,
+      numberY: y + cardSize / 2 + numberGap + numberHeight / 2,
+    };
+  });
+  const gridBottom = cards.length === 0
+    ? gridTop
+    : Math.max(...cards.map((card) => card.numberY + numberHeight / 2));
+
+  return {
+    viewportClass,
+    titleY: metaHeader.titleY,
+    titleFontSize: metaHeader.titleFontSize,
+    continueY,
+    continueWidth: Math.min(viewport.width - margin * 2, 270),
+    continueHeight,
+    continueFontSize: portrait ? 16 : 14,
+    progressLabelY,
+    progressLabelFontSize: 12,
+    progressBarY,
+    progressBarWidth,
+    progressBarHeight,
+    headerBottom,
+    contentBottom: Math.min(viewport.height - margin, gridBottom + pagerReserve),
     columns,
     cardTitleFontSize: numberFontSize,
     cardStateFontSize: 10,

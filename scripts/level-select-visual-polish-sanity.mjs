@@ -18,7 +18,7 @@ assert(!scene.includes('hoverStrokeWidth'), 'Level hover must not change border 
 assert(!scene.includes('pressedStrokeWidth'), 'Level press must not change border thickness.');
 assert(scene.includes('copy.levelSelect.progress('), 'Levels screen must show a dedicated completed-level progress label.');
 assert(!scene.includes('drawGridPanel(layout);'), 'Levels screen must not wrap the whole grid in a large panel.');
-assert(scene.includes('drawLevelSectionDividers(layout, items.length);'), 'Levels screen must insert small block dividers between 8-level groups.');
+assert(scene.includes('drawLevelSectionDividers(layout, visibleItems.length);'), 'Desktop Levels must keep block dividers while mobile pages render one 8-level group at a time.');
 assert(scene.includes('const SECTION_LINE_COLOR = 0xf0bd63;'), 'Block separators must use the gold concept color.');
 assert(scene.includes('createScrollIndicator('), 'Levels screen must show a right-side scroll indicator when scrolling is available.');
 assert(scene.includes('SCROLLBAR_TRACK_FILL'), 'Scroll indicator must use a themed dark-blue track.');

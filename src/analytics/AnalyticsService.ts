@@ -168,6 +168,14 @@ export class AnalyticsService {
     this.send('tutorial_complete', {});
   }
 
+  masteryOpen(rank: string): void {
+    this.send('mastery_open', { rank });
+  }
+
+  masteryRankUp(fromRank: string, toRank: string, source: 'campaign' | 'daily' | 'endless'): void {
+    this.send('mastery_rank_up', { from_rank: fromRank, to_rank: toRank, source });
+  }
+
   interstitialResult(result: InterstitialResult, completedSlot: number): void {
     this.send('ad_interstitial_result', {
       result,

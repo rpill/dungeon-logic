@@ -1,6 +1,5 @@
 import type { EndlessCatalog } from '../content/endless/EndlessCatalog';
 import { getEndlessProgressionTarget } from '../content/endless/ProgressionPolicy';
-import type { EndlessCatalogEntry } from '../content/endless/CatalogFormat';
 import type { GeneratorArchetype as GeneratorArchetypeValue } from '../puzzle/generator/types';
 
 const MAX_SCORE = 100;

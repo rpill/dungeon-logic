@@ -52,12 +52,19 @@ export interface TutorialProfileState {
 }
 
 
-export interface EndlessProfileState {
+export interface EndlessProfileStateV5 {
   /** Zero-based logical Endless puzzle number. The finite verified catalog is an internal pool. */
   readonly ordinal: number;
   /** Total Endless puzzles solved. This count is intentionally unbounded. */
   readonly completed: number;
   readonly activePuzzle: SerializedPuzzleState | null;
+}
+
+export interface EndlessProfileState extends EndlessProfileStateV5 {
+  /** Consecutive Endless solves completed without any hints. */
+  readonly currentCleanStreak: number;
+  /** Highest clean Endless streak ever achieved. */
+  readonly bestCleanStreak: number;
 }
 
 export interface PlayerSettings {
@@ -180,7 +187,7 @@ export interface PlayerProfileV5 {
     readonly drafts: Readonly<Record<string, SerializedPuzzleState>>;
   };
   readonly daily: DailyProfileState;
-  readonly endless: EndlessProfileState;
+  readonly endless: EndlessProfileStateV5;
   readonly settings: PlayerSettings;
   readonly hints: {
     readonly freeRemaining: number;
@@ -196,3 +203,9 @@ export interface PlayerProfileV5 {
   };
 }
 
+
+/** Current profile schema: adds persistent Endless clean-streak records for Mastery. */
+export type PlayerProfileV6 = Omit<PlayerProfileV5, 'schemaVersion' | 'endless'> & {
+  readonly schemaVersion: 6;
+  readonly endless: EndlessProfileState;
+};

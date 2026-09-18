@@ -18,6 +18,8 @@ export interface EndlessLaunch {
 export interface EndlessCompletionResult {
   readonly completedOrdinal: number;
   readonly completed: number;
+  readonly currentCleanStreak: number;
+  readonly bestCleanStreak: number;
   readonly persisted: boolean;
 }
 
@@ -67,7 +69,7 @@ export class EndlessService {
     };
   }
 
-  async completeCurrent(ordinal: number): Promise<EndlessCompletionResult> {
+  async completeCurrent(ordinal: number, hintsUsed: number): Promise<EndlessCompletionResult> {
     this.requireOrdinal(ordinal);
     const current = this.getCurrentOrdinal();
     if (ordinal !== current) {
@@ -75,14 +77,21 @@ export class EndlessService {
     }
 
     const nextOrdinal = ordinal + 1;
-    this.profileService.update((profile) => ({
-      ...profile,
-      endless: {
-        ordinal: nextOrdinal,
-        completed: Math.max(profile.endless.completed, nextOrdinal),
-        activePuzzle: null,
-      },
-    }));
+    const clean = hintsUsed === 0;
+    this.profileService.update((profile) => {
+      const currentCleanStreak = clean ? profile.endless.currentCleanStreak + 1 : 0;
+      const bestCleanStreak = Math.max(profile.endless.bestCleanStreak, currentCleanStreak);
+      return {
+        ...profile,
+        endless: {
+          ordinal: nextOrdinal,
+          completed: Math.max(profile.endless.completed, nextOrdinal),
+          activePuzzle: null,
+          currentCleanStreak,
+          bestCleanStreak,
+        },
+      };
+    });
 
     let persisted = true;
     try {
@@ -95,6 +104,8 @@ export class EndlessService {
     return {
       completedOrdinal: ordinal,
       completed: this.profileService.getProfile().endless.completed,
+      currentCleanStreak: this.profileService.getProfile().endless.currentCleanStreak,
+      bestCleanStreak: this.profileService.getProfile().endless.bestCleanStreak,
       persisted,
     };
   }

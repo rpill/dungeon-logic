@@ -10,6 +10,7 @@ import { HelpScene } from './scenes/HelpScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { DailyScene } from './scenes/DailyScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { MasteryScene } from './scenes/MasteryScene';
 import { installHiDpiRendering } from './runtime/HiDpiRendering';
 import { getInitialViewportSize } from './runtime/ResponsiveLayout';
 
@@ -44,6 +45,7 @@ const config: Phaser.Types.Core.GameConfig = {
     LeaderboardScene,
     GameScene,
     SettingsScene,
+    MasteryScene,
     HelpScene,
   ],
 };

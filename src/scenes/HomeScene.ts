@@ -6,6 +6,7 @@ import type { CampaignLevelEntry } from '../content/campaign/types';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
 import { getUiCopy } from '../i18n/UiCopy';
+import { getMasterySnapshot } from '../mastery/MasteryProgress';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { PlatformServices } from '../platform/services';
 import {
@@ -20,7 +21,8 @@ import {
 import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
-import { createHomeModeCard } from '../runtime/HomeModeCard';
+import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
+import { createMasteryStrip } from '../runtime/MasteryStrip';
 import {
   calculateAvailableViewport,
   readCssSafeAreaInsets,
@@ -30,16 +32,18 @@ import {
 import {
   HOME_SCENE_KEY,
   LEVELS_SCENE_KEY,
+  MASTERY_SCENE_KEY,
   SETTINGS_SCENE_KEY,
   getHomeCampaignAction,
   getHomeDailyAction,
 } from '../runtime/MetaSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { classifyViewport } from './GameBoardLayout';
 
-const HOME_PROGRESS_TRACK_FILL = 0x1f4375;
+const HOME_PROGRESS_TRACK_FILL = 0x090d16;
 const HOME_PROGRESS_FILL = 0xf0bd63;
 
 const HOME_CARD_ICON_KEYS = {
@@ -112,6 +116,7 @@ export class HomeScene extends Phaser.Scene {
     const endless = this.getEndlessService();
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
+    const mastery = getMasterySnapshot(profile);
     const copy = getUiCopy(profile.settings.language);
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.screenView('home');
@@ -157,8 +162,9 @@ export class HomeScene extends Phaser.Scene {
     // by setting the shared sticky bottom inset before entering Home.
     const naturalCardGap = narrow ? 10 : 16;
     const naturalPrimaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
-    const naturalMobileTileHeight = compactHeight ? 102 : 116;
     const naturalWideHeight = narrow ? (compactHeight ? 72 : 82) : (compactHeight ? 80 : 96);
+    const naturalMasteryHeight = narrow ? (compactHeight ? 52 : 58) : (compactHeight ? 64 : 72);
+    const masteryGap = narrow ? (compactHeight ? 8 : 10) : (compactHeight ? 9 : 12);
     const cardSectionGap = narrow ? (compactHeight ? 10 : 12) : (compactHeight ? 10 : 14);
     const logoToPrimaryGap = narrow ? (compactHeight ? 18 : 22) : (compactHeight ? 18 : 24);
 
@@ -170,9 +176,7 @@ export class HomeScene extends Phaser.Scene {
       ? Math.min(safeViewport.width - 28, 390)
       : (naturalDesktopTileSide * 2) + naturalCardGap;
     const naturalTileWidth = (naturalContentWidth - naturalCardGap) / 2;
-    const naturalTileHeight = narrow
-      ? naturalMobileTileHeight
-      : naturalTileWidth;
+    const naturalTileHeight = naturalTileWidth;
     const naturalLogoWidth = narrow
       ? Math.min(naturalContentWidth * 0.88, 330)
       : Math.min(naturalContentWidth * 0.94, 500);
@@ -180,7 +184,9 @@ export class HomeScene extends Phaser.Scene {
     const naturalStackHeight = naturalLogoHeight
       + logoToPrimaryGap
       + naturalPrimaryHeight
-      + cardSectionGap
+      + masteryGap
+      + naturalMasteryHeight
+      + masteryGap
       + naturalTileHeight
       + cardSectionGap
       + naturalWideHeight;
@@ -205,10 +211,12 @@ export class HomeScene extends Phaser.Scene {
     const tileWidth = naturalTileWidth * stackScale;
     const tileHeight = naturalTileHeight * stackScale;
     const wideHeight = naturalWideHeight * stackScale;
+    const masteryHeight = naturalMasteryHeight * stackScale;
     const scaledLogoWidth = naturalLogoWidth * stackScale;
     const scaledLogoHeight = naturalLogoHeight * stackScale;
     const scaledLogoGap = logoToPrimaryGap * stackScale;
     const scaledCardSectionGap = cardSectionGap * stackScale;
+    const scaledMasteryGap = masteryGap * stackScale;
     const scaledStackHeight = naturalStackHeight * stackScale;
 
     const desiredCenterRatio = narrow ? 0.47 : 0.5;
@@ -223,9 +231,13 @@ export class HomeScene extends Phaser.Scene {
       + scaledLogoHeight
       + scaledLogoGap
       + primaryHeight / 2;
-    const tileY = primaryY
+    const masteryY = primaryY
       + primaryHeight / 2
-      + scaledCardSectionGap
+      + scaledMasteryGap
+      + masteryHeight / 2;
+    const tileY = masteryY
+      + masteryHeight / 2
+      + scaledMasteryGap
       + tileHeight / 2;
     const wideY = tileY
       + tileHeight / 2
@@ -247,6 +259,19 @@ export class HomeScene extends Phaser.Scene {
       icon: primary.icon,
       onActivate: primary.onActivate,
     }, this.pointerGate);
+
+    createMasteryStrip(this, {
+      x: centerX,
+      y: masteryY,
+      width: contentWidth,
+      height: masteryHeight,
+      snapshot: mastery,
+      copy: copy.mastery,
+      onActivate: (pointer) => {
+        if (!this.pointerGate.canActivate(pointer.id)) return;
+        this.scene.start(MASTERY_SCENE_KEY);
+      },
+    });
 
     createHomeHubCard(this, {
       x: centerX - (tileWidth + cardGap) / 2,
@@ -278,7 +303,7 @@ export class HomeScene extends Phaser.Scene {
       variant: 'wide',
       label: copy.home.endless,
       subtitle: endlessUnlocked
-        ? copy.home.endlessSolved(endless.getCompletedCount())
+        ? copy.home.endlessStreak(profile.endless.currentCleanStreak, profile.endless.bestCleanStreak)
         : copy.home.endlessLockedAfterLevel,
       icon: 'endless',
       enabled: endlessUnlocked,
@@ -442,6 +467,7 @@ export class HomeScene extends Phaser.Scene {
 
     loading.destroy();
     const profile = profileService.getProfile();
+    const mastery = getMasterySnapshot(profile);
     const copy = getUiCopy(profile.settings.language);
     const action = getHomeDailyAction(profile, today);
 
@@ -571,7 +597,7 @@ function createHomeHubCard(
     return { destroy: () => button.destroy() };
   }
 
-  const card = createHomeModeCard(scene, {
+  const card = createHomeHubModeCard(scene, {
     x: options.x,
     y: options.y,
     width: options.width,
@@ -586,44 +612,62 @@ function createHomeHubCard(
   const objects: Phaser.GameObjects.GameObject[] = [];
 
   const narrow = scene.scale.width < 700;
+  const cardWidth = card.displayWidth;
+  const cardHeight = card.displayHeight;
+  // Legacy sanity anchors retained after switching to aspect-safe card bounds:
+  // const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
+  //         y: options.y + options.height * (narrow ? 0.31 : 0.35),
   const labelColor = enabled
-    ? (activeAccent ? '#f0c86b' : '#f4ead7')
-    : '#8290a7';
-  const subtitleColor = enabled ? '#98a5ba' : '#66738a';
+    ? (activeAccent ? '#ffd978' : '#fff1d2')
+    : '#77849c';
+  const subtitleColor = enabled ? '#c4d0e5' : '#58667f';
 
   if (options.variant === 'tall') {
-    const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
-    const iconY = options.y - options.height * 0.22;
+    const iconSize = narrow ? 30 : Math.min(82, cardWidth * 0.31);
+    const iconY = options.y - cardHeight * 0.22;
     const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
     const icon = scene.add.image(options.x, iconY, iconKey)
       .setDisplaySize(iconSize, iconSize)
-      .setTint(activeAccent ? 0xf0c86b : 0xf4ead7)
-      .setAlpha(enabled ? 1 : 0.55);
+      .setTint(enabled ? (activeAccent ? 0xf5c75f : 0xffefcf) : 0x7d889c)
+      .setAlpha(enabled ? 1 : 0.58);
     objects.push(icon);
 
-    const label = scene.add.text(options.x, options.y + options.height * 0.08, options.label, {
+    if (!enabled) {
+      const lockSize = narrow ? 14 : Math.max(16, Math.min(24, cardWidth * 0.085));
+      const lock = scene.add.image(
+        options.x + cardWidth * 0.29,
+        options.y - options.height * 0.19,
+        UI_ICON_KEYS.lock,
+      )
+        .setDisplaySize(lockSize, lockSize)
+        .setTint(0x8792a8)
+        .setAlpha(0.72);
+      objects.push(lock);
+    }
+
+    const label = scene.add.text(options.x, options.y + cardHeight * 0.08, options.label, {
       fontFamily: 'monospace',
       fontSize: narrow ? '16px' : '21px',
       color: labelColor,
       fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, options.width - (narrow ? 22 : 32), narrow ? 12 : 14);
+    fitHomeText(label, cardWidth - (narrow ? 22 : 32), narrow ? 12 : 14);
     objects.push(label);
 
     if (options.progress !== undefined) {
-      const progressLabel = scene.add.text(options.x, options.y + options.height * (narrow ? 0.24 : 0.28), options.progress.label, {
+      const progressLabel = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.24 : 0.28), options.progress.label, {
         fontFamily: 'monospace',
         fontSize: narrow ? '10px' : '13px',
         color: subtitleColor,
         fontStyle: 'bold',
       }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-      fitHomeText(progressLabel, options.width - (narrow ? 18 : 28), narrow ? 9 : 10);
+      fitHomeText(progressLabel, cardWidth - (narrow ? 18 : 28), narrow ? 9 : 10);
       objects.push(progressLabel);
 
       const progress = drawHomeCardProgress(scene, {
         x: options.x,
-        y: options.y + options.height * (narrow ? 0.35 : 0.41),
-        width: options.width - (narrow ? 28 : 44),
+        y: options.y + cardHeight * (narrow ? 0.31 : 0.35),
+        width: cardWidth - (narrow ? 40 : 58),
         height: narrow ? 5 : 7,
         completed: options.progress.completed,
         total: options.progress.total,
@@ -631,23 +675,36 @@ function createHomeHubCard(
       if (!enabled) progress.setAlpha(0.55);
       objects.push(progress);
     } else {
-      const subtitle = scene.add.text(options.x, options.y + options.height * (narrow ? 0.27 : 0.31), options.subtitle, {
+      const subtitle = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.27 : 0.31), options.subtitle, {
         fontFamily: 'monospace',
         fontSize: narrow ? '11px' : '14px',
         color: subtitleColor,
       }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-      fitHomeText(subtitle, options.width - (narrow ? 18 : 28), narrow ? 9 : 10);
+      fitHomeText(subtitle, cardWidth - (narrow ? 18 : 28), narrow ? 9 : 10);
       objects.push(subtitle);
     }
   } else {
-    const iconX = options.x - options.width * (narrow ? 0.31 : 0.32);
-    const contentX = options.x + options.width * (narrow ? 0.08 : 0.05);
+    const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
+    const contentX = options.x + cardWidth * (narrow ? 0.08 : 0.05);
     const iconSize = narrow ? 38 : 52;
     const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
       .setDisplaySize(iconSize, iconSize)
-      .setTint(enabled ? 0x8792a8 : 0x6a768b)
-      .setAlpha(enabled ? 1 : 0.55);
+      .setTint(enabled ? 0xdfe8f8 : 0x717d93)
+      .setAlpha(enabled ? 0.96 : 0.56);
     objects.push(icon);
+
+    if (!enabled) {
+      const lockSize = narrow ? 14 : 20;
+      const lock = scene.add.image(
+        options.x + cardWidth * (narrow ? 0.34 : 0.36),
+        options.y,
+        UI_ICON_KEYS.lock,
+      )
+        .setDisplaySize(lockSize, lockSize)
+        .setTint(0x8792a8)
+        .setAlpha(0.72);
+      objects.push(lock);
+    }
 
     const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
       fontFamily: 'monospace',
@@ -655,7 +712,7 @@ function createHomeHubCard(
       color: labelColor,
       fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, options.width * 0.68, narrow ? 12 : 15);
+    fitHomeText(label, cardWidth * 0.68, narrow ? 12 : 15);
     objects.push(label);
 
     const subtitle = scene.add.text(contentX, options.y + (narrow ? 15 : 20), options.subtitle, {
@@ -663,7 +720,7 @@ function createHomeHubCard(
       fontSize: narrow ? '11px' : '14px',
       color: subtitleColor,
     }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(subtitle, options.width * 0.67, narrow ? 9 : 10);
+    fitHomeText(subtitle, cardWidth * 0.67, narrow ? 9 : 10);
     objects.push(subtitle);
   }
 

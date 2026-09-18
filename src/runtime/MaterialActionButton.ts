@@ -6,7 +6,7 @@ import { isTouchLikePointer } from './PointerInput';
 export type MaterialButtonVariant = 'secondary' | 'danger';
 type MaterialButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 
-const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
+export const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
   secondary: 'material-button-secondary-normal',
   danger: 'material-button-danger-normal',
 };
@@ -15,7 +15,7 @@ const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
 // These values intentionally mirror the approved yellow primary CTA so all
 // button families keep identical end caps, bevel proportions and rivet shape.
 export const MATERIAL_BUTTON_SLICE_X = 56;
-const MATERIAL_BUTTON_FRAME = 'button-body';
+export const MATERIAL_BUTTON_FRAME = 'button-body';
 export const MATERIAL_BUTTON_FRAME_INSET = 24;
 export const MATERIAL_BUTTON_CONTENT_Y_RATIO = 0.045;
 
@@ -25,6 +25,19 @@ export function getMaterialButtonContentY(y: number, height: number): number {
 
 const MATERIAL_BUTTON_TEXT_COLOR = '#f4ead7';
 const MATERIAL_BUTTON_ICON_TINT = 0xf4ead7;
+
+export const MATERIAL_BUTTON_STATE_TINTS = {
+  secondary: {
+    hover: 0x101522,
+    pressed: 0xd3d9e4,
+    disabled: 0x7e8796,
+  },
+  danger: {
+    hover: 0x180808,
+    pressed: 0xd8c0c2,
+    disabled: 0x927f82,
+  },
+} as const;
 
 const GRAPHICS_PALETTES = {
   secondary: {
@@ -134,14 +147,13 @@ export function createMaterialActionButton(
     surface.clearTint();
     surface.setAlpha(1);
 
+    const stateTints = MATERIAL_BUTTON_STATE_TINTS[options.variant];
     if (activeState === 'hover') {
-      const hoverTint = options.variant === 'danger' ? 0x180808 : 0x101522;
-      surface.setTint(hoverTint).setTintMode(Phaser.TintModes.ADD);
+      surface.setTint(stateTints.hover).setTintMode(Phaser.TintModes.ADD);
     } else if (activeState === 'pressed') {
-      const pressedTint = options.variant === 'danger' ? 0xd8c0c2 : 0xd3d9e4;
-      surface.setTint(pressedTint);
+      surface.setTint(stateTints.pressed);
     } else if (activeState === 'disabled') {
-      surface.setTint(options.variant === 'danger' ? 0x927f82 : 0x7e8796);
+      surface.setTint(stateTints.disabled);
       surface.setAlpha(0.82);
     }
 

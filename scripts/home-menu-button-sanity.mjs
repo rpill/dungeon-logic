@@ -13,6 +13,7 @@ const homeSource = readFileSync(resolve(projectRoot, 'src/scenes/HomeScene.ts'),
 const rendererPath = resolve(projectRoot, 'src/runtime/HomeMenuButton.ts');
 const headerActionPath = resolve(projectRoot, 'src/runtime/HeaderActionButton.ts');
 const homeModeCardPath = resolve(projectRoot, 'src/runtime/HomeModeCard.ts');
+const homeHubModeCardPath = resolve(projectRoot, 'src/runtime/HomeHubModeCard.ts');
 
 const expectedAssets = [
   'public/assets/ui/menu_button_fill.webp',
@@ -48,15 +49,17 @@ assert(
     && homeSource.includes("iconKey: 'home-menu-icon-settings'"),
   'Home must expose Settings as a compact top-right gear using the shared header style.',
 );
-assert(existsSync(homeModeCardPath), 'Dedicated HomeModeCard renderer must exist for Home navigation cards.');
+assert(existsSync(homeModeCardPath), 'Legacy HomeModeCard renderer must remain available and untouched.');
+assert(existsSync(homeHubModeCardPath), 'New HomeHubModeCard renderer must exist for Home navigation cards.');
 assert(
   bootSource.includes('preloadHomeModeCardAssets(this)')
-    && homeSource.includes('createHomeModeCard(scene, {'),
-  'Home navigation cards must use the dedicated material-card assets instead of the old stretched menu frames.',
+    && bootSource.includes('preloadHomeHubModeCardAssets(this)')
+    && homeSource.includes('createHomeHubModeCard(scene, {'),
+  'Home navigation cards must use their dedicated card textures while preserving the shared HomeHubModeCard renderer.',
 );
 assert(
   !homeSource.includes('STATS_SCENE_KEY'),
   'Statistics must not return as a dedicated Home action.',
 );
 
-console.info('[Dungeon Logic] Home hub buttons sanity: material mode cards + shared icons passed');
+console.info('[Dungeon Logic] Home hub buttons sanity: new Home-only mode cards + shared icons passed');

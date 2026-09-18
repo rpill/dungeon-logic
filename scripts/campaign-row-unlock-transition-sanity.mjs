@@ -12,6 +12,8 @@ assert(campaignService.includes('rowUnlock:'), 'Campaign completion must report 
 assert(game.includes('result.rowUnlock'), 'Campaign Next must branch on row-unlock completion metadata.');
 assert(game.includes("this.scene.start(LEVELS_SCENE_KEY, { rowUnlock: result.rowUnlock })"), 'Row completion Next must route to Levels with transition data.');
 assert(levels.includes('playRowUnlockTransition'), 'Levels scene must animate a newly activated campaign row.');
+assert(levels.includes('playMobileRowUnlockTransition'), 'Mobile paged Levels must animate the newly activated campaign page.');
+assert(levels.includes('this.playMobileRowUnlockTransition(layout, visibleItems, rowUnlock, mobilePageStart);'), 'Mobile page must invoke its unlock wave after routing to the newly opened row.');
 assert(levels.includes('createTemporaryUnlockCover'), 'Newly playable cards must visually shed temporary locks.');
 assert(levels.includes('createRowDividerPulse'), 'The separator between campaign rows must pulse during unlock.');
 assert(levels.includes('const ROW_UNLOCK_INITIAL_PAUSE_MS = 300;'), 'Row unlock must pause before the completion pulse so the transition is readable.');

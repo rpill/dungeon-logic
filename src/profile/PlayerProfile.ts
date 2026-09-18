@@ -7,7 +7,7 @@ import type {
   CampaignLevelResult,
   DailyProfileState,
   DailyResultSummary,
-  PlayerProfileV5,
+  PlayerProfileV6,
   PlayerSettings,
   SerializedPuzzleState,
   TutorialProfileState,
@@ -185,7 +185,13 @@ function normalizeDaily(value: unknown, schemaVersion: number): DailyProfileStat
 
 function normalizeEndless(value: unknown, schemaVersion: number) {
   if (schemaVersion < 5 || !isRecord(value)) {
-    return { ordinal: 0, completed: 0, activePuzzle: null } as const;
+    return {
+      ordinal: 0,
+      completed: 0,
+      activePuzzle: null,
+      currentCleanStreak: 0,
+      bestCleanStreak: 0,
+    } as const;
   }
 
   const completed = nonNegativeInteger(value.completed);
@@ -194,8 +200,14 @@ function normalizeEndless(value: unknown, schemaVersion: number) {
     nonNegativeInteger(value.ordinal, completed),
   );
   const activePuzzle = normalizeSerializedPuzzleState(value.activePuzzle, 'endless');
+  const currentCleanStreak = schemaVersion >= 6
+    ? nonNegativeInteger(value.currentCleanStreak)
+    : 0;
+  const bestCleanStreak = schemaVersion >= 6
+    ? Math.max(currentCleanStreak, nonNegativeInteger(value.bestCleanStreak))
+    : 0;
 
-  return { ordinal, completed, activePuzzle } as const;
+  return { ordinal, completed, activePuzzle, currentCleanStreak, bestCleanStreak } as const;
 }
 
 function normalizeTutorial(value: unknown): TutorialProfileState {
@@ -226,9 +238,9 @@ function normalizeTutorial(value: unknown): TutorialProfileState {
 export function createFreshPlayerProfile(
   _manifest: readonly CampaignLevelEntry[] = [],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV5 {
+): PlayerProfileV6 {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     tutorial: {
       completedLevelIds: [],
       completed: false,
@@ -253,6 +265,8 @@ export function createFreshPlayerProfile(
       ordinal: 0,
       completed: 0,
       activePuzzle: null,
+      currentCleanStreak: 0,
+      bestCleanStreak: 0,
     },
     settings: {
       musicEnabled: true,
@@ -278,8 +292,8 @@ export function normalizePlayerProfile(
   raw: unknown,
   manifest: readonly CampaignLevelEntry[],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV5 {
-  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2 && raw.schemaVersion !== 3 && raw.schemaVersion !== 4 && raw.schemaVersion !== 5)) {
+): PlayerProfileV6 {
+  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2 && raw.schemaVersion !== 3 && raw.schemaVersion !== 4 && raw.schemaVersion !== 5 && raw.schemaVersion !== 6)) {
     return createFreshPlayerProfile(manifest, defaultLanguage);
   }
 
@@ -311,7 +325,7 @@ export function normalizePlayerProfile(
   }
 
   const campaignDrafts: Record<string, SerializedPuzzleState> = {};
-  if ((raw.schemaVersion === 3 || raw.schemaVersion === 4 || raw.schemaVersion === 5) && isRecord(rawCampaign.drafts)) {
+  if ((raw.schemaVersion === 3 || raw.schemaVersion === 4 || raw.schemaVersion === 5 || raw.schemaVersion === 6) && isRecord(rawCampaign.drafts)) {
     for (const [levelId, candidate] of Object.entries(rawCampaign.drafts)) {
       if (!knownIds.has(levelId)) continue;
       const draft = normalizeSerializedPuzzleState(candidate, 'campaign', knownIds);
@@ -327,7 +341,7 @@ export function normalizePlayerProfile(
       campaignDrafts[legacyActivePuzzle.puzzleId] = legacyActivePuzzle;
     }
   }
-  const tutorial = raw.schemaVersion === 2 || raw.schemaVersion === 3 || raw.schemaVersion === 4 || raw.schemaVersion === 5
+  const tutorial = raw.schemaVersion === 2 || raw.schemaVersion === 3 || raw.schemaVersion === 4 || raw.schemaVersion === 5 || raw.schemaVersion === 6
     ? normalizeTutorial(raw.tutorial)
     : {
       completedLevelIds: [],
@@ -342,7 +356,7 @@ export function normalizePlayerProfile(
   const rawTotals = isRecord(raw.totals) ? raw.totals : {};
 
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     tutorial,
     campaign: {
       completedLevelIds,
@@ -381,7 +395,7 @@ export function migrateLegacyCampaignProgress(
   legacy: unknown,
   manifest: readonly CampaignLevelEntry[],
   defaultLanguage: SupportedLanguage = 'ru',
-): PlayerProfileV5 {
+): PlayerProfileV6 {
   const fresh = createFreshPlayerProfile(manifest, defaultLanguage);
   if (!looksLikeLegacyCampaignProgress(legacy)) return fresh;
 
