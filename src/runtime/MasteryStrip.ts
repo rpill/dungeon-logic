@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 
 import type { UiCopy } from '../i18n/UiCopy';
 import type { MasterySnapshot } from '../mastery/MasteryProgress';
-import { createHeaderActionButton } from './HeaderActionButton';
 import { createHomeHubModeCard } from './HomeHubModeCard';
 import { createMasterySeal } from './MasterySeal';
 import { UI_ICON_KEYS } from './UiIcons';
@@ -31,31 +30,27 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
     onActivate: options.onActivate,
   });
 
+  background.setInteractive({ useHandCursor: true });
+
   const left = options.x - options.width / 2;
   const right = options.x + options.width / 2;
-  const sealSize = Math.min(options.height * 0.7, 54);
-  const sealX = left + Math.max(30, options.width * 0.078);
+  const sealSize = Math.min(options.height * 1.26, 90);
+  const sealX = left + Math.max(42, options.width * 0.1);
   const seal = createMasterySeal(scene, {
     x: sealX,
     y: options.y,
     size: sealSize,
     rank: options.snapshot.currentRank,
     showRankPlaque: false,
+    textureVariant: 'small',
   });
 
-  const arrowButtonSize = Math.max(28, Math.min(38, options.height * 0.58));
-  const arrowX = right - Math.max(22, options.width * 0.052);
-  const arrow = createHeaderActionButton(scene, {
-    x: arrowX,
-    y: options.y,
-    width: arrowButtonSize,
-    height: arrowButtonSize,
-    radius: Math.max(8, arrowButtonSize * 0.24),
-    iconKey: UI_ICON_KEYS.back,
-    iconSize: arrowButtonSize * 0.48,
-    onActivate: options.onActivate,
-  });
-  arrow.icon.setRotation(Math.PI);
+  const arrowSize = Math.max(20, Math.min(26, options.height * 0.38));
+  const arrowX = right - Math.max(28, options.width * 0.06);
+  const arrowKey = UI_ICON_KEYS.masteryForward || UI_ICON_KEYS.back;
+  const arrow = scene.add.image(arrowX, options.y, arrowKey)
+    .setDisplaySize(arrowSize, arrowSize)
+    .setAlpha(0.96);
 
   const rankTitle = options.copy.rankTitles[options.snapshot.currentRank];
   const title = `${options.copy.homeTitle(options.snapshot.currentRank)} — ${rankTitle}`;
@@ -63,8 +58,8 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
     ? options.copy.maxRank
     : options.copy.homeNext(options.snapshot.nextRank, options.snapshot.remainingConditions);
 
-  const titleX = left + Math.max(58, options.width * 0.145);
-  const textRight = arrowX - arrowButtonSize / 2 - 12;
+  const titleX = left + Math.max(106, options.width * 0.235);
+  const textRight = arrowX - arrowSize / 2 - 18;
   const textWidth = Math.max(80, textRight - titleX);
   const titleText = scene.add.text(titleX, options.y - options.height * 0.115, title, {
     fontFamily: 'monospace',
@@ -85,10 +80,7 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
     destroy: () => {
       subtitleText.destroy();
       titleText.destroy();
-      arrow.hit.destroy();
-      arrow.label?.destroy();
-      arrow.icon.destroy();
-      arrow.background.destroy();
+      arrow.destroy();
       seal.destroy();
       background.destroy();
     },

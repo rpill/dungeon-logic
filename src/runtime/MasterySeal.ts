@@ -2,7 +2,27 @@ import Phaser from 'phaser';
 
 import type { MasteryRankId } from '../mastery/MasteryProgress';
 
-const MASTERY_SEAL_KEYS = {
+type MasterySealTextureVariant = 'default' | 'small';
+export type MasteryGlowVariant = 'page' | 'rankup';
+
+const MASTERY_GLOW_KEYS: Readonly<Record<MasteryGlowVariant, string>> = {
+  page: 'mastery-light-rays-page',
+  rankup: 'mastery-light-rays-rankup',
+};
+
+const MASTERY_EDGE_GLOW_KEYS = {
+  I: 'mastery-edge-glow-rank-i',
+  II: 'mastery-edge-glow-rank-ii',
+  III: 'mastery-edge-glow-rank-iii',
+  IV: 'mastery-edge-glow-rank-iv',
+  V: 'mastery-edge-glow-rank-v',
+  VI: 'mastery-edge-glow-rank-vi',
+  VII: 'mastery-edge-glow-rank-vii',
+  VIII: 'mastery-edge-glow-rank-viii',
+  MASTER: 'mastery-edge-glow-rank-master',
+} as const satisfies Readonly<Record<MasteryRankId, string>>;
+
+const DEFAULT_MASTERY_SEAL_KEYS = {
   I: 'mastery-seal-rank-i',
   II: 'mastery-seal-rank-ii',
   III: 'mastery-seal-rank-iii',
@@ -14,10 +34,19 @@ const MASTERY_SEAL_KEYS = {
   MASTER: 'mastery-seal-rank-master',
 } as const satisfies Readonly<Record<MasteryRankId, string>>;
 
-// Keep each rank on its own Phaser texture key even while several ranks reuse
-// the current fallback artwork. Replacing a rank with a dedicated final asset
-// is then a one-line path change instead of another component rewrite.
-const MASTERY_SEAL_PATHS = {
+const SMALL_MASTERY_SEAL_KEYS = {
+  I: 'mastery-seal-small-rank-i',
+  II: 'mastery-seal-small-rank-ii',
+  III: 'mastery-seal-small-rank-iii',
+  IV: 'mastery-seal-small-rank-iv',
+  V: 'mastery-seal-small-rank-v',
+  VI: 'mastery-seal-small-rank-vi',
+  VII: 'mastery-seal-small-rank-vii',
+  VIII: 'mastery-seal-small-rank-viii',
+  MASTER: 'mastery-seal-small-rank-master',
+} as const satisfies Readonly<Record<MasteryRankId, string>>;
+
+const DEFAULT_MASTERY_SEAL_PATHS = {
   I: 'assets/ui/mastery_seal_stone.webp',
   II: 'assets/ui/mastery_seal_gold.webp',
   III: 'assets/ui/mastery_seal_steel.webp',
@@ -29,6 +58,30 @@ const MASTERY_SEAL_PATHS = {
   MASTER: 'assets/ui/mastery_seal_master.webp',
 } as const satisfies Readonly<Record<MasteryRankId, string>>;
 
+const SMALL_MASTERY_SEAL_PATHS = {
+  I: 'assets/ui/mastery_seal_small_stone.webp',
+  II: 'assets/ui/mastery_seal_small_gold.webp',
+  III: 'assets/ui/mastery_seal_small_steel.webp',
+  IV: 'assets/ui/mastery_seal_small_steel.webp',
+  V: 'assets/ui/mastery_seal_small_steel.webp',
+  VI: 'assets/ui/mastery_seal_small_steel.webp',
+  VII: 'assets/ui/mastery_seal_small_steel.webp',
+  VIII: 'assets/ui/mastery_seal_small_gold.webp',
+  MASTER: 'assets/ui/mastery_seal_small_master.webp',
+} as const satisfies Readonly<Record<MasteryRankId, string>>;
+
+const MASTERY_EDGE_GLOW_PATHS = {
+  I: 'assets/ui/mastery_seal_edge_stone.webp',
+  II: 'assets/ui/mastery_seal_edge_gold.webp',
+  III: 'assets/ui/mastery_seal_edge_steel.webp',
+  IV: 'assets/ui/mastery_seal_edge_steel.webp',
+  V: 'assets/ui/mastery_seal_edge_steel.webp',
+  VI: 'assets/ui/mastery_seal_edge_steel.webp',
+  VII: 'assets/ui/mastery_seal_edge_steel.webp',
+  VIII: 'assets/ui/mastery_seal_edge_gold.webp',
+  MASTER: 'assets/ui/mastery_seal_edge_master.webp',
+} as const satisfies Readonly<Record<MasteryRankId, string>>;
+
 export interface MasterySealOptions {
   readonly x: number;
   readonly y: number;
@@ -36,6 +89,7 @@ export interface MasterySealOptions {
   readonly rank: MasteryRankId;
   readonly depth?: number;
   readonly showRankPlaque?: boolean;
+  readonly textureVariant?: MasterySealTextureVariant;
 }
 
 export interface MasterySealHandle {
@@ -44,9 +98,89 @@ export interface MasterySealHandle {
 }
 
 export function preloadMasterySealAssets(scene: Phaser.Scene): void {
-  for (const rank of Object.keys(MASTERY_SEAL_KEYS) as MasteryRankId[]) {
-    scene.load.image(MASTERY_SEAL_KEYS[rank], MASTERY_SEAL_PATHS[rank]);
+  scene.load.image(MASTERY_GLOW_KEYS.page, 'assets/ui/mastery_light_rays_page.webp');
+  scene.load.image(MASTERY_GLOW_KEYS.rankup, 'assets/ui/mastery_light_rays_rankup.webp');
+  for (const rank of Object.keys(DEFAULT_MASTERY_SEAL_KEYS) as MasteryRankId[]) {
+    scene.load.image(DEFAULT_MASTERY_SEAL_KEYS[rank], DEFAULT_MASTERY_SEAL_PATHS[rank]);
+    scene.load.image(SMALL_MASTERY_SEAL_KEYS[rank], SMALL_MASTERY_SEAL_PATHS[rank]);
+    scene.load.image(MASTERY_EDGE_GLOW_KEYS[rank], MASTERY_EDGE_GLOW_PATHS[rank]);
   }
+}
+
+export interface MasteryGlowOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+  readonly depth?: number;
+  readonly alpha?: number;
+  readonly variant?: MasteryGlowVariant;
+}
+
+export function createMasteryGlow(
+  scene: Phaser.Scene,
+  options: MasteryGlowOptions,
+): Phaser.GameObjects.Image {
+  const variant = options.variant ?? 'page';
+  const image = scene.add.image(options.x, options.y, MASTERY_GLOW_KEYS[variant])
+    .setDisplaySize(options.size, options.size)
+    .setAlpha(options.alpha ?? (variant === 'rankup' ? 0.78 : 0.62))
+    .setDepth(options.depth ?? 0);
+
+  scene.tweens.add({
+    targets: image,
+    angle: 360,
+    duration: variant === 'rankup' ? 14000 : 32000,
+    repeat: -1,
+    ease: 'Linear',
+  });
+
+  image.once('destroy', () => scene.tweens.killTweensOf(image));
+  return image;
+}
+
+export interface MasteryEdgeGlowOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+  readonly rank: MasteryRankId;
+  readonly depth?: number;
+  readonly alpha?: number;
+  readonly textureVariant?: MasterySealTextureVariant;
+}
+
+export interface MasteryEdgeGlowHandle {
+  destroy(): void;
+}
+
+export function createMasteryEdgeGlow(
+  scene: Phaser.Scene,
+  options: MasteryEdgeGlowOptions,
+): MasteryEdgeGlowHandle {
+  const depth = options.depth ?? 0;
+  const alpha = options.alpha ?? 0.18;
+  const textureKey = MASTERY_EDGE_GLOW_KEYS[options.rank];
+  const imageY = options.y - options.size * 0.07;
+  const image = scene.add.image(options.x, imageY, textureKey)
+    .setDisplaySize(options.size * 0.9, options.size * 0.9)
+    .setAlpha(alpha)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(depth);
+
+  scene.tweens.add({
+    targets: image,
+    alpha: { from: alpha * 0.42, to: alpha * 1.95 },
+    duration: 650,
+    yoyo: true,
+    repeat: -1,
+    hold: 60,
+    ease: 'Sine.easeInOut',
+  });
+
+  image.once('destroy', () => scene.tweens.killTweensOf(image));
+
+  return {
+    destroy: () => image.destroy(),
+  };
 }
 
 function accentColorForRank(rank: MasteryRankId): number {
@@ -60,15 +194,20 @@ function accentColorForRank(rank: MasteryRankId): number {
   }
 }
 
+function resolveTextureKey(rank: MasteryRankId, variant: MasterySealTextureVariant): string {
+  return variant === 'small' ? SMALL_MASTERY_SEAL_KEYS[rank] : DEFAULT_MASTERY_SEAL_KEYS[rank];
+}
+
 export function createMasterySeal(
   scene: Phaser.Scene,
   options: MasterySealOptions,
 ): MasterySealHandle {
   const depth = options.depth ?? 0;
   const showRankPlaque = options.showRankPlaque ?? true;
-  const imageSize = options.size * (showRankPlaque ? 0.82 : 0.88);
+  const textureVariant = options.textureVariant ?? 'default';
+  const imageSize = options.size * (showRankPlaque ? 0.9 : textureVariant === 'small' ? 0.96 : 0.88);
   const imageY = options.y - (showRankPlaque ? options.size * 0.07 : 0);
-  const image = scene.add.image(options.x, imageY, MASTERY_SEAL_KEYS[options.rank])
+  const image = scene.add.image(options.x, imageY, resolveTextureKey(options.rank, textureVariant))
     .setDisplaySize(imageSize, imageSize)
     .setDepth(depth);
 

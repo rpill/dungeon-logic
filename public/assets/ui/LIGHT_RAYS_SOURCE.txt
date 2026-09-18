@@ -1,0 +1,6 @@
+Source: God rays/Light rays by SpikerMan
+URL: https://spikerman.itch.io/godrays
+Original pack: LightRays.zip
+Selected source images: File 33.png (Mastery page), File 4.png (rank-up overlay)
+Processing: center crop, opaque yellow background removed into alpha, recolored warm gold, resized to 1024x1024 WebP.
+License terms stated by the author on itch.io: feel free to modify; personal or commercial use; no credit necessary.

@@ -17,7 +17,7 @@ import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/Av
 import { HOME_SCENE_KEY, MASTERY_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
-import { createMasterySeal } from '../runtime/MasterySeal';
+import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../runtime/MasterySeal';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 
@@ -74,18 +74,19 @@ export class MasteryScene extends Phaser.Scene {
     copy: ReturnType<typeof getUiCopy>,
   ): void {
     const cardGap = 22;
-    const topSectionHeight = 180;
+    const topSectionHeight = 236;
     const panelHeight = 238;
     const pathHeight = 126;
 
     const left = centerX - width / 2;
-    const sealSize = 178;
-    const sealX = left + 140;
-    const sealY = top + 88;
-    this.drawSealGlow(sealX, sealY, 126);
+    const sealSize = 250;
+    const sealX = left + 158;
+    const sealY = top + 126;
+    createMasteryGlow(this, { x: sealX, y: sealY - sealSize * 0.07, size: sealSize * 0.82, alpha: 0.62, variant: 'page' });
+    createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, alpha: 0.5 });
     createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank });
 
-    const textX = left + 270;
+    const textX = left + 318;
     this.add.text(textX, top + 42, `РАНГ ${mastery.currentRank}`, {
       fontFamily: 'monospace', fontSize: '18px', color: '#9fd0ff', fontStyle: 'bold',
     });
@@ -93,7 +94,7 @@ export class MasteryScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '34px', color: '#fff1d2', fontStyle: 'bold',
     });
     this.add.text(textX, top + 126, `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
-      fontFamily: 'monospace', fontSize: '14px', color: '#d8e2f2', wordWrap: { width: width - 300 },
+      fontFamily: 'monospace', fontSize: '14px', color: '#d8e2f2', wordWrap: { width: width - 342 },
     });
 
     const panelTop = top + topSectionHeight + cardGap;
@@ -111,14 +112,15 @@ export class MasteryScene extends Phaser.Scene {
     copy: ReturnType<typeof getUiCopy>,
   ): void {
     const left = centerX - width / 2;
-    const sealSize = Math.min(112, width * 0.29);
-    const sealX = left + width * 0.19;
-    const sealY = top + 67;
-    this.drawSealGlow(sealX, sealY, sealSize * 0.58);
+    const sealSize = Math.min(156, width * 0.4);
+    const sealX = left + width * 0.22;
+    const sealY = top + 80;
+    createMasteryGlow(this, { x: sealX, y: sealY - sealSize * 0.07, size: sealSize * 0.82, alpha: 0.6, variant: 'page' });
+    createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, alpha: 0.46 });
     createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank });
 
-    const textX = left + width * 0.37;
-    const textWidth = width * 0.59;
+    const textX = left + width * 0.43;
+    const textWidth = width * 0.54;
     this.add.text(textX, top + 26, `РАНГ ${mastery.currentRank}`, {
       fontFamily: 'monospace', fontSize: '13px', color: '#9fd0ff', fontStyle: 'bold',
     });
@@ -131,7 +133,7 @@ export class MasteryScene extends Phaser.Scene {
       lineSpacing: 2,
     });
 
-    const panelTop = top + 136;
+    const panelTop = top + 168;
     const panelHeight = 184;
     this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, true);
     this.renderRankTrack(centerX, panelTop + panelHeight + 10, width, 100, mastery.currentRank, true, copy);
@@ -250,65 +252,66 @@ export class MasteryScene extends Phaser.Scene {
     height: number,
     currentRank: MasteryRankId,
     narrow: boolean,
-    copy: ReturnType<typeof getUiCopy>,
+    _copy: ReturnType<typeof getUiCopy>,
   ): void {
     const currentIndex = getMasteryRankIndex(currentRank);
-    const trackWidth = width * (narrow ? 0.98 : 0.94);
+    const trackWidth = width * (narrow ? 0.96 : 0.92);
     const startX = centerX - trackWidth / 2;
     const step = trackWidth / (MASTERY_RANK_IDS.length - 1);
-    const lineY = topY + (narrow ? 18 : 20);
+    const lineY = topY + (narrow ? 18 : 23);
+    const labelY = topY + (narrow ? 42 : 51);
 
     const path = this.add.graphics();
-    path.lineStyle(1.8, 0x3d5879, 0.9);
+    path.lineStyle(narrow ? 2 : 2.2, 0x435878, 0.95);
     path.lineBetween(startX, lineY, startX + step * (MASTERY_RANK_IDS.length - 1), lineY);
-    path.lineStyle(2.3, 0xf0bd63, 0.9);
+    path.lineStyle(narrow ? 2.8 : 3.2, 0xf0bd48, 1);
     path.lineBetween(startX, lineY, startX + step * currentIndex, lineY);
 
     MASTERY_RANK_IDS.forEach((rank, index) => {
       const x = startX + step * index;
-      const isCurrent = rank === currentRank;
-      const reached = index <= currentIndex;
-      const size = narrow ? (isCurrent ? 30 : 22) : (isCurrent ? 40 : 30);
-      const seal = createMasterySeal(this, {
-        x,
-        y: lineY,
-        size,
-        rank,
-        showRankPlaque: false,
-      });
-      seal.image.setAlpha(reached ? 1 : 0.42);
-      if (isCurrent) {
-        const glow = this.add.graphics();
-        glow.fillStyle(0xffc44d, 0.12);
-        glow.fillCircle(x, lineY, narrow ? 18 : 22);
+      const isPast = index < currentIndex;
+      const isCurrent = index === currentIndex;
+      const isFuture = index > currentIndex;
+      const isMaster = rank === 'MASTER';
+      const nodeRadius = narrow ? 5 : 6;
+      const currentRadius = isMaster ? (narrow ? 13 : 16) : (narrow ? 11 : 14);
+      const futureRadius = isMaster ? nodeRadius + (narrow ? 4 : 5) : nodeRadius + (narrow ? 2 : 3);
+      const pastRadius = isMaster ? nodeRadius + (narrow ? 4 : 5) : nodeRadius;
+      const node = this.add.graphics();
+
+      if (isPast) {
+        node.fillStyle(0xffc84f, 1);
+        node.lineStyle(isMaster ? 1.8 : 1.4, 0xffdf82, 1);
+        node.fillCircle(x, lineY, pastRadius);
+        node.strokeCircle(x, lineY, pastRadius);
+      } else if (isCurrent) {
+        node.fillStyle(0xffc343, 1);
+        node.fillCircle(x, lineY, currentRadius);
+        node.fillStyle(0x263653, 1);
+        node.fillCircle(x, lineY, currentRadius - (narrow ? 1.15 : 1.45));
+        node.fillStyle(0xffc84f, 1);
+        node.fillCircle(x, lineY, isMaster ? (narrow ? 5 : 6) : (narrow ? 4 : 5));
+      } else if (isFuture) {
+        node.fillStyle(0x263653, 1);
+        node.lineStyle(isMaster ? 1.8 : 1.4, 0x506482, 1);
+        node.fillCircle(x, lineY, futureRadius);
+        node.strokeCircle(x, lineY, futureRadius);
+
+        this.add.image(x, lineY, UI_ICON_KEYS.lock)
+          .setDisplaySize(isMaster ? (narrow ? 10 : 12) : (narrow ? 8 : 10), isMaster ? (narrow ? 10 : 12) : (narrow ? 8 : 10))
+          .setTint(0x8fa0bc)
+          .setAlpha(0.9);
       }
 
-      this.add.text(x, topY + (narrow ? 44 : 54), rank === 'MASTER' ? 'MASTER' : rank, {
+      this.add.text(x, labelY, rank === 'MASTER' ? 'MASTER' : rank, {
         fontFamily: 'monospace',
-        fontSize: narrow ? (rank === 'MASTER' ? '8px' : '9px') : (rank === 'MASTER' ? '10px' : '11px'),
-        color: isCurrent ? '#ffd978' : reached ? '#e1e8f4' : '#78849a',
+        fontSize: narrow ? (rank === 'MASTER' ? '7px' : '9px') : (rank === 'MASTER' ? '9px' : '11px'),
+        color: isCurrent ? '#ffd66a' : isPast ? '#edf1f8' : '#8b98ad',
         fontStyle: isCurrent ? 'bold' : 'normal',
       }).setOrigin(0.5);
-
-      this.add.text(x, topY + (narrow ? 61 : 73), copy.mastery.rankTitles[rank], {
-        fontFamily: 'monospace',
-        fontSize: narrow ? (rank === 'MASTER' ? '6px' : '7px') : (rank === 'MASTER' ? '10px' : '9px'),
-        color: isCurrent ? '#ffd978' : reached ? '#c6d1e3' : '#6f7890',
-        align: 'center',
-        wordWrap: { width: step * (narrow ? 0.96 : 0.9) },
-      }).setOrigin(0.5, 0);
     });
   }
 
-  private drawSealGlow(x: number, y: number, radius: number): void {
-    const glow = this.add.graphics();
-    glow.fillStyle(0xffc451, 0.12);
-    glow.fillCircle(x, y, radius);
-    glow.fillStyle(0xffc451, 0.07);
-    glow.fillCircle(x, y, radius * 1.3);
-    glow.fillStyle(0xffc451, 0.04);
-    glow.fillCircle(x, y, radius * 1.6);
-  }
 
   private conditionIconKey(condition: MasteryRequirementProgress): string {
     switch (condition.metric) {

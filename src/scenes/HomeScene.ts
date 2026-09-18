@@ -319,6 +319,16 @@ export class HomeScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
     });
 
+    if (import.meta.env.DEV) {
+      void import('../dev/MasteryRankUpDevControl').then(({ createMasteryRankUpDevControl }) => {
+        if (!this.scene.isActive() || this.createVersion !== createVersion) return;
+        createMasteryRankUpDevControl(this, {
+          currentRank: mastery.currentRank,
+          copy: copy.mastery,
+        });
+      });
+    }
+
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
     void platformServices?.readiness.ready();
   }

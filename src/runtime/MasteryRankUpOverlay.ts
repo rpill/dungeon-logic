@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import type { UiCopy } from '../i18n/UiCopy';
 import type { MasteryRankId } from '../mastery/MasteryProgress';
-import { createMasterySeal } from './MasterySeal';
+import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from './MasterySeal';
 import { createPrimaryActionButton } from './PrimaryActionButton';
 
 export interface MasteryRankUpOverlayOptions {
@@ -48,8 +48,24 @@ export function showMasteryRankUpOverlay(
     fontStyle: 'bold',
   }).setOrigin(0.5).setDepth(depth + 2);
 
-  const sealSize = narrow ? Math.min(150, panelWidth * 0.42) : 220;
-  const sealY = centerY - panelHeight * 0.11;
+  const sealSize = narrow ? Math.min(210, panelWidth * 0.58) : 310;
+  const sealY = centerY - panelHeight * 0.02;
+  const glow = createMasteryGlow(scene, {
+    x: centerX,
+    y: sealY - sealSize * 0.07,
+    size: sealSize * (narrow ? 0.87 : 0.9),
+    alpha: 0.78,
+    depth: depth + 2,
+    variant: 'rankup',
+  });
+  const edgeGlow = createMasteryEdgeGlow(scene, {
+    x: centerX,
+    y: sealY,
+    size: sealSize,
+    rank: options.toRank,
+    depth: depth + 2,
+    alpha: narrow ? 0.56 : 0.6,
+  });
   const seal = createMasterySeal(scene, {
     x: centerX,
     y: sealY,
@@ -58,7 +74,7 @@ export function showMasteryRankUpOverlay(
     depth: depth + 2,
   });
 
-  const rankY = sealY + sealSize * 0.56;
+  const rankY = sealY + sealSize * 0.48;
   const rank = scene.add.text(
     centerX,
     rankY,
@@ -93,6 +109,8 @@ export function showMasteryRankUpOverlay(
     description.destroy();
     rank.destroy();
     seal.destroy();
+    edgeGlow.destroy();
+    glow.destroy();
     title.destroy();
     panel.destroy();
     veil.destroy();
