@@ -16,11 +16,11 @@ const home = readFileSync(resolve(root, 'src/scenes/HomeScene.ts'), 'utf8');
 
 assert(copy.includes("endless: 'ИСПЫТАНИЕ'"), 'RU Home mode name must be ИСПЫТАНИЕ.');
 assert(copy.includes("endlessTitle: (ordinal) => `ИСПЫТАНИЕ · ${ordinal}`"), 'RU game title must use ИСПЫТАНИЕ.');
-assert(copy.includes("endless: 'Испытание: чистая серия'"), 'RU Mastery requirement must use Испытание.');
-assert(copy.includes("endlessCleanStreak: (streak) => `ЧИСТАЯ СЕРИЯ: ${streak}`"), 'Game copy must expose persistent clean streak HUD copy.');
+assert(copy.includes("endless: 'Испытание: лучшая серия'"), 'RU Mastery requirement must use Испытание and lifetime streak wording.');
+assert(copy.includes("endlessStreak: (streak) => `СЕРИЯ: ${streak}`"), 'Game copy must expose persistent streak HUD copy.');
 assert(game.includes('challengeStreakText'), 'GameScene must render a dedicated challenge streak HUD text.');
-assert(game.includes('copy.game.endlessCleanStreak'), 'GameScene streak HUD must use localized clean streak copy.');
-assert(home.includes('copy.home.endlessStreak(profile.endless.currentCleanStreak, profile.endless.bestCleanStreak)'), 'Home Challenge card must show current and best clean streak.');
+assert(game.includes('copy.game.endlessStreak'), 'GameScene streak HUD must use localized streak copy.');
+assert(home.includes('profile.endless.currentStreak') && home.includes('profile.endless.bestStreak'), 'Home Challenge card must show current and best streak.');
 
 assert(strip.includes('createHeaderActionButton'), 'Mastery strip must use the shared header/material action button.');
 assert(!strip.includes("scene.add.image(chevronX"), 'Mastery strip must not use a naked chevron image.');

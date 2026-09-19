@@ -28,6 +28,7 @@ import {
 } from '../runtime/GameLaunch';
 import { createHeaderActionButton } from '../runtime/HeaderActionButton';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
@@ -71,8 +72,6 @@ const INNER_FILL = {
   locked: { color: 0x192335, alpha: 0.66 },
 } as const;
 
-const PROGRESS_TRACK_FILL = 0x1f4375;
-const PROGRESS_AVAILABLE_FILL = 0x2fd0bf;
 const PROGRESS_FILL = 0xf0bd63;
 const SECTION_LINE_COLOR = 0xf0bd63;
 const SCROLLBAR_TRACK_FILL = 0x29466f;
@@ -408,51 +407,14 @@ export class LevelSelectScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const trackX = availableViewport.centerX - layout.progressBarWidth / 2;
-    const radius = layout.progressBarHeight / 2;
-    const safeTotal = Math.max(1, totalCount);
-    const completedWidth = completedCount <= 0
-      ? 0
-      : Math.max(layout.progressBarHeight * 2, Math.round(layout.progressBarWidth * (completedCount / safeTotal)));
-    const availableCount = Math.max(0, Math.min(3, totalCount - completedCount));
-    const availableReachWidth = availableCount <= 0
-      ? 0
-      : Math.max(
-          layout.progressBarHeight * 2,
-          Math.round(layout.progressBarWidth * ((completedCount + availableCount) / safeTotal)),
-        );
-
-    const bar = this.add.graphics();
-    bar.fillStyle(PROGRESS_TRACK_FILL, 0.88);
-    bar.fillRoundedRect(
-      trackX,
-      layout.progressBarY - layout.progressBarHeight / 2,
-      layout.progressBarWidth,
-      layout.progressBarHeight,
-      radius,
-    );
-
-    if (availableReachWidth > 0) {
-      bar.fillStyle(PROGRESS_AVAILABLE_FILL, 0.96);
-      bar.fillRoundedRect(
-        trackX,
-        layout.progressBarY - layout.progressBarHeight / 2,
-        Math.min(layout.progressBarWidth, availableReachWidth),
-        layout.progressBarHeight,
-        radius,
-      );
-    }
-
-    if (completedWidth > 0) {
-      bar.fillStyle(PROGRESS_FILL, 0.98);
-      bar.fillRoundedRect(
-        trackX,
-        layout.progressBarY - layout.progressBarHeight / 2,
-        Math.min(layout.progressBarWidth, completedWidth),
-        layout.progressBarHeight,
-        radius,
-      );
-    }
+    createMasteryProgressBar(this, {
+      x: availableViewport.centerX,
+      y: layout.progressBarY,
+      width: layout.progressBarWidth,
+      height: layout.progressBarHeight,
+      current: completedCount,
+      target: totalCount,
+    });
   }
 
   private drawLevelSectionDividers(layout: LevelSelectLayout, itemCount: number): void {

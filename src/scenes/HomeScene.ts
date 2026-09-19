@@ -24,6 +24,7 @@ import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
 import { createMasteryStrip } from '../runtime/MasteryStrip';
+import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
 import {
   calculateAvailableViewport,
   readCssSafeAreaInsets,
@@ -43,9 +44,6 @@ import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { classifyViewport } from './GameBoardLayout';
-
-const HOME_PROGRESS_TRACK_FILL = 0x090d16;
-const HOME_PROGRESS_FILL = 0xf0bd63;
 
 const HOME_CARD_ICON_KEYS = {
   play: 'home-menu-icon-play',
@@ -313,8 +311,8 @@ export class HomeScene extends Phaser.Scene {
           : copy.home.endlessProgress(
               endlessProgress.completed,
               endlessProgress.catalogLength,
-              profile.endless.currentCleanStreak,
-              profile.endless.bestCleanStreak,
+              profile.endless.currentStreak,
+              profile.endless.bestStreak,
             )
         : copy.home.endlessLockedAfterLevel,
       icon: 'endless',
@@ -335,7 +333,8 @@ export class HomeScene extends Phaser.Scene {
       void import('../dev/MasteryRankUpDevControl').then(({ createMasteryRankUpDevControl }) => {
         if (!this.scene.isActive() || this.createVersion !== createVersion) return;
         createMasteryRankUpDevControl(this, {
-          currentRank: mastery.currentRank,
+          profileService,
+          campaignLevels: levels,
           copy: copy.mastery,
         });
       });
@@ -707,7 +706,8 @@ function createHomeHubCard(
     }
   } else {
     const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
-    const contentX = options.x + cardWidth * (narrow ? 0.08 : 0.05);
+    const contentLeft = options.x - cardWidth * (narrow ? 0.12 : 0.10);
+    const contentWidth = cardWidth * (narrow ? 0.47 : 0.50);
     const iconSize = narrow ? 38 : 52;
     const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
       .setDisplaySize(iconSize, iconSize)
@@ -728,21 +728,21 @@ function createHomeHubCard(
       objects.push(lock);
     }
 
-    const label = scene.add.text(contentX, options.y - (narrow ? 8 : 10), options.label, {
+    const label = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), options.label, {
       fontFamily: 'monospace',
       fontSize: narrow ? '16px' : '22px',
       color: labelColor,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, cardWidth * 0.68, narrow ? 12 : 15);
+    }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
+    fitHomeText(label, contentWidth, narrow ? 12 : 15);
     objects.push(label);
 
-    const subtitle = scene.add.text(contentX, options.y + (narrow ? 15 : 20), options.subtitle, {
+    const subtitle = scene.add.text(contentLeft, options.y + (narrow ? 15 : 20), options.subtitle, {
       fontFamily: 'monospace',
       fontSize: narrow ? '11px' : '14px',
       color: subtitleColor,
-    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(subtitle, cardWidth * 0.67, narrow ? 9 : 10);
+    }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
+    fitHomeText(subtitle, contentWidth, narrow ? 9 : 10);
     objects.push(subtitle);
   }
 
@@ -764,24 +764,15 @@ function drawHomeCardProgress(
     readonly completed: number;
     readonly total: number;
   },
-): Phaser.GameObjects.Graphics {
-  const graphics = scene.add.graphics();
-  const radius = options.height / 2;
-  const left = options.x - options.width / 2;
-  const top = options.y - options.height / 2;
-  const safeTotal = Math.max(1, options.total);
-  const ratio = Phaser.Math.Clamp(options.completed / safeTotal, 0, 1);
-
-  graphics.fillStyle(HOME_PROGRESS_TRACK_FILL, 0.9);
-  graphics.fillRoundedRect(left, top, options.width, options.height, radius);
-
-  if (ratio > 0) {
-    const fillWidth = Math.min(options.width, Math.max(options.height, options.width * ratio));
-    graphics.fillStyle(HOME_PROGRESS_FILL, 1);
-    graphics.fillRoundedRect(left, top, fillWidth, options.height, radius);
-  }
-
-  return graphics;
+): Phaser.GameObjects.Container {
+  return createMasteryProgressBar(scene, {
+    x: options.x,
+    y: options.y,
+    width: options.width,
+    height: options.height,
+    current: options.completed,
+    target: options.total,
+  });
 }
 
 function createHomeSettingsButton(

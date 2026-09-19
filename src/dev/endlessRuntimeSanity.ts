@@ -69,14 +69,14 @@ async function main(): Promise<void> {
   const firstResult = await endless.completeCurrent(0, 3);
   assert(firstResult.ratingAward === 2, 'Hints must not reduce Easy Master Rating reward.');
   assert(profile.getProfile().mastery.rating === 1002, 'Easy solve must add +2 to hidden Master Rating.');
-  assert(profile.getProfile().endless.currentCleanStreak === 0, 'Hint-assisted solve still resets clean streak independently of rating.');
+  assert(profile.getProfile().endless.currentStreak === 1, 'Hint-assisted ranked solve must continue the streak.');
 
   let launch = endless.beginCurrent();
   assert(launch.catalogIndex === 1 && launch.kind === 'fresh', 'Fresh progression must use the next packed catalog index.');
   await endless.skipCurrent(1);
   assert(profile.getProfile().endless.skipped.join(',') === '1', 'Skip must queue the unsolved catalog index.');
   assert(profile.getProfile().mastery.rating === 1002, 'Skip must award +0 rating.');
-  assert(profile.getProfile().endless.currentCleanStreak === 0, 'Ranked Skip must reset current clean streak.');
+  assert(profile.getProfile().endless.currentStreak === 0, 'Ranked Skip must reset the streak.');
 
   for (let solved = 0; solved < ENDLESS_RETRY_INTERVAL; solved += 1) {
     launch = endless.beginCurrent();
@@ -105,17 +105,17 @@ async function main(): Promise<void> {
   const free = endless.beginCurrent();
   assert(free.kind === 'freeplay' && !free.ranked && free.catalogIndex === 0, 'Full catalog completion must unlock Free Play from catalog index 0.');
   const ratingBeforeFree = profile.getProfile().mastery.rating;
-  const bestBeforeFree = profile.getProfile().endless.bestCleanStreak;
+  const bestBeforeFree = profile.getProfile().endless.bestStreak;
   const freeResult = await endless.completeCurrent(0, 0);
   assert(freeResult.ratingAward === 0 && profile.getProfile().mastery.rating === ratingBeforeFree, 'Free Play must never award Master Rating.');
-  assert(profile.getProfile().endless.bestCleanStreak === bestBeforeFree, 'Free Play must not farm ranked clean-streak records.');
+  assert(profile.getProfile().endless.bestStreak === bestBeforeFree, 'Free Play must not farm ranked streak records.');
   assert(endless.beginCurrent().catalogIndex === 1, 'Free Play must cycle through catalog entries after completion.');
   const freeSkip = endless.beginCurrent();
   const ratingBeforeFreeSkip = profile.getProfile().mastery.rating;
-  const bestBeforeFreeSkip = profile.getProfile().endless.bestCleanStreak;
+  const bestBeforeFreeSkip = profile.getProfile().endless.bestStreak;
   await endless.skipCurrent(freeSkip.catalogIndex);
   assert(profile.getProfile().mastery.rating === ratingBeforeFreeSkip, 'Free Play Skip must never change Master Rating.');
-  assert(profile.getProfile().endless.bestCleanStreak === bestBeforeFreeSkip, 'Free Play Skip must never change ranked clean-streak records.');
+  assert(profile.getProfile().endless.bestStreak === bestBeforeFreeSkip, 'Free Play Skip must never change ranked streak records.');
   assert(endless.beginCurrent().catalogIndex === 2, 'Free Play Skip must advance to the next catalog entry.');
   await profile.flush();
 

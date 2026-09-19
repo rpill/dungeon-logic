@@ -22,7 +22,7 @@ const master = {
   ...fresh,
   campaign: { ...fresh.campaign, completedLevelIds: Array.from({ length: 64 }, (_, i) => `campaign-${String(i + 1).padStart(3, '0')}`) },
   daily: { ...fresh.daily, bestStreak: 30 },
-  endless: { ...fresh.endless, bestCleanStreak: 50 },
+  endless: { ...fresh.endless, bestStreak: 50 },
   mastery: { rating: 4321 },
 };
 assert(await syncMasterRatingLeaderboard(master, leaderboards) === 'submitted', 'MASTER profile must submit rating.');

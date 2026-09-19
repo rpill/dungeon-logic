@@ -1,8 +1,10 @@
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
+  formatCompactHintLabel,
   shouldConfirmReset,
   shouldShowTouchToolButtons,
+  shouldUseCompactHintLabel,
 } from '../runtime/PuzzleUiState.ts';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -19,6 +21,12 @@ const floorSelected = createPuzzleToolbarState('floor', true, true, 2);
 assert(floorSelected.buttons.find((button) => button.id === 'floor')?.active === true, 'Floor selection updates active state.');
 assert(floorSelected.buttons.find((button) => button.id === 'undo')?.disabled === false, 'Undo enables with history.');
 assert(floorSelected.buttons.find((button) => button.id === 'hint')?.label === 'HINT ×2', 'Hint button shows remaining free hints.');
+assert(formatCompactHintLabel(2) === '×2', 'Compact phone hint label keeps only the remaining count.');
+assert(formatCompactHintLabel(0) === '×0', 'Compact phone hint label shows zero when only rewarded hints remain.');
+assert(shouldUseCompactHintLabel(390, 844, true), 'Portrait touch phone uses compact Hint content.');
+assert(shouldUseCompactHintLabel(844, 390, true), 'Landscape touch phone uses compact Hint content.');
+assert(!shouldUseCompactHintLabel(1024, 768, true), 'Large touch viewport keeps the full Hint label.');
+assert(!shouldUseCompactHintLabel(844, 390, false), 'Mouse-only viewport keeps the full Hint label.');
 
 const narrow = calculatePuzzleToolbarLayout(390, 844, 0, true);
 assert(narrow.mode === 'stacked', 'Phone toolbar uses two stacked rows.');

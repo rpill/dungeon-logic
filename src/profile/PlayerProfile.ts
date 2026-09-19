@@ -219,10 +219,10 @@ function normalizeEndless(value: unknown): PlayerProfile['endless'] {
   const activePuzzle = hasActiveSelection
     ? normalizeSerializedPuzzleState(raw.activePuzzle, 'endless')
     : null;
-  const currentCleanStreak = nonNegativeInteger(raw.currentCleanStreak);
-  const bestCleanStreak = Math.max(
-    currentCleanStreak,
-    nonNegativeInteger(raw.bestCleanStreak),
+  const currentStreak = nonNegativeInteger(raw.currentStreak);
+  const bestStreak = Math.max(
+    currentStreak,
+    nonNegativeInteger(raw.bestStreak),
   );
 
   return {
@@ -233,8 +233,8 @@ function normalizeEndless(value: unknown): PlayerProfile['endless'] {
     activeCatalogIndex: hasActiveSelection ? activeCatalogIndex : null,
     activeKind: hasActiveSelection ? activeKind : null,
     activePuzzle,
-    currentCleanStreak,
-    bestCleanStreak,
+    currentStreak,
+    bestStreak,
     freePlayOrdinal: nonNegativeInteger(raw.freePlayOrdinal),
   };
 }
@@ -305,8 +305,8 @@ export function createFreshPlayerProfile(
       activeCatalogIndex: null,
       activeKind: null,
       activePuzzle: null,
-      currentCleanStreak: 0,
-      bestCleanStreak: 0,
+      currentStreak: 0,
+      bestStreak: 0,
       freePlayOrdinal: 0,
     },
     mastery: {

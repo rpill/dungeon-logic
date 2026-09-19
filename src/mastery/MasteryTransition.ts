@@ -19,16 +19,16 @@ export interface MasteryTransition {
 
 const SOURCE_METRIC: Readonly<Record<MasteryProgressSource, MasteryMetricId>> = {
   campaign: 'campaign',
-  daily: 'daily-best-streak',
-  endless: 'endless-best-clean-streak',
+  daily: 'daily-completed',
+  endless: 'endless-completed',
 };
 
 function readMetric(profile: PlayerProfile, metric: MasteryMetricId): number {
   const metrics = getMasteryMetrics(profile);
   switch (metric) {
     case 'campaign': return metrics.campaignCompleted;
-    case 'daily-best-streak': return metrics.dailyBestStreak;
-    case 'endless-best-clean-streak': return metrics.endlessBestCleanStreak;
+    case 'daily-completed': return metrics.dailyCompleted;
+    case 'endless-completed': return metrics.endlessCompleted;
   }
 }
 

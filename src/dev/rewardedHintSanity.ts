@@ -19,15 +19,15 @@ const TEST_MANIFEST: readonly CampaignLevelEntry[] = [{
   id: 'campaign-001',
   level: {
     id: 'campaign-001',
-    width: 1,
-    height: 1,
-    rowClues: [0],
-    columnClues: [0],
+    width: 3,
+    height: 2,
+    rowClues: [1, 0],
+    columnClues: [0, 1, 0],
     monsters: [],
     chests: [],
     blockers: [],
     doors: [],
-    solution: ['.'],
+    solution: ['.#.', '...'],
   } as CampaignLevelEntry['level'],
 }];
 
@@ -141,7 +141,16 @@ async function main(): Promise<void> {
   assert(unavailableResult === 'unavailable', 'Unavailable rewarded ad maps to unavailable.');
 
   const solvedPuzzle = new PuzzleState(TEST_MANIFEST[0].level);
-  solvedPuzzle.setCellState(0, 0, CellState.Floor);
+  for (let y = 0; y < solvedPuzzle.level.height; y += 1) {
+    for (let x = 0; x < solvedPuzzle.level.width; x += 1) {
+      if (solvedPuzzle.isFixedCell(x, y)) continue;
+      solvedPuzzle.setCellState(
+        x,
+        y,
+        solvedPuzzle.level.solution[y]?.[x] === '#' ? CellState.Wall : CellState.Floor,
+      );
+    }
+  }
   const noneResult = await requestHint({
     puzzle: solvedPuzzle,
     consumeFreeHint: () => { throw new Error('Solved puzzle must not consume a free hint.'); },
@@ -190,7 +199,7 @@ async function main(): Promise<void> {
 
   const rewarded = createPuzzleToolbarState('wall', false, false, 0, true)
     .buttons.find((button) => button.id === 'hint');
-  assert(rewarded?.label === 'HINT ▶' && !rewarded.disabled, 'Zero-hint rewarded path becomes an explicit ad action.');
+  assert(rewarded?.label === 'HINT' && !rewarded.disabled, 'Zero-hint rewarded path remains enabled when a rewarded hint is available.');
 
   await profile.flush();
   console.info('[Dungeon Logic] Rewarded hint sanity: service + accounting + toolbar policy passed');

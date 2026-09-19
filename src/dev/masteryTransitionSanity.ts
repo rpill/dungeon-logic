@@ -8,9 +8,10 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function withMetrics(options: {
   campaign: number;
-  dailyBest: number;
-  endlessBest: number;
-  endlessCurrent?: number;
+  dailyCompleted: number;
+  endlessCompleted: number;
+  dailyBest?: number;
+  endlessBest?: number;
 }): PlayerProfile {
   const profile = createFreshPlayerProfile();
   return {
@@ -21,46 +22,45 @@ function withMetrics(options: {
     },
     daily: {
       ...profile.daily,
-      bestStreak: options.dailyBest,
+      totalSolved: options.dailyCompleted,
+      bestStreak: options.dailyBest ?? 0,
     },
     endless: {
       ...profile.endless,
-      currentCleanStreak: options.endlessCurrent ?? options.endlessBest,
-      bestCleanStreak: options.endlessBest,
+      nextFreshIndex: options.endlessCompleted,
+      completed: options.endlessCompleted,
+      bestStreak: options.endlessBest ?? 0,
     },
   };
 }
 
-const campaignBefore = withMetrics({ campaign: 7, dailyBest: 0, endlessBest: 0 });
-const campaignAfter = withMetrics({ campaign: 8, dailyBest: 0, endlessBest: 0 });
+const campaignBefore = withMetrics({ campaign: 4, dailyCompleted: 0, endlessCompleted: 0 });
+const campaignAfter = withMetrics({ campaign: 5, dailyCompleted: 0, endlessCompleted: 0 });
 const campaignTransition = compareMastery(campaignBefore, campaignAfter, 'campaign');
-assert(campaignTransition.rankAdvanced, 'Campaign 7→8 must advance Mastery.');
-assert(campaignTransition.fromRank === 'I' && campaignTransition.toRank === 'II', 'Campaign 8 must advance I→II.');
+assert(campaignTransition.rankAdvanced, 'Campaign 4→5 must advance Mastery.');
+assert(campaignTransition.fromRank === 'I' && campaignTransition.toRank === 'II', 'Campaign 5 must advance I→II.');
 assert(campaignTransition.progressedMetric?.metric === 'campaign', 'Campaign transition must report campaign metric.');
-assert(campaignTransition.completedMetric, 'Campaign 8 must complete the rank-II requirement.');
+assert(campaignTransition.completedMetric, 'Campaign 5 must complete the rank-II requirement.');
 
-const endlessBefore = withMetrics({ campaign: 24, dailyBest: 0, endlessBest: 2 });
-const endlessAfter = withMetrics({ campaign: 24, dailyBest: 0, endlessBest: 3 });
+const dailyBefore = withMetrics({ campaign: 10, dailyCompleted: 0, endlessCompleted: 5 });
+const dailyAfter = withMetrics({ campaign: 10, dailyCompleted: 1, endlessCompleted: 5 });
+const dailyTransition = compareMastery(dailyBefore, dailyAfter, 'daily');
+assert(dailyTransition.rankAdvanced, 'First completed Daily at Campaign 10 / Endless 5 must advance Mastery.');
+assert(dailyTransition.fromRank === 'II' && dailyTransition.toRank === 'III', 'Daily completion must advance II→III.');
+assert(dailyTransition.progressedMetric?.metric === 'daily-completed', 'Daily transition must report completed-Daily metric.');
+assert(dailyTransition.progressedMetric?.current === 1 && dailyTransition.progressedMetric.target === 1, 'Daily transition must expose 1 / 1 progress.');
+
+const endlessBefore = withMetrics({ campaign: 18, dailyCompleted: 3, endlessCompleted: 14 });
+const endlessAfter = withMetrics({ campaign: 18, dailyCompleted: 3, endlessCompleted: 15 });
 const endlessTransition = compareMastery(endlessBefore, endlessAfter, 'endless');
-assert(endlessTransition.rankAdvanced, 'Endless best clean 2→3 at Campaign 24 must advance Mastery.');
-assert(endlessTransition.fromRank === 'II' && endlessTransition.toRank === 'III', 'Endless milestone must advance II→III.');
-assert(endlessTransition.progressedMetric?.current === 3 && endlessTransition.progressedMetric.target === 3, 'Endless transition must expose 3 / 3 progress.');
+assert(endlessTransition.rankAdvanced, 'Endless completed 14→15 at Campaign 18 / Daily 3 must advance Mastery.');
+assert(endlessTransition.fromRank === 'III' && endlessTransition.toRank === 'IV', 'Endless completion must advance III→IV.');
+assert(endlessTransition.progressedMetric?.metric === 'endless-completed', 'Endless transition must report completed-Endless metric.');
 
-const dailyBestBefore = withMetrics({ campaign: 40, dailyBest: 3, endlessBest: 5 });
-const dailyCurrentDropped = {
-  ...dailyBestBefore,
-  daily: { ...dailyBestBefore.daily, currentStreak: 0, bestStreak: 3 },
-};
-const dailyTransition = compareMastery(dailyBestBefore, dailyCurrentDropped, 'daily');
-assert(!dailyTransition.rankAdvanced, 'Dropping current Daily streak must not lower or advance rank.');
-assert(dailyTransition.fromRank === dailyTransition.toRank, 'Daily current streak reset must keep rank stable.');
-assert(dailyTransition.progressedMetric === null, 'Unchanged Daily best streak must not count as Mastery progress.');
-
-const assistedBefore = withMetrics({ campaign: 64, dailyBest: 5, endlessBest: 10, endlessCurrent: 6 });
-const assistedAfter = withMetrics({ campaign: 64, dailyBest: 5, endlessBest: 10, endlessCurrent: 0 });
-const assistedTransition = compareMastery(assistedBefore, assistedAfter, 'endless');
-assert(!assistedTransition.rankAdvanced, 'Assisted Endless solve must not lower achieved rank.');
-assert(assistedTransition.fromRank === 'V' && assistedTransition.toRank === 'V', 'Best clean streak must keep rank V after current streak reset.');
-assert(assistedTransition.progressedMetric === null, 'Resetting only current clean streak must not count as Mastery progress.');
+const streakOnlyBefore = withMetrics({ campaign: 18, dailyCompleted: 3, endlessCompleted: 15, dailyBest: 2, endlessBest: 4 });
+const streakOnlyAfter = withMetrics({ campaign: 18, dailyCompleted: 3, endlessCompleted: 15, dailyBest: 99, endlessBest: 999 });
+const streakOnlyTransition = compareMastery(streakOnlyBefore, streakOnlyAfter, 'endless');
+assert(!streakOnlyTransition.rankAdvanced, 'Changing streak records alone must never advance Mastery.');
+assert(streakOnlyTransition.progressedMetric === null, 'Streak-only changes must not count as Mastery progress.');
 
 console.info('[Dungeon Logic] Mastery transition sanity: PASS');

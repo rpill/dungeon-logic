@@ -44,7 +44,7 @@ const profile: PlayerProfile = {
       '2030-01-01': { bestTimeMs: 80_000, minHintsUsed: 0, solvedWithoutHints: true },
     },
   },
-  endless: { nextFreshIndex: 0, completed: 0, skipped: [], freshSolvesSinceRetry: 0, activeCatalogIndex: null, activeKind: null, activePuzzle: null, currentCleanStreak: 0, bestCleanStreak: 0, freePlayOrdinal: 0 },
+  endless: { nextFreshIndex: 0, completed: 0, skipped: [], freshSolvesSinceRetry: 0, activeCatalogIndex: null, activeKind: null, activePuzzle: null, currentStreak: 0, bestStreak: 0, freePlayOrdinal: 0 },
   mastery: { rating: 1000 },
   settings: {
     musicEnabled: true,

@@ -15,9 +15,8 @@ assert(game.includes('formatMasteryProgressNote'), 'GameScene must format compac
 assert(game.includes('result.ranked') && game.includes('result.wasFirstSolve'), 'Daily Mastery must be restricted to ranked first solves.');
 const formatter = existsSync(formatterPath) ? readFileSync(formatterPath, 'utf8') : '';
 assert(formatter.includes('transition.rankAdvanced'), 'Rank-up must suppress the compact progress note.');
-assert(formatter.includes("case 'campaign':") && formatter.includes("case 'daily-best-streak':") && formatter.includes("case 'endless-best-clean-streak':"), 'Formatter must support all Mastery metrics.');
+assert(formatter.includes("case 'campaign':") && formatter.includes("case 'daily-completed':") && formatter.includes("case 'endless-completed':"), 'Formatter must support all Mastery metrics.');
 console.info('[Dungeon Logic] Mastery completion sanity: PASS');
 
-assert(game.includes('const completionBoardReserve = Math.min('), 'Completion layout must reserve vertical room for status copy and buttons.');
-assert(game.includes('statusText.height + buttonHeight + 52'), 'Completion board reserve must account for the rendered status text height.');
-assert(game.includes('boardLayout = calculateStableBoardLayout(completionBoardReserve);'), 'Completion state must relayout the board using the computed reserve.');
+assert(!game.includes('completionBoardReserve'), 'Completion UI must not shrink or move the gameplay board.');
+assert(!game.includes('calculateStableBoardLayout(40)'), 'Completion states must not apply a second compact board layout.');

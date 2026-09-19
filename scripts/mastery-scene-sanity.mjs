@@ -11,12 +11,13 @@ assert(existsSync(resolve(root, 'public/assets/ui/mastery_requirements_panel.web
 assert(existsSync(resolve(root, 'public/assets/ui/mastery_requirement_row_panel.webp')), 'Generated mastery requirement row panel asset must exist.');
 assert(main.includes('MasteryScene'), 'MasteryScene must be registered in main.ts.');
 const scene = existsSync(scenePath) ? readFileSync(scenePath, 'utf8') : '';
+const progressBar = readFileSync(resolve(root, 'src/runtime/MasteryProgressBar.ts'), 'utf8');
 assert(scene.includes('createMetaPageHeader'), 'MasteryScene must use the shared MetaPageHeader.');
 assert(scene.includes('createMasterySeal'), 'MasteryScene must render the labyrinth seal.');
 assert(scene.includes('createMasteryRequirementPanel'), 'MasteryScene must use the dedicated generated requirements panel asset.');
 assert(scene.includes('createMasteryRequirementRowPanel'), 'MasteryScene must use the generated overlapping requirement row panel asset.');
 assert(scene.includes('const rowGap = rowHeight - (narrow ? 20 : 24);'), 'Requirement rows must overlap slightly into the row above.');
-assert(scene.includes("case 'campaign':") && scene.includes("case 'daily-best-streak':") && scene.includes("case 'endless-best-clean-streak':"), 'MasteryScene must render all three requirement types.');
+assert(scene.includes("case 'campaign':") && scene.includes("case 'daily-completed':") && scene.includes("case 'endless-completed':"), 'MasteryScene must render all three requirement types.');
 assert(scene.includes('MASTERY_RANK_IDS'), 'MasteryScene must render the full rank path.');
 assert(scene.includes('const sealX = left + width * 0.22;') && scene.includes('const textX = left + width * 0.43;'), 'Narrow Mastery hero must keep the enlarged seal left and rank copy right.');
 assert(scene.includes('? copy.mastery.maxRank'), 'Maximum Mastery rank must show MAXIMUM RANK instead of TO THE NEXT RANK.');
@@ -59,13 +60,13 @@ assert(scene.includes('const statusX = right - (narrow ? 32 : 42);'), 'Requireme
 assert(scene.includes('const barY = y + rowHeight * (narrow ? 0.07 : 0.08);'), 'Requirement progress bar must sit closer to the text.');
 
 
-assert(scene.includes('strokeRoundedRect(left, trackTop, width, height, radius);'), 'Mastery progress track must keep a subtle outline.');
+assert(progressBar.includes('strokeRoundedRect(-width / 2, -height / 2, width, height, radius);'), 'Mastery progress track must keep a subtle outline.');
 
 
-assert(scene.includes('this.textures.createCanvas'), 'Mastery progress fill must use a canvas texture instead of Phaser Graphics gradient masking.');
-assert(scene.includes('ctx.createLinearGradient(0, 0, textureWidth, 0)'), 'Mastery progress gradient must span the full track width.');
-assert(scene.includes("gradient.addColorStop(0, '#f0c75e')"), 'Mastery progress gradient must start yellow.');
-assert(scene.includes("gradient.addColorStop(1, '#69df8c')"), 'Mastery progress gradient must end green only at the full track end.');
-assert(scene.includes('const visibleWidth = Math.max(textureHeight, textureWidth * ratio);'), 'Mastery progress paint width must follow the real completion ratio.');
-assert(!scene.includes('createGeometryMask'), 'Mastery progress must not use the broken geometry-mask gradient path.');
-assert(!scene.includes('fillGradientStyle('), 'Mastery progress must not use Graphics fillGradientStyle because it produced full-width striping artifacts.');
+assert(progressBar.includes('scene.textures.createCanvas'), 'Mastery progress fill must use a canvas texture instead of Phaser Graphics gradient masking.');
+assert(progressBar.includes('ctx.createLinearGradient(0, 0, textureWidth, 0)'), 'Mastery progress gradient must span the full track width.');
+assert(progressBar.includes("gradient.addColorStop(0, '#f0c75e')"), 'Mastery progress gradient must start yellow.');
+assert(progressBar.includes("gradient.addColorStop(1, '#69df8c')"), 'Mastery progress gradient must end green only at the full track end.');
+assert(progressBar.includes('const visibleWidth = Math.max(textureHeight, textureWidth * ratio);'), 'Mastery progress paint width must follow the real completion ratio.');
+assert(!progressBar.includes('createGeometryMask'), 'Mastery progress must not use the broken geometry-mask gradient path.');
+assert(!progressBar.includes('fillGradientStyle('), 'Mastery progress must not use Graphics fillGradientStyle because it produced full-width striping artifacts.');

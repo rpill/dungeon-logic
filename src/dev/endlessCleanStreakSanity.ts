@@ -29,20 +29,20 @@ async function main(): Promise<void> {
 
   let launch = endless.beginCurrent();
   const first = await endless.completeCurrent(launch.catalogIndex, 0);
-  assert(first.currentCleanStreak === 1 && first.bestCleanStreak === 1, 'First clean solve must start clean streak 1 / best 1.');
+  assert(first.currentStreak === 1 && first.bestStreak === 1, 'First ranked solve must start streak 1 / best 1.');
 
   launch = endless.beginCurrent();
   const second = await endless.completeCurrent(launch.catalogIndex, 0);
-  assert(second.currentCleanStreak === 2 && second.bestCleanStreak === 2, 'Second clean solve must advance clean streak 2 / best 2.');
+  assert(second.currentStreak === 2 && second.bestStreak === 2, 'Second ranked solve must advance streak 2 / best 2.');
 
   launch = endless.beginCurrent();
   const assisted = await endless.completeCurrent(launch.catalogIndex, 1);
-  assert(assisted.currentCleanStreak === 0 && assisted.bestCleanStreak === 2, 'Hint-assisted solve must reset current streak without lowering best.');
+  assert(assisted.currentStreak === 3 && assisted.bestStreak === 3, 'Hint-assisted solve must continue the streak because hints are allowed.');
 
   launch = endless.beginCurrent();
   const fourth = await endless.completeCurrent(launch.catalogIndex, 0);
-  assert(fourth.currentCleanStreak === 1 && fourth.bestCleanStreak === 2, 'Clean solve after reset must restart current streak while preserving best.');
+  assert(fourth.currentStreak === 4 && fourth.bestStreak === 4, 'Solve after a hinted solve must keep advancing the same streak.');
   await profile.flush();
-  console.info('[Dungeon Logic] Endless clean streak sanity: PASS');
+  console.info('[Dungeon Logic] Endless streak sanity: PASS');
 }
 void main();

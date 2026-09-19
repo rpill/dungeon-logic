@@ -1,5 +1,5 @@
 import { chooseHint, requestHint } from '../gameplay/HintService';
-import { level as campaign003 } from '../content/campaign/levels/campaign003';
+import { HumanRule } from '../puzzle/human-solver/types';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
@@ -14,29 +14,65 @@ const level: LevelDefinition = {
   id: 'hint-sanity',
   width: 3,
   height: 2,
-  rowClues: [1, 1],
-  columnClues: [1, 0, 1],
-  monsters: [{ x: 0, y: 0 }],
+  rowClues: [1, 0],
+  columnClues: [0, 1, 0],
+  monsters: [],
   chests: [],
   blockers: [],
   doors: [],
   solution: [
     '.#.',
-    '..#',
+    '...',
   ],
 };
 
 const puzzle = new PuzzleState(level);
 let hint = chooseHint(puzzle);
-assert(hint !== null, 'Fresh puzzle must offer a hint.');
-assert(hint.x === 1 && hint.y === 0, 'Fixed monster is skipped and row-major editable cell is selected.');
-assert(hint.state === CellState.Wall, 'Hint state comes from immutable solution.');
+assert(hint !== null, 'Fresh puzzle must offer a logical hint.');
+assert(
+  hint.x === 1 && hint.y === 1 && hint.state === CellState.Floor,
+  'Hint exposes a visible FLOOR prerequisite instead of silently using it for a downstream WALL.',
+);
+assert(
+  hint.reason.kind === 'deduction' && hint.reason.rule === HumanRule.LineComplete,
+  'Useful prerequisite FLOOR is honestly tagged as a completed-line deduction.',
+);
+
+puzzle.setCellState(hint.x, hint.y, hint.state);
+hint = chooseHint(puzzle);
+assert(
+  hint?.x === 1
+    && hint.y === 0
+    && hint.state === CellState.Wall
+    && hint.reason.kind === 'deduction'
+    && hint.reason.rule === HumanRule.LineFill,
+  'After the prerequisite FLOOR is visible, the forced WALL is explained by the line-fill rule.',
+);
 
 puzzle.setCellState(1, 0, CellState.Wall);
-hint = chooseHint(puzzle);
-assert(hint !== null, 'Another unresolved cell must remain.');
-assert(hint.x === 2 && hint.y === 0, 'Already-correct cells are skipped.');
-assert(hint.state === CellState.Floor, 'Floor solution state is revealed correctly.');
+const followUp = chooseHint(puzzle);
+assert(
+  followUp === null
+    || !(followUp.reason.kind === 'deduction' && followUp.reason.rule === HumanRule.LineComplete),
+  'After the required wall is placed, unrelated optional LineComplete FLOOR bookkeeping is still suppressed.',
+);
+
+const wrongWallPuzzle = new PuzzleState(level);
+wrongWallPuzzle.setCellState(0, 0, CellState.Wall);
+hint = chooseHint(wrongWallPuzzle);
+assert(
+  hint?.x === 0 && hint.y === 0 && hint.state === CellState.Floor,
+  'A wrong player WALL is corrected before any new deduction.',
+);
+assert(hint.reason.kind === 'correction', 'Wrong-state correction is tagged separately from deduction hints.');
+
+const wrongFloorPuzzle = new PuzzleState(level);
+wrongFloorPuzzle.setCellState(1, 0, CellState.Floor);
+hint = chooseHint(wrongFloorPuzzle);
+assert(
+  hint?.x === 1 && hint.y === 0 && hint.state === CellState.Wall,
+  'A wrong FLOOR mark on a required wall is corrected before any other move.',
+);
 
 for (let y = 0; y < level.height; y += 1) {
   for (let x = 0; x < level.width; x += 1) {
@@ -45,9 +81,6 @@ for (let y = 0; y < level.height; y += 1) {
   }
 }
 assert(chooseHint(puzzle) === null, 'Fully correct editable board has no hint target.');
-
-
-
 
 const freeSources: Array<'free' | 'rewarded'> = [];
 await requestHint({
@@ -79,28 +112,6 @@ await requestHint({
 });
 assert(!cancelledDelivery, 'Closed rewarded ad delivers no hint.');
 
-const campaign003Puzzle = new PuzzleState(campaign003);
-for (let x = 1; x < campaign003.width; x += 1) {
-  campaign003Puzzle.setCellState(x, 0, CellState.Wall);
-}
-campaign003Puzzle.setCellState(0, 1, CellState.Floor);
-const campaign003FloorHint = chooseHint(campaign003Puzzle);
-assert(
-  campaign003FloorHint?.x === 1
-    && campaign003FloorHint.y === 1
-    && campaign003FloorHint.state === CellState.Floor,
-  'Campaign 003 disputed cell (1,1) is correctly revealed as Floor, not Wall.',
-);
-campaign003Puzzle.setCellState(1, 1, CellState.Wall);
-const campaign003WrongWallHint = chooseHint(campaign003Puzzle);
-assert(
-  campaign003WrongWallHint?.x === 1
-    && campaign003WrongWallHint.y === 1
-    && campaign003WrongWallHint.state === CellState.Floor,
-  'Putting a wrong Wall in the hinted Campaign 003 cell keeps the same target but still requires Floor.',
-);
-
-
 class MemoryProfileStorage implements PlayerProfileStorage {
   saved: PlayerProfile | null = null;
   async load(): Promise<unknown | null> { return this.saved; }
@@ -118,4 +129,4 @@ assert(profileService.getFreeHintsRemaining() === 0, 'Free hint counter reaches 
 assert(profileService.getProfile().hints.totalUsed === 3, 'Delivered free hints increment total usage exactly once each.');
 await profileService.flush();
 
-console.info('[Dungeon Logic] Hint sanity: deterministic reveal + three-free accounting passed');
+console.info('[Dungeon Logic] Hint sanity: logical deduction + correction + three-free accounting passed');

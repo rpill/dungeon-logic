@@ -56,6 +56,8 @@ export type HumanRule =
     keyof typeof HumanRule
   ];
 
+export type HumanLineKind = 'row' | 'column';
+
 export type DirectHumanRule =
   Exclude<
     HumanRule,
@@ -74,6 +76,8 @@ export interface HumanAssignment {
 
 export interface HumanProofStep {
   rule: DirectHumanRule;
+  /** Present for row/column clue deductions so UI explanations can name the visible axis. */
+  lineKind?: HumanLineKind;
   assignments:
     readonly HumanAssignment[];
   explanation: string;
@@ -88,6 +92,8 @@ export interface HumanContradictionProof {
 
 export interface HumanSolveStep {
   index: number;
+  /** Present when this step comes directly from a row/column clue. */
+  lineKind?: HumanLineKind;
   tier: HumanDeductionTier;
   rule: HumanRule;
   assignments:

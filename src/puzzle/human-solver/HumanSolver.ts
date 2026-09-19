@@ -191,15 +191,10 @@ export function analyzeHumanSolvability(
       );
     }
 
-    const contradiction =
-      findContradictionMove(
-        state,
-      );
+    const advanced =
+      findNextAdvancedHumanInference(state);
 
-    if (
-      contradiction.kind ===
-      'invalid'
-    ) {
+    if (advanced.kind === 'invalid') {
       return buildResult(
         HumanSolveStatus.Invalid,
         state,
@@ -207,73 +202,11 @@ export function analyzeHumanSolvability(
       );
     }
 
-    if (
-      contradiction.kind ===
-      'move'
-    ) {
-      const move =
-        contradiction.move;
-
-      if (
-        !state.assign(
-          move.assignment.position.x,
-          move.assignment.position.y,
-          move.assignment.value,
-        )
-      ) {
-        return buildResult(
-          HumanSolveStatus.Invalid,
-          state,
-          steps,
-        );
-      }
-
-      steps.push({
-        index: steps.length + 1,
-        tier:
-          HumanDeductionTier
-            .Contradiction,
-        rule:
-          HumanRule.Contradiction,
-        assignments: [
-          move.assignment,
-        ],
-        explanation:
-          `Assuming (${move.proof.assumption.position.x},${move.proof.assumption.position.y}) is ${move.proof.assumption.value.toUpperCase()} leads to a direct contradiction, so it must be ${move.assignment.value.toUpperCase()}.`,
-        proof: move.proof,
-      });
-
-      usedContradiction = true;
-      continue;
-    }
-
-    const roomVariant =
-      findTreasureRoomVariantInference(
-        state,
-      );
-
-    if (
-      roomVariant.kind ===
-      'invalid'
-    ) {
-      return buildResult(
-        HumanSolveStatus.Invalid,
-        state,
-        steps,
-      );
-    }
-
-    if (
-      roomVariant.kind ===
-      'move'
-    ) {
-      const roomMove =
-        roomVariant.move;
-
+    if (advanced.kind === 'move') {
       if (
         !applyAssignments(
           state,
-          roomMove.assignments,
+          advanced.move.assignments,
         )
       ) {
         return buildResult(
@@ -285,129 +218,11 @@ export function analyzeHumanSolvability(
 
       steps.push({
         index: steps.length + 1,
-        tier:
-          HumanDeductionTier
-            .Contradiction,
-        rule:
-          HumanRule
-            .TreasureRoomVariant,
-        assignments:
-          roomMove.assignments,
-        explanation:
-          roomMove.uniqueEntrance
-            ? `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves exactly one full room-and-entrance variant, so its room and boundary are forced.`
-            : `Testing every viable Treasure Room plus its sole entrance for Chest at (${roomMove.chest.x},${roomMove.chest.y}) leaves ${roomMove.survivingVariants} variants that all share one 3x3 footprint, so that room interior is forced OPEN.`,
-        proof: null,
-      });
-
-      usedContradiction = true;
-      continue;
-    }
-
-    const structuralConsensus =
-      findTreasureRoomStructuralConsensusInference(
-        state,
-      );
-
-    if (
-      structuralConsensus.kind ===
-      'invalid'
-    ) {
-      return buildResult(
-        HumanSolveStatus.Invalid,
-        state,
-        steps,
-      );
-    }
-
-    if (
-      structuralConsensus.kind ===
-      'move'
-    ) {
-      const move =
-        structuralConsensus.move;
-
-      if (
-        !applyAssignments(
-          state,
-          move.assignments,
-        )
-      ) {
-        return buildResult(
-          HumanSolveStatus.Invalid,
-          state,
-          steps,
-        );
-      }
-
-      steps.push({
-        index: steps.length + 1,
-        tier:
-          HumanDeductionTier
-            .Contradiction,
-        rule:
-          HumanRule
-            .TreasureRoomStructuralConsensus,
-        assignments:
-          move.assignments,
-        explanation:
-          `Testing every direct-surviving Treasure Room plus sole entrance for Chest at (${move.chest.x},${move.chest.y}) leaves ${move.survivingVariants} variants across ${move.survivingFootprints} footprints; the committed cells have the same structural OPEN/WALL requirement in every survivor.`,
-        proof: null,
-      });
-
-      usedContradiction = true;
-      continue;
-    }
-
-    const consequence =
-      findTreasureRoomHypothesisConsequenceInference(
-        state,
-      );
-
-    if (
-      consequence.kind ===
-      'invalid'
-    ) {
-      return buildResult(
-        HumanSolveStatus.Invalid,
-        state,
-        steps,
-      );
-    }
-
-    if (
-      consequence.kind ===
-      'move'
-    ) {
-      const move =
-        consequence.move;
-
-      if (
-        !applyAssignments(
-          state,
-          move.assignments,
-        )
-      ) {
-        return buildResult(
-          HumanSolveStatus.Invalid,
-          state,
-          steps,
-        );
-      }
-
-      steps.push({
-        index: steps.length + 1,
-        tier:
-          HumanDeductionTier
-            .Contradiction,
-        rule:
-          HumanRule
-            .TreasureRoomHypothesisConsequence,
-        assignments:
-          move.assignments,
-        explanation:
-          `Testing all ${move.survivingVariants} direct-surviving Treasure Room hypotheses for Chest at (${move.chest.x},${move.chest.y}) across ${move.survivingFootprints} footprints produces the same downstream cell states after direct closure (${move.directStepsMinimum}..${move.directStepsMaximum} direct steps per survivor), so those shared consequences are forced.`,
-        proof: null,
+        tier: advanced.move.tier,
+        rule: advanced.move.rule,
+        assignments: advanced.move.assignments,
+        explanation: advanced.move.explanation,
+        proof: advanced.move.proof,
       });
 
       usedContradiction = true;
@@ -420,6 +235,126 @@ export function analyzeHumanSolvability(
       steps,
     );
   }
+}
+
+export interface HumanInference {
+  tier: HumanDeductionTier;
+  rule: HumanRule;
+  assignments: readonly HumanAssignment[];
+  explanation: string;
+  proof: HumanContradictionProof | null;
+}
+
+export type HumanInferenceResult =
+  | {
+      kind: 'move';
+      move: HumanInference;
+    }
+  | {
+      kind: 'none';
+    }
+  | {
+      kind: 'invalid';
+    };
+
+/**
+ * Find one non-direct human deduction from an already direct-closed state.
+ * The caller owns applying the returned assignments. This mirrors the
+ * advanced deduction order used by analyzeHumanSolvability().
+ */
+export function findNextAdvancedHumanInference(
+  state: SearchState,
+): HumanInferenceResult {
+  const contradiction =
+    findContradictionMove(state);
+
+  if (contradiction.kind === 'invalid') {
+    return { kind: 'invalid' };
+  }
+
+  if (contradiction.kind === 'move') {
+    const move = contradiction.move;
+    return {
+      kind: 'move',
+      move: {
+        tier: HumanDeductionTier.Contradiction,
+        rule: HumanRule.Contradiction,
+        assignments: [move.assignment],
+        explanation:
+          `Assuming (${move.proof.assumption.position.x},${move.proof.assumption.position.y}) is ${move.proof.assumption.value.toUpperCase()} leads to a direct contradiction, so it must be ${move.assignment.value.toUpperCase()}.`,
+        proof: move.proof,
+      },
+    };
+  }
+
+  const roomVariant =
+    findTreasureRoomVariantInference(state);
+
+  if (roomVariant.kind === 'invalid') {
+    return { kind: 'invalid' };
+  }
+
+  if (roomVariant.kind === 'move') {
+    const move = roomVariant.move;
+    return {
+      kind: 'move',
+      move: {
+        tier: HumanDeductionTier.Contradiction,
+        rule: HumanRule.TreasureRoomVariant,
+        assignments: move.assignments,
+        explanation: move.uniqueEntrance
+          ? `Testing every viable Treasure Room plus its sole entrance for Chest at (${move.chest.x},${move.chest.y}) leaves exactly one full room-and-entrance variant, so its room and boundary are forced.`
+          : `Testing every viable Treasure Room plus its sole entrance for Chest at (${move.chest.x},${move.chest.y}) leaves ${move.survivingVariants} variants that all share one 3x3 footprint, so that room interior is forced OPEN.`,
+        proof: null,
+      },
+    };
+  }
+
+  const structuralConsensus =
+    findTreasureRoomStructuralConsensusInference(state);
+
+  if (structuralConsensus.kind === 'invalid') {
+    return { kind: 'invalid' };
+  }
+
+  if (structuralConsensus.kind === 'move') {
+    const move = structuralConsensus.move;
+    return {
+      kind: 'move',
+      move: {
+        tier: HumanDeductionTier.Contradiction,
+        rule: HumanRule.TreasureRoomStructuralConsensus,
+        assignments: move.assignments,
+        explanation:
+          `Testing every direct-surviving Treasure Room plus sole entrance for Chest at (${move.chest.x},${move.chest.y}) leaves ${move.survivingVariants} variants across ${move.survivingFootprints} footprints; the committed cells have the same structural OPEN/WALL requirement in every survivor.`,
+        proof: null,
+      },
+    };
+  }
+
+  const consequence =
+    findTreasureRoomHypothesisConsequenceInference(state);
+
+  if (consequence.kind === 'invalid') {
+    return { kind: 'invalid' };
+  }
+
+  if (consequence.kind === 'move') {
+    const move = consequence.move;
+    return {
+      kind: 'move',
+      move: {
+        tier: HumanDeductionTier.Contradiction,
+        rule: HumanRule.TreasureRoomHypothesisConsequence,
+        assignments: move.assignments,
+        explanation:
+          `Testing all ${move.survivingVariants} direct-surviving Treasure Room hypotheses for Chest at (${move.chest.x},${move.chest.y}) across ${move.survivingFootprints} footprints produces the same downstream cell states after direct closure (${move.directStepsMinimum}..${move.directStepsMaximum} direct steps per survivor), so those shared consequences are forced.`,
+        proof: null,
+      },
+    };
+  }
+
+  return { kind: 'none' };
 }
 
 function appendDirectSteps(
@@ -436,6 +371,7 @@ function appendDirectSteps(
       tier:
         HumanDeductionTier.Direct,
       rule: step.rule,
+      lineKind: step.lineKind,
       assignments:
         step.assignments,
       explanation:
@@ -1410,10 +1346,12 @@ function probeAssumption(
     runDirectFixedPoint(state);
 
   let contradiction:
-    string | null =
-      direct.ok
-        ? null
-        : direct.contradiction;
+    string | null = null;
+
+  if (direct.ok === false) {
+    contradiction =
+      direct.contradiction;
+  }
 
   if (
     direct.ok &&

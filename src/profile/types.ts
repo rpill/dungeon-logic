@@ -55,9 +55,9 @@ export interface EndlessProfileState {
   readonly activeKind: EndlessActiveKind | null;
   readonly activePuzzle: SerializedPuzzleState | null;
   /** Consecutive ranked Endless solves completed without any hints. */
-  readonly currentCleanStreak: number;
+  readonly currentStreak: number;
   /** Highest ranked clean Endless streak ever achieved. */
-  readonly bestCleanStreak: number;
+  readonly bestStreak: number;
   /** Number of Free Play advances after every ranked catalog entry has been solved. */
   readonly freePlayOrdinal: number;
 }

@@ -29,8 +29,8 @@ export interface EndlessCompletionResult {
   readonly catalogComplete: boolean;
   readonly ratingAward: number;
   readonly masterRating: number;
-  readonly currentCleanStreak: number;
-  readonly bestCleanStreak: number;
+  readonly currentStreak: number;
+  readonly bestStreak: number;
   readonly persisted: boolean;
 }
 
@@ -38,7 +38,7 @@ export interface EndlessSkipResult {
   readonly skippedCatalogIndex: number;
   readonly ranked: boolean;
   readonly catalogComplete: boolean;
-  readonly currentCleanStreak: number;
+  readonly currentStreak: number;
   readonly persisted: boolean;
 }
 
@@ -103,7 +103,7 @@ export class EndlessService {
     };
   }
 
-  async completeCurrent(catalogIndex: number, hintsUsed: number): Promise<EndlessCompletionResult> {
+  async completeCurrent(catalogIndex: number, _hintsUsed: number): Promise<EndlessCompletionResult> {
     this.requireCatalogIndex(catalogIndex);
     const endlessBefore = this.profileService.getProfile().endless;
     if (endlessBefore.activeCatalogIndex !== catalogIndex || endlessBefore.activeKind === null) {
@@ -112,7 +112,6 @@ export class EndlessService {
 
     const kind = endlessBefore.activeKind;
     const ranked = kind !== 'freeplay';
-    const clean = hintsUsed === 0;
     const ratingAward = ranked
       ? getEndlessMasterRatingReward(this.catalog.get(catalogIndex).difficultyBand)
       : 0;
@@ -127,14 +126,14 @@ export class EndlessService {
             activeCatalogIndex: null,
             activeKind: null,
             activePuzzle: null,
-            currentCleanStreak: 0,
+            currentStreak: 0,
             freePlayOrdinal: current.freePlayOrdinal + 1,
           },
         };
       }
 
-      const currentCleanStreak = clean ? current.currentCleanStreak + 1 : 0;
-      const bestCleanStreak = Math.max(current.bestCleanStreak, currentCleanStreak);
+      const currentStreak = current.currentStreak + 1;
+      const bestStreak = Math.max(current.bestStreak, currentStreak);
       const skipped = kind === 'retry'
         ? current.skipped.filter((index) => index !== catalogIndex)
         : current.skipped;
@@ -160,8 +159,8 @@ export class EndlessService {
           activeCatalogIndex: null,
           activeKind: null,
           activePuzzle: null,
-          currentCleanStreak,
-          bestCleanStreak,
+          currentStreak,
+          bestStreak,
         },
       };
     });
@@ -176,8 +175,8 @@ export class EndlessService {
       catalogComplete: this.isRankedComplete(profile.endless),
       ratingAward,
       masterRating: profile.mastery.rating,
-      currentCleanStreak: profile.endless.currentCleanStreak,
-      bestCleanStreak: profile.endless.bestCleanStreak,
+      currentStreak: profile.endless.currentStreak,
+      bestStreak: profile.endless.bestStreak,
       persisted,
     };
   }
@@ -201,7 +200,7 @@ export class EndlessService {
             activeCatalogIndex: null,
             activeKind: null,
             activePuzzle: null,
-            currentCleanStreak: 0,
+            currentStreak: 0,
             freePlayOrdinal: current.freePlayOrdinal + 1,
           },
         };
@@ -223,7 +222,7 @@ export class EndlessService {
           activeCatalogIndex: null,
           activeKind: null,
           activePuzzle: null,
-          currentCleanStreak: 0,
+          currentStreak: 0,
         },
       };
     });
@@ -234,7 +233,7 @@ export class EndlessService {
       skippedCatalogIndex: catalogIndex,
       ranked,
       catalogComplete: this.isRankedComplete(current),
-      currentCleanStreak: current.currentCleanStreak,
+      currentStreak: current.currentStreak,
       persisted,
     };
   }
@@ -253,7 +252,7 @@ export class EndlessService {
         activeCatalogIndex: selection.catalogIndex,
         activeKind: selection.kind,
         activePuzzle: null,
-        currentCleanStreak: selection.kind === 'freeplay' ? 0 : profile.endless.currentCleanStreak,
+        currentStreak: selection.kind === 'freeplay' ? 0 : profile.endless.currentStreak,
       },
     }));
     return selection;

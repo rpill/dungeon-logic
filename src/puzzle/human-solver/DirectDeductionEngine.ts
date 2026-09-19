@@ -35,7 +35,7 @@ interface LineDescriptor {
   status: LineStatus;
 }
 
-type DirectDeductionResult =
+export type DirectDeductionResult =
   | {
       ok: true;
       step: HumanProofStep | null;
@@ -96,11 +96,19 @@ export function runDirectFixedPoint(
   }
 }
 
-function findFirstDirectDeduction(
+export interface DirectDeductionOptions {
+  readonly skipLineComplete?: boolean;
+}
+
+export function findFirstDirectDeduction(
   state: SearchState,
+  options: DirectDeductionOptions = {},
 ): DirectDeductionResult {
   const lineDeduction =
-    findFirstLineDeduction(state);
+    findFirstLineDeduction(
+      state,
+      options.skipLineComplete === true,
+    );
 
   if (
     lineDeduction.ok === false ||
@@ -176,6 +184,7 @@ function findFirstDirectDeduction(
 
 function findFirstLineDeduction(
   state: SearchState,
+  skipLineComplete: boolean,
 ): DirectDeductionResult {
   for (
     let y = 0;
@@ -195,7 +204,12 @@ function findFirstLineDeduction(
     }
 
     if (result.step !== null) {
-      return result;
+      if (
+        !skipLineComplete ||
+        result.step.rule !== HumanRule.LineComplete
+      ) {
+        return result;
+      }
     }
   }
 
@@ -217,7 +231,12 @@ function findFirstLineDeduction(
     }
 
     if (result.step !== null) {
-      return result;
+      if (
+        !skipLineComplete ||
+        result.step.rule !== HumanRule.LineComplete
+      ) {
+        return result;
+      }
     }
   }
 
@@ -264,6 +283,7 @@ function inspectLine(
       step: {
         rule:
           HumanRule.LineComplete,
+        lineKind: line.kind,
         assignments:
           createAssignments(
             unassigned,
@@ -284,6 +304,7 @@ function inspectLine(
       step: {
         rule:
           HumanRule.LineFill,
+        lineKind: line.kind,
         assignments:
           createAssignments(
             unassigned,

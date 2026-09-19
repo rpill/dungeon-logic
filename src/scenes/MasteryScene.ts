@@ -21,12 +21,12 @@ import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
 import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../runtime/MasterySeal';
 import { createMasteryRequirementPanel } from '../runtime/MasteryRequirementPanel';
 import { createMasteryRequirementRowPanel } from '../runtime/MasteryRequirementRowPanel';
+import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { MASTER_RATING_LEADERBOARD_SCENE_KEY } from './MasterRatingLeaderboardScene';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 
 export class MasteryScene extends Phaser.Scene {
-  private progressTextureSerial = 0;
 
   constructor() {
     super(MASTERY_SCENE_KEY);
@@ -265,56 +265,24 @@ export class MasteryScene extends Phaser.Scene {
     }
   }
 
-  private drawRequirementProgress(left: number, y: number, width: number, height: number, current: number, target: number, _complete: boolean, depth = 0): void {
-    const ratio = Phaser.Math.Clamp(current / Math.max(1, target), 0, 1);
-    const trackTop = y - height / 2;
-    const radius = height / 2;
-
-    const track = this.add.graphics().setDepth(depth);
-    track.fillStyle(0x08111b, 0.98);
-    track.fillRoundedRect(left, trackTop, width, height, radius);
-    track.lineStyle(1.1, 0x203855, 0.95);
-    track.strokeRoundedRect(left, trackTop, width, height, radius);
-
-    if (ratio <= 0) return;
-
-    const textureWidth = Math.max(2, Math.ceil(width));
-    const textureHeight = Math.max(2, Math.ceil(height));
-    const visibleWidth = Math.max(textureHeight, textureWidth * ratio);
-    const textureKey = `mastery-progress-fill-${this.progressTextureSerial++}`;
-    const texture = this.textures.createCanvas(textureKey, textureWidth, textureHeight);
-    if (texture === null) return;
-    const ctx = texture.context;
-    const gradient = ctx.createLinearGradient(0, 0, textureWidth, 0);
-    gradient.addColorStop(0, '#f0c75e');
-    gradient.addColorStop(1, '#69df8c');
-
-    const paintWidth = Math.min(textureWidth, visibleWidth);
-    const paintRadius = Math.min(textureHeight / 2, paintWidth / 2);
-    ctx.clearRect(0, 0, textureWidth, textureHeight);
-    ctx.beginPath();
-    ctx.moveTo(paintRadius, 0);
-    ctx.lineTo(paintWidth - paintRadius, 0);
-    ctx.quadraticCurveTo(paintWidth, 0, paintWidth, paintRadius);
-    ctx.lineTo(paintWidth, textureHeight - paintRadius);
-    ctx.quadraticCurveTo(paintWidth, textureHeight, paintWidth - paintRadius, textureHeight);
-    ctx.lineTo(paintRadius, textureHeight);
-    ctx.quadraticCurveTo(0, textureHeight, 0, textureHeight - paintRadius);
-    ctx.lineTo(0, paintRadius);
-    ctx.quadraticCurveTo(0, 0, paintRadius, 0);
-    ctx.closePath();
-    ctx.fillStyle = gradient;
-    ctx.fill();
-    texture.refresh();
-
-    const fillImage = this.add.image(left, y, textureKey)
-      .setOrigin(0, 0.5)
-      .setDisplaySize(width, height)
-      .setDepth(depth + 0.1);
-    fillImage.once('destroy', () => {
-      if (this.textures.exists(textureKey)) {
-        this.textures.remove(textureKey);
-      }
+  private drawRequirementProgress(
+    left: number,
+    y: number,
+    width: number,
+    height: number,
+    current: number,
+    target: number,
+    _complete: boolean,
+    depth = 0,
+  ): void {
+    createMasteryProgressBar(this, {
+      x: left + width / 2,
+      y,
+      width,
+      height,
+      current,
+      target,
+      depth,
     });
   }
 
@@ -390,9 +358,9 @@ export class MasteryScene extends Phaser.Scene {
     switch (condition.metric) {
       case 'campaign':
         return 'home-menu-icon-levels';
-      case 'daily-best-streak':
+      case 'daily-completed':
         return 'home-menu-icon-daily';
-      case 'endless-best-clean-streak':
+      case 'endless-completed':
         return 'home-menu-icon-endless';
     }
   }
@@ -404,11 +372,11 @@ export class MasteryScene extends Phaser.Scene {
   ): string {
     switch (condition.metric) {
       case 'campaign':
-        return narrow ? copy.mastery.campaign : `${copy.mastery.campaign}: пройдите ${condition.target} уровня`;
-      case 'daily-best-streak':
-        return narrow ? copy.mastery.daily : `Daily: достигните серии ${condition.target} дня`;
-      case 'endless-best-clean-streak':
-        return narrow ? copy.mastery.endless : `Испытание: чистая серия ${condition.target}`;
+        return narrow ? copy.mastery.campaign : copy.mastery.campaignRequirement(condition.target);
+      case 'daily-completed':
+        return narrow ? copy.mastery.daily : copy.mastery.dailyRequirement(condition.target);
+      case 'endless-completed':
+        return narrow ? copy.mastery.endless : copy.mastery.endlessRequirement(condition.target);
     }
   }
 

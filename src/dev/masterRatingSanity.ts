@@ -16,6 +16,9 @@ assert(rating.getEndlessMasterRatingReward(DifficultyBand.Hard) === 5, 'Hard End
 assert(rating.getEndlessMasterRatingReward(DifficultyBand.Expert) === 8, 'Expert Endless reward must be +8.');
 assert(rating.formatMasterRating(12_345, 'ru') === '12 345', 'Russian rating formatting must use grouped digits.');
 assert(rating.formatMasterRating(12_345, 'en') === '12,345', 'English rating formatting must use grouped digits.');
+assert(rating.getMasterRatingMilestone(1098, 1101) === 1100, 'Crossing 1100 must trigger the 1100 milestone.');
+assert(rating.getMasterRatingMilestone(1101, 1199) === null, 'Progress inside the same hundred must not trigger a milestone.');
+assert(rating.getMasterRatingMilestone(1199, 1202) === 1200, 'Crossing 1200 must trigger the 1200 milestone.');
 
 const partial = normalizePlayerProfile({
   ...fresh,
@@ -23,8 +26,8 @@ const partial = normalizePlayerProfile({
   endless: {
     activePuzzle: null,
     completed: 7,
-    currentCleanStreak: 2,
-    bestCleanStreak: 4,
+    currentStreak: 2,
+    bestStreak: 4,
   },
 }, [], 'ru');
 assert(partial.mastery.rating === 1000, 'Same-schema profile missing mastery state must normalize to base rating.');

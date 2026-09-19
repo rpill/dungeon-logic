@@ -37,6 +37,24 @@ export interface PuzzleToolbarLayout {
   readonly buttons: readonly PuzzleToolbarButtonLayout[];
 }
 
+export function formatCompactHintLabel(freeHintsRemaining: number): string {
+  if (!Number.isInteger(freeHintsRemaining) || freeHintsRemaining < 0) {
+    throw new RangeError('Free hints remaining must be a non-negative integer.');
+  }
+  return `×${freeHintsRemaining}`;
+}
+
+export function shouldUseCompactHintLabel(
+  viewportWidth: number,
+  viewportHeight: number,
+  showTouchToolButtons: boolean,
+): boolean {
+  if (viewportWidth <= 0 || viewportHeight <= 0) {
+    throw new RangeError('Viewport dimensions must be positive.');
+  }
+  return showTouchToolButtons && (viewportWidth < 700 || viewportHeight < 520);
+}
+
 export function createPuzzleToolbarState(
   activeTool: PuzzleTool,
   canUndo: boolean,

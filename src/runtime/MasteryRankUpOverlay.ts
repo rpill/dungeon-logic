@@ -10,6 +10,10 @@ export interface MasteryRankUpOverlayOptions {
   readonly fromRank: MasteryRankId;
   readonly toRank: MasteryRankId;
   readonly copy: UiCopy['mastery'];
+  readonly masterRatingMilestone?: {
+    readonly rating: string;
+    readonly milestone: string;
+  };
   readonly onContinue: () => void;
 }
 
@@ -41,12 +45,17 @@ export function showMasteryRankUpOverlay(
   panel.strokeRoundedRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, radius);
 
   const titleY = centerY - panelHeight * 0.36;
-  const title = scene.add.text(centerX, titleY, options.copy.newRank, {
+  const title = scene.add.text(
+    centerX,
+    titleY,
+    options.masterRatingMilestone === undefined ? options.copy.newRank : options.copy.ratingMilestoneTitle,
+    {
     fontFamily: 'monospace',
     fontSize: `${narrow ? 24 : 34}px`,
     color: '#ffd978',
     fontStyle: 'bold',
-  }).setOrigin(0.5).setDepth(depth + 2);
+    },
+  ).setOrigin(0.5).setDepth(depth + 2);
 
   const sealSize = narrow ? Math.min(210, panelWidth * 0.58) : 310;
   const sealY = centerY - panelHeight * 0.02;
@@ -78,7 +87,9 @@ export function showMasteryRankUpOverlay(
   const rank = scene.add.text(
     centerX,
     rankY,
-    options.copy.rankLabel(options.toRank, options.copy.rankTitles[options.toRank]),
+    options.masterRatingMilestone === undefined
+      ? options.copy.rankLabel(options.toRank, options.copy.rankTitles[options.toRank])
+      : options.masterRatingMilestone.rating,
     {
       fontFamily: 'monospace',
       fontSize: `${narrow ? 19 : 26}px`,
@@ -88,13 +99,20 @@ export function showMasteryRankUpOverlay(
     },
   ).setOrigin(0.5).setDepth(depth + 2);
 
-  const description = scene.add.text(centerX, rankY + (narrow ? 38 : 48), options.copy.rankDescriptions[options.toRank], {
+  const description = scene.add.text(
+    centerX,
+    rankY + (narrow ? 38 : 48),
+    options.masterRatingMilestone === undefined
+      ? options.copy.rankDescriptions[options.toRank]
+      : options.copy.ratingMilestoneReached(options.masterRatingMilestone.milestone),
+    {
     fontFamily: 'monospace',
     fontSize: `${narrow ? 11 : 14}px`,
     color: '#c4d0e5',
     align: 'center',
     wordWrap: { width: panelWidth - (narrow ? 44 : 80) },
-  }).setOrigin(0.5).setDepth(depth + 2);
+    },
+  ).setOrigin(0.5).setDepth(depth + 2);
 
   const buttonWidth = Math.min(panelWidth - (narrow ? 42 : 90), narrow ? 280 : 320);
   const buttonHeight = narrow ? 54 : 62;

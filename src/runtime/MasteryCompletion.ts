@@ -5,8 +5,8 @@ import type { MasteryTransition } from '../mastery/MasteryTransition';
 function metricLabel(metric: MasteryRequirementProgress['metric'], copy: UiCopy['mastery']): string {
   switch (metric) {
     case 'campaign': return copy.campaign;
-    case 'daily-best-streak': return copy.daily;
-    case 'endless-best-clean-streak': return copy.endless;
+    case 'daily-completed': return copy.daily;
+    case 'endless-completed': return copy.endless;
   }
 }
 

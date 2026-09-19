@@ -4,12 +4,12 @@ export type MasteryRankId = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI' | 'VII' | 'VI
 
 export const MASTERY_RANK_IDS: readonly MasteryRankId[] = Object.freeze(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'MASTER']);
 
-export type MasteryMetricId = 'campaign' | 'daily-best-streak' | 'endless-best-clean-streak';
+export type MasteryMetricId = 'campaign' | 'daily-completed' | 'endless-completed';
 
 export interface MasteryMetrics {
   readonly campaignCompleted: number;
-  readonly dailyBestStreak: number;
-  readonly endlessBestCleanStreak: number;
+  readonly dailyCompleted: number;
+  readonly endlessCompleted: number;
 }
 
 export interface MasteryRequirementProgress {
@@ -36,46 +36,57 @@ interface MasteryRankDefinition {
   readonly requirements: readonly MasteryRequirementDefinition[];
 }
 
+/**
+ * Pre-release Mastery progression uses only irreversible completion totals.
+ * Streaks remain independent retention/challenge metrics and never gate rank.
+ */
 const RANK_DEFINITIONS = Object.freeze([
   { id: 'I', requirements: Object.freeze([]) },
-  { id: 'II', requirements: Object.freeze([{ metric: 'campaign', target: 8 }]) },
+  { id: 'II', requirements: Object.freeze([
+    { metric: 'campaign', target: 5 },
+  ]) },
   { id: 'III', requirements: Object.freeze([
-    { metric: 'campaign', target: 24 },
-    { metric: 'endless-best-clean-streak', target: 3 },
+    { metric: 'campaign', target: 10 },
+    { metric: 'daily-completed', target: 1 },
+    { metric: 'endless-completed', target: 5 },
   ]) },
   { id: 'IV', requirements: Object.freeze([
-    { metric: 'campaign', target: 40 },
-    { metric: 'daily-best-streak', target: 3 },
-    { metric: 'endless-best-clean-streak', target: 5 },
+    { metric: 'campaign', target: 18 },
+    { metric: 'daily-completed', target: 3 },
+    { metric: 'endless-completed', target: 15 },
   ]) },
   { id: 'V', requirements: Object.freeze([
-    { metric: 'campaign', target: 64 },
-    { metric: 'daily-best-streak', target: 5 },
-    { metric: 'endless-best-clean-streak', target: 10 },
+    { metric: 'campaign', target: 26 },
+    { metric: 'daily-completed', target: 5 },
+    { metric: 'endless-completed', target: 35 },
   ]) },
   { id: 'VI', requirements: Object.freeze([
-    { metric: 'daily-best-streak', target: 10 },
-    { metric: 'endless-best-clean-streak', target: 15 },
+    { metric: 'campaign', target: 36 },
+    { metric: 'daily-completed', target: 8 },
+    { metric: 'endless-completed', target: 75 },
   ]) },
   { id: 'VII', requirements: Object.freeze([
-    { metric: 'daily-best-streak', target: 15 },
-    { metric: 'endless-best-clean-streak', target: 25 },
+    { metric: 'campaign', target: 46 },
+    { metric: 'daily-completed', target: 11 },
+    { metric: 'endless-completed', target: 150 },
   ]) },
   { id: 'VIII', requirements: Object.freeze([
-    { metric: 'daily-best-streak', target: 20 },
-    { metric: 'endless-best-clean-streak', target: 35 },
+    { metric: 'campaign', target: 56 },
+    { metric: 'daily-completed', target: 15 },
+    { metric: 'endless-completed', target: 300 },
   ]) },
   { id: 'MASTER', requirements: Object.freeze([
-    { metric: 'daily-best-streak', target: 30 },
-    { metric: 'endless-best-clean-streak', target: 50 },
+    { metric: 'campaign', target: 64 },
+    { metric: 'daily-completed', target: 20 },
+    { metric: 'endless-completed', target: 500 },
   ]) },
 ] as const satisfies readonly MasteryRankDefinition[]);
 
 function metricValue(metrics: MasteryMetrics, metric: MasteryMetricId): number {
   switch (metric) {
     case 'campaign': return Math.max(0, Math.floor(metrics.campaignCompleted));
-    case 'daily-best-streak': return Math.max(0, Math.floor(metrics.dailyBestStreak));
-    case 'endless-best-clean-streak': return Math.max(0, Math.floor(metrics.endlessBestCleanStreak));
+    case 'daily-completed': return Math.max(0, Math.floor(metrics.dailyCompleted));
+    case 'endless-completed': return Math.max(0, Math.floor(metrics.endlessCompleted));
   }
 }
 
@@ -90,8 +101,8 @@ export function getMasteryRankIndex(rank: MasteryRankId): number {
 export function deriveMastery(metrics: MasteryMetrics): MasterySnapshot {
   let currentIndex = 0;
 
-  // Ranks are sequential. A player cannot skip the campaign-gated early ranks
-  // merely by accumulating large Daily/Endless records first.
+  // Ranks are sequential. Players cannot skip early ranks by accumulating
+  // later-mode volume before satisfying every requirement in between.
   for (let index = 1; index < RANK_DEFINITIONS.length; index += 1) {
     if (!satisfiesDefinition(metrics, RANK_DEFINITIONS[index]!)) break;
     currentIndex = index;
@@ -129,8 +140,8 @@ export function deriveMastery(metrics: MasteryMetrics): MasterySnapshot {
 export function getMasteryMetrics(profile: PlayerProfile): MasteryMetrics {
   return {
     campaignCompleted: profile.campaign.completedLevelIds.length,
-    dailyBestStreak: profile.daily.bestStreak,
-    endlessBestCleanStreak: profile.endless.bestCleanStreak,
+    dailyCompleted: profile.daily.totalSolved,
+    endlessCompleted: profile.endless.completed,
   };
 }
 

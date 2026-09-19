@@ -63,11 +63,16 @@ export interface UiCopy {
     readonly maxRank: string;
     readonly nextRank: string;
     readonly newRank: string;
+    readonly ratingMilestoneTitle: string;
+    readonly ratingMilestoneReached: (milestone: string) => string;
     readonly continue: string;
     readonly rankLabel: (rank: MasteryRankId, title: string) => string;
     readonly campaign: string;
     readonly daily: string;
     readonly endless: string;
+    readonly campaignRequirement: (target: number) => string;
+    readonly dailyRequirement: (target: number) => string;
+    readonly endlessRequirement: (target: number) => string;
     readonly rankTitles: Readonly<Record<MasteryRankId, string>>;
     readonly rankDescriptions: Readonly<Record<MasteryRankId, string>>;
     readonly rating: (rating: string) => string;
@@ -157,7 +162,7 @@ export interface UiCopy {
     readonly levelTitle: (slot: number) => string;
     readonly dailyTitle: string;
     readonly endlessTitle: (ordinal: number) => string;
-    readonly endlessCleanStreak: (streak: number) => string;
+    readonly endlessStreak: (streak: number) => string;
     readonly endlessFreePlayTitle: (ordinal: number) => string;
     readonly endlessFreePlayNoRating: string;
     readonly skip: string;
@@ -217,6 +222,16 @@ export interface UiCopy {
   };
 }
 
+
+function ruCountForm(value: number, one: string, few: string, many: string): string {
+  const integer = Math.abs(Math.floor(value));
+  const mod10 = integer % 10;
+  const mod100 = integer % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
 const RU: UiCopy = {
   common: {
     backHome: '← ГЛАВНАЯ',
@@ -271,7 +286,7 @@ const RU: UiCopy = {
     endlessSoon: 'СКОРО',
     endlessLockedAfterLevel: 'ПОСЛЕ УРОВНЯ 8',
     endlessSolved: (completed) => `Решено: ${completed}`,
-    endlessStreak: (current, best) => `Чистая серия: ${current} · рекорд ${best}`,
+    endlessStreak: (current, best) => `Серия: ${current} · рекорд ${best}`,
     endlessProgress: (completed, total, current, best) => `Решено ${completed} / ${total} · серия ${current} · рекорд ${best}`,
     endlessFreePlay: (total) => `СВОБОДНАЯ ИГРА · ${total} / ${total}`,
   },
@@ -289,11 +304,16 @@ const RU: UiCopy = {
     maxRank: 'МАКСИМАЛЬНЫЙ РАНГ',
     nextRank: 'ДО СЛЕДУЮЩЕГО РАНГА',
     newRank: 'НОВЫЙ РАНГ',
+    ratingMilestoneTitle: 'РЕЙТИНГ МАСТЕРА',
+    ratingMilestoneReached: (milestone) => `ДОСТИГНУТА ОТМЕТКА ${milestone}`,
     continue: 'ПРОДОЛЖИТЬ',
     rankLabel: (rank, title) => `РАНГ ${rank} — ${title}`,
     campaign: 'Кампания',
-    daily: 'Daily: серия',
-    endless: 'Испытание: чистая серия',
+    daily: 'Daily: решено',
+    endless: 'Испытание: решено',
+    campaignRequirement: (target) => `Кампания: пройдите ${target} ${ruCountForm(target, 'уровень', 'уровня', 'уровней')}`,
+    dailyRequirement: (target) => `Daily: решите ${target} ${ruCountForm(target, 'задание', 'задания', 'заданий')}`,
+    endlessRequirement: (target) => `Испытание: решите ${target} ${ruCountForm(target, 'головоломку', 'головоломки', 'головоломок')}`,
     rankTitles: {
       I: 'УЧЕНИК',
       II: 'ИССЛЕДОВАТЕЛЬ',
@@ -403,12 +423,12 @@ const RU: UiCopy = {
     levelTitle: (slot) => `УРОВЕНЬ ${slot}`,
     dailyTitle: 'DAILY',
     endlessTitle: (ordinal) => `ИСПЫТАНИЕ · ${ordinal}`,
-    endlessCleanStreak: (streak) => `ЧИСТАЯ СЕРИЯ: ${streak}`,
+    endlessStreak: (streak) => `СЕРИЯ: ${streak}`,
     endlessFreePlayTitle: (ordinal) => `СВОБОДНАЯ ИГРА · ${ordinal}`,
     endlessFreePlayNoRating: 'КАТАЛОГ ПРОЙДЕН · РЕЙТИНГ НЕ НАЧИСЛЯЕТСЯ',
     skip: 'ПРОПУСТИТЬ',
     skipTitle: 'ПРОПУСТИТЬ УРОВЕНЬ?',
-    skipBody: 'Чистая серия сбросится. Этот уровень вернётся позже.',
+    skipBody: 'Серия сбросится. Этот уровень вернётся позже.',
     skipFreePlayBody: 'Перейти к следующему уровню? Рейтинг уже не меняется.',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
@@ -437,8 +457,8 @@ const RU: UiCopy = {
     show: 'ПОКАЗАТЬ',
     ad: 'РЕКЛАМА',
     rewardedPrompt: '1 РЕКЛАМА = 1 ПОДСКАЗКА. ПОКАЗАТЬ РЕКЛАМУ?',
-    freeHintPrompt: (remaining) => `Показать одну клетку? Бесплатных подсказок: ${remaining}`,
-    hintConfirmTitle: 'ПОКАЗАТЬ ОДНУ КЛЕТКУ?',
+    freeHintPrompt: (remaining) => `Показать подсказку? Бесплатных подсказок: ${remaining}`,
+    hintConfirmTitle: 'ПОКАЗАТЬ ПОДСКАЗКУ?',
     freeHintsRemaining: (remaining) => `БЕСПЛАТНЫХ ПОДСКАЗОК: ${remaining}`,
     rewardedHintConfirmTitle: 'ПОКАЗАТЬ ПОДСКАЗКУ?',
     rewardedHintConfirmMeta: '1 РЕКЛАМА = 1 ПОДСКАЗКА',
@@ -517,7 +537,7 @@ const EN: UiCopy = {
     endlessSoon: 'COMING SOON',
     endlessLockedAfterLevel: 'AFTER LEVEL 8',
     endlessSolved: (completed) => `Solved: ${completed}`,
-    endlessStreak: (current, best) => `Clean streak: ${current} · best ${best}`,
+    endlessStreak: (current, best) => `Streak: ${current} · best ${best}`,
     endlessProgress: (completed, total, current, best) => `Solved ${completed} / ${total} · streak ${current} · best ${best}`,
     endlessFreePlay: (total) => `FREE PLAY · ${total} / ${total}`,
   },
@@ -528,11 +548,16 @@ const EN: UiCopy = {
     maxRank: 'MAXIMUM RANK',
     nextRank: 'TO THE NEXT RANK',
     newRank: 'NEW RANK',
+    ratingMilestoneTitle: 'MASTER RATING',
+    ratingMilestoneReached: (milestone) => `MILESTONE ${milestone} REACHED`,
     continue: 'CONTINUE',
     rankLabel: (rank, title) => `RANK ${rank} — ${title}`,
     campaign: 'Campaign',
-    daily: 'Daily: streak',
-    endless: 'Challenge: clean streak',
+    daily: 'Daily: solved',
+    endless: 'Challenge: solved',
+    campaignRequirement: (target) => `Campaign: complete ${target} ${target === 1 ? 'level' : 'levels'}`,
+    dailyRequirement: (target) => `Daily: solve ${target} ${target === 1 ? 'puzzle' : 'puzzles'}`,
+    endlessRequirement: (target) => `Challenge: solve ${target} ${target === 1 ? 'puzzle' : 'puzzles'}`,
     rankTitles: {
       I: 'APPRENTICE',
       II: 'EXPLORER',
@@ -642,12 +667,12 @@ const EN: UiCopy = {
     levelTitle: (slot) => `LEVEL ${slot}`,
     dailyTitle: 'DAILY',
     endlessTitle: (ordinal) => `CHALLENGE · ${ordinal}`,
-    endlessCleanStreak: (streak) => `CLEAN STREAK: ${streak}`,
+    endlessStreak: (streak) => `STREAK: ${streak}`,
     endlessFreePlayTitle: (ordinal) => `FREE PLAY · ${ordinal}`,
     endlessFreePlayNoRating: 'CATALOG COMPLETE · NO RATING AWARDED',
     skip: 'SKIP',
     skipTitle: 'SKIP THIS PUZZLE?',
-    skipBody: 'Your clean streak will reset. This puzzle will return later.',
+    skipBody: 'Your streak will reset. This puzzle will return later.',
     skipFreePlayBody: 'Move to the next puzzle? Rating no longer changes.',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
@@ -676,10 +701,10 @@ const EN: UiCopy = {
     show: 'SHOW',
     ad: 'AD',
     rewardedPrompt: '1 AD = 1 HINT. SHOW AN AD?',
-    freeHintPrompt: (remaining) => `Reveal one cell? Free hints: ${remaining}`,
-    hintConfirmTitle: 'REVEAL ONE CELL?',
+    freeHintPrompt: (remaining) => `Show a hint? Free hints: ${remaining}`,
+    hintConfirmTitle: 'SHOW A HINT?',
     freeHintsRemaining: (remaining) => `FREE HINTS: ${remaining}`,
-    rewardedHintConfirmTitle: 'REVEAL A HINT?',
+    rewardedHintConfirmTitle: 'SHOW A HINT?',
     rewardedHintConfirmMeta: '1 AD = 1 HINT',
     withoutHints: 'NO HINTS',
     hintsCount: (count) => `HINTS: ${count}`,
