@@ -44,7 +44,7 @@
     "sanity:hint": "tsx src/dev/hintSanity.ts",
     "sanity:game-regressions": "tsx src/dev/gameRegressionSanity.ts",
     "sanity:daily": "tsx src/dev/dailySanity.ts",
-    "sanity:daily-drafts": "tsx src/dev/dailyDraftsV4Sanity.ts",
+    "sanity:daily-drafts": "tsx src/dev/dailyDraftsSanity.ts",
     "sanity:daily-preview": "tsx src/dev/dailyLevelPreviewSanity.ts",
     "sanity:daily-preview-ui": "tsx src/dev/dailyPreviewUiSanity.ts",
     "sanity:daily-leaderboard": "tsx src/dev/dailyLeaderboardSanity.ts",
@@ -115,7 +115,9 @@
     "sanity:endless-runtime-integration": "node scripts/endless-runtime-integration-sanity.mjs",
     "sanity:endless-unlock": "node scripts/endless-unlock-gate-sanity.mjs",
     "campaign:rebuild-large": "tsx src/dev/rebuildCampaignFromLargePool.ts",
-    "sanity:mastery": "tsx src/dev/masteryProgressSanity.ts"
+    "sanity:mastery": "tsx src/dev/masteryProgressSanity.ts",
+    "sanity:daily-production": "tsx src/dev/dailyCorpusSanity.ts",
+    "sanity:daily-content-cleanup": "node scripts/daily-content-cleanup-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

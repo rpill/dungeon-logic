@@ -14,12 +14,13 @@ expect(strip.includes("variant: 'wide'"), 'MasteryStrip must use the native wide
 expect(!strip.includes('mastery-strip-home'), 'MasteryStrip must not use a custom mastery strip texture');
 expect(!strip.includes('scene.add.nineslice'), 'MasteryStrip must not implement its own NineSlice geometry');
 
-expect(scene.includes("createHomeHubModeCard"), 'MasteryScene must reuse createHomeHubModeCard for the requirements panel');
-expect(scene.includes("variant: 'wide'"), 'MasteryScene requirements must use the native wide card variant');
-expect(!scene.includes("'mastery-panel'"), 'MasteryScene must not use the custom mastery panel texture');
+expect(scene.includes('createMasteryRequirementPanel'), 'MasteryScene must use the dedicated generated requirements panel');
+expect(scene.includes('mastery.nextRank'), 'MasteryScene requirements panel title logic must remain intact');
+expect(!scene.includes("createHomeHubModeCard(this, {"), 'MasteryScene must no longer reuse the stretched hub card for the requirements panel');
 
 expect(!boot.includes("mastery-strip-home"), 'BootScene must not preload the retired mastery strip texture');
-expect(!boot.includes("mastery-panel"), 'BootScene must not preload the retired mastery panel texture');
+expect(boot.includes('preloadMasteryRequirementPanelAssets'), 'BootScene must preload the generated mastery requirements panel asset');
+expect(boot.includes('preloadMasteryRequirementRowPanelAssets'), 'BootScene must preload the generated requirement row panel asset');
 expect(card.includes('readonly interactive?: boolean'), 'HomeHubModeCard must support non-interactive display reuse');
 expect(card.includes('const interactive = options.interactive ?? true'), 'HomeHubModeCard must default interactive mode to true');
 

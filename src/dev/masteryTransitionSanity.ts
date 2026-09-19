@@ -1,5 +1,5 @@
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
-import type { PlayerProfileV6 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import { compareMastery } from '../mastery/MasteryTransition';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -11,7 +11,7 @@ function withMetrics(options: {
   dailyBest: number;
   endlessBest: number;
   endlessCurrent?: number;
-}): PlayerProfileV6 {
+}): PlayerProfile {
   const profile = createFreshPlayerProfile();
   return {
     ...profile,

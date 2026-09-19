@@ -1,4 +1,4 @@
-import type { PlayerProfileV6 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import {
   getMasteryMetrics,
   getMasterySnapshot,
@@ -23,7 +23,7 @@ const SOURCE_METRIC: Readonly<Record<MasteryProgressSource, MasteryMetricId>> = 
   endless: 'endless-best-clean-streak',
 };
 
-function readMetric(profile: PlayerProfileV6, metric: MasteryMetricId): number {
+function readMetric(profile: PlayerProfile, metric: MasteryMetricId): number {
   const metrics = getMasteryMetrics(profile);
   switch (metric) {
     case 'campaign': return metrics.campaignCompleted;
@@ -33,8 +33,8 @@ function readMetric(profile: PlayerProfileV6, metric: MasteryMetricId): number {
 }
 
 export function compareMastery(
-  before: PlayerProfileV6,
-  after: PlayerProfileV6,
+  before: PlayerProfile,
+  after: PlayerProfile,
   source: MasteryProgressSource,
 ): MasteryTransition {
   const beforeSnapshot = getMasterySnapshot(before);

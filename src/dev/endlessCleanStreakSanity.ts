@@ -3,7 +3,7 @@ import { EndlessService } from '../endless/EndlessService';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV6 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -14,7 +14,7 @@ class MemoryStorage implements PlayerProfileStorage {
   private raw: unknown;
   constructor(raw: unknown = null) { this.raw = raw; }
   async load(): Promise<unknown | null> { return this.raw; }
-  async save(profile: PlayerProfileV6): Promise<void> { this.raw = structuredClone(profile); }
+  async save(profile: PlayerProfile): Promise<void> { this.raw = structuredClone(profile); }
 }
 
 const level: LevelDefinition = {

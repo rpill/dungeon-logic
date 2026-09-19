@@ -1,5 +1,5 @@
-import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
-import type { PlayerProfileV5 } from '../profile/types';
+import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/calendar';
+import type { PlayerProfile } from '../profile/types';
 import { calculateStatsLayout } from '../runtime/StatsLayout';
 import { getStatsViewModel } from '../runtime/StatsSelectors';
 
@@ -12,8 +12,8 @@ function campaignId(slot: number): string {
 }
 
 const completedLevelIds = Array.from({ length: 15 }, (_, index) => campaignId(index + 1));
-const profile: PlayerProfileV5 = {
-  schemaVersion: 5,
+const profile: PlayerProfile = {
+  schemaVersion: 1,
   tutorial: {
     completedLevelIds: ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004', 'tutorial-005'],
     completed: true,
@@ -44,7 +44,7 @@ const profile: PlayerProfileV5 = {
       '2030-01-01': { bestTimeMs: 80_000, minHintsUsed: 0, solvedWithoutHints: true },
     },
   },
-  endless: { ordinal: 0, completed: 0, activePuzzle: null },
+  endless: { ordinal: 0, completed: 0, activePuzzle: null, currentCleanStreak: 0, bestCleanStreak: 0 },
   settings: {
     musicEnabled: true,
     soundEnabled: true,

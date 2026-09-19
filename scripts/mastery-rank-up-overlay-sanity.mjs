@@ -33,3 +33,5 @@ assert(game.includes('showEndlessCompletionState(result.completed, masteryEndles
 assert(game.includes('showDailyCompletionState(result, leaderboardEntry, masteryDailyNote);'), 'Daily completion state must still be prepared normally.');
 
 console.info('[Dungeon Logic] Mastery rank-up overlay sanity: PASS');
+
+assert(overlay.includes('centerY + panelHeight / 2 - buttonHeight / 2 - (narrow ? 18 : 24)'), 'Rank-up Continue button must be anchored to the panel bottom with a safe margin.');

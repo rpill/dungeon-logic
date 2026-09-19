@@ -9,7 +9,7 @@
   "generatorSourceHash": "74c8a24a16f83108a5b23d8fdc4075d5e197d67d4d79fbc8cab66e16f862e9f1",
   "gameRulesSourceHash": "0f9e49ea5aa4c4c16841f847a749acebb0ea0a966265b91f9a3273dda0520fba",
   "campaignContentHash": "19c4a94f8cef69ed366943f7a7964d4f4371b7ca104f53600d2dc230f7b7f365",
-  "dailyContentHash": "f839fef55348a29fa919f73acd4c7979818ea4ddf49c1963429ef2733f10f377",
+  "dailyContentHash": "34e28301e12c01939dd380aa47ef98857f4da22e8c152472a547256f3ec109ca",
   "sourceScanPlan": [
     {
       "laneId": "monster-only:6",
@@ -115,15 +115,15 @@
     "expert": 21115
   },
   "countsByArchetype": {
-    "monster-only": 66587,
-    "chest-one-room": 1655,
+    "monster-only": 66589,
+    "chest-one-room": 1651,
     "chest-two-rooms": 20,
-    "mixed-one-room": 23650,
+    "mixed-one-room": 23652,
     "mixed-two-rooms": 8088
   },
   "countsBySize": {
-    "6": 68,
-    "7": 3664,
+    "6": 65,
+    "7": 3667,
     "8": 96268
   },
   "scoreHistogram": [
@@ -155,8 +155,8 @@
     0,
     0,
     0,
-    5,
-    16,
+    4,
+    17,
     11,
     19,
     66,
@@ -180,9 +180,9 @@
     0,
     0,
     0,
-    1,
+    0,
     7,
-    103,
+    104,
     398,
     861,
     1942,
@@ -221,13 +221,13 @@
     1138,
     1034,
     753,
-    648,
+    649,
     435,
     478,
-    749,
+    748,
     592,
     11,
     0
   ],
-  "productionAssetHash": "1b70792aa2610bc2a5ab1d3a5fd32bff605b419fbf2ba59cba7bcee989fc10c7"
+  "productionAssetHash": "f6fa574c0c0403ef11ded749a615f69536a8046e7551e652b7d23b24c41963f1"
 }

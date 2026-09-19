@@ -477,7 +477,6 @@ export class HomeScene extends Phaser.Scene {
 
     loading.destroy();
     const profile = profileService.getProfile();
-    const mastery = getMasterySnapshot(profile);
     const copy = getUiCopy(profile.settings.language);
     const action = getHomeDailyAction(profile, today);
 

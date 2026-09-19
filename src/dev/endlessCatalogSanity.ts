@@ -114,9 +114,7 @@ import {
 import {
   promotedCampaignLevels,
 } from '../content/campaign/levels';
-import {
-  DAILY_RELEASE_ENTRIES,
-} from '../content/daily/manifest';
+import { DAILY_PRODUCTION_ENTRIES as DAILY_RELEASE_ENTRIES } from './DailyProductionCatalog';
 
 const fixture: readonly EndlessCatalogEntry[] = [
   {

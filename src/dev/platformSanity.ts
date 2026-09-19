@@ -1,4 +1,5 @@
 import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
+import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import { PlatformPlayerProfileStorage } from '../profile/PlatformPlayerProfileStorage';
 import { createLocalPlatformServices } from '../platform/local';
 import { resolvePlatformServices } from '../platform/PlatformRegistry';
@@ -217,24 +218,32 @@ async function runResolutionChecks(): Promise<void> {
   assert(resolvedAfterFailure.kind === 'local', 'Platform resolver falls back when Yandex initialization fails.');
 }
 
-async function runProfileMigrationChecks(): Promise<void> {
+async function runProfileFallbackChecks(): Promise<void> {
   let cloud: unknown | null = null;
   let promoted: unknown | null = null;
   const platformStorage = {
     async load() { return cloud; },
     async save(value: unknown) { cloud = value; promoted = value; },
   };
-  const localProfile = { version: 1, campaign: { completedLevelIds: ['campaign-001'] } };
-  const localMigrationStorage = {
+  const localProfile = createFreshPlayerProfile([]);
+  const localFallbackStorage = {
     async load() { return localProfile; },
     async save() {},
-    async loadLegacyCampaignProgress() { return { completedLevelIds: ['campaign-001'] }; },
   };
 
-  const storage = new PlatformPlayerProfileStorage(platformStorage, localMigrationStorage);
+  const storage = new PlatformPlayerProfileStorage(platformStorage, localFallbackStorage);
   assertDeepEqual(await storage.load(), localProfile, 'Empty cloud storage falls back to the existing local player profile.');
   assertDeepEqual(promoted, localProfile, 'Existing local player profile is promoted into platform storage once.');
-  assertDeepEqual(await storage.loadLegacyCampaignProgress(), { completedLevelIds: ['campaign-001'] }, 'Legacy campaign migration remains available.');
+
+  cloud = null;
+  promoted = null;
+  const unsupportedLocalStorage = {
+    async load() { return { ...localProfile, schemaVersion: 999 }; },
+    async save() {},
+  };
+  const unsupportedStorage = new PlatformPlayerProfileStorage(platformStorage, unsupportedLocalStorage);
+  await unsupportedStorage.load();
+  assert(promoted === null, 'Unsupported development profiles are not promoted into cloud storage.');
 }
 
 
@@ -363,7 +372,7 @@ async function main(): Promise<void> {
   await runLocalChecks();
   await runYandexChecks();
   await runResolutionChecks();
-  await runProfileMigrationChecks();
+  await runProfileFallbackChecks();
   await runTechnicalErrorReportingChecks();
   console.info('[Dungeon Logic] Platform sanity: readiness + i18n + gameplay/lifecycle + cloud fallback passed');
 }

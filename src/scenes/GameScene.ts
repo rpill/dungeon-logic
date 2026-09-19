@@ -1473,6 +1473,12 @@ export class GameScene extends Phaser.Scene {
       const gap = count >= 3 ? 8 : 10;
       const maxWidth = Math.min(this.scale.width - 24, count >= 3 ? 560 : 350);
       const buttonHeight = 56;
+      const completionBoardReserve = Math.min(
+        Math.max(96, statusText.height + buttonHeight + 52),
+        Math.max(96, this.scale.height * 0.38),
+      );
+      boardLayout = calculateStableBoardLayout(completionBoardReserve);
+      board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       const buttonWidth = count === 1
         ? Math.min(190, maxWidth)
         : Math.floor((maxWidth - gap * (count - 1)) / count);

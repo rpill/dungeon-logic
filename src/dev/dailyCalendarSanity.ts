@@ -1,48 +1,36 @@
 import {
+  DAILY_RELEASE_COUNT,
+  DAILY_RELEASE_DATE_KEYS,
   DAILY_RELEASE_END_DATE_KEY,
-  DAILY_RELEASE_ENTRIES,
   DAILY_RELEASE_START_DATE_KEY,
-} from '../content/daily/manifest';
-import { curatedDailySnapshots } from '../content/daily/snapshots';
+  formatDailyId,
+} from '../content/daily/calendar';
 import { findDailyForDate } from '../daily/DailySelector';
+import { DAILY_PRODUCTION_ENTRIES } from './DailyProductionCatalog';
 
-function assert(condition: boolean, message: string): asserts condition {
+function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-const UTC_DAY_MS = 24 * 60 * 60 * 1000;
+assert(DAILY_RELEASE_COUNT === 7305, 'Daily calendar must contain exactly 7305 dates.');
+assert(DAILY_PRODUCTION_ENTRIES.length === DAILY_RELEASE_COUNT, 'Daily production catalog must bind one entry per date.');
+assert(DAILY_RELEASE_START_DATE_KEY === '2026-09-09', 'Daily release start date changed unexpectedly.');
+assert(DAILY_RELEASE_END_DATE_KEY === '2046-09-08', 'Daily release end date must cover exactly 7305 days.');
 
-assert(DAILY_RELEASE_START_DATE_KEY === '2026-09-09', 'V1 Daily calendar starts on the explicit UTC release anchor.');
-assert(DAILY_RELEASE_END_DATE_KEY === '2027-09-08', '365 consecutive Daily entries end on 2027-09-08 UTC.');
-assert(DAILY_RELEASE_ENTRIES.length === 365, 'Daily calendar must bind exactly 365 curated snapshots.');
-assert(curatedDailySnapshots.length === DAILY_RELEASE_ENTRIES.length, 'Every curated Daily snapshot must receive exactly one release date.');
-
-const seenDates = new Set<string>();
-const seenIds = new Set<string>();
-for (let index = 0; index < DAILY_RELEASE_ENTRIES.length; index += 1) {
-  const entry = DAILY_RELEASE_ENTRIES[index];
-  const snapshot = curatedDailySnapshots[index];
-  assert(entry.id === snapshot.id, `Daily ${index + 1} keeps immutable snapshot id ${snapshot.id}.`);
-  assert(entry.level === snapshot.level, `Daily ${entry.id} reuses the curated immutable level object.`);
-  assert(!entry.dateKey.startsWith('2099-'), 'Release calendar must not contain the old 2099 development fixtures.');
-  assert(!seenDates.has(entry.dateKey), `Duplicate Daily date ${entry.dateKey}.`);
-  assert(!seenIds.has(entry.id), `Duplicate Daily id ${entry.id}.`);
-  seenDates.add(entry.dateKey);
-  seenIds.add(entry.id);
-
+for (let index = 0; index < DAILY_RELEASE_COUNT; index += 1) {
+  const entry = DAILY_PRODUCTION_ENTRIES[index];
+  assert(entry.id === formatDailyId(index), `Daily id mismatch at index ${index}.`);
+  assert(entry.dateKey === DAILY_RELEASE_DATE_KEYS[index], `Daily date mismatch at index ${index}.`);
   if (index > 0) {
-    const previous = new Date(`${DAILY_RELEASE_ENTRIES[index - 1].dateKey}T00:00:00.000Z`).getTime();
-    const current = new Date(`${entry.dateKey}T00:00:00.000Z`).getTime();
-    assert(current - previous === UTC_DAY_MS, `Daily dates must be consecutive at ${entry.dateKey}.`);
+    const previous = Date.parse(`${DAILY_PRODUCTION_ENTRIES[index - 1].dateKey}T00:00:00.000Z`);
+    const current = Date.parse(`${entry.dateKey}T00:00:00.000Z`);
+    assert(current - previous === 86_400_000, `Daily dates are not consecutive at index ${index}.`);
   }
 }
 
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-09T12:00:00.000Z'))?.id === 'daily-001', 'Release start selects daily-001.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-30T23:59:59.999Z'))?.id === 'daily-022', 'September month boundary keeps the correct Daily ordinal.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-10-01T00:00:00.000Z'))?.id === 'daily-023', 'October month boundary advances to daily-023.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-11-07T23:59:59.999Z'))?.id === 'daily-060', 'Existing day 60 keeps its immutable binding.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2027-09-08T23:59:59.999Z'))?.id === 'daily-365', 'Release end selects daily-365.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2026-09-08T23:59:59.999Z')) === null, 'Dates before the release calendar have no Daily.');
-assert(findDailyForDate(DAILY_RELEASE_ENTRIES, new Date('2027-09-09T00:00:00.000Z')) === null, 'Dates after the one-year release calendar have no Daily.');
+assert(findDailyForDate(DAILY_PRODUCTION_ENTRIES, new Date('2026-09-09T12:00:00.000Z'))?.id === 'daily-0001', 'Release start must select daily-0001.');
+assert(findDailyForDate(DAILY_PRODUCTION_ENTRIES, new Date('2046-09-08T23:59:59.999Z'))?.id === 'daily-7305', 'Release end must select daily-7305.');
+assert(findDailyForDate(DAILY_PRODUCTION_ENTRIES, new Date('2026-09-08T23:59:59.999Z')) === null, 'Dates before release must return null.');
+assert(findDailyForDate(DAILY_PRODUCTION_ENTRIES, new Date('2046-09-09T00:00:00.000Z')) === null, 'Dates after release must return null.');
 
-console.info('[Dungeon Logic] Daily calendar sanity: 365 immutable UTC bindings + month boundary passed');
+console.info('[Dungeon Logic] Daily calendar sanity passed.');

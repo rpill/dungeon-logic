@@ -1,4 +1,4 @@
-import type { PlayerProfileV6 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 
 export type MasteryRankId = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI' | 'VII' | 'VIII' | 'MASTER';
 
@@ -36,7 +36,7 @@ interface MasteryRankDefinition {
   readonly requirements: readonly MasteryRequirementDefinition[];
 }
 
-const RANK_DEFINITIONS: readonly MasteryRankDefinition[] = Object.freeze([
+const RANK_DEFINITIONS = Object.freeze([
   { id: 'I', requirements: Object.freeze([]) },
   { id: 'II', requirements: Object.freeze([{ metric: 'campaign', target: 8 }]) },
   { id: 'III', requirements: Object.freeze([
@@ -69,7 +69,7 @@ const RANK_DEFINITIONS: readonly MasteryRankDefinition[] = Object.freeze([
     { metric: 'daily-best-streak', target: 30 },
     { metric: 'endless-best-clean-streak', target: 50 },
   ]) },
-]);
+] as const satisfies readonly MasteryRankDefinition[]);
 
 function metricValue(metrics: MasteryMetrics, metric: MasteryMetricId): number {
   switch (metric) {
@@ -126,7 +126,7 @@ export function deriveMastery(metrics: MasteryMetrics): MasterySnapshot {
   };
 }
 
-export function getMasteryMetrics(profile: PlayerProfileV6): MasteryMetrics {
+export function getMasteryMetrics(profile: PlayerProfile): MasteryMetrics {
   return {
     campaignCompleted: profile.campaign.completedLevelIds.length,
     dailyBestStreak: profile.daily.bestStreak,
@@ -134,6 +134,6 @@ export function getMasteryMetrics(profile: PlayerProfileV6): MasteryMetrics {
   };
 }
 
-export function getMasterySnapshot(profile: PlayerProfileV6): MasterySnapshot {
+export function getMasterySnapshot(profile: PlayerProfile): MasterySnapshot {
   return deriveMastery(getMasteryMetrics(profile));
 }

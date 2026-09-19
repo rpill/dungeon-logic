@@ -17,3 +17,7 @@ const formatter = existsSync(formatterPath) ? readFileSync(formatterPath, 'utf8'
 assert(formatter.includes('transition.rankAdvanced'), 'Rank-up must suppress the compact progress note.');
 assert(formatter.includes("case 'campaign':") && formatter.includes("case 'daily-best-streak':") && formatter.includes("case 'endless-best-clean-streak':"), 'Formatter must support all Mastery metrics.');
 console.info('[Dungeon Logic] Mastery completion sanity: PASS');
+
+assert(game.includes('const completionBoardReserve = Math.min('), 'Completion layout must reserve vertical room for status copy and buttons.');
+assert(game.includes('statusText.height + buttonHeight + 52'), 'Completion board reserve must account for the rendered status text height.');
+assert(game.includes('boardLayout = calculateStableBoardLayout(completionBoardReserve);'), 'Completion state must relayout the board using the computed reserve.');

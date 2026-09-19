@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
-import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/manifest';
+import { DAILY_RELEASE_DATE_KEYS } from '../content/daily/calendar';
 import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService';
 import { getUiCopy } from '../i18n/UiCopy';
 import {

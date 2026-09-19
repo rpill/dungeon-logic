@@ -1,20 +1,21 @@
 import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type { PlayerStorage } from '../platform/services';
+import { isSupportedPlayerProfile } from './PlayerProfile';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV5 } from './types';
+import type { PlayerProfile } from './types';
 
 export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
   private readonly platformStorage: PlayerStorage;
-  private readonly localMigrationStorage: PlayerProfileStorage | undefined;
+  private readonly localFallbackStorage: PlayerProfileStorage | undefined;
   private readonly reportTechnicalError: TechnicalErrorReporter;
 
   constructor(
     platformStorage: PlayerStorage,
-    localMigrationStorage?: PlayerProfileStorage,
+    localFallbackStorage?: PlayerProfileStorage,
     reportTechnicalError: TechnicalErrorReporter = () => {},
   ) {
     this.platformStorage = platformStorage;
-    this.localMigrationStorage = localMigrationStorage;
+    this.localFallbackStorage = localFallbackStorage;
     this.reportTechnicalError = reportTechnicalError;
   }
 
@@ -24,28 +25,26 @@ export class PlatformPlayerProfileStorage implements PlayerProfileStorage {
       platformValue = await this.platformStorage.load();
     } catch (error) {
       this.reportTechnicalError('profile_load_failed', 'profile');
-      console.warn('[Dungeon Logic] Could not load platform player profile; checking local migration data.', error);
+      console.warn('[Dungeon Logic] Could not load platform player profile; checking local profile fallback.', error);
     }
     if (platformValue !== null) return platformValue;
-    if (this.localMigrationStorage === undefined) return null;
+    if (this.localFallbackStorage === undefined) return null;
 
-    const localValue = await this.localMigrationStorage.load();
+    const localValue = await this.localFallbackStorage.load();
     if (localValue === null) return null;
 
-    try {
-      await this.platformStorage.save(localValue);
-    } catch (error) {
-      this.reportTechnicalError('profile_save_failed', 'profile');
-      console.warn('[Dungeon Logic] Could not promote local player profile into platform storage yet.', error);
+    if (isSupportedPlayerProfile(localValue)) {
+      try {
+        await this.platformStorage.save(localValue);
+      } catch (error) {
+        this.reportTechnicalError('profile_save_failed', 'profile');
+        console.warn('[Dungeon Logic] Could not promote local player profile into platform storage yet.', error);
+      }
     }
     return localValue;
   }
 
-  async save(profile: PlayerProfileV5): Promise<void> {
+  async save(profile: PlayerProfile): Promise<void> {
     await this.platformStorage.save(profile);
-  }
-
-  async loadLegacyCampaignProgress(): Promise<unknown | null> {
-    return this.localMigrationStorage?.loadLegacyCampaignProgress?.() ?? null;
   }
 }

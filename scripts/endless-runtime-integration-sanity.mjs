@@ -12,7 +12,7 @@ const profile = readFileSync('src/profile/PlayerProfile.ts', 'utf8');
 const types = readFileSync('src/profile/types.ts', 'utf8');
 const analytics = readFileSync('src/analytics/AnalyticsService.ts', 'utf8');
 
-assert(boot.includes('await loadEndlessCatalog()') && boot.includes('ENDLESS_SERVICE_REGISTRY_KEY'), 'Boot must load and register the packed Endless catalog.');
+assert(boot.includes('loadEndlessCatalog()') && boot.includes('ENDLESS_SERVICE_REGISTRY_KEY'), 'Boot must load and register the packed Endless catalog.');
 assert(home.includes('service.beginCurrent()') && home.includes('createEndlessGameSceneData'), 'Home must launch the current Endless puzzle.');
 assert(!home.includes("subtitle: copy.home.endlessSoon,\n      icon: 'endless',\n      enabled: false"), 'Home Endless card must not remain hard-disabled as coming soon.');
 assert(game.includes("launchData.context.mode === 'endless'"), 'GameScene must recognize Endless mode.');

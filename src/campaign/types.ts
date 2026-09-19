@@ -6,14 +6,6 @@ import type { CampaignLevelResult } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
 import type { TutorialLevelId } from '../content/tutorial/types';
 
-/** Legacy v1 save shape. Kept only so PlayerProfile migration can recognize it. */
-export interface CampaignProgressV1 {
-  readonly schemaVersion: 1;
-  readonly highestUnlockedSlot: number;
-  readonly completedLevelIds: readonly string[];
-  readonly lastPlayedLevelId: string | null;
-}
-
 /** Derived campaign state used by runtime. No unlock counter is persisted. */
 export interface CampaignProgressSnapshot {
   readonly completedLevelIds: readonly string[];

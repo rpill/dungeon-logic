@@ -56,14 +56,15 @@ Regression gates: `sanity:daily`, `sanity:daily-leaderboard`, `sanity:daily-arch
 ---
 
 
-## Levels 64 + one-year Daily corpus
+## Levels 64 + 20-year Daily binary corpus
 
 - основной Campaign-browser называется `УРОВНИ`; главы, рукописи и отдельный campaign Archive удалены из player-facing flow;
 - Campaign содержит ровно 64 статических уровня `campaign-001`–`campaign-064`; исходные 001–030 сохранены, 031–064 добавлены как curated static content;
 - playable frontier: все завершённые уровни остаются replayable, плюс одновременно доступны первые три непройденных уровня;
 - на compact/wide layout уровни раскладываются по 3 карточки в строке; narrow portrait fallback использует 2;
-- Daily содержит 365 статических snapshot-задач `daily-001`–`daily-365`, привязанных к последовательным trusted UTC датам `2026-09-09`–`2027-09-08`;
-- исходные Daily 001–060 сохранены; будущий контент можно менять только новой версией билда, при этом уже наступившие Daily должны оставаться неизменными;
+- Daily содержит 7 305 статических задач `daily-0001`–`daily-7305`, привязанных к последовательным trusted UTC датам `2026-09-09`–`2046-09-08`;
+- Daily хранится в `public/content/daily/verified-levels.bin` + manifest, а legacy `src/content/daily/snapshots/` удалён; runtime лениво декодирует нужный record и ничего не генерирует;
+- production audit требует нулевые структурные пересечения Daily↔Daily, Daily↔Campaign, Daily↔Endless и Campaign↔Endless, а также соблюдение weekday difficulty bands;
 - Daily Archive по-прежнему означает только прошлые ежедневные задания и остаётся отдельной частью Daily.
 
 ## Dedicated Tutorial — Tutorial v2

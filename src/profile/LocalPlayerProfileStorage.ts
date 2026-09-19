@@ -1,6 +1,5 @@
-import { CAMPAIGN_PROGRESS_STORAGE_KEY } from '../campaign/LocalCampaignProgressStorage';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV5 } from './types';
+import type { PlayerProfile } from './types';
 
 export const PLAYER_PROFILE_STORAGE_KEY = 'dungeon-logic:player-profile:v1';
 
@@ -12,7 +11,6 @@ export interface ProfileKeyValueStorage {
 export class LocalPlayerProfileStorage implements PlayerProfileStorage {
   private readonly storage: ProfileKeyValueStorage | null;
   private memoryProfileValue: string | null = null;
-  private memoryLegacyValue: string | null = null;
   private warned = false;
 
   constructor(storage?: ProfileKeyValueStorage | null) {
@@ -31,16 +29,30 @@ export class LocalPlayerProfileStorage implements PlayerProfileStorage {
   }
 
   async load(): Promise<unknown | null> {
-    const serialized = this.readValue(PLAYER_PROFILE_STORAGE_KEY, 'profile');
-    return this.parse(serialized, 'player profile');
+    let serialized = this.memoryProfileValue;
+
+    if (this.storage !== null) {
+      try {
+        const stored = this.storage.getItem(PLAYER_PROFILE_STORAGE_KEY);
+        if (stored !== null) {
+          serialized = stored;
+          this.memoryProfileValue = stored;
+        }
+      } catch (error) {
+        this.warnOnce('Could not read player profile from localStorage; using in-memory data.', error);
+      }
+    }
+
+    if (serialized === null) return null;
+    try {
+      return JSON.parse(serialized) as unknown;
+    } catch (error) {
+      this.warnOnce('Could not parse player profile; ignoring invalid stored data.', error);
+      return null;
+    }
   }
 
-  async loadLegacyCampaignProgress(): Promise<unknown | null> {
-    const serialized = this.readValue(CAMPAIGN_PROGRESS_STORAGE_KEY, 'legacy');
-    return this.parse(serialized, 'legacy campaign progress');
-  }
-
-  async save(profile: PlayerProfileV5): Promise<void> {
+  async save(profile: PlayerProfile): Promise<void> {
     const serialized = JSON.stringify(profile);
     this.memoryProfileValue = serialized;
 
@@ -53,35 +65,6 @@ export class LocalPlayerProfileStorage implements PlayerProfileStorage {
       this.storage.setItem(PLAYER_PROFILE_STORAGE_KEY, serialized);
     } catch (error) {
       this.warnOnce('Could not persist player profile to localStorage; keeping it in memory.', error);
-    }
-  }
-
-  private readValue(key: string, kind: 'profile' | 'legacy'): string | null {
-    let serialized = kind === 'profile' ? this.memoryProfileValue : this.memoryLegacyValue;
-
-    if (this.storage !== null) {
-      try {
-        const stored = this.storage.getItem(key);
-        if (stored !== null) {
-          serialized = stored;
-          if (kind === 'profile') this.memoryProfileValue = stored;
-          else this.memoryLegacyValue = stored;
-        }
-      } catch (error) {
-        this.warnOnce(`Could not read ${kind} data from localStorage; using in-memory data.`, error);
-      }
-    }
-
-    return serialized;
-  }
-
-  private parse(serialized: string | null, label: string): unknown | null {
-    if (serialized === null) return null;
-    try {
-      return JSON.parse(serialized) as unknown;
-    } catch (error) {
-      this.warnOnce(`Could not parse ${label}; ignoring invalid stored data.`, error);
-      return null;
     }
   }
 

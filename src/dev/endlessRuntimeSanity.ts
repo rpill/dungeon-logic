@@ -4,7 +4,7 @@ import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV5 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -22,7 +22,7 @@ class MemoryStorage implements PlayerProfileStorage {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV5): Promise<void> {
+  async save(profile: PlayerProfile): Promise<void> {
     this.raw = structuredClone(profile);
   }
 }
@@ -64,19 +64,19 @@ function fakeCatalog(length: number): EndlessCatalog {
 
 async function main(): Promise<void> {
   const fresh = createFreshPlayerProfile();
-  assert(fresh.schemaVersion === 5, 'Fresh profile must use schema v5.');
+  assert(fresh.schemaVersion === 1, 'Fresh profile must use the single pre-release schema v1.');
   assert(fresh.endless.ordinal === 0, 'Fresh Endless must begin at ordinal 0.');
   assert(fresh.endless.completed === 0, 'Fresh Endless must have no completions.');
   assert(fresh.endless.activePuzzle === null, 'Fresh Endless must have no active draft.');
 
-  const legacyV4 = {
+  const unsupportedDevelopmentProfile = {
     ...fresh,
-    schemaVersion: 4,
-  } as Record<string, unknown>;
-  delete legacyV4.endless;
-  const migrated = await PlayerProfileService.create([], new MemoryStorage(legacyV4), { saveDelayMs: 60_000 });
-  assert(migrated.getProfile().schemaVersion === 5, 'Schema v4 must migrate to v5.');
-  assert(migrated.getProfile().endless.ordinal === 0, 'Migrated v4 profile must start Endless at ordinal 0.');
+    schemaVersion: 999,
+    endless: { ...fresh.endless, ordinal: 42, completed: 42 },
+  };
+  const reset = await PlayerProfileService.create([], new MemoryStorage(unsupportedDevelopmentProfile), { saveDelayMs: 60_000 });
+  assert(reset.getProfile().schemaVersion === 1, 'Unsupported development schemas reset to the current pre-release schema.');
+  assert(reset.getProfile().endless.ordinal === 0, 'Unsupported development schemas do not migrate Endless progress.');
 
   const storage = new MemoryStorage();
   const profile = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
   for (let ordinal = 0; ordinal < 7; ordinal += 1) {
     const launch = endless.beginCurrent();
     assert(launch.ordinal === ordinal, `Logical Endless ordinal must advance without catalog terminal at ${ordinal}.`);
-    const result = await endless.completeCurrent(ordinal);
+    const result = await endless.completeCurrent(ordinal, 0);
     assert(result.completed === ordinal + 1, `Endless completion count must be unbounded at ${ordinal}.`);
   }
 

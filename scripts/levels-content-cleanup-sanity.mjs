@@ -71,9 +71,9 @@ assert(
   campaignReport.includes('| 006 | `chest-one-room` | easy | 10 | `solved-direct` | `generated-chest-one-room-7-3193369624` |'),
   'Campaign curation report must place the former level 2 puzzle at slot 006.',
 );
-assert(dailyCalendarReport.includes('Entries: 365 consecutive days'), 'Daily calendar report must document all 365 release dates.');
-assert(dailyCalendarReport.includes('`daily-365` | `2027-09-08`'), 'Daily calendar report must include the final bound Daily.');
-assert(dailyCorpusReport.includes('Selected snapshots: **365**'), 'Daily corpus report must document the 365-snapshot shipped corpus.');
+assert(dailyCalendarReport.includes('Entries: **7,305 consecutive days**'), 'Daily calendar report must document all 7,305 release dates.');
+assert(dailyCalendarReport.includes('`daily-7305` → `2046-09-08`'), 'Daily calendar report must include the final bound Daily.');
+assert(dailyCorpusReport.includes('Selected records: **7,305**'), 'Daily corpus report must document the 7,305-record shipped corpus.');
 assert(dailyCorpusReport.includes('Campaign 001–064'), 'Daily corpus report must document exclusion against all 64 Campaign levels.');
 
 console.info('[Dungeon Logic] Levels/content cleanup sanity: flat 64-level campaign metadata passed');

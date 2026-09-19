@@ -98,7 +98,7 @@ export function showMasteryRankUpOverlay(
 
   const buttonWidth = Math.min(panelWidth - (narrow ? 42 : 90), narrow ? 280 : 320);
   const buttonHeight = narrow ? 54 : 62;
-  const buttonY = centerY + panelHeight * 0.36;
+  const buttonY = centerY + panelHeight / 2 - buttonHeight / 2 - (narrow ? 18 : 24);
   let destroyed = false;
   let button: ReturnType<typeof createPrimaryActionButton> | null = null;
 

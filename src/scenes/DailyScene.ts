@@ -3,7 +3,6 @@ import Phaser from 'phaser';
 import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
-import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
 import type { DailyEntry } from '../content/daily/types';
 import {
   DAILY_SERVICE_REGISTRY_KEY,
@@ -172,6 +171,7 @@ export class DailyScene extends Phaser.Scene {
     const width = shellLayout.contentWidth;
     const centerX = availableViewport.centerX;
     const viewportTop = availableViewport.y;
+    const dailyEntries = this.getDailyService().getEntries();
 
     this.add.text(centerX, viewportTop + shellLayout.todayTitleY, copy.dailyHub.todayTitle, {
       fontFamily: 'monospace',
@@ -311,12 +311,12 @@ export class DailyScene extends Phaser.Scene {
     }
 
     const calendarContainer = this.add.container(0, 0);
-    let selectedMonth = getInitialDailyHubCalendarMonth(DAILY_RELEASE_ENTRIES, today.dateKey);
+    let selectedMonth = getInitialDailyHubCalendarMonth(dailyEntries, today.dateKey);
 
     const renderCalendarMonth = (): void => {
       calendarContainer.removeAll(true);
       const calendar = createDailyHubCalendarMonth(
-        DAILY_RELEASE_ENTRIES,
+        dailyEntries,
         archiveRows,
         today,
         selectedMonth.year,
@@ -358,7 +358,7 @@ export class DailyScene extends Phaser.Scene {
               if (!this.shouldActivatePointer(pointer)) return;
               getAudioFeedback(this).play('ui-click');
               selectedMonth = shiftDailyHubCalendarMonth(
-                DAILY_RELEASE_ENTRIES,
+                dailyEntries,
                 today.dateKey,
                 calendar.year,
                 calendar.month,

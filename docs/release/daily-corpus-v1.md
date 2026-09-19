@@ -1,39 +1,44 @@
-# Daily v1 Corpus Curation Report
+# Daily Production Corpus Report
 
-**Updated:** 2026-09-09  
-**Shipped corpus:** `daily-001` … `daily-365`
+**Updated:** 2026-09-19  
+**Shipped catalog:** `daily-0001` … `daily-7305`
 
-## Reproduction and release model
+## Production model
 
-- Master seed: `20260909`.
-- Board size: `7x7`.
-- Offline scan plan remains `monster-only` 1,000 attempts, `mixed-one-room` 5,000 attempts, `chest-one-room` 3,000 attempts per deterministic reservoir pass.
-- Runtime generation: **none**. All 365 Daily puzzles are committed static snapshots.
-- Calendar binding is static in `src/content/daily/calendar.ts` and covers `2026-09-09` through `2027-09-08` UTC.
-- `daily-001` … `daily-060` are preserved from the original release corpus; `daily-061` … `daily-365` extend the schedule for the remainder of the year.
+- Selected records: **7,305**.
+- Calendar: `2026-09-09` through `2046-09-08` UTC.
+- Runtime generation: **none**.
+- Production asset: `public/content/daily/verified-levels.bin`.
+- Manifest: `public/content/daily/verified-levels-manifest.json`.
+- Binary format: fixed 28-byte records containing exact board geometry/object masks plus difficulty/archetype metadata.
+- Per-level `src/content/daily/snapshots/*.ts` files are not shipped.
 
 ## Release gates
 
-Every shipped snapshot is revalidated by canonical acceptance and Human Solver. Blockers, Directional Doors, two-room archetypes, easy, expert, and unrated candidates are excluded. Candidate IDs and rotation/reflection-equivalent wall layouts are unique across Daily. Daily wall layouts are also excluded against **Campaign 001–064**.
+Every production record is re-audited against the current Campaign and Endless selections using structural fingerprints. Rotation/reflection-equivalent wall layouts are treated as collisions.
 
-- Selected snapshots: **365**.
+- Daily structural duplicates: **0**.
 - Campaign/Daily structural collisions: **0**.
-- Duplicate Daily structural fingerprints: **0**.
-- `monster-only`: **217**.
-- `mixed-one-room`: **126**.
-- `chest-one-room`: **22**.
-- Medium: **190**.
-- Hard: **175**.
-- Difficulty score range: **30–68**.
-- Mean difficulty score: **48.18**.
-- Maximum distance from the selector target score: **7**.
+- Endless/Daily structural collisions: **0**.
+- Campaign/Endless structural collisions: **0**.
+- Weekday difficulty violations: **0**.
+- Verified Daily records: **7,305 / 7,305**.
+- Campaign exclusion scope: **Campaign 001–064**.
+- Endless exclusion scope: **100,000 production entries**.
 
-## Preserved first 60 vs extension
+## Composition
 
-| Range | Count | Monster | Mixed | Chest | Medium | Hard | Score range | Mean score |
-|---|---:|---:|---:|---:|---:|---:|---|---:|
-| `daily-001` … `daily-060` | 60 | 24 | 24 | 12 | 27 | 33 | 30–67 | 50.60 |
-| `daily-061` … `daily-365` | 305 | 193 | 102 | 10 | 163 | 142 | 31–68 | 47.70 |
-| **Total** | **365** | **217** | **126** | **22** | **190** | **175** | **30–68** | **48.18** |
+| Archetype | Count |
+|---|---:|
+| `monster-only` | 4,854 |
+| `mixed-one-room` | 2,429 |
+| `chest-one-room` | 22 |
+| **Total** | **7,305** |
 
-The exact immutable snapshot content and provenance live in `src/content/daily/snapshots/`. The one-to-one UTC mapping is documented in `docs/release/daily-calendar-v1.md`.
+| Board size | Count |
+|---|---:|
+| 7×7 | 5,412 |
+| 8×8 | 1,893 |
+| **Total** | **7,305** |
+
+The authoritative counts and SHA-256 are stored in the production manifest; `src/dev/dailyCorpusSanity.ts` independently reads and checks the binary against current cross-pool fingerprints.

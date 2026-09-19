@@ -1,7 +1,7 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV5 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import type { HelpReturnSceneKey } from '../help/HelpNavigation';
 import { SETTINGS_SCENE_KEY, shouldShowSettingsEntry } from '../runtime/MetaSelectors';
 import { SettingsService } from '../settings/SettingsService';
@@ -33,13 +33,13 @@ function entry(slot: number): CampaignLevelEntry {
 
 class MemoryStorage implements PlayerProfileStorage {
   raw: unknown = null;
-  saves: PlayerProfileV5[] = [];
+  saves: PlayerProfile[] = [];
 
   async load(): Promise<unknown | null> {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV5): Promise<void> {
+  async save(profile: PlayerProfile): Promise<void> {
     this.raw = profile;
     this.saves.push(profile);
   }

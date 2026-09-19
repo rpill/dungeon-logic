@@ -1,4 +1,4 @@
-import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
+import { DAILY_PRODUCTION_ENTRIES as DAILY_RELEASE_ENTRIES } from './DailyProductionCatalog';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { SerializedPuzzleState } from '../profile/types';
 import { CellState, type CellState as CellStateValue } from '../puzzle/types';

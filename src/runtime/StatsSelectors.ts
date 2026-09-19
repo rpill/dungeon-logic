@@ -1,4 +1,4 @@
-import type { PlayerProfileV5 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import { toUtcDateKey } from '../daily/DailySelector';
 
 const CAMPAIGN_TOTAL = 64;
@@ -47,7 +47,7 @@ function previousUtcDateKey(dateKey: string): string | null {
 }
 
 function getActiveDailyStreak(
-  profile: PlayerProfileV5,
+  profile: PlayerProfile,
   todayDateKey: string | null,
   availableDailyDateKeys: readonly string[],
 ): number | null {
@@ -69,7 +69,7 @@ function getActiveDailyStreak(
 }
 
 export function getStatsViewModel(
-  profile: PlayerProfileV5,
+  profile: PlayerProfile,
   todayDateKey: string | null,
   availableDailyDateKeys: readonly string[],
 ): StatsViewModel {

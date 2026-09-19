@@ -7,7 +7,7 @@ import { createYandexMetricaTransport } from '../analytics/YandexMetricaTranspor
 import { initializeBackgroundMusic } from '../audio/MusicService';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
-import { DAILY_RELEASE_ENTRIES } from '../content/daily/manifest';
+import { loadDailyCatalog } from '../content/daily/DailyCatalogLoader';
 import { loadEndlessCatalog } from '../content/endless/EndlessCatalogLoader';
 import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
 import { TUTORIAL_MANIFEST } from '../content/tutorial/manifest';
@@ -37,6 +37,8 @@ import { preloadPrimaryActionButtonAssets } from '../runtime/PrimaryActionButton
 import { preloadHomeModeCardAssets } from '../runtime/HomeModeCard';
 import { preloadHomeHubModeCardAssets } from '../runtime/HomeHubModeCard';
 import { preloadCommonUiIcons } from '../runtime/UiIcons';
+import { preloadMasteryRequirementPanelAssets } from '../runtime/MasteryRequirementPanel';
+import { preloadMasteryRequirementRowPanelAssets } from '../runtime/MasteryRequirementRowPanel';
 import { preloadMasterySealAssets } from '../runtime/MasterySeal';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { preloadBoardThemeAssets } from '../view/BoardThemeAssets';
@@ -65,6 +67,8 @@ export class BootScene extends Phaser.Scene {
     preloadHomeHubModeCardAssets(this);
     preloadCommonUiIcons(this);
     preloadMasterySealAssets(this);
+    preloadMasteryRequirementPanelAssets(this);
+    preloadMasteryRequirementRowPanelAssets(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
     this.load.image('home-logo', 'assets/logo.webp');
@@ -181,12 +185,15 @@ export class BootScene extends Phaser.Scene {
     });
     const tutorialService = TutorialService.create(TUTORIAL_MANIFEST, profileService);
     const campaignService = CampaignService.create(campaignManifest, profileService);
+    const [dailyCatalog, endlessCatalog] = await Promise.all([
+      loadDailyCatalog(),
+      loadEndlessCatalog(),
+    ]);
     const dailyService = DailyService.create(
-      DAILY_RELEASE_ENTRIES,
+      dailyCatalog.entries,
       profileService,
       platformServices.clock,
     );
-    const endlessCatalog = await loadEndlessCatalog();
     const endlessService = EndlessService.create(endlessCatalog, profileService);
     this.registry.set(PLAYER_PROFILE_SERVICE_REGISTRY_KEY, profileService);
     this.registry.set(TUTORIAL_SERVICE_REGISTRY_KEY, tutorialService);

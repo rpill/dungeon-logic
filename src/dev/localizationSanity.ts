@@ -7,7 +7,7 @@ import { createOnboardingFlow } from '../onboarding/OnboardingFlow';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import type { PlayerProfileStorage } from '../profile/PlayerProfileStorage';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
-import type { PlayerProfileV6 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import { createPuzzleToolbarState } from '../runtime/PuzzleUiState';
 import { getSettingsRows } from '../settings/SettingsViewModel';
 
@@ -46,7 +46,7 @@ class MemoryStorage implements PlayerProfileStorage {
     return this.raw;
   }
 
-  async save(profile: PlayerProfileV6): Promise<void> {
+  async save(profile: PlayerProfile): Promise<void> {
     this.raw = profile;
   }
 }

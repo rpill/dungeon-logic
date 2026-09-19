@@ -110,6 +110,10 @@ export class DailyService {
     return new DailyService(entries, profileService, clock);
   }
 
+  getEntries(): readonly DailyEntry[] {
+    return this.entries;
+  }
+
   getHistory(): DailyProfileState {
     return this.profileService.getProfile().daily;
   }

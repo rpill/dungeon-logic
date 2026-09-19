@@ -16,7 +16,7 @@
 ## Tutorial runtime / profile v2
 
 - Tutorial — first-class runtime mode (`tutorial`), не fake Campaign level.
-- Stable IDs: `tutorial-001`–`tutorial-005`; Campaign IDs/slots: `campaign-001`–`campaign-064`; Daily snapshots: `daily-001`–`daily-365`.
+- Stable IDs: `tutorial-001`–`tutorial-005`; Campaign IDs/slots: `campaign-001`–`campaign-064`; Daily IDs: `daily-0001`–`daily-7305`.
 - `PlayerProfileV3` хранит отдельный `tutorial` state и `campaign.drafts[levelId]` для независимого сохранения каждой начатой Campaign-задачи; schema v1/v2 мигрируют автоматически, а старый `campaign.activePuzzle` становится соответствующим draft.
 - `SerializedPuzzleState.mode` поддерживает `campaign | daily | tutorial`.
 - Tutorial завершает пазл только через общий `LevelValidator`; onboarding может направлять `FLOOR`-дедукции как обучающие пометки, но solved-state по-прежнему не требует размечать весь пол.
@@ -31,7 +31,8 @@
 - Campaign runtime не хранит chapter/manuscript progression. `getPlayableCampaignIds()` возвращает все completed IDs плюс первые три unsolved IDs по slot order.
 - Campaign manifest содержит ровно 64 статических promoted levels; существующие IDs 001–030 сохраняются для совместимости профиля.
 - Level Select на compact/wide экранах использует 3 колонки; narrow portrait fallback — 2.
-- Daily release corpus содержит ровно 365 immutable snapshot modules, one-to-one с trusted UTC датами `2026-09-09`–`2027-09-08`. Runtime ничего не генерирует.
+- Daily production catalog содержит ровно 7 305 immutable binary records, one-to-one с trusted UTC датами `2026-09-09`–`2046-09-08`. Production asset: `public/content/daily/verified-levels.bin` (28 bytes/record) + manifest; runtime ничего не генерирует и лениво декодирует уровень по ordinal.
+- Daily production gate требует `Daily↔Daily = 0`, `Daily↔Campaign = 0`, `Daily↔Endless = 0`, `Campaign↔Endless = 0` и нулевые weekday difficulty violations.
 - Campaign Archive/Manuscript/Chapter runtime удалён; Daily Archive остаётся и означает только прошедшие Daily.
 
 ## Hint economy / ranked Daily assistance

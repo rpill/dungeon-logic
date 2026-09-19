@@ -16,12 +16,15 @@ import {
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, MASTERY_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
-import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
 import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../runtime/MasterySeal';
+import { createMasteryRequirementPanel } from '../runtime/MasteryRequirementPanel';
+import { createMasteryRequirementRowPanel } from '../runtime/MasteryRequirementRowPanel';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 
 export class MasteryScene extends Phaser.Scene {
+  private progressTextureSerial = 0;
+
   constructor() {
     super(MASTERY_SCENE_KEY);
   }
@@ -75,7 +78,7 @@ export class MasteryScene extends Phaser.Scene {
   ): void {
     const cardGap = 22;
     const topSectionHeight = 236;
-    const panelHeight = 238;
+    const panelHeight = 408;
     const pathHeight = 126;
 
     const left = centerX - width / 2;
@@ -134,7 +137,7 @@ export class MasteryScene extends Phaser.Scene {
     });
 
     const panelTop = top + 168;
-    const panelHeight = 184;
+    const panelHeight = 318;
     this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, true);
     this.renderRankTrack(centerX, panelTop + panelHeight + 10, width, 100, mastery.currentRank, true, copy);
   }
@@ -148,20 +151,12 @@ export class MasteryScene extends Phaser.Scene {
     copy: ReturnType<typeof getUiCopy>,
     narrow: boolean,
   ): void {
-    createHomeHubModeCard(this, {
-      x: centerX,
-      y: topY + height / 2,
-      width,
-      height,
-      variant: 'wide',
-      interactive: false,
-      onActivate: () => undefined,
-    });
+    createMasteryRequirementPanel(this, centerX, topY + height / 2, width, height);
 
     const title = mastery.nextRank === null
       ? copy.mastery.maxRank
       : `${copy.mastery.nextRank} (${mastery.nextRank})`;
-    this.add.text(centerX, topY + height * 0.115, title, {
+    this.add.text(centerX, topY + height * (narrow ? 0.155 : 0.145), title, {
       fontFamily: 'monospace',
       fontSize: narrow ? '14px' : '18px',
       color: '#fff1d2',
@@ -169,10 +164,11 @@ export class MasteryScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const visibleConditions = mastery.conditions.slice(0, 3);
-    const rowTop = topY + height * 0.265;
-    const rowGap = height * 0.205;
+    const rowHeight = narrow ? 86 : 102;
+    const rowTop = topY + height * (narrow ? 0.405 : 0.385);
+    const rowGap = rowHeight - (narrow ? 20 : 24);
     visibleConditions.forEach((condition, index) => {
-      this.renderRequirementRow(centerX, rowTop + rowGap * index, width * 0.87, condition, copy, narrow);
+      this.renderRequirementRow(centerX, rowTop + rowGap * index, width * 0.84, rowHeight, index, condition, copy, narrow);
     });
   }
 
@@ -180,76 +176,120 @@ export class MasteryScene extends Phaser.Scene {
     centerX: number,
     y: number,
     width: number,
+    rowHeight: number,
+    rowIndex: number,
     condition: MasteryRequirementProgress,
     copy: ReturnType<typeof getUiCopy>,
     narrow: boolean,
   ): void {
     const left = centerX - width / 2;
     const right = centerX + width / 2;
-    const rowHeight = narrow ? 36 : 42;
     const complete = condition.complete;
+    const rowDepth = 20 + rowIndex * 4;
 
-    const rowBg = this.add.graphics();
-    rowBg.fillStyle(0x173150, 0.92);
-    rowBg.lineStyle(1.4, complete ? 0x4dcfb4 : 0x375a80, 1);
-    rowBg.fillRoundedRect(left, y - rowHeight / 2, width, rowHeight, 10);
-    rowBg.strokeRoundedRect(left, y - rowHeight / 2, width, rowHeight, 10);
+    createMasteryRequirementRowPanel(this, centerX, y, width, rowHeight, rowDepth);
 
     const iconKey = this.conditionIconKey(condition);
-    const iconX = left + (narrow ? 16 : 19);
-    const iconSize = narrow ? 16 : 18;
-    this.add.image(iconX, y - 7, iconKey).setDisplaySize(iconSize, iconSize).setTint(0xf6edd5);
+    const iconX = left + (narrow ? 30 : 38);
+    const iconSize = narrow ? 28 : 36;
+    const textLeft = left + (narrow ? 58 : 76);
+    const statusX = right - (narrow ? 32 : 42);
+    const barRight = statusX - (narrow ? 22 : 28);
+    const valueX = barRight;
+    const headerY = y - rowHeight * (narrow ? 0.17 : 0.18);
+    const barY = y + rowHeight * (narrow ? 0.07 : 0.08);
+
+    this.add.image(iconX, y, iconKey).setDisplaySize(iconSize, iconSize).setTint(0xf6edd5).setDepth(rowDepth + 1);
 
     const label = this.requirementLabel(condition, copy, narrow);
-    this.add.text(left + (narrow ? 32 : 40), y - 8, label, {
+    this.add.text(textLeft, headerY, label, {
       fontFamily: 'monospace',
-      fontSize: narrow ? '10px' : '13px',
+      fontSize: narrow ? '14px' : '22px',
       color: complete ? '#fef0b8' : '#ecf1f8',
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0, 0.5).setDepth(rowDepth + 1);
 
-    this.add.text(right - (narrow ? 14 : 16), y - 8, `${condition.current} / ${condition.target}`, {
+    this.add.text(valueX, headerY, `${condition.current} / ${condition.target}`, {
       fontFamily: 'monospace',
-      fontSize: narrow ? '10px' : '13px',
+      fontSize: narrow ? '14px' : '22px',
       color: complete ? '#fef0b8' : '#ecf1f8',
       fontStyle: 'bold',
-    }).setOrigin(1, 0.5);
+    }).setOrigin(1, 0.5).setDepth(rowDepth + 1);
 
-    const barLeft = left + (narrow ? 32 : 40);
-    const barRightPadding = narrow ? 36 : 42;
-    const barWidth = width - (barLeft - left) - barRightPadding;
-    this.drawRequirementProgress(barLeft, y + 10, barWidth, narrow ? 6 : 7, condition.current, condition.target, complete);
+    const barLeft = textLeft;
+    const barWidth = barRight - barLeft;
+    this.drawRequirementProgress(barLeft, barY, barWidth, narrow ? 11 : 13, condition.current, condition.target, complete, rowDepth + 1);
 
-    const statusX = right - (narrow ? 14 : 16);
-    const statusY = y + 10;
-    const marker = this.add.graphics();
-    marker.lineStyle(1.5, complete ? 0x63ddc2 : 0xacbed8, 1);
-    marker.strokeCircle(statusX, statusY, narrow ? 7 : 8);
+    const statusY = y;
+    const marker = this.add.graphics().setDepth(rowDepth + 1);
+    marker.lineStyle(narrow ? 2.4 : 3.0, complete ? 0x63ddc2 : 0xacbed8, 1);
+    marker.strokeCircle(statusX, statusY, narrow ? 15 : 18);
     if (complete) {
       marker.fillStyle(0x63ddc2, 1);
-      marker.fillCircle(statusX, statusY, narrow ? 5.3 : 6);
+      marker.fillCircle(statusX, statusY, narrow ? 10.5 : 12.6);
       this.add.image(statusX, statusY, UI_ICON_KEYS.check)
-        .setDisplaySize(narrow ? 9 : 10, narrow ? 9 : 10)
-        .setTint(0x0d2230);
+        .setDisplaySize(narrow ? 14 : 17, narrow ? 14 : 17)
+        .setTint(0x0d2230).setDepth(rowDepth + 2);
     }
   }
 
-  private drawRequirementProgress(left: number, y: number, width: number, height: number, current: number, target: number, complete: boolean): void {
+  private drawRequirementProgress(left: number, y: number, width: number, height: number, current: number, target: number, _complete: boolean, depth = 0): void {
     const ratio = Phaser.Math.Clamp(current / Math.max(1, target), 0, 1);
-    const bar = this.add.graphics();
-    bar.fillStyle(0x08111b, 0.98);
-    bar.fillRoundedRect(left, y - height / 2, width, height, height / 2);
-    if (ratio > 0) {
-      const fillWidth = Math.max(height, width * ratio);
-      bar.fillStyle(complete ? 0x69dfc2 : 0xf0c75e, 1);
-      bar.fillRoundedRect(left, y - height / 2, Math.min(width, fillWidth), height, height / 2);
-    }
+    const trackTop = y - height / 2;
+    const radius = height / 2;
+
+    const track = this.add.graphics().setDepth(depth);
+    track.fillStyle(0x08111b, 0.98);
+    track.fillRoundedRect(left, trackTop, width, height, radius);
+    track.lineStyle(1.1, 0x203855, 0.95);
+    track.strokeRoundedRect(left, trackTop, width, height, radius);
+
+    if (ratio <= 0) return;
+
+    const textureWidth = Math.max(2, Math.ceil(width));
+    const textureHeight = Math.max(2, Math.ceil(height));
+    const visibleWidth = Math.max(textureHeight, textureWidth * ratio);
+    const textureKey = `mastery-progress-fill-${this.progressTextureSerial++}`;
+    const texture = this.textures.createCanvas(textureKey, textureWidth, textureHeight);
+    if (texture === null) return;
+    const ctx = texture.context;
+    const gradient = ctx.createLinearGradient(0, 0, textureWidth, 0);
+    gradient.addColorStop(0, '#f0c75e');
+    gradient.addColorStop(1, '#69df8c');
+
+    const paintWidth = Math.min(textureWidth, visibleWidth);
+    const paintRadius = Math.min(textureHeight / 2, paintWidth / 2);
+    ctx.clearRect(0, 0, textureWidth, textureHeight);
+    ctx.beginPath();
+    ctx.moveTo(paintRadius, 0);
+    ctx.lineTo(paintWidth - paintRadius, 0);
+    ctx.quadraticCurveTo(paintWidth, 0, paintWidth, paintRadius);
+    ctx.lineTo(paintWidth, textureHeight - paintRadius);
+    ctx.quadraticCurveTo(paintWidth, textureHeight, paintWidth - paintRadius, textureHeight);
+    ctx.lineTo(paintRadius, textureHeight);
+    ctx.quadraticCurveTo(0, textureHeight, 0, textureHeight - paintRadius);
+    ctx.lineTo(0, paintRadius);
+    ctx.quadraticCurveTo(0, 0, paintRadius, 0);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    texture.refresh();
+
+    const fillImage = this.add.image(left, y, textureKey)
+      .setOrigin(0, 0.5)
+      .setDisplaySize(width, height)
+      .setDepth(depth + 0.1);
+    fillImage.once('destroy', () => {
+      if (this.textures.exists(textureKey)) {
+        this.textures.remove(textureKey);
+      }
+    });
   }
 
   private renderRankTrack(
     centerX: number,
     topY: number,
     width: number,
-    height: number,
+    _height: number,
     currentRank: MasteryRankId,
     narrow: boolean,
     _copy: ReturnType<typeof getUiCopy>,

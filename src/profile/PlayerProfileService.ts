@@ -2,13 +2,9 @@ import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { SupportedLanguage } from '../i18n/Language';
 import { calculateHintRecharge, MAX_FREE_HINTS, type HintRechargeStatus } from '../gameplay/HintEconomy';
-import {
-  createFreshPlayerProfile,
-  migrateLegacyCampaignProgress,
-  normalizePlayerProfile,
-} from './PlayerProfile';
+import { createFreshPlayerProfile, normalizePlayerProfile } from './PlayerProfile';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
-import type { PlayerProfileV6 } from './types';
+import type { PlayerProfile } from './types';
 
 export const PLAYER_PROFILE_SERVICE_REGISTRY_KEY = 'player-profile-service';
 
@@ -25,7 +21,7 @@ export class PlayerProfileService {
   private readonly defaultLanguage: SupportedLanguage;
   private readonly reportTechnicalError: TechnicalErrorReporter;
 
-  private profile: PlayerProfileV6;
+  private profile: PlayerProfile;
   private dirty = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private flushPromise: Promise<void> | null = null;
@@ -33,7 +29,7 @@ export class PlayerProfileService {
   private constructor(
     manifest: readonly CampaignLevelEntry[],
     storage: PlayerProfileStorage,
-    profile: PlayerProfileV6,
+    profile: PlayerProfile,
     saveDelayMs: number,
     defaultLanguage: SupportedLanguage,
     reportTechnicalError: TechnicalErrorReporter,
@@ -60,34 +56,14 @@ export class PlayerProfileService {
       loaded = await storage.load();
     } catch (error) {
       reportTechnicalError('profile_load_failed', 'profile');
-      console.warn('[Dungeon Logic] Could not load player profile; checking legacy progress.', error);
+      console.warn('[Dungeon Logic] Could not load player profile; starting fresh.', error);
     }
 
-    if (loaded !== null) {
-      return new PlayerProfileService(
-        manifest,
-        storage,
-        normalizePlayerProfile(loaded, manifest, defaultLanguage),
-        saveDelayMs,
-        defaultLanguage,
-        reportTechnicalError,
-      );
-    }
-
-    let legacy: unknown | null = null;
-    if (storage.loadLegacyCampaignProgress !== undefined) {
-      try {
-        legacy = await storage.loadLegacyCampaignProgress();
-      } catch (error) {
-        reportTechnicalError('profile_load_failed', 'profile');
-        console.warn('[Dungeon Logic] Could not load legacy campaign progress; starting fresh.', error);
-      }
-    }
-
-    const profile = legacy === null
+    const profile = loaded === null
       ? createFreshPlayerProfile(manifest, defaultLanguage)
-      : migrateLegacyCampaignProgress(legacy, manifest, defaultLanguage);
-    const service = new PlayerProfileService(
+      : normalizePlayerProfile(loaded, manifest, defaultLanguage);
+
+    return new PlayerProfileService(
       manifest,
       storage,
       profile,
@@ -95,28 +71,15 @@ export class PlayerProfileService {
       defaultLanguage,
       reportTechnicalError,
     );
-
-    if (legacy !== null) {
-      try {
-        await storage.save(profile);
-      } catch (error) {
-        reportTechnicalError('profile_save_failed', 'profile');
-        service.dirty = true;
-        service.scheduleSave();
-        console.warn('[Dungeon Logic] Could not persist migrated player profile immediately; retry scheduled.', error);
-      }
-    }
-
-    return service;
   }
 
-  getProfile(): PlayerProfileV6 {
+  getProfile(): PlayerProfile {
     return this.profile;
   }
 
   update(
-    mutator: (profile: PlayerProfileV6) => PlayerProfileV6,
-  ): PlayerProfileV6 {
+    mutator: (profile: PlayerProfile) => PlayerProfile,
+  ): PlayerProfile {
     const safeCurrent = normalizePlayerProfile(this.profile, this.manifest, this.defaultLanguage);
     const candidate = mutator(safeCurrent);
     this.profile = normalizePlayerProfile(candidate, this.manifest, this.defaultLanguage);
@@ -226,7 +189,7 @@ export class PlayerProfileService {
     }));
   }
 
-  replaceProfileForPlatformMerge(profile: PlayerProfileV6): PlayerProfileV6 {
+  replaceProfileForPlatformMerge(profile: PlayerProfile): PlayerProfile {
     this.profile = normalizePlayerProfile(profile, this.manifest, this.defaultLanguage);
     this.dirty = true;
     this.scheduleSave();

@@ -1,5 +1,5 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
-import type { PlayerProfileV5 } from '../profile/types';
+import type { PlayerProfile } from '../profile/types';
 import {
   getHomeDailyAction,
   getHomeCampaignAction,
@@ -38,9 +38,9 @@ function profile(
   completed: readonly string[],
   lastPlayedLevelId: string | null = null,
   tutorialCompleted = true,
-): PlayerProfileV5 {
+): PlayerProfile {
   return {
-    schemaVersion: 5,
+    schemaVersion: 1,
     tutorial: {
       completedLevelIds: tutorialCompleted
         ? ['tutorial-001', 'tutorial-002', 'tutorial-003', 'tutorial-004', 'tutorial-005']
@@ -63,7 +63,7 @@ function profile(
       solvedDates: [],
       results: {},
     },
-    endless: { ordinal: 0, completed: 0, activePuzzle: null },
+    endless: { ordinal: 0, completed: 0, activePuzzle: null, currentCleanStreak: 0, bestCleanStreak: 0 },
   settings: {
       musicEnabled: true,
       soundEnabled: true,
