@@ -136,6 +136,7 @@ async function runServiceChecks(): Promise<void> {
   assert(first.currentStreak === 1 && first.bestStreak === 1, 'First Daily solve must start both streaks at one.');
   assert(first.totalSolved === 1, 'First Daily solve must increment total solved exactly once.');
   assert(first.persisted === true, 'Daily completion must flush the profile immediately.');
+  assert(profileService.getProfile().mastery.rating === 1003, 'First successful Daily must add exactly +3 Master Rating.');
   assert(storage.value !== null, 'Daily completion flush must reach profile storage.');
 
   let history = service.getHistory();
@@ -177,6 +178,7 @@ async function runServiceChecks(): Promise<void> {
   assert(repeat.totalSolved === 3, 'Repeating the same UTC date must not increase total solved.');
   assert(repeat.result.bestTimeMs === fixedFirstTime, 'Daily result must remain the first successful time forever.');
   assert(repeat.result.minHintsUsed === 0 && repeat.result.solvedWithoutHints, 'Ranked Daily result must be hint-free.');
+  assert(profileService.getProfile().mastery.rating === 1009, 'Daily replay must not award Master Rating again after three unique first solves.');
 
   const practice = await service.beginDaily('2026-09-12', 'daily-0004');
   assert(practice?.ranked === false, 'Solved Daily must relaunch only as practice outside the ranking.');
@@ -274,6 +276,7 @@ async function runLaunchedDateCompletionChecks(): Promise<void> {
   assert(completed?.dateKey === '2026-09-09', 'A Daily opened before UTC midnight must credit its launched date after midnight.');
   assert(completed?.ranked === false && completed.archive === true, 'A Daily finished after its UTC date ends must be preserved outside the ranking.');
   assert(completed?.currentStreak === 0, 'Cross-midnight late completion must not create or extend a streak.');
+  assert(profileService.getProfile().mastery.rating === 1000, 'Late/archive Daily completion must not award Master Rating.');
   assert(service.getHistory().solvedDates.includes('2026-09-09'), 'Cross-midnight completion must store the launched date in history.');
   assert(!service.getHistory().solvedDates.includes('2026-09-10'), 'Cross-midnight completion must not credit the new UTC day with the old board.');
 
@@ -317,6 +320,7 @@ async function runArchiveChecks(): Promise<void> {
   assert(pastCompletion.result.bestTimeMs === 95_000, 'Archive completion must preserve its first local active-play time.');
   assert(pastCompletion.totalSolved === 1, 'Archive completion must contribute to total Daily completion count.');
   assert(pastCompletion.currentStreak === 0 && pastCompletion.bestStreak === 0, 'Archive completion must not mutate streaks.');
+  assert(profileService.getProfile().mastery.rating === 1000, 'Archive first solve must award +0 Master Rating.');
   assert(service.getHistory().lastSolvedDate === null, 'Archive completion must not become the last on-time solved date.');
   assert(service.getHistory().drafts['2026-09-10'] === undefined, 'Completing an archive Daily removes its own draft.');
   assert(service.getHistory().drafts['2026-09-11']?.puzzleId === 'daily-0003', 'Completing one archive Daily preserves other unfinished Daily drafts.');

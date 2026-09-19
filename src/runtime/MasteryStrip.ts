@@ -13,6 +13,7 @@ export interface MasteryStripOptions {
   readonly height: number;
   readonly snapshot: MasterySnapshot;
   readonly copy: UiCopy['mastery'];
+  readonly masterRatingLabel?: string;
   readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
 }
 
@@ -55,7 +56,7 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
   const rankTitle = options.copy.rankTitles[options.snapshot.currentRank];
   const title = `${options.copy.homeTitle(options.snapshot.currentRank)} — ${rankTitle}`;
   const subtitle = options.snapshot.nextRank === null
-    ? options.copy.maxRank
+    ? (options.masterRatingLabel ?? options.copy.maxRank)
     : options.copy.homeNext(options.snapshot.nextRank, options.snapshot.remainingConditions);
 
   const titleX = left + Math.max(106, options.width * 0.235);

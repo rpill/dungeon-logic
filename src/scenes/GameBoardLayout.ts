@@ -10,6 +10,22 @@ export interface GameBoardLayout {
   originY: number;
 }
 
+export class GameBoardViewportTooSmallError extends RangeError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GameBoardViewportTooSmallError';
+  }
+}
+
+export function tryGameBoardLayoutForResize<T>(calculate: () => T): T | null {
+  try {
+    return calculate();
+  } catch (error) {
+    if (error instanceof GameBoardViewportTooSmallError) return null;
+    throw error;
+  }
+}
+
 const WIDE_MIN_WIDTH = 1100;
 const COMPACT_MIN_WIDTH = 700;
 const DESKTOP_MAX_CELL_SIZE = 72;
@@ -67,7 +83,7 @@ export function calculateGameBoardLayout(
 
   const availableHeight = viewportHeight - headerHeight - toolbarHeight;
   if (availableHeight <= 0) {
-    throw new RangeError('Viewport is too small for the puzzle header and toolbar reserves.');
+    throw new GameBoardViewportTooSmallError('Viewport is too small for the puzzle header and toolbar reserves.');
   }
 
   // Fit and center the entire framed puzzle, including clues and all four rims.
@@ -87,7 +103,7 @@ export function calculateGameBoardLayout(
   );
 
   if (cellSize < 1) {
-    throw new RangeError('Viewport is too small for the game board.');
+    throw new GameBoardViewportTooSmallError('Viewport is too small for the game board.');
   }
 
   const boardWidth = boardColumns * cellSize;

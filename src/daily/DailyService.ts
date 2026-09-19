@@ -1,6 +1,7 @@
 import type { GameAnalyticsAttempt } from '../campaign/types';
 import type { DailyEntry } from '../content/daily/types';
 import { PuzzleSessionState, isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
+import { DAILY_MASTER_RATING_REWARD } from '../mastery/MasterRating';
 import type { TrustedClock } from '../platform/services';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { DailyProfileState, DailyResultSummary } from '../profile/types';
@@ -340,11 +341,17 @@ export class DailyService {
         },
       };
 
+      const profileWithRating = {
+        ...profile,
+        mastery: {
+          ...profile.mastery,
+          rating: profile.mastery.rating + (onTimeAttempt ? DAILY_MASTER_RATING_REWARD : 0),
+        },
+        daily: nextDaily,
+      };
+
       if (!onTimeAttempt) {
-        return {
-          ...profile,
-          daily: nextDaily,
-        };
+        return profileWithRating;
       }
 
       const currentStreak = profile.daily.lastSolvedDate === previousDateKey
@@ -352,7 +359,7 @@ export class DailyService {
         : 1;
 
       return {
-        ...profile,
+        ...profileWithRating,
         daily: {
           ...nextDaily,
           currentStreak,

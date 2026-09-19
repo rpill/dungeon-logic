@@ -42,7 +42,7 @@ function readPcm16Wav(path) {
 }
 
 const service = readFileSync(new URL('../src/audio/AudioFeedbackService.ts', import.meta.url), 'utf8');
-assert(/'ui-hover':[\s\S]*?volume:\s*0\.0(?:2|3)/.test(service), 'UI hover must be very quiet (0.02–0.03).');
+assert(!service.includes("'ui-hover'"), 'UI hover feedback must be removed.');
 assert(/'marker-toggle':[\s\S]*?volume:\s*0\.0(?:4|5|6)/.test(service), 'Marker toggle must be quieter (0.04–0.06).');
 
 const wallPlace = readPcm16Wav(resolve('public/assets/audio/wall-place.wav'));

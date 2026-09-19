@@ -17,7 +17,8 @@ assert(
   'Touch toolbar layout must accept the actual board bottom.',
 );
 assert(
-  toolbar.includes('hideHintButton = false') && toolbar.includes("? ['undo', 'reset']"),
+  toolbar.includes('hideHintButton = false')
+    && toolbar.includes("...(hideHintButton ? [] : ['hint'] as const)"),
   'Pending touch hint must be removed from the touch action-row layout.',
 );
 assert(

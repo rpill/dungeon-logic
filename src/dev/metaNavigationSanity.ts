@@ -63,8 +63,9 @@ function profile(
       solvedDates: [],
       results: {},
     },
-    endless: { ordinal: 0, completed: 0, activePuzzle: null, currentCleanStreak: 0, bestCleanStreak: 0 },
-  settings: {
+    endless: { nextFreshIndex: 0, completed: 0, skipped: [], freshSolvesSinceRetry: 0, activeCatalogIndex: null, activeKind: null, activePuzzle: null, currentCleanStreak: 0, bestCleanStreak: 0, freePlayOrdinal: 0 },
+    mastery: { rating: 1000 },
+    settings: {
       musicEnabled: true,
       soundEnabled: true,
       language: 'ru',

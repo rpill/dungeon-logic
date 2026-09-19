@@ -53,6 +53,8 @@ export interface UiCopy {
     readonly endlessLockedAfterLevel: string;
     readonly endlessSolved: (completed: number) => string;
     readonly endlessStreak: (current: number, best: number) => string;
+    readonly endlessProgress: (completed: number, total: number, current: number, best: number) => string;
+    readonly endlessFreePlay: (total: number) => string;
   };
   readonly mastery: {
     readonly title: string;
@@ -68,6 +70,8 @@ export interface UiCopy {
     readonly endless: string;
     readonly rankTitles: Readonly<Record<MasteryRankId, string>>;
     readonly rankDescriptions: Readonly<Record<MasteryRankId, string>>;
+    readonly rating: (rating: string) => string;
+    readonly ratingLeaderboard: string;
   };
   readonly settings: {
     readonly title: string;
@@ -121,6 +125,14 @@ export interface UiCopy {
     readonly archiveOutsideRating: string;
     readonly archiveEmpty: string;
   };
+  readonly masterRatingLeaderboard: {
+    readonly title: string;
+    readonly subtitle: string;
+    readonly yourRating: (rating: string) => string;
+    readonly yourPlace: (place: number) => string;
+    readonly noEntry: string;
+    readonly signInBody: string;
+  };
   readonly leaderboard: {
     readonly title: string;
     readonly back: string;
@@ -146,6 +158,12 @@ export interface UiCopy {
     readonly dailyTitle: string;
     readonly endlessTitle: (ordinal: number) => string;
     readonly endlessCleanStreak: (streak: number) => string;
+    readonly endlessFreePlayTitle: (ordinal: number) => string;
+    readonly endlessFreePlayNoRating: string;
+    readonly skip: string;
+    readonly skipTitle: string;
+    readonly skipBody: string;
+    readonly skipFreePlayBody: string;
     readonly tutorialTitle: (slot: number, total: number) => string;
     readonly tutorialComplete: string;
     readonly startLevels: string;
@@ -254,6 +272,8 @@ const RU: UiCopy = {
     endlessLockedAfterLevel: 'ПОСЛЕ УРОВНЯ 8',
     endlessSolved: (completed) => `Решено: ${completed}`,
     endlessStreak: (current, best) => `Чистая серия: ${current} · рекорд ${best}`,
+    endlessProgress: (completed, total, current, best) => `Решено ${completed} / ${total} · серия ${current} · рекорд ${best}`,
+    endlessFreePlay: (total) => `СВОБОДНАЯ ИГРА · ${total} / ${total}`,
   },
   mastery: {
     title: 'МАСТЕРСТВО',
@@ -296,6 +316,8 @@ const RU: UiCopy = {
       VIII: 'Вы решаете точно и без лишних ходов.',
       MASTER: 'Лабиринт больше не скрывает свою логику.',
     },
+    rating: (rating) => `РЕЙТИНГ МАСТЕРА: ${rating}`,
+    ratingLeaderboard: 'ТАБЛИЦА РЕЙТИНГА',
   },
   settings: {
     title: 'НАСТРОЙКИ',
@@ -349,6 +371,14 @@ const RU: UiCopy = {
     archiveOutsideRating: 'Архивные Daily не участвуют в таблице лидеров.',
     archiveEmpty: 'Старых Daily пока нет.',
   },
+  masterRatingLeaderboard: {
+    title: 'РЕЙТИНГ МАСТЕРОВ',
+    subtitle: 'MASTER RATING',
+    yourRating: (rating) => `Твой рейтинг · ${rating}`,
+    yourPlace: (place) => `Твоё место · #${place}`,
+    noEntry: 'Получи ранг MASTER, чтобы попасть в таблицу.',
+    signInBody: 'Войди в Яндекс, чтобы сохранить рейтинг и увидеть своё место.',
+  },
   leaderboard: {
     title: 'ТАБЛИЦА ЛИДЕРОВ',
     back: '← DAILY',
@@ -374,6 +404,12 @@ const RU: UiCopy = {
     dailyTitle: 'DAILY',
     endlessTitle: (ordinal) => `ИСПЫТАНИЕ · ${ordinal}`,
     endlessCleanStreak: (streak) => `ЧИСТАЯ СЕРИЯ: ${streak}`,
+    endlessFreePlayTitle: (ordinal) => `СВОБОДНАЯ ИГРА · ${ordinal}`,
+    endlessFreePlayNoRating: 'КАТАЛОГ ПРОЙДЕН · РЕЙТИНГ НЕ НАЧИСЛЯЕТСЯ',
+    skip: 'ПРОПУСТИТЬ',
+    skipTitle: 'ПРОПУСТИТЬ УРОВЕНЬ?',
+    skipBody: 'Чистая серия сбросится. Этот уровень вернётся позже.',
+    skipFreePlayBody: 'Перейти к следующему уровню? Рейтинг уже не меняется.',
     tutorialTitle: (slot, total) => `ОБУЧЕНИЕ ${slot} / ${total}`,
     tutorialComplete: 'ОБУЧЕНИЕ ПРОЙДЕНО\nТы знаешь все правила подземелья.',
     startLevels: 'НАЧАТЬ ИГРУ',
@@ -482,6 +518,8 @@ const EN: UiCopy = {
     endlessLockedAfterLevel: 'AFTER LEVEL 8',
     endlessSolved: (completed) => `Solved: ${completed}`,
     endlessStreak: (current, best) => `Clean streak: ${current} · best ${best}`,
+    endlessProgress: (completed, total, current, best) => `Solved ${completed} / ${total} · streak ${current} · best ${best}`,
+    endlessFreePlay: (total) => `FREE PLAY · ${total} / ${total}`,
   },
   mastery: {
     title: 'MASTERY',
@@ -517,6 +555,8 @@ const EN: UiCopy = {
       VIII: 'You solve precisely and without wasted moves.',
       MASTER: 'The labyrinth no longer hides its logic.',
     },
+    rating: (rating) => `MASTER RATING: ${rating}`,
+    ratingLeaderboard: 'RATING LEADERBOARD',
   },
   settings: {
     title: 'SETTINGS',
@@ -570,6 +610,14 @@ const EN: UiCopy = {
     archiveOutsideRating: 'Archived Dailies do not enter the leaderboard.',
     archiveEmpty: 'No older Dailies yet.',
   },
+  masterRatingLeaderboard: {
+    title: 'MASTER RATING',
+    subtitle: 'MASTER RATING',
+    yourRating: (rating) => `Your rating · ${rating}`,
+    yourPlace: (place) => `Your place · #${place}`,
+    noEntry: 'Reach MASTER rank to enter this leaderboard.',
+    signInBody: 'Sign in to Yandex to save your rating and see your place.',
+  },
   leaderboard: {
     title: 'LEADERBOARD',
     back: '← DAILY',
@@ -595,6 +643,12 @@ const EN: UiCopy = {
     dailyTitle: 'DAILY',
     endlessTitle: (ordinal) => `CHALLENGE · ${ordinal}`,
     endlessCleanStreak: (streak) => `CLEAN STREAK: ${streak}`,
+    endlessFreePlayTitle: (ordinal) => `FREE PLAY · ${ordinal}`,
+    endlessFreePlayNoRating: 'CATALOG COMPLETE · NO RATING AWARDED',
+    skip: 'SKIP',
+    skipTitle: 'SKIP THIS PUZZLE?',
+    skipBody: 'Your clean streak will reset. This puzzle will return later.',
+    skipFreePlayBody: 'Move to the next puzzle? Rating no longer changes.',
     tutorialTitle: (slot, total) => `TUTORIAL ${slot} / ${total}`,
     tutorialComplete: 'TUTORIAL COMPLETE\nYou know every dungeon rule.',
     startLevels: 'START GAME',

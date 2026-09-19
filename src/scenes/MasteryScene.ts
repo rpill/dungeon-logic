@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
 import { getUiCopy } from '../i18n/UiCopy';
+import { formatMasterRating } from '../mastery/MasterRating';
 import {
   MASTERY_RANK_IDS,
   getMasteryRankIndex,
@@ -16,10 +17,12 @@ import {
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, MASTERY_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
 import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../runtime/MasterySeal';
 import { createMasteryRequirementPanel } from '../runtime/MasteryRequirementPanel';
 import { createMasteryRequirementRowPanel } from '../runtime/MasteryRequirementRowPanel';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { MASTER_RATING_LEADERBOARD_SCENE_KEY } from './MasterRatingLeaderboardScene';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 
 export class MasteryScene extends Phaser.Scene {
@@ -34,6 +37,9 @@ export class MasteryScene extends Phaser.Scene {
     const profile = this.getProfileService().getProfile();
     const copy = getUiCopy(profile.settings.language);
     const mastery = getMasterySnapshot(profile);
+    const masterRatingLabel = mastery.currentRank === 'MASTER'
+      ? formatMasterRating(profile.mastery.rating, profile.settings.language)
+      : undefined;
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.masteryOpen(mastery.currentRank);
 
@@ -52,9 +58,9 @@ export class MasteryScene extends Phaser.Scene {
     const top = header.metrics.headerHeight + (narrow ? 12 : 18);
 
     if (narrow) {
-      this.renderMobileLayout(viewport.centerX, top, maxWidth, mastery, copy);
+      this.renderMobileLayout(viewport.centerX, top, maxWidth, mastery, copy, masterRatingLabel);
     } else {
-      this.renderDesktopLayout(viewport.centerX, top, maxWidth, mastery, copy);
+      this.renderDesktopLayout(viewport.centerX, top, maxWidth, mastery, copy, masterRatingLabel);
     }
 
     const handleResize = (): void => {
@@ -75,6 +81,7 @@ export class MasteryScene extends Phaser.Scene {
     width: number,
     mastery: ReturnType<typeof getMasterySnapshot>,
     copy: ReturnType<typeof getUiCopy>,
+    masterRatingLabel?: string,
   ): void {
     const cardGap = 22;
     const topSectionHeight = 236;
@@ -87,7 +94,7 @@ export class MasteryScene extends Phaser.Scene {
     const sealY = top + 126;
     createMasteryGlow(this, { x: sealX, y: sealY - sealSize * 0.07, size: sealSize * 0.82, alpha: 0.62, variant: 'page' });
     createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, alpha: 0.5 });
-    createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank });
+    createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, plaqueLabel: masterRatingLabel });
 
     const textX = left + 318;
     this.add.text(textX, top + 42, `РАНГ ${mastery.currentRank}`, {
@@ -101,7 +108,7 @@ export class MasteryScene extends Phaser.Scene {
     });
 
     const panelTop = top + topSectionHeight + cardGap;
-    this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, false);
+    this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, false, masterRatingLabel);
 
     const pathTop = panelTop + panelHeight + cardGap;
     this.renderRankTrack(centerX, pathTop, width, pathHeight, mastery.currentRank, false, copy);
@@ -113,6 +120,7 @@ export class MasteryScene extends Phaser.Scene {
     width: number,
     mastery: ReturnType<typeof getMasterySnapshot>,
     copy: ReturnType<typeof getUiCopy>,
+    masterRatingLabel?: string,
   ): void {
     const left = centerX - width / 2;
     const sealSize = Math.min(156, width * 0.4);
@@ -120,7 +128,7 @@ export class MasteryScene extends Phaser.Scene {
     const sealY = top + 80;
     createMasteryGlow(this, { x: sealX, y: sealY - sealSize * 0.07, size: sealSize * 0.82, alpha: 0.6, variant: 'page' });
     createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, alpha: 0.46 });
-    createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank });
+    createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, plaqueLabel: masterRatingLabel });
 
     const textX = left + width * 0.43;
     const textWidth = width * 0.54;
@@ -138,7 +146,7 @@ export class MasteryScene extends Phaser.Scene {
 
     const panelTop = top + 168;
     const panelHeight = 318;
-    this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, true);
+    this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, true, masterRatingLabel);
     this.renderRankTrack(centerX, panelTop + panelHeight + 10, width, 100, mastery.currentRank, true, copy);
   }
 
@@ -150,6 +158,7 @@ export class MasteryScene extends Phaser.Scene {
     mastery: ReturnType<typeof getMasterySnapshot>,
     copy: ReturnType<typeof getUiCopy>,
     narrow: boolean,
+    masterRatingLabel?: string,
   ): void {
     createMasteryRequirementPanel(this, centerX, topY + height / 2, width, height);
 
@@ -162,6 +171,30 @@ export class MasteryScene extends Phaser.Scene {
       color: '#fff1d2',
       fontStyle: 'bold',
     }).setOrigin(0.5);
+
+    if (mastery.nextRank === null && masterRatingLabel !== undefined) {
+      this.add.text(centerX, topY + height * (narrow ? 0.43 : 0.4), copy.mastery.rating(masterRatingLabel), {
+        fontFamily: 'monospace',
+        fontSize: narrow ? '20px' : '28px',
+        color: '#f0bd63',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+
+      const buttonWidth = Math.min(width * 0.72, narrow ? 280 : 360);
+      const button = createCenteredTextMenuButton(this, {
+        x: centerX,
+        y: topY + height * (narrow ? 0.68 : 0.64),
+        width: buttonWidth,
+        height: narrow ? 48 : 54,
+        label: copy.mastery.ratingLeaderboard,
+        labelColor: '#f4ead7',
+        onActivate: () => this.scene.start(MASTER_RATING_LEADERBOARD_SCENE_KEY),
+      });
+      button.fill.setDepth(40);
+      button.frame.setDepth(41);
+      button.label.setDepth(42);
+      return;
+    }
 
     const visibleConditions = mastery.conditions.slice(0, 3);
     const rowHeight = narrow ? 86 : 102;

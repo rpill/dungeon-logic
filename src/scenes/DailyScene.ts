@@ -351,7 +351,6 @@ export class DailyScene extends Phaser.Scene {
           arrow.setInteractive({ useHandCursor: true })
             .on('pointerover', () => {
               arrow.setColor('#f0bd63');
-              getAudioFeedback(this).play('ui-hover');
             })
             .on('pointerout', () => arrow.setColor(restingColor))
             .on('pointerup', (pointer: Phaser.Input.Pointer) => {
@@ -520,7 +519,6 @@ export class DailyScene extends Phaser.Scene {
           cellHit
             .on('pointerover', () => {
               hoverOverlay.setAlpha(0.16).setVisible(true);
-              getAudioFeedback(this).play('ui-hover');
             })
             .on('pointerout', () => {
               hoverOverlay.setVisible(false);

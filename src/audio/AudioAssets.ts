@@ -3,7 +3,6 @@ import type Phaser from 'phaser';
 export const AUDIO_KEYS = {
   musicLoveSerenade: 'music-love-serenade',
   uiClick: 'audio-ui-click',
-  uiHover: 'audio-ui-hover',
   wallPlace: 'audio-wall-place',
   wallRemove: 'audio-wall-remove',
   markerToggle: 'audio-marker-toggle',
@@ -17,7 +16,6 @@ export const AUDIO_KEYS = {
 export function preloadAudioFeedbackAssets(scene: Phaser.Scene): void {
   scene.load.audio(AUDIO_KEYS.musicLoveSerenade, 'assets/music/love-serenade-loop.ogg');
   scene.load.audio(AUDIO_KEYS.uiClick, 'assets/audio/ui-click.wav');
-  scene.load.audio(AUDIO_KEYS.uiHover, 'assets/audio/ui-hover.wav');
   scene.load.audio(AUDIO_KEYS.wallPlace, 'assets/audio/wall-place.wav');
   scene.load.audio(AUDIO_KEYS.wallRemove, 'assets/audio/wall-remove.wav');
   scene.load.audio(AUDIO_KEYS.markerToggle, 'assets/audio/marker-toggle.wav');

@@ -20,6 +20,7 @@ import {
   type AvailableViewport,
 } from '../runtime/AvailableViewport';
 import { createCampaignLevelPreview, type CampaignLevelPreview } from '../runtime/CampaignLevelPreview';
+import { CampaignRowUnlockGate } from '../runtime/CampaignRowUnlockGate';
 import {
   createCampaignGameSceneData,
   createLevelSelectItems,
@@ -161,6 +162,7 @@ export class LevelSelectScene extends Phaser.Scene {
   private mobileSwipeStartY = 0;
   private mobileSwipeDragged = false;
   private readonly pointerGate = new MetaPointerGate();
+  private readonly rowUnlockGate = new CampaignRowUnlockGate();
 
   constructor() {
     super('LevelSelectScene');
@@ -193,7 +195,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const progress = service.getProgress();
     const items = createLevelSelectItems(service.getLevels(), progress, profile.tutorial.completed);
     const availableViewport = this.getAvailableViewport();
-    const rowUnlock = data.rowUnlock ?? null;
+    const rowUnlock = this.rowUnlockGate.consume(data.rowUnlock);
     const mobilePaged = shouldUseMobileLevelPaging(availableViewport.width);
     const mobilePageCount = Math.max(1, Math.ceil(items.length / MOBILE_LEVELS_PER_PAGE));
     const mobilePageIndex = mobilePaged
@@ -341,7 +343,6 @@ export class LevelSelectScene extends Phaser.Scene {
         cardZone
           .on('pointerover', () => {
             hoverOverlay.setAlpha(0.16).setVisible(true);
-            getAudioFeedback(this).play('ui-hover');
           })
           .on('pointerout', () => {
             hoverOverlay.setVisible(false);

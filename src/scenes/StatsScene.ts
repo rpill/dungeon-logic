@@ -156,7 +156,6 @@ export class StatsScene extends Phaser.Scene {
       hoverOverlay.setInteractive({ useHandCursor: true })
         .on('pointerover', () => {
           hoverOverlay.setFillStyle(0x5b7eb1, 0.12);
-          getAudioFeedback(this).play('ui-hover');
         })
         .on('pointerout', () => hoverOverlay.setFillStyle(0x5b7eb1, 0))
         .on('pointerdown', () => hoverOverlay.setFillStyle(0x5b7eb1, 0.2))

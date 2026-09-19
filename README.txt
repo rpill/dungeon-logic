@@ -1,11 +1,12 @@
-Dungeon Logic - pre-release profile squash patch
+Dungeon Logic - remove UI hover audio
 
-1. Extract ALL files from this archive directly into the project root
-   (the folder containing package.json).
-2. Run apply-profile-squash.cmd.
+1. Extract BOTH files from this archive into the project root (next to package.json).
+2. Run apply-remove-ui-hover.cmd.
 
-The launcher resolves the project directory from its own location; it does
-not pass a quoted trailing-backslash path from CMD to PowerShell.
-
-The script runs `git apply --check` first. Only if that succeeds does it
-apply prerelease-profile-squash.patch.
+The patch:
+- removes every ui-hover playback call from UI buttons/cards/toolbars;
+- removes ui-hover from AudioFeedbackService;
+- removes ui-hover preload/key;
+- deletes public/assets/audio/ui-hover.wav;
+- keeps visual hover states and ui-click / gameplay sounds unchanged;
+- updates audio sanity checks to enforce that hover audio stays removed.

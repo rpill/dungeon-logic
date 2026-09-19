@@ -15,6 +15,7 @@ import type { DailyEntry } from '../content/daily/types';
 import type { TutorialLevelEntry } from '../content/tutorial/types';
 import type { DailyAttemptLaunch, DailyCompletionResult } from '../daily/DailyService';
 import type { LevelDefinition } from '../puzzle/types';
+import type { EndlessActiveKind } from '../profile/types';
 
 export const ONBOARDING_COPY: Readonly<Record<CampaignOnboardingId, string>> = {
   'row-column-clues': 'Numbers show how many wall cells belong in each row and column.',
@@ -83,6 +84,7 @@ export function createTutorialGameSceneData(entry: TutorialLevelEntry): GameScen
 export function createEndlessGameSceneData(
   level: LevelDefinition,
   ordinal: number,
+  kind: EndlessActiveKind,
   analyticsAttempt?: GameAnalyticsAttempt,
 ): GameSceneData {
   return {
@@ -90,6 +92,7 @@ export function createEndlessGameSceneData(
     context: {
       mode: 'endless',
       ordinal,
+      kind,
       analyticsAttempt,
     },
     onboarding: [],

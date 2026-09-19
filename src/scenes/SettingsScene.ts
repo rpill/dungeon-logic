@@ -261,7 +261,6 @@ export class SettingsScene extends Phaser.Scene {
     hit.on('pointerover', () => {
       if (this.mutationPending || this.launchPending) return;
       draw(0x254264);
-      getAudioFeedback(this).play('ui-hover');
     });
     hit.on('pointerout', () => draw(0x1b3152));
     hit.on('pointerdown', () => {
@@ -348,7 +347,6 @@ export class SettingsScene extends Phaser.Scene {
     hit.on('pointerover', () => {
       if (this.mutationPending || this.launchPending) return;
       draw(0x254264);
-      getAudioFeedback(this).play('ui-hover');
     });
     hit.on('pointerout', () => draw(0x1a2f50));
     hit.on('pointerdown', () => {

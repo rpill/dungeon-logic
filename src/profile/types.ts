@@ -39,16 +39,32 @@ export interface TutorialProfileState {
   readonly activePuzzle: SerializedPuzzleState | null;
 }
 
+export type EndlessActiveKind = 'fresh' | 'retry' | 'freeplay';
+
 export interface EndlessProfileState {
-  /** Zero-based logical Endless puzzle number. The finite verified catalog is an internal pool. */
-  readonly ordinal: number;
-  /** Total Endless puzzles solved. This count is intentionally unbounded. */
+  /** Next catalog index that has never been served in ranked Endless. */
+  readonly nextFreshIndex: number;
+  /** Unique ranked catalog entries actually solved. */
   readonly completed: number;
+  /** Ordered unique catalog indices skipped and still awaiting a ranked solve. */
+  readonly skipped: readonly number[];
+  /** Fresh ranked solves since the last skipped-puzzle retry was resolved or re-skipped. */
+  readonly freshSolvesSinceRetry: number;
+  /** Persisted current catalog selection so reload resumes the exact same puzzle. */
+  readonly activeCatalogIndex: number | null;
+  readonly activeKind: EndlessActiveKind | null;
   readonly activePuzzle: SerializedPuzzleState | null;
-  /** Consecutive Endless solves completed without any hints. */
+  /** Consecutive ranked Endless solves completed without any hints. */
   readonly currentCleanStreak: number;
-  /** Highest clean Endless streak ever achieved. */
+  /** Highest ranked clean Endless streak ever achieved. */
   readonly bestCleanStreak: number;
+  /** Number of Free Play advances after every ranked catalog entry has been solved. */
+  readonly freePlayOrdinal: number;
+}
+
+export interface MasteryProfileState {
+  /** Lifetime Master Rating. Accumulates before MASTER but stays hidden until MASTER. */
+  readonly rating: number;
 }
 
 export interface PlayerSettings {
@@ -72,6 +88,7 @@ export interface PlayerProfile {
   };
   readonly daily: DailyProfileState;
   readonly endless: EndlessProfileState;
+  readonly mastery: MasteryProfileState;
   readonly settings: PlayerSettings;
   readonly hints: {
     readonly freeRemaining: number;

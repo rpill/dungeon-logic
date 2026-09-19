@@ -7,6 +7,7 @@ import { DAILY_SERVICE_REGISTRY_KEY, DailyService } from '../daily/DailyService'
 import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
 import { getUiCopy } from '../i18n/UiCopy';
 import { getMasterySnapshot } from '../mastery/MasteryProgress';
+import { formatMasterRating } from '../mastery/MasterRating';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
 import type { PlatformServices } from '../platform/services';
 import {
@@ -117,6 +118,7 @@ export class HomeScene extends Phaser.Scene {
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
     const mastery = getMasterySnapshot(profile);
+    const endlessProgress = endless.getProgress();
     const copy = getUiCopy(profile.settings.language);
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.screenView('home');
@@ -267,6 +269,9 @@ export class HomeScene extends Phaser.Scene {
       height: masteryHeight,
       snapshot: mastery,
       copy: copy.mastery,
+      masterRatingLabel: mastery.currentRank === 'MASTER'
+        ? copy.mastery.rating(formatMasterRating(profile.mastery.rating, profile.settings.language))
+        : undefined,
       onActivate: (pointer) => {
         if (!this.pointerGate.canActivate(pointer.id)) return;
         this.scene.start(MASTERY_SCENE_KEY);
@@ -303,7 +308,14 @@ export class HomeScene extends Phaser.Scene {
       variant: 'wide',
       label: copy.home.endless,
       subtitle: endlessUnlocked
-        ? copy.home.endlessStreak(profile.endless.currentCleanStreak, profile.endless.bestCleanStreak)
+        ? endlessProgress.rankedComplete
+          ? copy.home.endlessFreePlay(endlessProgress.catalogLength)
+          : copy.home.endlessProgress(
+              endlessProgress.completed,
+              endlessProgress.catalogLength,
+              profile.endless.currentCleanStreak,
+              profile.endless.bestCleanStreak,
+            )
         : copy.home.endlessLockedAfterLevel,
       icon: 'endless',
       enabled: endlessUnlocked,
@@ -556,6 +568,7 @@ export class HomeScene extends Phaser.Scene {
       this.scene.start('GameScene', createEndlessGameSceneData(
         launch.level,
         launch.ordinal,
+        launch.kind,
         launch.attempt,
       ));
     } catch (error) {

@@ -154,7 +154,6 @@ export function createHeaderActionButton(
   hit.on('pointerover', () => {
     state = 'hover';
     redraw();
-    getAudioFeedback(scene).play('ui-hover');
   });
   hit.on('pointerout', () => {
     state = 'normal';

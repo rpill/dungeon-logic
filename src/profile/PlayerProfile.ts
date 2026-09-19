@@ -1,5 +1,6 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { isSupportedLanguage, type SupportedLanguage } from '../i18n/Language';
+import { MASTER_RATING_BASE } from '../mastery/MasterRating';
 import { CellState } from '../puzzle/types';
 import type {
   CampaignLevelResult,
@@ -34,6 +35,7 @@ type CurrentProfileEnvelope = Record<string, unknown> & {
   readonly campaign: Record<string, unknown>;
   readonly daily: Record<string, unknown>;
   readonly endless: Record<string, unknown>;
+  readonly mastery?: unknown;
   readonly settings: Record<string, unknown>;
   readonly hints: Record<string, unknown>;
   readonly ads: Record<string, unknown>;
@@ -198,16 +200,50 @@ function normalizeDaily(value: unknown): DailyProfileState {
 
 function normalizeEndless(value: unknown): PlayerProfile['endless'] {
   const raw = isRecord(value) ? value : {};
-  const completed = nonNegativeInteger(raw.completed);
-  const ordinal = Math.max(completed, nonNegativeInteger(raw.ordinal, completed));
-  const activePuzzle = normalizeSerializedPuzzleState(raw.activePuzzle, 'endless');
+  const rawCompleted = nonNegativeInteger(raw.completed);
+  const nextFreshIndex = Math.max(
+    rawCompleted,
+    nonNegativeInteger(raw.nextFreshIndex, rawCompleted),
+  );
+  const completed = Math.min(rawCompleted, nextFreshIndex);
+  const skipped = Array.isArray(raw.skipped)
+    ? [...new Set(raw.skipped
+      .filter((value): value is number => Number.isInteger(value) && typeof value === 'number' && value >= 0 && value < nextFreshIndex))]
+    : [];
+  const rawActiveCatalogIndex = nonNegativeInteger(raw.activeCatalogIndex, -1);
+  const activeCatalogIndex = rawActiveCatalogIndex >= 0 ? rawActiveCatalogIndex : null;
+  const activeKind = raw.activeKind === 'fresh' || raw.activeKind === 'retry' || raw.activeKind === 'freeplay'
+    ? raw.activeKind
+    : null;
+  const hasActiveSelection = activeCatalogIndex !== null && activeKind !== null;
+  const activePuzzle = hasActiveSelection
+    ? normalizeSerializedPuzzleState(raw.activePuzzle, 'endless')
+    : null;
   const currentCleanStreak = nonNegativeInteger(raw.currentCleanStreak);
   const bestCleanStreak = Math.max(
     currentCleanStreak,
     nonNegativeInteger(raw.bestCleanStreak),
   );
 
-  return { ordinal, completed, activePuzzle, currentCleanStreak, bestCleanStreak };
+  return {
+    nextFreshIndex,
+    completed,
+    skipped,
+    freshSolvesSinceRetry: nonNegativeInteger(raw.freshSolvesSinceRetry),
+    activeCatalogIndex: hasActiveSelection ? activeCatalogIndex : null,
+    activeKind: hasActiveSelection ? activeKind : null,
+    activePuzzle,
+    currentCleanStreak,
+    bestCleanStreak,
+    freePlayOrdinal: nonNegativeInteger(raw.freePlayOrdinal),
+  };
+}
+
+function normalizeMastery(value: unknown): PlayerProfile['mastery'] {
+  const raw = isRecord(value) ? value : {};
+  return {
+    rating: nonNegativeInteger(raw.rating, MASTER_RATING_BASE),
+  };
 }
 
 function normalizeTutorial(value: unknown): TutorialProfileState {
@@ -262,11 +298,19 @@ export function createFreshPlayerProfile(
       results: {},
     },
     endless: {
-      ordinal: 0,
+      nextFreshIndex: 0,
       completed: 0,
+      skipped: [],
+      freshSolvesSinceRetry: 0,
+      activeCatalogIndex: null,
+      activeKind: null,
       activePuzzle: null,
       currentCleanStreak: 0,
       bestCleanStreak: 0,
+      freePlayOrdinal: 0,
+    },
+    mastery: {
+      rating: MASTER_RATING_BASE,
     },
     settings: {
       musicEnabled: true,
@@ -348,6 +392,7 @@ export function normalizePlayerProfile(
     },
     daily: normalizeDaily(raw.daily),
     endless: normalizeEndless(raw.endless),
+    mastery: normalizeMastery(raw.mastery),
     settings: normalizeSettings(raw.settings, defaultLanguage),
     hints: {
       freeRemaining: Math.min(3, nonNegativeInteger(rawHints.freeRemaining, fresh.hints.freeRemaining)),

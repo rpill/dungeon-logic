@@ -1,3 +1,4 @@
+import { GameBoardViewportTooSmallError, tryGameBoardLayoutForResize } from '../scenes/GameBoardLayout';
 import * as layoutModule from '../scenes/GameBoardLayout';
 
 interface GameBoardLayout {
@@ -16,6 +17,8 @@ type LayoutCalculator = (
   viewportHeight: number,
   boardColumns: number,
   boardRows: number,
+  touchControls?: boolean,
+  inlineTouchControls?: boolean,
 ) => GameBoardLayout;
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -35,6 +38,48 @@ const calculateGameBoardLayout = (layoutModule as unknown as {
 
 assert(typeof classifyViewport === 'function', 'classifyViewport() must exist.');
 assert(typeof calculateGameBoardLayout === 'function', 'calculateGameBoardLayout() must exist.');
+assert(
+  typeof GameBoardViewportTooSmallError === 'function',
+  'GameBoardViewportTooSmallError must identify transient resize failures.',
+);
+
+let tinyViewportError: unknown = null;
+try {
+  calculateGameBoardLayout(800, 180, 7, 7, true);
+} catch (error) {
+  tinyViewportError = error;
+}
+assert(
+  tinyViewportError instanceof GameBoardViewportTooSmallError,
+  'A viewport temporarily smaller than header + toolbar reserves uses the dedicated transient error.',
+);
+
+let invalidBoardError: unknown = null;
+try {
+  calculateGameBoardLayout(800, 600, 0, 7);
+} catch (error) {
+  invalidBoardError = error;
+}
+assert(invalidBoardError instanceof RangeError, 'Invalid board dimensions still fail loudly.');
+assert(
+  !(invalidBoardError instanceof GameBoardViewportTooSmallError),
+  'Invalid board dimensions must not be mistaken for a transient resize failure.',
+);
+
+const retainedDuringTinyResize = tryGameBoardLayoutForResize(() => {
+  throw new GameBoardViewportTooSmallError('transient');
+});
+assert(retainedDuringTinyResize === null, 'Transient resize failure skips the relayout.');
+
+let programmingErrorRethrown = false;
+try {
+  tryGameBoardLayoutForResize(() => {
+    throw new Error('programming error');
+  });
+} catch (error) {
+  programmingErrorRethrown = error instanceof Error && error.message === 'programming error';
+}
+assert(programmingErrorRethrown, 'Non-viewport layout errors are rethrown instead of being hidden.');
 
 assert(classifyViewport(1280) === 'wide', '1280px viewport is wide.');
 assert(classifyViewport(1100) === 'wide', '1100px is the inclusive wide threshold.');

@@ -9,7 +9,7 @@ import {
 import { PuzzleAnalyticsSession, classifyPuzzleAttempt } from '../analytics/PuzzleAnalyticsSession';
 import { NOOP_ANALYTICS_TRANSPORT } from '../analytics/AnalyticsTransport';
 import { BoardView } from '../board/BoardView';
-import { useInlineTouchToolbar } from './GameBoardLayout';
+import { tryGameBoardLayoutForResize, useInlineTouchToolbar } from './GameBoardLayout';
 import { BOARD_FRAME } from '../view/BoardFrameMetrics';
 import { WIREFRAME } from '../board/CellView';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
@@ -25,7 +25,7 @@ import {
   type DailyCompletionResult,
 } from '../daily/DailyService';
 import { encodeDailyLeaderboardScore, getDailyLeaderboardName } from '../daily/DailyLeaderboard';
-import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService } from '../endless/EndlessService';
+import { ENDLESS_SERVICE_REGISTRY_KEY, EndlessService, type EndlessCompletionResult } from '../endless/EndlessService';
 import { chooseHint, requestHint, type PuzzleHint } from '../gameplay/HintService';
 import { RANKED_DAILY_HINT_UNLOCK_MS } from '../gameplay/HintEconomy';
 import { MonetizationService } from '../monetization/MonetizationService';
@@ -83,6 +83,9 @@ import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/H
 import { drawMaterialButtonBackground, getMaterialButtonContentY } from '../runtime/MaterialActionButton';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { formatMasteryProgressNote } from '../runtime/MasteryCompletion';
+import { syncMasterRatingLeaderboard } from '../mastery/MasterRatingLeaderboard';
+import { formatMasterRating } from '../mastery/MasterRating';
+import { getMasterySnapshot } from '../mastery/MasteryProgress';
 import { showMasteryRankUpOverlay } from '../runtime/MasteryRankUpOverlay';
 import {
   calculatePuzzleToolbarLayout,
@@ -325,7 +328,11 @@ export class GameScene extends Phaser.Scene {
         return copy.game.tutorialTitle(tutorialEntry.slot, tutorialLevelTotal);
       }
       if (launchData.context.mode === 'daily') return copy.game.dailyTitle;
-      if (endlessContext !== null) return copy.game.endlessTitle(endlessContext.ordinal + 1);
+      if (endlessContext !== null) {
+        return endlessContext.kind === 'freeplay'
+          ? copy.game.endlessFreePlayTitle((profileService?.getProfile().endless.freePlayOrdinal ?? 0) + 1)
+          : copy.game.endlessTitle(endlessContext.ordinal + 1);
+      }
       return 'Dungeon Logic';
     };
 
@@ -354,8 +361,9 @@ export class GameScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     let displayedChallengeStreak = profileAtStart?.endless.currentCleanStreak ?? 0;
-    const challengeStreakBackground = endlessContext === null ? null : this.add.graphics();
-    const challengeStreakText = endlessContext === null
+    const rankedEndless = endlessContext !== null && endlessContext.kind !== 'freeplay';
+    const challengeStreakBackground = !rankedEndless ? null : this.add.graphics();
+    const challengeStreakText = !rankedEndless
       ? null
       : this.add.text(this.scale.width / 2, 0, copy.game.endlessCleanStreak(displayedChallengeStreak), {
           fontFamily: 'monospace',
@@ -483,19 +491,24 @@ export class GameScene extends Phaser.Scene {
       .on('pointerover', () => {
         backHovered = true;
         redrawTopActions();
-        feedback.play('ui-hover');
       })
       .on('pointerout', () => { backHovered = false; redrawTopActions(); });
     menuHit
       .on('pointerover', () => {
         menuHovered = true;
         redrawTopActions();
-        feedback.play('ui-hover');
       })
       .on('pointerout', () => { menuHovered = false; redrawTopActions(); });
     layoutTopActions();
 
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
+    const syncMasterRating = (): void => {
+      if (profileService === null || platformServices == null) return;
+      void syncMasterRatingLeaderboard(profileService.getProfile(), platformServices.leaderboards)
+        .catch((error) => {
+          console.warn('[Dungeon Logic] Could not sync Master Rating leaderboard yet.', error);
+        });
+    };
     const monetizationService = profileService !== null && platformServices != null
       ? MonetizationService.create(
           profileService,
@@ -565,6 +578,8 @@ export class GameScene extends Phaser.Scene {
     let onboardingBlocksTimer = false;
     let resetDialogOpen = false;
     let resetDialog: Phaser.GameObjects.Container | null = null;
+    let skipDialogOpen = false;
+    let skipDialog: Phaser.GameObjects.Container | null = null;
     let hintConfirmOpen = false;
     let hintConfirmMode: 'free' | 'rewarded' | null = null;
     let rewardedHintRequestPending = false;
@@ -644,7 +659,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const internalTimerMayRun = (): boolean => {
-      if (solved || onboardingBlocksTimer || resetDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) return false;
+      if (solved || onboardingBlocksTimer || resetDialogOpen || skipDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) return false;
       return typeof document === 'undefined' || !document.hidden;
     };
 
@@ -803,6 +818,7 @@ export class GameScene extends Phaser.Scene {
           ? floorMarkIconSize
           : (narrowToolbar ? 22 : 28);
       if (visual.icon === null) {
+        fitToolbarLabelToButton(visual, width, 0, 0);
         visual.label.setPosition(x, contentY).setOrigin(0.5);
       } else {
         visual.icon.setDisplaySize(iconSize, iconSize);
@@ -822,6 +838,7 @@ export class GameScene extends Phaser.Scene {
       showTouchToolButtons,
       boardLayout.originY + boardLayout.boardHeight + boardLayout.cellSize * BOARD_FRAME.bottom,
       showTouchToolButtons && currentHint !== null,
+      endlessContext !== null,
     );
     const recalculateToolbarLayout = (layout = boardLayout): void => {
       toolbarLayout = calculatePuzzleToolbarLayout(
@@ -831,6 +848,7 @@ export class GameScene extends Phaser.Scene {
         showTouchToolButtons,
         layout.originY + layout.boardHeight + layout.cellSize * BOARD_FRAME.bottom,
         showTouchToolButtons && currentHint !== null,
+        endlessContext !== null,
       );
     };
 
@@ -851,7 +869,7 @@ export class GameScene extends Phaser.Scene {
       const currentChrome = calculatePuzzleChromeLayout(width, this.scale.height);
       if (showTouchToolButtons && currentHint !== null && toolbarLayout.mode === 'stacked') {
         const toolButtons = toolbarLayout.buttons.filter((button) => button.id === 'wall' || button.id === 'floor');
-        const actionButtons = toolbarLayout.buttons.filter((button) => button.id === 'undo' || button.id === 'reset' || button.id === 'hint');
+        const actionButtons = toolbarLayout.buttons.filter((button) => button.id === 'undo' || button.id === 'reset' || button.id === 'hint' || button.id === 'skip');
         if (toolButtons.length > 0 && actionButtons.length > 0) {
           const toolBottom = Math.max(...toolButtons.map((button) => button.y + button.height / 2));
           const actionTop = Math.min(...actionButtons.map((button) => button.y - button.height / 2));
@@ -970,6 +988,7 @@ export class GameScene extends Phaser.Scene {
       solved
       || onboardingBlocksInteraction
       || resetDialogOpen
+      || skipDialogOpen
       || hintConfirmOpen
       || gameMenuOpen
       || platformGameplayActivity?.isPlatformPaused() === true
@@ -980,7 +999,7 @@ export class GameScene extends Phaser.Scene {
       gameMenuOpen = false;
       gameMenuContainer?.destroy(true);
       gameMenuContainer = null;
-      if (!solved && !resetDialogOpen && !hintConfirmOpen) {
+      if (!solved && !resetDialogOpen && !skipDialogOpen && !hintConfirmOpen) {
         board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       resumeActiveTimer();
@@ -1094,7 +1113,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const openGameMenu = (): void => {
-      if (gameMenuOpen || resetDialogOpen || hintConfirmOpen || rewardedHintRequestPending) return;
+      if (gameMenuOpen || resetDialogOpen || skipDialogOpen || hintConfirmOpen || rewardedHintRequestPending) return;
       gameMenuOpen = true;
       board?.setInputEnabled(false);
       pauseActiveTimer();
@@ -1126,6 +1145,7 @@ export class GameScene extends Phaser.Scene {
             disabled: true,
           }
           : undefined,
+        endlessContext !== null,
       );
       const step = currentOnboardingStep();
 
@@ -1140,6 +1160,7 @@ export class GameScene extends Phaser.Scene {
         const resetAllowedInReview = completedReview && buttonState.id === 'reset';
         const disabled = (solved && !resetAllowedInReview)
           || resetDialogOpen
+          || skipDialogOpen
           || !toolAllowed
           || buttonState.disabled
           || (buttonState.id === 'reset' && !completedReview && interaction.getEditCount() === 0)
@@ -1267,7 +1288,7 @@ export class GameScene extends Phaser.Scene {
       hintConfirmContainer = null;
       hintConfirmOpen = false;
       hintConfirmMode = null;
-      if (!solved && !onboardingOpen && !resetDialogOpen) {
+      if (!solved && !onboardingOpen && !resetDialogOpen && !skipDialogOpen) {
         board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       setToolbarVisible(!completionMode);
@@ -1545,6 +1566,7 @@ export class GameScene extends Phaser.Scene {
       this.scene.start('GameScene', createEndlessGameSceneData(
         launch.level,
         launch.ordinal,
+        launch.kind,
         launch.attempt,
       ));
     };
@@ -1665,15 +1687,31 @@ ${featureUnlockMessages.join('\n')}`
       renderCompletionButtons();
     };
 
-    const showEndlessCompletionState = (completed: number, masteryNote: string = ''): void => {
+    const showEndlessCompletionState = (result: EndlessCompletionResult, masteryNote: string = ''): void => {
       completionMode = true;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
+      const progressCopy = result.ranked
+        ? copy.home.endlessProgress(
+          result.completed,
+          result.catalogLength,
+          result.currentCleanStreak,
+          result.bestCleanStreak,
+        )
+        : copy.game.endlessFreePlayNoRating;
+      const ratingVisible = profileService !== null
+        && getMasterySnapshot(profileService.getProfile()).currentRank === 'MASTER';
+      const ratingCopy = ratingVisible && result.ranked && result.ratingAward > 0
+        ? `+${result.ratingAward} · ${copy.mastery.rating(formatMasterRating(result.masterRating, language))}`
+        : '';
       statusText
         .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
         .setAlign('center')
-        .setText(`✓ ${copy.common.solved}\n${copy.home.endlessSolved(completed)}${masteryNote ? `\n${masteryNote}` : ''}`)
+        .setText(`✓ ${copy.common.solved}
+${progressCopy}${ratingCopy ? `
+${ratingCopy}` : ''}${masteryNote ? `
+${masteryNote}` : ''}`)
         .setColor('#d8d1c4')
         .setVisible(true);
 
@@ -1694,6 +1732,7 @@ ${featureUnlockMessages.join('\n')}`
             this.scene.restart(createEndlessGameSceneData(
               next.level,
               next.ordinal,
+              next.kind,
               next.attempt,
             ));
           },
@@ -1945,7 +1984,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       board?.setTutorialGuideClue(null);
       boardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve());
       board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
-      if (!solved && !resetDialogOpen) {
+      if (!solved && !resetDialogOpen && !skipDialogOpen) {
         board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       statusText.setVisible(true);
@@ -2001,7 +2040,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     };
 
     const setActiveTool = (tool: 'wall' | 'floor'): void => {
-      if (solved || resetDialogOpen) return;
+      if (solved || resetDialogOpen || skipDialogOpen) return;
       if (onboardingOpen && !onboardingAllowsTool(tool)) return;
 
       board?.setActiveTool(tool);
@@ -2157,7 +2196,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
 
     const requestReset = (): void => {
       if (completedReview) {
-        if (resetDialogOpen || hintConfirmOpen || platformGameplayActivity?.isPlatformPaused() === true) return;
+        if (resetDialogOpen || skipDialogOpen || hintConfirmOpen || platformGameplayActivity?.isPlatformPaused() === true) return;
         showResetDialog();
         return;
       }
@@ -2168,6 +2207,136 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       }
       performPlayableReset();
       syncToolbar();
+    };
+
+
+    const closeSkipDialog = (): void => {
+      skipDialog?.destroy(true);
+      skipDialog = null;
+      skipDialogOpen = false;
+      if (!solved && !onboardingOpen && !resetDialogOpen) {
+        board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
+      }
+      resumeActiveTimer();
+      syncToolbar();
+    };
+
+    const relayoutSkipDialog = (): void => {
+      if (skipDialog === null) return;
+      skipDialog.setPosition(this.scale.width / 2, this.scale.height / 2);
+    };
+
+    const performSkip = async (): Promise<void> => {
+      if (completionTransitionPending || endlessContext === null || endlessService === null) return;
+      completionTransitionPending = true;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      puzzleSession?.clearActivePuzzle();
+      skipDialog?.destroy(true);
+      skipDialog = null;
+      skipDialogOpen = false;
+
+      try {
+        await endlessService.skipCurrent(endlessContext.ordinal);
+        if (createVersion !== this.createVersion || !this.scene.isActive()) return;
+        const next = endlessService.beginCurrent();
+        this.scene.restart(createEndlessGameSceneData(
+          next.level,
+          next.ordinal,
+          next.kind,
+          next.attempt,
+        ));
+      } catch (error) {
+        completionTransitionPending = false;
+        console.error('[Dungeon Logic] Could not skip Endless level.', error);
+        if (createVersion === this.createVersion && this.scene.isActive()) {
+          board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
+          resumeActiveTimer();
+          syncToolbar();
+        }
+      }
+    };
+
+    const showSkipDialog = (): void => {
+      if (endlessContext === null || endlessService === null || controlsLocked() || completionTransitionPending) return;
+      skipDialogOpen = true;
+      board?.setInputEnabled(false);
+      pauseActiveTimer();
+      savePuzzleSession();
+      syncToolbar();
+
+      const modalChrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
+      const width = Math.min(420, modalChrome.modalWidth);
+      const height = 206;
+      const container = this.add.container(this.scale.width / 2, this.scale.height / 2).setDepth(82);
+      skipDialog = container;
+
+      const shadow = this.add.graphics();
+      shadow.fillStyle(0x050a13, 0.42);
+      shadow.fillRoundedRect(-width / 2 + 4, -height / 2 + 7, width, height, 12);
+      const panel = this.add.graphics();
+      panel.fillStyle(0x1f2c4a, 0.98);
+      panel.fillRoundedRect(-width / 2, -height / 2, width, height, 12);
+      panel.lineStyle(1, 0x4b6386, 0.92);
+      panel.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
+
+      const title = this.add.text(0, -70, copy.game.skipTitle, {
+        fontFamily: 'monospace',
+        fontSize: `${modalChrome.modalTitleFontSize}px`,
+        color: '#f0bd63',
+        fontStyle: 'bold',
+        align: 'center',
+      }).setOrigin(0.5);
+      const body = this.add.text(
+        0,
+        -20,
+        endlessContext.kind === 'freeplay' ? copy.game.skipFreePlayBody : copy.game.skipBody,
+        {
+          fontFamily: 'monospace',
+          fontSize: `${modalChrome.modalCopyFontSize}px`,
+          color: '#e7e1d6',
+          align: 'center',
+          lineSpacing: 3,
+          wordWrap: { width: width - 48 },
+        },
+      ).setOrigin(0.5);
+
+      const gap = 10;
+      const buttonWidth = Math.floor((width - 44 - gap) / 2);
+      const buttonY = 58;
+      const buttonHeight = 48;
+      const cancelButton = createCenteredTextMenuButton(this, {
+        x: -buttonWidth / 2 - gap / 2,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: copy.common.cancel,
+        labelColor: '#f4ead7',
+        compact: true,
+        onActivate: closeSkipDialog,
+      });
+      const skipButton = createCenteredTextMenuButton(this, {
+        x: buttonWidth / 2 + gap / 2,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight,
+        label: copy.game.skip,
+        labelColor: '#f4ead7',
+        compact: true,
+        variant: 'danger',
+        onActivate: () => { void performSkip(); },
+      });
+      container.add([
+        shadow, panel, title, body,
+        cancelButton.fill, cancelButton.frame, cancelButton.label,
+        skipButton.fill, skipButton.frame, skipButton.label,
+      ]);
+    };
+
+    const requestSkip = (): void => {
+      if (endlessContext === null || skipDialogOpen || resetDialogOpen || hintConfirmOpen) return;
+      showSkipDialog();
     };
 
     const handlePuzzleChanged = (): void => {
@@ -2239,6 +2408,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           metadata,
         ).then((result) => {
           if (result === null || createVersion !== this.createVersion) return;
+          if (result.wasFirstSolve) syncMasterRating();
           puzzleAnalytics?.complete({
             elapsedMs: metadata.bestTimeMs,
             hintsUsed: metadata.minHintsUsed,
@@ -2303,6 +2473,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         if (service === null) return;
         void service.completeCurrent(launchData.context.ordinal, metadata.minHintsUsed).then((result) => {
           if (createVersion !== this.createVersion) return;
+          syncMasterRating();
           const masteryEndlessTransition = masteryBeforeEndless !== null && profileService !== null
             ? compareMastery(masteryBeforeEndless, profileService.getProfile(), 'endless')
             : null;
@@ -2315,7 +2486,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           });
           this.time.delayedCall(500, () => {
             if (createVersion !== this.createVersion) return;
-            showEndlessCompletionState(result.completed, masteryEndlessNote);
+            showEndlessCompletionState(result, masteryEndlessNote);
             showMasteryRankUpIfNeeded(masteryEndlessTransition, 'endless');
           });
         }).catch((error) => {
@@ -2336,6 +2507,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         metadata,
       ).then((result) => {
         if (result === null || createVersion !== this.createVersion) return;
+        syncMasterRating();
         puzzleAnalytics?.complete({
           elapsedMs: metadata.bestTimeMs,
           hintsUsed: metadata.minHintsUsed,
@@ -2422,6 +2594,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       },
       reset: requestReset,
       hint: showHintConfirm,
+      skip: requestSkip,
     };
 
     const initialToolbarState = createPuzzleToolbarState(
@@ -2431,6 +2604,8 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       rankedDaily ? 0 : profileService?.getFreeHintsRemaining() ?? 0,
       rankedDaily ? false : rewardedHintAvailable,
       language,
+      undefined,
+      endlessContext !== null,
     );
     for (const buttonState of initialToolbarState.buttons) {
       const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
@@ -2476,7 +2651,6 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         .on('pointerover', () => {
           visual.hovered = true;
           redrawToolbarBackground(visual);
-          if (!visual.disabled) feedback.play('ui-hover');
         })
         .on('pointerout', () => {
           visual.hovered = false;
@@ -2518,6 +2692,10 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       }
       if (hintConfirmOpen) {
         closeHintConfirm();
+        return;
+      }
+      if (skipDialogOpen) {
+        closeSkipDialog();
         return;
       }
       if (resetDialogOpen) return;
@@ -2596,17 +2774,22 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     keyboard?.on('keydown', handleKeyDown);
 
     const relayoutGameViewport = (): void => {
-      sceneBackground.sync();
-
       const width = this.scale.width;
       const height = this.scale.height;
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+
+      sceneBackground.sync();
+
       const nextChrome = calculatePuzzleChromeLayout(width, height);
       const nextSafeTop = getSafeAreaInsets().top;
-      boardLayout = calculateStableBoardLayout(
+      const nextBoardLayout = tryGameBoardLayoutForResize(() => calculateStableBoardLayout(
         getCurrentBoardBottomReserve(),
         nextChrome,
         nextSafeTop,
-      );
+      ));
+      if (nextBoardLayout === null) return;
+
+      boardLayout = nextBoardLayout;
       recalculateToolbarLayout(boardLayout);
 
       layoutTopActions(nextChrome, nextSafeTop);
@@ -2635,6 +2818,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         boardLayout.cellSize,
       );
       relayoutResetDialog();
+      relayoutSkipDialog();
       relayoutOnboarding();
       if (hintConfirmOpen) renderHintConfirm();
       if (completionMode) renderCompletionButtons();
@@ -2666,7 +2850,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
     }
 
     const restoreBoardInputAfterPlatformResume = (): void => {
-      if (solved || resetDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) {
+      if (solved || resetDialogOpen || skipDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) {
         board?.setInputEnabled(false);
         return;
       }
@@ -2719,7 +2903,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
         applyOnboardingStep();
         return;
       }
-      if (!solved && !resetDialogOpen) {
+      if (!solved && !resetDialogOpen && !skipDialogOpen) {
         board?.setInputEnabled(platformGameplayActivity?.isPlatformPaused() !== true);
       }
       resumeActiveTimer();
@@ -2736,7 +2920,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       delay: 1000,
       loop: true,
       callback: () => {
-        if (solved || completionMode || onboardingOpen || hintConfirmOpen || resetDialogOpen) return;
+        if (solved || completionMode || onboardingOpen || hintConfirmOpen || resetDialogOpen || skipDialogOpen) return;
         syncToolbar();
         refreshStatusText();
       },

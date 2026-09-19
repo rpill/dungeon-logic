@@ -103,7 +103,6 @@ export function createHomeHubModeCard(
     surface.setInteractive({ useHandCursor: true });
     surface.on('pointerover', () => {
       setState('hover');
-      getAudioFeedback(scene).play('ui-hover');
     });
     surface.on('pointerout', () => setState('normal'));
     surface.on('pointerdown', () => setState('pressed'));

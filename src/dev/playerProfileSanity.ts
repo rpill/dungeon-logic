@@ -94,7 +94,8 @@ async function main(): Promise<void> {
   assert(fresh.hints.totalUsed === 0, 'Fresh profile starts with zero used hints.');
   assert(Object.keys(fresh.daily.drafts).length === 0, 'Fresh profile has no saved Daily drafts.');
   assert(fresh.daily.currentStreak === 0 && fresh.daily.bestStreak === 0, 'Fresh profile starts with empty Daily streaks.');
-  assert(fresh.endless.ordinal === 0 && fresh.endless.completed === 0 && fresh.endless.activePuzzle === null, 'Fresh profile starts with empty Endless progress.');
+  assert(fresh.endless.nextFreshIndex === 0 && fresh.endless.completed === 0 && fresh.endless.skipped.length === 0 && fresh.endless.activePuzzle === null, 'Fresh profile starts with empty finite Endless progress.');
+  assert(fresh.mastery.rating === 1000, 'Fresh profile starts with hidden Master Rating 1000.');
   assert(fresh.ads.campaignCompletionsSinceOpportunity === 0, 'Fresh profile starts with zero ad opportunity completions.');
   assert(fresh.totals.activePlayMs === 0, 'Fresh profile starts with zero active play time.');
   assert(fresh.settings.musicEnabled && fresh.settings.soundEnabled, 'Fresh settings enable music and sound.');
@@ -122,6 +123,19 @@ async function main(): Promise<void> {
   assert(
     obsoletePreUnifiedV1.campaign.completedLevelIds.length === 0,
     'Obsolete pre-unified development saves are rejected even though they also used schemaVersion 1.',
+  );
+
+  const obsoleteEndlessOrdinal = normalizePlayerProfile({
+    ...createFreshPlayerProfile(manifest),
+    endless: {
+      ...createFreshPlayerProfile(manifest).endless,
+      ordinal: 4321,
+      nextFreshIndex: undefined,
+    },
+  }, manifest);
+  assert(
+    obsoleteEndlessOrdinal.endless.nextFreshIndex === 0,
+    'Obsolete pre-release Endless ordinal is ignored instead of being migrated into ranked progress.',
   );
 
   const normalized = normalizePlayerProfile({

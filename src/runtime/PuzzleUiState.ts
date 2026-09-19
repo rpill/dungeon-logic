@@ -3,7 +3,7 @@ import type { SupportedLanguage } from '../i18n/Language';
 import { getUiCopy } from '../i18n/UiCopy';
 import { classifyViewport, useInlineTouchToolbar } from '../scenes/GameBoardLayout.ts';
 
-export type PuzzleToolbarButtonId = 'wall' | 'floor' | 'undo' | 'reset' | 'hint';
+export type PuzzleToolbarButtonId = 'wall' | 'floor' | 'undo' | 'reset' | 'hint' | 'skip';
 
 export interface PuzzleToolbarButtonState {
   readonly id: PuzzleToolbarButtonId;
@@ -45,6 +45,7 @@ export function createPuzzleToolbarState(
   rewardedHintAvailable = false,
   language: SupportedLanguage = 'en',
   hintPresentation?: PuzzleToolbarHintPresentation,
+  showSkipButton = false,
 ): PuzzleToolbarState {
   const copy = getUiCopy(language).game;
   const buttons: PuzzleToolbarButtonState[] = [];
@@ -70,6 +71,9 @@ export function createPuzzleToolbarState(
       disabled: hintPresentation?.disabled ?? (freeHintsRemaining <= 0 && !rewardedHintAvailable),
     },
   );
+  if (showSkipButton) {
+    buttons.push({ id: 'skip', label: copy.skip, active: false, disabled: false });
+  }
 
   return { activeTool, buttons };
 }
@@ -96,6 +100,7 @@ export function calculatePuzzleToolbarLayout(
   showToolButtons = true,
   boardBottom?: number,
   hideHintButton = false,
+  showSkipButton = false,
 ): PuzzleToolbarLayout {
   if (viewportWidth <= 0 || viewportHeight <= 0) {
     throw new RangeError('Viewport dimensions must be positive.');
@@ -108,8 +113,15 @@ export function calculatePuzzleToolbarLayout(
     const margin = viewportClass === 'narrow' ? 12 : 16;
     const gap = 10;
     const buttonHeight = viewportClass === 'wide' ? 58 : 54;
-    const buttonWidth = viewportClass === 'wide' ? 260 : 210;
-    const totalWidth = buttonWidth * 3 + gap * 2;
+    const actionIds: readonly PuzzleToolbarButtonId[] = showSkipButton
+      ? ['undo', 'reset', 'hint', 'skip']
+      : ['undo', 'reset', 'hint'];
+    const preferredWidth = viewportClass === 'wide' ? 260 : 210;
+    const buttonWidth = Math.min(
+      preferredWidth,
+      Math.floor((viewportWidth - margin * 2 - gap * Math.max(0, actionIds.length - 1)) / actionIds.length),
+    );
+    const totalWidth = buttonWidth * actionIds.length + gap * Math.max(0, actionIds.length - 1);
     const startX = (viewportWidth - totalWidth) / 2;
     const y = viewportHeight - bottomInset - margin - buttonHeight / 2;
 
@@ -117,11 +129,13 @@ export function calculatePuzzleToolbarLayout(
       mode: 'inline',
       buttonHeight,
       bottomY: y,
-      buttons: [
-        { id: 'undo', x: startX + buttonWidth / 2, y, width: buttonWidth, height: buttonHeight },
-        { id: 'reset', x: startX + buttonWidth + gap + buttonWidth / 2, y, width: buttonWidth, height: buttonHeight },
-        { id: 'hint', x: startX + (buttonWidth + gap) * 2 + buttonWidth / 2, y, width: buttonWidth, height: buttonHeight },
-      ],
+      buttons: actionIds.map((id, index) => ({
+        id,
+        x: startX + buttonWidth / 2 + index * (buttonWidth + gap),
+        y,
+        width: buttonWidth,
+        height: buttonHeight,
+      })),
     };
   }
 
@@ -135,9 +149,12 @@ export function calculatePuzzleToolbarLayout(
       viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : 280,
       Math.floor((viewportWidth - margin * 2 - gapX) / 2),
     );
-    const actionIds: readonly PuzzleToolbarButtonId[] = hideHintButton
-      ? ['undo', 'reset']
-      : ['undo', 'reset', 'hint'];
+    const actionIds: readonly PuzzleToolbarButtonId[] = [
+      'undo',
+      'reset',
+      ...(hideHintButton ? [] : ['hint'] as const),
+      ...(showSkipButton ? ['skip'] as const : []),
+    ];
     const actionButtonWidth = Math.min(
       viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : (actionIds.length === 2 ? 240 : 210),
       Math.floor(
@@ -180,16 +197,23 @@ export function calculatePuzzleToolbarLayout(
 
   const buttonHeight = 48;
   const gap = viewportClass === 'wide' ? 12 : 10;
-  const widths = viewportClass === 'wide'
-    ? [126, 126, 104, 104, 104]
-    : [108, 108, 96, 96, 96];
-  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * 4;
+  const ids: readonly PuzzleToolbarButtonId[] = [
+    'wall', 'floor', 'undo', 'reset', 'hint',
+    ...(showSkipButton ? ['skip'] as const : []),
+  ];
+  const toolWidth = viewportClass === 'wide' ? 126 : 108;
+  const actionWidth = viewportClass === 'wide' ? 104 : 96;
+  const preferredWidths = ids.map((id) => id === 'wall' || id === 'floor' ? toolWidth : actionWidth);
+  const preferredTotal = preferredWidths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, ids.length - 1);
+  const maxWidth = Math.max(1, viewportWidth - (viewportClass === 'wide' ? 32 : 20));
+  const scale = preferredTotal > maxWidth ? maxWidth / preferredTotal : 1;
+  const widths = preferredWidths.map((width) => Math.max(58, Math.floor(width * scale)));
+  const totalWidth = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, ids.length - 1);
   const startX = (viewportWidth - totalWidth) / 2;
   const bottomMargin = viewportClass === 'wide' ? 22 : 16;
   const y = viewportHeight - bottomInset - bottomMargin - buttonHeight / 2;
   let cursor = startX;
 
-  const ids: readonly PuzzleToolbarButtonId[] = ['wall', 'floor', 'undo', 'reset', 'hint'];
   const buttons = ids.map((id, index): PuzzleToolbarButtonLayout => {
     const width = widths[index];
     const button = {

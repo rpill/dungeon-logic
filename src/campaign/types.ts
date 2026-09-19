@@ -2,7 +2,7 @@ import type {
   CampaignLevelEntry,
   CampaignOnboardingId,
 } from '../content/campaign/types';
-import type { CampaignLevelResult } from '../profile/types';
+import type { CampaignLevelResult, EndlessActiveKind } from '../profile/types';
 import type { LevelDefinition } from '../puzzle/types';
 import type { TutorialLevelId } from '../content/tutorial/types';
 
@@ -37,7 +37,7 @@ export type GameLaunchContext =
   | { readonly mode: 'campaign'; readonly campaignLevelId: string; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'tutorial'; readonly tutorialLevelId: TutorialLevelId; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'daily'; readonly dailyId: string; readonly dateKey: string; readonly ranked: boolean; readonly archive: boolean; readonly elapsedMsAtLaunch: number; readonly analyticsAttempt?: GameAnalyticsAttempt }
-  | { readonly mode: 'endless'; readonly ordinal: number; readonly analyticsAttempt?: GameAnalyticsAttempt }
+  | { readonly mode: 'endless'; readonly ordinal: number; readonly kind: EndlessActiveKind; readonly analyticsAttempt?: GameAnalyticsAttempt }
   | { readonly mode: 'dev' };
 
 export interface GameSceneData {

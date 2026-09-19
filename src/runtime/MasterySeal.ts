@@ -89,6 +89,7 @@ export interface MasterySealOptions {
   readonly rank: MasteryRankId;
   readonly depth?: number;
   readonly showRankPlaque?: boolean;
+  readonly plaqueLabel?: string;
   readonly textureVariant?: MasterySealTextureVariant;
 }
 
@@ -219,7 +220,9 @@ export function createMasterySeal(
   }
 
   const plaque = scene.add.graphics().setDepth(depth + 1);
-  const plaqueWidth = options.size * (options.rank === 'MASTER' ? 0.46 : 0.3);
+  const plaqueLabel = options.plaqueLabel ?? options.rank;
+  const masterPlaqueWidth = Math.min(0.7, Math.max(0.46, 0.28 + plaqueLabel.length * 0.035));
+  const plaqueWidth = options.size * (options.rank === 'MASTER' ? masterPlaqueWidth : 0.3);
   const plaqueHeight = options.size * 0.135;
   const plaqueY = options.y + options.size * 0.305;
   const plaqueRadius = plaqueHeight * 0.28;
@@ -240,7 +243,7 @@ export function createMasterySeal(
     plaqueRadius,
   );
 
-  const rankLabel = scene.add.text(options.x, plaqueY, options.rank, {
+  const rankLabel = scene.add.text(options.x, plaqueY, plaqueLabel, {
     fontFamily: 'monospace',
     fontSize: `${Math.round(options.size * (options.rank === 'MASTER' ? 0.068 : 0.096))}px`,
     color: '#fff0c1',
