@@ -13,6 +13,7 @@ const rendererPath = resolve(root, 'src/runtime/HomeHubModeCard.ts');
 
 const home = readFileSync(homePath, 'utf8');
 const boot = readFileSync(bootPath, 'utf8');
+const renderer = readFileSync(rendererPath, 'utf8');
 
 assert(home.includes("from '../runtime/HomeHubModeCard'"), 'Home must use the HomeHubModeCard renderer.');
 assert(home.includes('UI_ICON_KEYS.lock'), 'Locked Home cards must get a dedicated lock glyph.');
@@ -22,18 +23,12 @@ assert(!home.includes("from '../runtime/HomeModeCard'"), 'Home must stop using t
 assert(existsSync(rendererPath), 'HomeHubModeCard renderer must exist.');
 
 const expectedAssets = [
-  'public/assets/ui/home_hub_card_tall_normal.webp',
-  'public/assets/ui/home_hub_card_tall_hover.webp',
-  'public/assets/ui/home_hub_card_wide_normal.webp',
-  'public/assets/ui/home_hub_card_wide_hover.webp',
-  'public/assets/ui/home_hub_card_tall_locked.webp',
-  'public/assets/ui/home_hub_card_wide_locked.webp',
+  'public/assets/ui/home_hub_card_tall_generated_trimmed.webp',
+  'public/assets/ui/home_hub_card_wide_generated_trimmed.webp',
 ];
 for (const relativePath of expectedAssets) {
-  assert(existsSync(resolve(root, relativePath)), `Dedicated Home card asset must exist: ${relativePath}`);
+  assert(existsSync(resolve(root, relativePath)), `Dedicated generated home-plaque Home card asset must exist: ${relativePath}`);
 }
-
-const renderer = readFileSync(rendererPath, 'utf8');
 
 assert(
   boot.includes("import { preloadHomeHubModeCardAssets } from '../runtime/HomeHubModeCard';")
@@ -41,12 +36,14 @@ assert(
   'BootScene must preload dedicated Home hub card assets.',
 );
 assert(
-  renderer.includes('home_hub_card_tall_normal.webp')
-    && renderer.includes('home_hub_card_tall_hover.webp')
-    && renderer.includes('home_hub_card_wide_normal.webp')
-    && renderer.includes('home_hub_card_wide_hover.webp'),
-  'Home hub cards must use card-specific normal/hover textures, not stretched button artwork.',
+  renderer.includes('home_hub_card_tall_generated_trimmed.webp')
+    && renderer.includes('home_hub_card_wide_generated_trimmed.webp'),
+  'Home hub cards must use the generated home-plaque wide/tall card textures.',
 );
+assert(!renderer.includes('moody_hover'), 'Home hub cards must not depend on separate hover art anymore.');
+assert(!renderer.includes('moody_locked'), 'Home hub cards must not depend on separate locked art anymore.');
+assert(!renderer.includes('home_hub_card_tall_hover.webp'), 'Home hub cards must not depend on old hover texture names.');
+assert(!renderer.includes('home_hub_card_tall_locked.webp'), 'Home hub cards must not depend on old locked texture names.');
 assert(!renderer.includes('MATERIAL_BUTTON_KEYS.secondary'), 'Home hub cards must not render from the secondary button texture.');
 assert(!renderer.includes('MATERIAL_BUTTON_SLICE_X'), 'Home hub cards must not inherit button nine-slice geometry.');
 assert(!renderer.includes('ACTIVE_ACCENT_RIM_COLOR'), 'Home hub cards must not draw gold accent rims.');
@@ -56,7 +53,8 @@ assert(
   renderer.includes("type HomeHubModeCardState = 'normal' | 'hover' | 'pressed' | 'locked'"),
   'Renderer must own normal/hover/pressed/locked states.',
 );
-assert(renderer.includes('setTexture('), 'Hover state must swap to the dedicated card hover texture.');
+assert(renderer.includes('setTint('), 'Locked state must be handled in code via tinting.');
+assert(renderer.includes('setAlpha('), 'Hover/pressed/locked state feedback must be handled in code via alpha changes.');
 assert(renderer.includes('setInteractive({ useHandCursor: true })'), 'Unlocked Home hub cards must remain interactive.');
 assert(renderer.includes('getAudioFeedback'), 'Home hub cards must keep hover/click audio feedback.');
 assert(renderer.includes('isTouchLikePointer(pointer)'), 'Home hub cards must clear synthetic hover after touch release.');

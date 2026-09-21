@@ -39,8 +39,9 @@ import { preloadHomeHubModeCardAssets } from '../runtime/HomeHubModeCard';
 import { preloadCommonUiIcons } from '../runtime/UiIcons';
 import { preloadMasteryRequirementPanelAssets } from '../runtime/MasteryRequirementPanel';
 import { preloadMasteryRequirementRowPanelAssets } from '../runtime/MasteryRequirementRowPanel';
+import { preloadPuzzleHeaderUiAssets } from '../runtime/PuzzleHeaderUiAssets';
+import { preloadCompletionPanelAssets } from '../runtime/CompletionPanel';
 import { preloadMasterySealAssets } from '../runtime/MasterySeal';
-import { syncMasterRatingLeaderboard } from '../mastery/MasterRatingLeaderboard';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { preloadBoardThemeAssets } from '../view/BoardThemeAssets';
 import { preloadFixedObjectAssets } from '../view/FixedObjectAssets';
@@ -70,6 +71,8 @@ export class BootScene extends Phaser.Scene {
     preloadMasterySealAssets(this);
     preloadMasteryRequirementPanelAssets(this);
     preloadMasteryRequirementRowPanelAssets(this);
+    preloadPuzzleHeaderUiAssets(this);
+    preloadCompletionPanelAssets(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
     this.load.image('home-logo', 'assets/logo.webp');
@@ -202,9 +205,6 @@ export class BootScene extends Phaser.Scene {
     this.registry.set(DAILY_SERVICE_REGISTRY_KEY, dailyService);
     this.registry.set(ENDLESS_SERVICE_REGISTRY_KEY, endlessService);
     const profile = profileService.getProfile();
-    void syncMasterRatingLeaderboard(profile, platformServices.leaderboards).catch((error) => {
-      console.warn('[Dungeon Logic] Could not sync Master Rating leaderboard during boot.', error);
-    });
     analytics.gameReady({
       platform: platformServices.kind,
       language: profile.settings.language,

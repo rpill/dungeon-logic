@@ -22,6 +22,7 @@ import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../
 import { createMasteryRequirementPanel } from '../runtime/MasteryRequirementPanel';
 import { createMasteryRequirementRowPanel } from '../runtime/MasteryRequirementRowPanel';
 import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
+import { calculateMasteryDesktopLayout, type MasteryDesktopLayout } from '../runtime/MasteryDesktopLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { MASTER_RATING_LEADERBOARD_SCENE_KEY } from './MasterRatingLeaderboardScene';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
@@ -60,7 +61,7 @@ export class MasteryScene extends Phaser.Scene {
     if (narrow) {
       this.renderMobileLayout(viewport.centerX, top, maxWidth, mastery, copy, masterRatingLabel);
     } else {
-      this.renderDesktopLayout(viewport.centerX, top, maxWidth, mastery, copy, masterRatingLabel);
+      this.renderDesktopLayout(viewport.centerX, top, maxWidth, Math.max(1, viewport.bottom - top - 8), mastery, copy, masterRatingLabel);
     }
 
     const handleResize = (): void => {
@@ -79,39 +80,35 @@ export class MasteryScene extends Phaser.Scene {
     centerX: number,
     top: number,
     width: number,
+    availableHeight: number,
     mastery: ReturnType<typeof getMasterySnapshot>,
     copy: ReturnType<typeof getUiCopy>,
     masterRatingLabel?: string,
   ): void {
-    const cardGap = 22;
-    const topSectionHeight = 236;
-    const panelHeight = 408;
-    const pathHeight = 126;
-
+    const layout = calculateMasteryDesktopLayout(availableHeight);
     const left = centerX - width / 2;
-    const sealSize = 250;
-    const sealX = left + 158;
-    const sealY = top + 126;
-    createMasteryGlow(this, { x: sealX, y: sealY - sealSize * 0.07, size: sealSize * 0.82, alpha: 0.62, variant: 'page' });
-    createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, alpha: 0.5 });
-    createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, plaqueLabel: masterRatingLabel });
+    const sealX = left + layout.sealOffsetX;
+    const sealY = top + layout.sealOffsetY;
+    createMasteryGlow(this, { x: sealX, y: sealY - layout.sealSize * 0.07, size: layout.sealSize * 0.82, alpha: 0.62, variant: 'page' });
+    createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: layout.sealSize, rank: mastery.currentRank, alpha: 0.5 });
+    createMasterySeal(this, { x: sealX, y: sealY, size: layout.sealSize, rank: mastery.currentRank, plaqueLabel: masterRatingLabel });
 
-    const textX = left + 318;
-    this.add.text(textX, top + 42, `РАНГ ${mastery.currentRank}`, {
-      fontFamily: 'monospace', fontSize: '18px', color: '#9fd0ff', fontStyle: 'bold',
+    const textX = left + layout.textOffsetX;
+    this.add.text(textX, top + layout.rankLabelOffsetY, `РАНГ ${mastery.currentRank}`, {
+      fontFamily: 'monospace', fontSize: `${Math.round(layout.rankLabelFontSize)}px`, color: '#9fd0ff', fontStyle: 'bold',
     });
-    this.add.text(textX, top + 74, copy.mastery.rankTitles[mastery.currentRank], {
-      fontFamily: 'monospace', fontSize: '34px', color: '#fff1d2', fontStyle: 'bold',
+    this.add.text(textX, top + layout.rankTitleOffsetY, copy.mastery.rankTitles[mastery.currentRank], {
+      fontFamily: 'monospace', fontSize: `${Math.round(layout.rankTitleFontSize)}px`, color: '#fff1d2', fontStyle: 'bold',
     });
-    this.add.text(textX, top + 126, `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
-      fontFamily: 'monospace', fontSize: '14px', color: '#d8e2f2', wordWrap: { width: width - 342 },
+    this.add.text(textX, top + layout.descriptionOffsetY, `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
+      fontFamily: 'monospace', fontSize: `${Math.round(layout.descriptionFontSize)}px`, color: '#d8e2f2', wordWrap: { width: width - layout.descriptionWidthInset },
     });
 
-    const panelTop = top + topSectionHeight + cardGap;
-    this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, false, masterRatingLabel);
+    const panelTop = top + layout.topSectionHeight + layout.cardGap;
+    this.renderRequirementPanel(centerX, panelTop, width, layout.panelHeight, mastery, copy, false, masterRatingLabel, layout);
 
-    const pathTop = panelTop + panelHeight + cardGap;
-    this.renderRankTrack(centerX, pathTop, width, pathHeight, mastery.currentRank, false, copy);
+    const pathTop = panelTop + layout.panelHeight + layout.cardGap;
+    this.renderRankTrack(centerX, pathTop, width, layout.pathHeight, mastery.currentRank, false, copy, layout);
   }
 
   private renderMobileLayout(
@@ -159,15 +156,16 @@ export class MasteryScene extends Phaser.Scene {
     copy: ReturnType<typeof getUiCopy>,
     narrow: boolean,
     masterRatingLabel?: string,
+    desktopLayout?: MasteryDesktopLayout,
   ): void {
     createMasteryRequirementPanel(this, centerX, topY + height / 2, width, height);
 
     const title = mastery.nextRank === null
       ? copy.mastery.maxRank
       : `${copy.mastery.nextRank} (${mastery.nextRank})`;
-    this.add.text(centerX, topY + height * (narrow ? 0.155 : 0.145), title, {
+    this.add.text(centerX, topY + (narrow ? height * 0.155 : desktopLayout?.panelTitleOffsetY ?? height * 0.145), title, {
       fontFamily: 'monospace',
-      fontSize: narrow ? '14px' : '18px',
+      fontSize: narrow ? '14px' : `${Math.round(desktopLayout?.panelTitleFontSize ?? 18)}px`,
       color: '#fff1d2',
       fontStyle: 'bold',
     }).setOrigin(0.5);
@@ -197,11 +195,11 @@ export class MasteryScene extends Phaser.Scene {
     }
 
     const visibleConditions = mastery.conditions.slice(0, 3);
-    const rowHeight = narrow ? 86 : 102;
-    const rowTop = topY + height * (narrow ? 0.405 : 0.385);
-    const rowGap = rowHeight - (narrow ? 20 : 24);
+    const rowHeight = narrow ? 62 : desktopLayout?.rowHeight ?? 78;
+    const rowTop = topY + (narrow ? height * 0.355 : desktopLayout?.firstRowOffsetY ?? height * 0.335);
+    const rowGap = narrow ? rowHeight + 8 : desktopLayout?.rowGap ?? rowHeight + 10;
     visibleConditions.forEach((condition, index) => {
-      this.renderRequirementRow(centerX, rowTop + rowGap * index, width * 0.84, rowHeight, index, condition, copy, narrow);
+      this.renderRequirementRow(centerX, rowTop + rowGap * index, width * 0.84, rowHeight, index, condition, copy, narrow, desktopLayout);
     });
   }
 
@@ -214,6 +212,7 @@ export class MasteryScene extends Phaser.Scene {
     condition: MasteryRequirementProgress,
     copy: ReturnType<typeof getUiCopy>,
     narrow: boolean,
+    desktopLayout?: MasteryDesktopLayout,
   ): void {
     const left = centerX - width / 2;
     const right = centerX + width / 2;
@@ -224,43 +223,43 @@ export class MasteryScene extends Phaser.Scene {
 
     const iconKey = this.conditionIconKey(condition);
     const iconX = left + (narrow ? 30 : 38);
-    const iconSize = narrow ? 28 : 36;
-    const textLeft = left + (narrow ? 58 : 76);
-    const statusX = right - (narrow ? 32 : 42);
-    const barRight = statusX - (narrow ? 22 : 28);
+    const iconSize = narrow ? 22 : desktopLayout?.iconSize ?? 29;
+    const textLeft = left + (narrow ? 50 : desktopLayout?.textLeftInset ?? 66);
+    const statusX = right - (narrow ? 28 : desktopLayout?.statusRightInset ?? 36);
+    const barRight = statusX - (narrow ? 16 : desktopLayout?.barStatusGap ?? 22);
     const valueX = barRight;
-    const headerY = y - rowHeight * (narrow ? 0.17 : 0.18);
-    const barY = y + rowHeight * (narrow ? 0.07 : 0.08);
+    const headerY = y - rowHeight * (narrow ? 0.15 : 0.16);
+    const barY = y + rowHeight * (narrow ? 0.11 : 0.12);
 
     this.add.image(iconX, y, iconKey).setDisplaySize(iconSize, iconSize).setTint(0xf6edd5).setDepth(rowDepth + 1);
 
     const label = this.requirementLabel(condition, copy, narrow);
     this.add.text(textLeft, headerY, label, {
       fontFamily: 'monospace',
-      fontSize: narrow ? '14px' : '22px',
+      fontSize: narrow ? '12px' : `${Math.round(desktopLayout?.rowFontSize ?? 18)}px`,
       color: complete ? '#fef0b8' : '#ecf1f8',
     }).setOrigin(0, 0.5).setDepth(rowDepth + 1);
 
     this.add.text(valueX, headerY, `${condition.current} / ${condition.target}`, {
       fontFamily: 'monospace',
-      fontSize: narrow ? '14px' : '22px',
+      fontSize: narrow ? '12px' : `${Math.round(desktopLayout?.rowFontSize ?? 18)}px`,
       color: complete ? '#fef0b8' : '#ecf1f8',
       fontStyle: 'bold',
     }).setOrigin(1, 0.5).setDepth(rowDepth + 1);
 
     const barLeft = textLeft;
     const barWidth = barRight - barLeft;
-    this.drawRequirementProgress(barLeft, barY, barWidth, narrow ? 11 : 13, condition.current, condition.target, complete, rowDepth + 1);
+    this.drawRequirementProgress(barLeft, barY, barWidth, narrow ? 9 : desktopLayout?.barHeight ?? 11, condition.current, condition.target, complete, rowDepth + 1);
 
     const statusY = y;
     const marker = this.add.graphics().setDepth(rowDepth + 1);
     marker.lineStyle(narrow ? 2.4 : 3.0, complete ? 0x63ddc2 : 0xacbed8, 1);
-    marker.strokeCircle(statusX, statusY, narrow ? 15 : 18);
+    marker.strokeCircle(statusX, statusY, narrow ? 12 : desktopLayout?.statusRadius ?? 15);
     if (complete) {
       marker.fillStyle(0x63ddc2, 1);
-      marker.fillCircle(statusX, statusY, narrow ? 10.5 : 12.6);
+      marker.fillCircle(statusX, statusY, narrow ? 8.5 : desktopLayout?.statusFillRadius ?? 10.2);
       this.add.image(statusX, statusY, UI_ICON_KEYS.check)
-        .setDisplaySize(narrow ? 14 : 17, narrow ? 14 : 17)
+        .setDisplaySize(narrow ? 11 : desktopLayout?.checkSize ?? 14, narrow ? 11 : desktopLayout?.checkSize ?? 14)
         .setTint(0x0d2230).setDepth(rowDepth + 2);
     }
   }
@@ -294,13 +293,14 @@ export class MasteryScene extends Phaser.Scene {
     currentRank: MasteryRankId,
     narrow: boolean,
     _copy: ReturnType<typeof getUiCopy>,
+    desktopLayout?: MasteryDesktopLayout,
   ): void {
     const currentIndex = getMasteryRankIndex(currentRank);
     const trackWidth = width * (narrow ? 0.96 : 0.92);
     const startX = centerX - trackWidth / 2;
     const step = trackWidth / (MASTERY_RANK_IDS.length - 1);
-    const lineY = topY + (narrow ? 18 : 23);
-    const labelY = topY + (narrow ? 42 : 51);
+    const lineY = topY + (narrow ? 18 : desktopLayout?.rankTrackLineOffsetY ?? 23);
+    const labelY = topY + (narrow ? 42 : desktopLayout?.rankTrackLabelOffsetY ?? 51);
 
     const path = this.add.graphics();
     path.lineStyle(narrow ? 2 : 2.2, 0x435878, 0.95);
@@ -346,7 +346,7 @@ export class MasteryScene extends Phaser.Scene {
 
       this.add.text(x, labelY, rank === 'MASTER' ? 'MASTER' : rank, {
         fontFamily: 'monospace',
-        fontSize: narrow ? (rank === 'MASTER' ? '7px' : '9px') : (rank === 'MASTER' ? '9px' : '11px'),
+        fontSize: narrow ? (rank === 'MASTER' ? '7px' : '9px') : `${Math.round((desktopLayout?.rankTrackFontSize ?? 11) - (rank === 'MASTER' ? 2 : 0))}px`,
         color: isCurrent ? '#ffd66a' : isPast ? '#edf1f8' : '#8b98ad',
         fontStyle: isCurrent ? 'bold' : 'normal',
       }).setOrigin(0.5);

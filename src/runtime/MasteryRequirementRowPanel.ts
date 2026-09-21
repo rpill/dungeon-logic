@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 
 const MASTERY_REQUIREMENT_ROW_PANEL_KEY = 'mastery-requirement-row-panel';
-const SLICE_X = 86;
-const SLICE_Y = 86;
+const SLICE_X = 28;
+const SLICE_Y = 28;
 
 export function preloadMasteryRequirementRowPanelAssets(scene: Phaser.Scene): void {
-  scene.load.image(MASTERY_REQUIREMENT_ROW_PANEL_KEY, 'assets/ui/mastery_requirement_row_panel.webp');
+  scene.load.image(MASTERY_REQUIREMENT_ROW_PANEL_KEY, 'assets/ui/mastery_requirement_row_flat.webp');
 }
 
 export function createMasteryRequirementRowPanel(

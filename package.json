@@ -124,7 +124,8 @@
     "campaign:rebuild-large": "tsx src/dev/rebuildCampaignFromLargePool.ts",
     "sanity:mastery": "tsx src/dev/masteryProgressSanity.ts",
     "sanity:daily-production": "tsx src/dev/dailyCorpusSanity.ts",
-    "sanity:daily-content-cleanup": "node scripts/daily-content-cleanup-sanity.mjs"
+    "sanity:daily-content-cleanup": "node scripts/daily-content-cleanup-sanity.mjs",
+    "sanity:completion-panel": "node --experimental-strip-types src/dev/completionPanelLayoutSanity.ts && node scripts/game-completion-panel-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

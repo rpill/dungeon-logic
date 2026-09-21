@@ -39,7 +39,7 @@ assert(levels.includes("iconKey: 'home-menu-icon-play'"), 'Levels Continue prima
 assert(game.includes('createPrimaryActionButton(this, {'), 'Game completion overlay must be able to render the yellow primary CTA renderer.');
 assert(game.includes('primary: true') && game.includes('label: copy.game.next'), 'Completion overlay must mark Next as the primary yellow CTA.');
 assert(/label: copy\.game\.startLevels,[\s\S]{0,120}primary: true/.test(game), 'Tutorial completion Start Game action must use the yellow primary CTA.');
-assert(game.includes('surfaceHeight: 66'), 'Completion Next CTA must compensate the yellow artwork padding so it matches the secondary button visual height.');
+assert(game.includes('const surfaceHeight = rect.height + 8;'), 'Completion actions must preserve the yellow artwork padding while following the compact responsive panel height.');
 
 
 assert(
@@ -47,9 +47,6 @@ assert(
     && responsive.includes('const continueHeight = shortViewport ? 50 : 54;'),
   'Levels Continue CTA must use the taller 50/54 px responsive heights.',
 );
-assert(
-  (game.match(/const buttonHeight = 56;/g) ?? []).length >= 2,
-  'Completion action row and status positioning must use the taller 56 px button height.',
-);
+assert(game.includes('CompletionActionRect'), 'Completion action sizing must come from the responsive completion-panel layout.');
 
 console.info('[Dungeon Logic] Primary action button sanity: shared yellow CTA assets and integration passed');

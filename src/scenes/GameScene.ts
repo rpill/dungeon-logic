@@ -77,12 +77,21 @@ import { calculateGameBoardLayout } from './GameBoardLayout';
 import { LEADERBOARD_SCENE_KEY } from './LeaderboardScene';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
+import { calculatePuzzleHeaderLayout } from '../runtime/PuzzleHeaderLayout';
+import {
+  PUZZLE_HEADER_UI_KEYS,
+  createPuzzleHeaderStatusPanel,
+  createPuzzleHeaderTitlePanel,
+} from '../runtime/PuzzleHeaderUiAssets';
 import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import { isTouchLikePointer } from '../runtime/PointerInput';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
 import { drawMaterialButtonBackground, getMaterialButtonContentY } from '../runtime/MaterialActionButton';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { calculateCompletionPanelLayout, type CompletionActionRect } from '../runtime/CompletionPanelLayout';
+import { createCompletionPanelSurface } from '../runtime/CompletionPanel';
+import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { formatMasteryProgressNote } from '../runtime/MasteryCompletion';
 import { syncMasterRatingLeaderboard } from '../mastery/MasterRatingLeaderboard';
 import { formatMasterRating, getMasterRatingMilestone } from '../mastery/MasterRating';
@@ -189,7 +198,6 @@ export class GameScene extends Phaser.Scene {
     );
     const applyTutorialBoardTopClearance = (
       layout: ReturnType<typeof calculateSafeBoardLayout>,
-      chromeLayout: ReturnType<typeof calculatePuzzleChromeLayout>,
       safeTopInset: number,
     ): ReturnType<typeof calculateSafeBoardLayout> => {
       if (!usesPersistentTutorialLayoutReserve) return layout;
@@ -198,10 +206,9 @@ export class GameScene extends Phaser.Scene {
       const reservedPanelHeight = compactTutorial ? 100 : 110;
       const panelGap = compactTutorial ? 10 : 16;
       const clueTopY = layout.originY - layout.cellSize * BOARD_FRAME.top;
-      const timerCenterY = safeTopInset
-        + chromeLayout.titleY
-        + (this.scale.width < 700 ? 28 : 34);
-      const timerFontSize = Math.max(12, chromeLayout.statusFontSize);
+      const headerLayout = calculatePuzzleHeaderLayout(this.scale.width, this.scale.height);
+      const timerCenterY = safeTopInset + headerLayout.statusY;
+      const timerFontSize = headerLayout.statusFontSize;
       const minimumPanelTop = timerCenterY
         + timerFontSize * 0.75
         + (compactTutorial ? 8 : 12);
@@ -218,11 +225,9 @@ export class GameScene extends Phaser.Scene {
     };
     const calculateStableBoardLayout = (
       extraBottomReserve = 0,
-      chromeLayout = calculatePuzzleChromeLayout(this.scale.width, this.scale.height),
       safeTopInset = getSafeAreaInsets().top,
     ) => applyTutorialBoardTopClearance(
       calculateSafeBoardLayout(extraBottomReserve),
-      chromeLayout,
       safeTopInset,
     );
     const dailyContext = launchData.context.mode === 'daily'
@@ -339,41 +344,108 @@ export class GameScene extends Phaser.Scene {
       return 'Dungeon Logic';
     };
 
+    let headerTitlePanel = createPuzzleHeaderTitlePanel(
+      this,
+      this.scale.width / 2,
+      0,
+      240,
+      48,
+    );
+    let headerStatusPanel = createPuzzleHeaderStatusPanel(
+      this,
+      this.scale.width / 2,
+      0,
+      132,
+      24,
+    );
+    const headerStreakIcon = this.add.image(this.scale.width / 2, 0, PUZZLE_HEADER_UI_KEYS.streakIcon)
+      .setOrigin(0.5);
     const titleText = this.add.text(
       this.scale.width / 2,
-      chrome.titleY + safeTop,
+      0,
       getTitleLabel(),
       {
         fontFamily: 'monospace',
-        fontSize: `${chrome.titleFontSize}px`,
-        color: '#f0e6d2',
-        fontStyle: 'bold',
-      },
-    ).setOrigin(0.5);
-
-    const timerText = this.add.text(
-      this.scale.width / 2,
-      chrome.titleY + safeTop + (this.scale.width < 700 ? 28 : 34),
-      '00:00',
-      {
-        fontFamily: 'monospace',
-        fontSize: `${Math.max(12, chrome.statusFontSize)}px`,
-        color: '#89929d',
+        fontSize: '32px',
+        color: '#f4ead7',
         fontStyle: 'bold',
       },
     ).setOrigin(0.5);
 
     let displayedChallengeStreak = profileAtStart?.endless.currentStreak ?? 0;
     const rankedEndless = endlessContext !== null && endlessContext.kind !== 'freeplay';
-    const challengeStreakBackground = !rankedEndless ? null : this.add.graphics();
-    const challengeStreakText = !rankedEndless
-      ? null
-      : this.add.text(this.scale.width / 2, 0, copy.game.endlessStreak(displayedChallengeStreak), {
-          fontFamily: 'monospace',
-          fontSize: `${Math.max(11, chrome.statusFontSize)}px`,
-          color: '#f0e6d2',
-          fontStyle: 'bold',
-        }).setOrigin(0.5);
+    let displayedHeaderTime = '00:00';
+    const headerTimeText = this.add.text(
+      this.scale.width / 2,
+      0,
+      displayedHeaderTime,
+      {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#d9e2f0',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5);
+    const headerStatusDivider = this.add.text(
+      this.scale.width / 2,
+      0,
+      '•',
+      {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#d2a84f',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5);
+    const headerStreakText = this.add.text(
+      this.scale.width / 2,
+      0,
+      String(displayedChallengeStreak),
+      {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#f4ead7',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5);
+    let headerStatusPanelWidth = 0;
+    let headerStatusCenterY = 0;
+    let headerStatusContentGap = 0;
+    let headerStreakIconSize = 0;
+    const layoutHeaderStatusContent = (): void => {
+      headerTimeText.setText(displayedHeaderTime);
+      headerStreakText.setText(String(displayedChallengeStreak));
+      const showStreak = rankedEndless;
+      headerStatusDivider.setVisible(showStreak);
+      headerStreakText.setVisible(showStreak);
+      headerStreakIcon.setVisible(showStreak);
+      headerTimeText.setY(headerStatusCenterY);
+      headerStatusDivider.setY(headerStatusCenterY);
+      headerStreakText.setY(headerStatusCenterY);
+      headerStreakIcon.setY(headerStatusCenterY + 1);
+      const panelLeft = this.scale.width / 2 - headerStatusPanelWidth / 2;
+      if (!showStreak) {
+        headerTimeText.setX(this.scale.width / 2);
+        headerStatusDivider.setX(this.scale.width / 2);
+        headerStreakText.setX(this.scale.width / 2);
+        return;
+      }
+      const contentWidth = headerTimeText.width
+        + headerStatusContentGap
+        + headerStatusDivider.width
+        + headerStatusContentGap
+        + headerStreakIconSize
+        + Math.max(5, Math.round(headerStatusContentGap * 0.6))
+        + headerStreakText.width;
+      let x = panelLeft + Math.max(12, (headerStatusPanelWidth - contentWidth) / 2);
+      headerTimeText.setX(x + headerTimeText.width / 2);
+      x += headerTimeText.width + headerStatusContentGap;
+      headerStatusDivider.setX(x + headerStatusDivider.width / 2);
+      x += headerStatusDivider.width + headerStatusContentGap;
+      headerStreakIcon.setX(x + headerStreakIconSize / 2);
+      x += headerStreakIconSize + Math.max(5, Math.round(headerStatusContentGap * 0.6));
+      headerStreakText.setX(x + headerStreakText.width / 2);
+    };
 
     const getBackLabel = (): string => copy.game.back.replace(/^←\s*/, '');
     const topActionBackground = this.add.graphics();
@@ -409,7 +481,7 @@ export class GameScene extends Phaser.Scene {
       }, menuHovered ? 'hover' : 'normal');
     };
 
-    const layoutTopActions = (layout = chrome, insetTop = safeTop): void => {
+    const layoutTopActions = (insetTop = safeTop): void => {
       const safeInsets = getSafeAreaInsets();
       const headerViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeInsets);
       const narrowTop = headerViewport.width < 700;
@@ -445,47 +517,83 @@ export class GameScene extends Phaser.Scene {
 
       menuIcon.setPosition(menuX, getMaterialButtonContentY(menuPlacement.y, menuWidth));
 
-      const titleY = layout.titleY + insetTop + (narrowTop ? 26 : 0);
+      const headerLayout = calculatePuzzleHeaderLayout(headerViewport.width, headerViewport.height);
+      const titleY = headerLayout.titleY + insetTop;
+      const statusY = headerLayout.statusY + insetTop;
       titleText
         .setPosition(this.scale.width / 2, titleY)
-        .setFontSize(layout.titleFontSize)
+        .setFontSize(headerLayout.titleFontSize)
         .setText(getTitleLabel());
-      const availableTitleWidth = Math.max(120, (menuX - menuWidth / 2) - (backX + backWidth / 2) - (narrowTop ? 16 : 40));
-      if (titleText.width > availableTitleWidth) {
-        const fitted = Math.max(narrowTop ? 18 : 24, Math.floor(layout.titleFontSize * availableTitleWidth / titleText.width));
+      headerStatusCenterY = statusY;
+      headerStatusContentGap = headerLayout.compact ? 9 : 11;
+      headerStreakIconSize = Math.max(12, Math.min(15, Math.round(headerLayout.statusPanelHeight * 0.34)));
+      headerTimeText
+        .setFontSize(headerLayout.statusFontSize)
+        .setText(displayedHeaderTime);
+      headerStatusDivider.setFontSize(headerLayout.statusFontSize).setText('•');
+      headerStreakText
+        .setFontSize(headerLayout.statusFontSize)
+        .setText(String(displayedChallengeStreak));
+
+      const availableTitleWidth = Math.max(
+        120,
+        (menuX - menuWidth / 2) - (backX + backWidth / 2) - (narrowTop ? 12 : 32),
+      );
+      const titlePanelMaxWidth = Math.min(headerLayout.titlePanelMaxWidth, availableTitleWidth);
+      const titleInnerMaxWidth = Math.max(96, titlePanelMaxWidth - headerLayout.titlePaddingX * 2);
+      if (titleText.width > titleInnerMaxWidth) {
+        const fitted = Math.max(
+          narrowTop ? 17 : 21,
+          Math.floor(headerLayout.titleFontSize * titleInnerMaxWidth / titleText.width),
+        );
         titleText.setFontSize(fitted);
       }
-      timerText
-        .setPosition(this.scale.width / 2, titleText.y + (narrowTop ? 24 : 34))
-        .setFontSize(Math.max(12, layout.statusFontSize));
 
-      if (challengeStreakText !== null && challengeStreakBackground !== null) {
-        challengeStreakText
-          .setText(copy.game.endlessStreak(displayedChallengeStreak))
-          .setFontSize(Math.max(11, layout.statusFontSize))
-          .setPosition(this.scale.width / 2, timerText.y + (narrowTop ? 25 : 30));
-        const padX = narrowTop ? 14 : 18;
-        const padY = narrowTop ? 6 : 7;
-        const badgeWidth = challengeStreakText.width + padX * 2;
-        const badgeHeight = challengeStreakText.height + padY * 2;
-        challengeStreakBackground.clear();
-        challengeStreakBackground.fillStyle(0x101c31, 0.94);
-        challengeStreakBackground.lineStyle(1.5, 0x4f77aa, 0.95);
-        challengeStreakBackground.fillRoundedRect(
-          challengeStreakText.x - badgeWidth / 2,
-          challengeStreakText.y - badgeHeight / 2,
-          badgeWidth,
-          badgeHeight,
-          badgeHeight / 2,
-        );
-        challengeStreakBackground.strokeRoundedRect(
-          challengeStreakText.x - badgeWidth / 2,
-          challengeStreakText.y - badgeHeight / 2,
-          badgeWidth,
-          badgeHeight,
-          badgeHeight / 2,
-        );
-      }
+      const phoneHeader = headerViewport.width < 600 || (headerViewport.height <= 520 && headerViewport.width > headerViewport.height);
+      const titlePanelMinWidth = phoneHeader ? 220 : headerViewport.height < 700 ? 280 : 320;
+      const statusPanelMinWidth = phoneHeader ? 145 : headerViewport.height < 700 ? 175 : 205;
+      const titlePanelWidth = Math.min(
+        titlePanelMaxWidth,
+        Math.max(titlePanelMinWidth, titleText.width + headerLayout.titlePaddingX * 2),
+      );
+      const statusContentWidth = rankedEndless
+        ? headerTimeText.width
+          + headerStatusContentGap
+          + headerStatusDivider.width
+          + headerStatusContentGap
+          + headerStreakIconSize
+          + Math.max(5, Math.round(headerStatusContentGap * 0.6))
+          + headerStreakText.width
+        : headerTimeText.width;
+      const statusPanelWidth = Math.min(
+        headerLayout.statusPanelMaxWidth,
+        Math.max(statusPanelMinWidth, statusContentWidth + headerLayout.statusPaddingX * 2),
+      );
+      headerStatusPanelWidth = statusPanelWidth;
+
+      headerTitlePanel.destroy();
+      headerTitlePanel = createPuzzleHeaderTitlePanel(
+        this,
+        this.scale.width / 2,
+        titleY,
+        titlePanelWidth,
+        headerLayout.titlePanelHeight,
+      ).setDepth(10);
+
+      headerStatusPanel.destroy();
+      headerStatusPanel = createPuzzleHeaderStatusPanel(
+        this,
+        this.scale.width / 2,
+        statusY,
+        statusPanelWidth,
+        headerLayout.statusPanelHeight,
+      ).setDepth(10);
+      titleText.setDepth(11);
+      headerTimeText.setDepth(11);
+      headerStatusDivider.setDepth(11);
+      headerStreakIcon.setDepth(11).setDisplaySize(headerStreakIconSize, headerStreakIconSize);
+      headerStreakText.setDepth(11);
+      layoutHeaderStatusContent();
 
       redrawTopActions();
     };
@@ -572,7 +680,7 @@ export class GameScene extends Phaser.Scene {
       : puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
     puzzleSession?.saveNow();
     const interaction = new PuzzleInteractionSession(puzzle);
-    let boardLayout = calculateStableBoardLayout(getTutorialLayoutBottomReserve(), chrome, safeTop);
+    let boardLayout = calculateStableBoardLayout(getTutorialLayoutBottomReserve(), safeTop);
 
     let board: BoardView | null = null;
     let solved = completedReview;
@@ -589,6 +697,8 @@ export class GameScene extends Phaser.Scene {
     let hintConfirmContainer: Phaser.GameObjects.Container | null = null;
     let currentHint: PuzzleHint | null = null;
     let completionMode = false;
+    let completionActionCount = 0;
+    let completionHasPrimary = false;
     const getCurrentBoardBottomReserve = (): number => getTutorialLayoutBottomReserve();
     let completionTransitionPending = false;
     let masteryRankUpShown = false;
@@ -636,6 +746,7 @@ export class GameScene extends Phaser.Scene {
       });
     };
     const completionButtons: Phaser.GameObjects.GameObject[] = [];
+    const completionPanelObjects: Phaser.GameObjects.GameObject[] = [];
     const initialTimerMs = completedReview
       ? campaignPlayState?.displayTimeMs ?? 0
       : rankedDaily
@@ -671,7 +782,8 @@ export class GameScene extends Phaser.Scene {
       );
 
     const updateTimerText = (nowMs = readActiveClockMs()): void => {
-      timerText.setText(formatActiveTime(getDisplayedElapsedMs(nowMs)));
+      displayedHeaderTime = formatActiveTime(getDisplayedElapsedMs(nowMs));
+      layoutHeaderStatusContent();
     };
 
     const syncTimerIntoSession = (nowMs = readActiveClockMs()): void => {
@@ -1495,6 +1607,9 @@ export class GameScene extends Phaser.Scene {
       for (const visual of completionButtons.splice(0)) {
         visual.destroy();
       }
+      for (const visual of completionPanelObjects.splice(0)) {
+        visual.destroy();
+      }
     };
 
     let completionActions: Array<{
@@ -1503,136 +1618,261 @@ export class GameScene extends Phaser.Scene {
       readonly primary?: boolean;
     }> = [];
 
-    const positionCompletionStatusText = (): void => {
-      const safeBottom = getSafeAreaInsets().bottom;
-      const buttonHeight = 56;
-      const buttonTop = this.scale.height - safeBottom - 12 - buttonHeight;
-      statusText
-        .setOrigin(0.5, 1)
-        .setPosition(this.scale.width / 2, buttonTop - 18)
-        .setWordWrapWidth(Math.max(120, this.scale.width - 32), true)
-        .setAlign('center');
+    type CompletionInfoPill = {
+      readonly label: string;
+      readonly iconKey?: string;
+      readonly iconTint?: number;
+    };
+
+    let completionInfoPills: readonly CompletionInfoPill[] = [];
+
+    const setCompletionInfoPills = (items: readonly CompletionInfoPill[]): void => {
+      completionInfoPills = items
+        .map((item) => ({
+          ...item,
+          label: item.label.trim(),
+        }))
+        .filter((item) => item.label.length > 0)
+        .slice(0, 4);
+    };
+
+    const fitCompletionPillText = (
+      text: Phaser.GameObjects.Text,
+      maxWidth: number,
+      minFontSize: number,
+    ): void => {
+      if (text.width <= maxWidth) return;
+      const current = Number.parseFloat(text.style.fontSize?.toString() ?? '16');
+      if (!Number.isFinite(current) || current <= 0) return;
+      text.setFontSize(Math.max(minFontSize, Math.floor(current * maxWidth / text.width)));
+      if (text.width > maxWidth) text.setScale(maxWidth / text.width);
+    };
+
+    const renderCompletionInfoPills = (
+      layout: ReturnType<typeof calculateCompletionPanelLayout>,
+    ): void => {
+      if (completionInfoPills.length === 0) return;
+
+      const topInset = layout.mode === 'phone' ? 14 : 18;
+      const pillGap = layout.mode === 'phone' ? 8 : 12;
+      const basePillHeight = layout.mode === 'phone' ? 32 : 36;
+      const firstRowY = layout.titleY + (layout.mode === 'phone' ? 34 : 30);
+      const actionRects = [
+        ...(layout.primaryAction === null ? [] : [layout.primaryAction]),
+        ...layout.secondaryActions,
+      ];
+      const actionTop = actionRects.length > 0
+        ? Math.min(...actionRects.map((rect) => rect.y - rect.height / 2))
+        : layout.panelBottom - topInset;
+      const contentWidth = layout.panelWidth - topInset * 2;
+      const itemsInRow = layout.mode === 'desktop'
+        ? completionInfoPills.length
+        : Math.min(2, completionInfoPills.length);
+      const rowCount = layout.mode === 'desktop' ? 1 : Math.ceil(completionInfoPills.length / itemsInRow);
+      const availableHeight = Math.max(basePillHeight, actionTop - firstRowY - 10);
+      const resolvedPillHeight = Math.min(basePillHeight, Math.max(28, availableHeight / Math.max(1, rowCount) - (rowCount - 1) * 8));
+
+      completionInfoPills.forEach((pill, index) => {
+        const row = layout.mode === 'desktop' ? 0 : Math.floor(index / itemsInRow);
+        const column = layout.mode === 'desktop' ? index : index % itemsInRow;
+        const visibleCount = layout.mode === 'desktop'
+          ? completionInfoPills.length
+          : (row === rowCount - 1 ? completionInfoPills.length - row * itemsInRow : itemsInRow);
+        const pillWidth = (contentWidth - pillGap * Math.max(0, visibleCount - 1)) / Math.max(1, visibleCount);
+        const rowWidth = pillWidth * visibleCount + pillGap * Math.max(0, visibleCount - 1);
+        const centerX = layout.panelX - rowWidth / 2 + pillWidth / 2 + column * (pillWidth + pillGap);
+        const centerY = firstRowY + row * (resolvedPillHeight + 8);
+        const left = centerX - pillWidth / 2;
+        const top = centerY - resolvedPillHeight / 2;
+        const radius = Math.min(12, resolvedPillHeight / 2);
+
+        const fill = this.add.graphics().setDepth(58);
+        fill.fillStyle(0x0b2345, 0.96);
+        fill.fillRoundedRect(left, top, pillWidth, resolvedPillHeight, radius);
+        fill.lineStyle(2, 0x2d5f96, 0.78);
+        fill.strokeRoundedRect(left + 1, top + 1, Math.max(0, pillWidth - 2), Math.max(0, resolvedPillHeight - 2), radius);
+        fill.lineStyle(1, 0x88bdf5, 0.10);
+        fill.lineBetween(left + radius, top + 2, left + pillWidth - radius, top + 2);
+
+        const hasIcon = pill.iconKey !== undefined;
+        const iconSize = resolvedPillHeight - (layout.mode === 'phone' ? 14 : 12);
+        const gap = hasIcon ? 8 : 0;
+        const horizontalPadding = layout.mode === 'phone' ? 10 : 12;
+        const label = this.add.text(centerX, centerY, pill.label, {
+          fontFamily: 'monospace',
+          fontSize: `${layout.mode === 'phone' ? 12 : 15}px`,
+          color: '#f4ead7',
+          fontStyle: 'bold',
+          align: 'center',
+        }).setOrigin(0.5).setDepth(59);
+
+        const maxTextWidth = pillWidth - horizontalPadding * 2 - (hasIcon ? iconSize + gap : 0) + (layout.mode === 'desktop' ? 6 : 0);
+        fitCompletionPillText(label, Math.max(18, maxTextWidth), layout.mode === 'desktop' ? 10 : 8);
+
+        let icon: Phaser.GameObjects.Image | null = null;
+        if (pill.iconKey !== undefined) {
+          const contentWidthWithIcon = iconSize + gap + label.displayWidth;
+          const startX = centerX - contentWidthWithIcon / 2;
+          icon = this.add.image(startX + iconSize / 2, centerY, pill.iconKey)
+            .setDisplaySize(iconSize, iconSize)
+            .setTint(pill.iconTint ?? 0xf7d466)
+            .setDepth(59);
+          label.setPosition(startX + iconSize + gap, centerY).setOrigin(0, 0.5);
+        }
+
+        completionPanelObjects.push(fill, label);
+        if (icon !== null) completionPanelObjects.push(icon);
+      });
+    };
+
+    const getCompletionTitle = (): string => {
+      if (dailyContext !== null) {
+        return language === 'ru' ? 'DAILY РЕШЁН' : 'DAILY SOLVED';
+      }
+      if (endlessContext !== null) {
+        const ordinal = endlessContext.ordinal + 1;
+        return language === 'ru'
+          ? `ИСПЫТАНИЕ ${ordinal} ПРОЙДЕНО`
+          : `TRIAL ${ordinal} COMPLETE`;
+      }
+      if (campaignEntry !== null) {
+        return language === 'ru'
+          ? `УРОВЕНЬ ${campaignEntry.slot} ПРОЙДЕН`
+          : `LEVEL ${campaignEntry.slot} COMPLETE`;
+      }
+      if (tutorialEntry !== null) {
+        return language === 'ru'
+          ? `УРОК ${tutorialEntry.slot} ПРОЙДЕН`
+          : `LESSON ${tutorialEntry.slot} COMPLETE`;
+      }
+      return language === 'ru' ? 'УРОВЕНЬ ПРОЙДЕН!' : 'LEVEL COMPLETE!';
+    };
+
+    const renderCompletionAction = (
+      definition: (typeof completionActions)[number],
+      rect: CompletionActionRect,
+      compact: boolean,
+    ): void => {
+      const surfaceHeight = Math.max(rect.height - 2, 26);
+      if (definition.primary) {
+        const handle = createPrimaryActionButton(this, {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          surfaceHeight,
+          label: definition.label,
+          compact,
+          onActivate: () => definition.action(),
+        });
+        handle.surface.setDepth(60);
+        handle.label.setDepth(62);
+        handle.icon?.setDepth(62);
+        handle.subtitle?.setDepth(62);
+        completionButtons.push(handle.surface, handle.label);
+        if (handle.icon) completionButtons.push(handle.icon);
+        if (handle.subtitle) completionButtons.push(handle.subtitle);
+        return;
+      }
+
+      const handle = createCenteredTextMenuButton(this, {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        label: definition.label,
+        labelColor: '#f4ead7',
+        compact,
+        accentFrame: false,
+        variant: 'secondary',
+        surfaceHeight,
+        onActivate: () => definition.action(),
+      });
+      handle.fill.setDepth(60);
+      handle.frame.setDepth(61);
+      handle.label.setDepth(62);
+      completionButtons.push(handle.fill, handle.frame, handle.label);
     };
 
     const renderCompletionButtons = (): void => {
       clearCompletionButtons();
       if (!completionMode || completionActions.length === 0) return;
-      positionCompletionStatusText();
 
-      const safeBottom = getSafeAreaInsets().bottom;
-      const count = completionActions.length;
-      const gap = count >= 3 ? 8 : 10;
-      const maxWidth = Math.min(this.scale.width - 24, count >= 3 ? 560 : 350);
-      const buttonHeight = 56;
-      const buttonWidth = count === 1
-        ? Math.min(190, maxWidth)
-        : Math.floor((maxWidth - gap * (count - 1)) / count);
-      const totalWidth = buttonWidth * count + gap * (count - 1);
-      const startX = (this.scale.width - totalWidth) / 2;
-      const y = this.scale.height - safeBottom - 12 - buttonHeight / 2;
+      completionActionCount = completionActions.length;
+      completionHasPrimary = completionActions.some((definition) => definition.primary === true);
+      const layout = calculateCompletionPanelLayout(
+        this.scale.width,
+        this.scale.height,
+        getSafeAreaInsets().bottom,
+        completionActionCount,
+        completionHasPrimary,
+      );
 
-      completionActions.forEach((definition, index) => {
-        const x = startX + index * (buttonWidth + gap) + buttonWidth / 2;
-        if (definition.primary) {
-          const handle = createPrimaryActionButton(this, {
-            x,
-            y,
-            width: buttonWidth,
-            height: buttonHeight,
-            surfaceHeight: 66,
-            label: definition.label,
-            compact: count >= 3,
-            onActivate: () => definition.action(),
-          });
-          handle.surface.setDepth(60);
-          handle.label.setDepth(62);
-          handle.icon?.setDepth(62);
-          handle.subtitle?.setDepth(62);
-          completionButtons.push(handle.surface, handle.label);
-          if (handle.icon) completionButtons.push(handle.icon);
-          if (handle.subtitle) completionButtons.push(handle.subtitle);
-          return;
-        }
-        const handle = createCenteredTextMenuButton(this, {
-          x,
-          y,
-          width: buttonWidth,
-          height: buttonHeight,
-          label: definition.label,
-          labelColor: '#f0d28a',
-          compact: count >= 3,
-          accentFrame: false,
-          variant: 'secondary',
-          surfaceHeight: 66,
-          onActivate: () => definition.action(),
-        });
-        handle.fill.setDepth(60);
-        handle.frame.setDepth(61);
-        handle.label.setDepth(62);
-        completionButtons.push(handle.fill, handle.frame, handle.label);
+      const panel = createCompletionPanelSurface(
+        this,
+        layout.panelX,
+        layout.panelY,
+        layout.panelWidth,
+        layout.panelHeight,
+      ).setDepth(54);
+      completionPanelObjects.push(panel);
+
+      const title = this.add.text(layout.panelX, layout.titleY, getCompletionTitle(), {
+        fontFamily: 'monospace',
+        fontSize: `${layout.mode === 'phone' ? 20 : this.scale.height <= 640 ? 18 : 20}px`,
+        color: '#f4ead7',
+        fontStyle: 'bold',
+        stroke: '#0b1630',
+        strokeThickness: 3,
+        align: 'center',
+      }).setOrigin(0.5).setDepth(58);
+      completionPanelObjects.push(title);
+
+      statusText.setVisible(false);
+      renderCompletionInfoPills(layout);
+
+      const primary = completionActions.find((definition) => definition.primary === true) ?? null;
+      const secondary = completionActions.filter((definition) => definition.primary !== true);
+      secondary.forEach((definition, index) => {
+        const rect = layout.secondaryActions[index];
+        if (rect === undefined) return;
+        renderCompletionAction(
+          definition,
+          rect,
+          completionActionCount >= 3 || rect.width < 180,
+        );
       });
+      if (primary !== null && layout.primaryAction !== null) {
+        renderCompletionAction(
+          primary,
+          layout.primaryAction,
+          completionActionCount >= 3 || layout.primaryAction.width < 180,
+        );
+      }
     };
 
-    const launchUnlockedDaily = (): void => {
-      if (completionTransitionPending) return;
-      completionTransitionPending = true;
-      pauseActiveTimer();
-      this.scene.start(DAILY_SCENE_KEY);
-    };
 
-    const launchUnlockedEndless = (): void => {
-      if (completionTransitionPending) return;
-      const campaign = this.getCampaignService();
-      if (!campaign.isEndlessUnlocked()) return;
-      completionTransitionPending = true;
-      pauseActiveTimer();
-      const launch = this.getEndlessService().beginCurrent();
-      this.scene.start('GameScene', createEndlessGameSceneData(
-        launch.level,
-        launch.ordinal,
-        launch.kind,
-        launch.attempt,
-      ));
-    };
 
     const showCompletionState = (
       result: CampaignCompletionResult,
-      metadata: CampaignCompletionMetadata,
-      newBestTime: boolean,
-      masteryNote: string = '',
+      _metadata: CampaignCompletionMetadata,
+      _newBestTime: boolean,
+      _masteryNote: string = '',
     ): void => {
       completionMode = true;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
-      const hintCopy = metadata.minHintsUsed === 0
-        ? copy.game.withoutHints
-        : copy.game.hintsCount(metadata.minHintsUsed);
-      const recordCopy = newBestTime ? copy.game.newRecord : '';
-      const unlockCopy = '';
-      const solvedCopy = copy.game.solvedCampaign(
-        formatActiveTime(metadata.bestTimeMs),
-        hintCopy,
-        recordCopy,
-        unlockCopy,
-      );
-      const unlockedDaily = result.unlockedFeatures.includes('daily');
-      const unlockedEndless = result.unlockedFeatures.includes('endless');
-      const featureUnlockMessages = [
-        ...(unlockedDaily ? [copy.game.featuresUnlocked] : []),
-        ...(unlockedEndless ? [copy.game.endlessUnlocked] : []),
-      ];
-      const featureUnlockCopy = featureUnlockMessages.length > 0
-        ? `
-
-${featureUnlockMessages.join('\n')}`
-        : '';
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(`${solvedCopy}${masteryNote ? `\n${masteryNote}` : ''}${featureUnlockCopy}`)
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      const totalLevels = campaignService?.getLevels().length ?? 64;
+      const currentSlot = campaignEntry?.slot ?? result.progress.completedLevelIds.length;
+      const nextSlot = result.recommendedNextLevel?.slot ?? null;
+      setCompletionInfoPills([
+        { label: `${currentSlot} / ${totalLevels}`, iconKey: UI_ICON_KEYS.levels },
+        { label: nextSlot !== null
+          ? (language === 'ru' ? `Следующий: ${nextSlot}` : `Next: ${nextSlot}`)
+          : (language === 'ru' ? 'Кампания завершена' : 'Campaign complete'), iconKey: UI_ICON_KEYS.masteryForward },
+      ]);
+      statusText.setVisible(false);
 
       const continueCampaign = (): void => {
         if (result.recommendedNextLevel === null || completionTransitionPending) return;
@@ -1655,85 +1895,35 @@ ${featureUnlockMessages.join('\n')}`
         });
       };
 
-      if (result.unlockedFeatures.length > 0) {
-        completionActions = [];
-        if (result.unlockedFeatures.includes('daily')) {
-          completionActions.push({
-            label: copy.game.dailyTitle,
-            action: launchUnlockedDaily,
-          });
-        }
-        if (result.unlockedFeatures.includes('endless')) {
-          completionActions.push({
-            label: copy.home.endless,
-            action: launchUnlockedEndless,
-          });
-        }
-        completionActions.push(
-          result.recommendedNextLevel === null
-            ? {
-              label: copy.game.home,
-              action: () => this.scene.start(HOME_SCENE_KEY),
-            }
-            : {
-              label: copy.game.next,
-              primary: true,
-              action: continueCampaign,
-            },
-        );
-      } else if (result.rowUnlock !== null && result.recommendedNextLevel !== null) {
-        completionActions = [
-          {
-            label: copy.game.next,
-            primary: true,
-            action: continueCampaign,
-          },
-        ];
-      } else {
-        completionActions = [
-          {
-            label: copy.common.levels,
-            action: () => this.scene.start(LEVELS_SCENE_KEY),
-          },
-        ];
-        if (result.recommendedNextLevel !== null) {
-          completionActions.push({
-            label: copy.game.next,
-            primary: true,
-            action: continueCampaign,
-          });
-        }
-      }
+      completionActions = [
+        {
+          label: copy.game.home,
+          action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+        {
+          label: result.recommendedNextLevel !== null ? copy.game.next : (language === 'ru' ? 'ГОТОВО' : 'DONE'),
+          primary: true,
+          action: result.recommendedNextLevel !== null
+            ? continueCampaign
+            : (() => this.scene.start(HOME_SCENE_KEY)),
+        },
+      ];
       renderCompletionButtons();
     };
 
-    const showEndlessCompletionState = (result: EndlessCompletionResult, masteryNote: string = ''): void => {
+    const showEndlessCompletionState = (result: EndlessCompletionResult, _masteryNote: string = ''): void => {
       completionMode = true;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
-      const progressCopy = result.ranked
-        ? copy.home.endlessProgress(
-          result.completed,
-          result.catalogLength,
-          result.currentStreak,
-          result.bestStreak,
-        )
-        : copy.game.endlessFreePlayNoRating;
-      const ratingVisible = profileService !== null
-        && getMasterySnapshot(profileService.getProfile()).currentRank === 'MASTER';
-      const ratingCopy = ratingVisible && result.ranked && result.ratingAward > 0
-        ? `+${result.ratingAward} · ${copy.mastery.rating(formatMasterRating(result.masterRating, language))}`
-        : '';
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(`✓ ${copy.common.solved}
-${progressCopy}${ratingCopy ? `
-${ratingCopy}` : ''}${masteryNote ? `
-${masteryNote}` : ''}`)
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      setCompletionInfoPills([
+        { label: `${result.completed} / ${result.catalogLength}`, iconKey: UI_ICON_KEYS.levels },
+        { label: language === 'ru' ? `Серия ${result.currentStreak}` : `Streak ${result.currentStreak}`, iconKey: UI_ICON_KEYS.endless },
+        { label: result.ranked && result.ratingAward > 0
+          ? (language === 'ru' ? `+${result.ratingAward}` : `+${result.ratingAward}`)
+          : (language === 'ru' ? '+0' : '+0'), iconKey: UI_ICON_KEYS.star },
+      ]);
+      statusText.setVisible(false);
 
       completionActions = [
         {
@@ -1777,104 +1967,61 @@ ${masteryNote}` : ''}`)
       relayoutOnboarding();
       setToolbarVisible(false);
 
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(
-          result.tutorialCompleted && result.recommendedNextLevel === null
-            ? copy.game.tutorialComplete
-            : `✓ ${copy.common.solved}`,
-        )
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      const lessonSlot = tutorialEntry?.slot ?? 1;
+      const nextLevel = result.recommendedNextLevel;
+      setCompletionInfoPills([
+        { label: `${lessonSlot} / ${tutorialLevelTotal}`, iconKey: UI_ICON_KEYS.levels },
+        { label: nextLevel !== null
+          ? (language === 'ru' ? `Следующий: ${nextLevel.slot}` : `Next: ${nextLevel.slot}`)
+          : (language === 'ru' ? 'Обучение завершено' : 'Tutorial complete'), iconKey: UI_ICON_KEYS.masteryForward },
+      ]);
+      statusText.setVisible(false);
 
+      const service = this.getTutorialService();
       completionActions = [
         {
           label: copy.game.home,
           action: () => this.scene.start(HOME_SCENE_KEY),
         },
+        {
+          label: nextLevel !== null ? copy.game.next : (language === 'ru' ? 'ГОТОВО' : 'DONE'),
+          primary: true,
+          action: nextLevel !== null
+            ? (() => {
+                if (completionTransitionPending) return;
+                completionTransitionPending = true;
+                void service.startLevel(nextLevel.id)
+                  .then((started) => {
+                    if (createVersion !== this.createVersion) return;
+                    this.scene.restart(createTutorialGameSceneData(started));
+                  })
+                  .catch((error) => {
+                    console.error(`[Dungeon Logic] Could not start ${nextLevel.id}.`, error);
+                    completionTransitionPending = false;
+                  });
+              })
+            : (() => this.scene.start(HOME_SCENE_KEY)),
+        },
       ];
-
-      if (result.recommendedNextLevel !== null) {
-        const nextLevel = result.recommendedNextLevel;
-        const service = this.getTutorialService();
-        completionActions.push({
-          label: copy.game.next,
-          primary: true,
-          action: () => {
-            if (completionTransitionPending) return;
-            completionTransitionPending = true;
-            void service.startLevel(nextLevel.id)
-              .then((started) => {
-                if (createVersion !== this.createVersion) return;
-                this.scene.restart(createTutorialGameSceneData(started));
-              })
-              .catch((error) => {
-                console.error(`[Dungeon Logic] Could not start ${nextLevel.id}.`, error);
-                completionTransitionPending = false;
-              });
-          },
-        });
-      } else if (result.tutorialCompleted) {
-        completionActions.push({
-          label: copy.game.startLevels,
-          primary: true,
-          action: () => {
-            if (completionTransitionPending) return;
-            const service = this.getCampaignService();
-            const firstLevel = service.getContinueLevel() ?? service.getLevels()[0];
-            if (firstLevel === undefined) return;
-            completionTransitionPending = true;
-            void service.startLevel(firstLevel.id)
-              .then((started) => {
-                if (createVersion !== this.createVersion) return;
-                this.scene.restart(createCampaignGameSceneData(started, service.getProgress()));
-              })
-              .catch((error) => {
-                console.error('[Dungeon Logic] Could not start Campaign after Tutorial.', error);
-                completionTransitionPending = false;
-              });
-          },
-        });
-      }
       renderCompletionButtons();
     };
 
     const showDailyCompletionState = (
       result: DailyCompletionResult,
       leaderboardEntry: LeaderboardPlayerView | null,
-      masteryNote: string = '',
+      _masteryNote: string = '',
     ): void => {
       completionMode = true;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
 
-      const recent = getRecentDailyHistory(
-        result.dateKey,
-        this.getDailyService().getHistory().solvedDates,
-        7,
-      );
-      const recentCopy = recent
-        .map((day) => day.solved ? (day.isToday ? '◆' : '●') : '·')
-        .join(' ');
-      const rankingCopy = leaderboardEntry === null
-        ? copy.game.dailyResultFixed
-        : `${copy.game.dailyResultFixed} · ${copy.game.dailyPlace(leaderboardEntry.place)}`;
-
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(
-          `${rankingCopy}
-${copy.game.solvedDaily(formatActiveTime(result.result.bestTimeMs), copy.game.withoutHints, '')}`
-          + (masteryNote ? `
-${masteryNote}` : '')
-          + `
-${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
-        )
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      setCompletionInfoPills([
+        { label: formatActiveTime(result.result.bestTimeMs), iconKey: UI_ICON_KEYS.daily },
+        { label: language === 'ru' ? `Серия ${result.currentStreak}` : `Streak ${result.currentStreak}`, iconKey: UI_ICON_KEYS.endless },
+        { label: leaderboardEntry !== null ? `#${leaderboardEntry.place}` : (language === 'ru' ? 'Результат сохранён' : 'Saved'), iconKey: UI_ICON_KEYS.star },
+      ]);
+      statusText.setVisible(false);
 
       completionActions = [
         {
@@ -1882,11 +2029,9 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
           action: () => this.scene.start(HOME_SCENE_KEY),
         },
         {
-          label: copy.common.leaderboard,
-          action: () => this.scene.start(LEADERBOARD_SCENE_KEY, {
-            dailyId: result.dailyId,
-            dateKey: result.dateKey,
-          }),
+          label: language === 'ru' ? 'ГОТОВО' : 'DONE',
+          primary: true,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
         },
       ];
       renderCompletionButtons();
@@ -1899,24 +2044,21 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(
-          `${copy.game.dailyArchiveComplete}
-${copy.game.dailyArchiveFirstResult(formatActiveTime(result.result.bestTimeMs))}
-${copy.game.dailyArchiveOutsideRating}`,
-        )
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      setCompletionInfoPills([
+        { label: formatActiveTime(result.result.bestTimeMs), iconKey: UI_ICON_KEYS.daily },
+        { label: language === 'ru' ? `Серия ${result.currentStreak}` : `Streak ${result.currentStreak}`, iconKey: UI_ICON_KEYS.endless },
+        { label: language === 'ru' ? 'Вне рейтинга' : 'Unranked', iconKey: UI_ICON_KEYS.star },
+      ]);
+      statusText.setVisible(false);
       completionActions = [
-        {
-          label: copy.game.dailyTitle,
-          action: () => this.scene.start(DAILY_SCENE_KEY),
-        },
         {
           label: copy.game.home,
           action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+        {
+          label: language === 'ru' ? 'ГОТОВО' : 'DONE',
+          primary: true,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
         },
       ];
       renderCompletionButtons();
@@ -1929,36 +2071,21 @@ ${copy.game.dailyArchiveOutsideRating}`,
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
-      const recent = getRecentDailyHistory(
-        result.dateKey,
-        this.getDailyService().getHistory().solvedDates,
-        7,
-      );
-      const recentCopy = recent
-        .map((day) => day.solved ? (day.isToday ? '◆' : '●') : '·')
-        .join(' ');
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(
-          `${copy.game.solvedDaily(
-            formatActiveTime(result.result.bestTimeMs),
-            copy.game.hintsCount(result.result.minHintsUsed),
-            '',
-          )}
-${copy.game.dailyArchiveOutsideRating}
-${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
-        )
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      setCompletionInfoPills([
+        { label: formatActiveTime(result.result.bestTimeMs), iconKey: UI_ICON_KEYS.daily },
+        { label: language === 'ru' ? `Серия ${result.currentStreak}` : `Streak ${result.currentStreak}`, iconKey: UI_ICON_KEYS.endless },
+        { label: language === 'ru' ? 'Вне рейтинга' : 'Unranked', iconKey: UI_ICON_KEYS.star },
+      ]);
+      statusText.setVisible(false);
       completionActions = [
-        {
-          label: copy.game.dailyTitle,
-          action: () => this.scene.start(DAILY_SCENE_KEY),
-        },
         {
           label: copy.game.home,
           action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+        {
+          label: language === 'ru' ? 'ГОТОВО' : 'DONE',
+          primary: true,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
         },
       ];
       renderCompletionButtons();
@@ -1971,20 +2098,21 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
-      statusText
-        .setWordWrapWidth(Math.max(120, this.scale.width - 24), true)
-        .setAlign('center')
-        .setText(`✓ ${copy.common.solved} · ${formatActiveTime(metadata.bestTimeMs)} · ${copy.game.dailyPractice}`)
-        .setColor('#d8d1c4')
-        .setVisible(true);
+      setCompletionInfoPills([
+        { label: formatActiveTime(metadata.bestTimeMs), iconKey: UI_ICON_KEYS.daily },
+        { label: language === 'ru' ? 'Практика' : 'Practice', iconKey: UI_ICON_KEYS.check },
+        { label: metadata.minHintsUsed === 0 ? (language === 'ru' ? 'Чисто' : 'Clean') : copy.game.hintsCount(metadata.minHintsUsed), iconKey: UI_ICON_KEYS.star },
+      ]);
+      statusText.setVisible(false);
       completionActions = [
-        {
-          label: copy.game.dailyTitle,
-          action: () => this.scene.start(DAILY_SCENE_KEY),
-        },
         {
           label: copy.game.home,
           action: () => this.scene.start(HOME_SCENE_KEY),
+        },
+        {
+          label: language === 'ru' ? 'ГОТОВО' : 'DONE',
+          primary: true,
+          action: () => this.scene.start(DAILY_SCENE_KEY),
         },
       ];
       renderCompletionButtons();
@@ -2796,11 +2924,9 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
 
       sceneBackground.sync();
 
-      const nextChrome = calculatePuzzleChromeLayout(width, height);
       const nextSafeTop = getSafeAreaInsets().top;
       const nextBoardLayout = tryGameBoardLayoutForResize(() => calculateStableBoardLayout(
         getCurrentBoardBottomReserve(),
-        nextChrome,
         nextSafeTop,
       ));
       if (nextBoardLayout === null) return;
@@ -2808,7 +2934,7 @@ ${copy.game.streakRecent(result.currentStreak, recentCopy)}`,
       boardLayout = nextBoardLayout;
       recalculateToolbarLayout(boardLayout);
 
-      layoutTopActions(nextChrome, nextSafeTop);
+      layoutTopActions(nextSafeTop);
 
       for (const buttonLayout of toolbarLayout.buttons) {
         const visual = toolbarVisuals.get(buttonLayout.id);

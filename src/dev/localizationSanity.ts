@@ -107,8 +107,8 @@ async function main(): Promise<void> {
   assert(enCopy.game.tutorialComplete === 'TUTORIAL COMPLETE\nYou know every dungeon rule.', 'English Tutorial completion copy is localized.');
   assert(ruCopy.home.endlessSolved(7) === 'Решено: 7', 'Russian Endless solved count is localized.');
   assert(enCopy.home.endlessSolved(7) === 'Solved: 7', 'English Endless solved count is localized.');
-  assert(ruCopy.game.endlessTitle(7) === 'ИСПЫТАНИЕ · 7', 'Russian Challenge game title is localized.');
-  assert(enCopy.game.endlessTitle(7) === 'CHALLENGE · 7', 'English Challenge game title is localized.');
+  assert(ruCopy.game.endlessTitle(7) === 'ИСПЫТАНИЕ 7', 'Russian Challenge game title is localized.');
+  assert(enCopy.game.endlessTitle(7) === 'CHALLENGE 7', 'English Challenge game title is localized.');
   
   const ruRules = getHelpRules('ru');
   const enRules = getHelpRules('en');

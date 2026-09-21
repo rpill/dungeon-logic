@@ -18,6 +18,9 @@ export const UI_ICON_KEYS = {
   lock: 'ui-icon-lock',
   question: 'ui-icon-question',
   masteryForward: 'ui-icon-mastery-forward',
+  star: 'ui-icon-star',
+  daily: 'ui-icon-daily',
+  endless: 'ui-icon-endless',
 } as const;
 
 export function preloadCommonUiIcons(scene: Phaser.Scene): void {
@@ -37,4 +40,7 @@ export function preloadCommonUiIcons(scene: Phaser.Scene): void {
   scene.load.svg(UI_ICON_KEYS.lock, 'assets/ui/icons/lock.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.question, 'assets/ui/icons/question.svg', rasterizeConfig);
   scene.load.svg(UI_ICON_KEYS.masteryForward, 'assets/ui/icons/mastery_right_arrow.svg', rasterizeConfig);
+  scene.load.svg(UI_ICON_KEYS.star, 'assets/ui/icons/star_fill.svg', rasterizeConfig);
+  scene.load.svg(UI_ICON_KEYS.daily, 'assets/ui/icons/daily.svg', rasterizeConfig);
+  scene.load.svg(UI_ICON_KEYS.endless, 'assets/ui/icons/endless.svg', rasterizeConfig);
 }
