@@ -40,6 +40,7 @@ import {
   getMetaScrollMaxY,
   isMetaScrollDrag,
 } from '../runtime/MetaScroll';
+import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
@@ -173,22 +174,18 @@ export class DailyScene extends Phaser.Scene {
     const viewportTop = availableViewport.y;
     const dailyEntries = this.getDailyService().getEntries();
 
-    this.add.text(centerX, viewportTop + shellLayout.todayTitleY, copy.dailyHub.todayTitle, {
-      fontFamily: 'monospace',
-      fontSize: density === 'ultra' ? '11px' : density === 'tight' ? '13px' : narrow ? '15px' : '18px',
-      color: '#f0bd63',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
     const todayHeight = shellLayout.todayHeight;
     const todayCardTop = viewportTop + shellLayout.todayCardTop;
     const todayCardCenterY = todayCardTop + todayHeight / 2;
-    const panel = this.add.graphics();
-    const cardRadius = density === 'ultra' ? 8 : narrow ? 12 : 14;
-    panel.fillStyle(0x1b2945, 0.96);
-    panel.fillRoundedRect(centerX - width / 2, todayCardTop, width, todayHeight, cardRadius);
-    panel.lineStyle(1, 0x415878, 0.92);
-    panel.strokeRoundedRect(centerX - width / 2, todayCardTop, width, todayHeight, cardRadius);
+    createHomeHubModeCard(this, {
+      x: centerX,
+      y: todayCardCenterY,
+      width,
+      height: todayHeight,
+      variant: 'wide',
+      interactive: false,
+      onActivate: () => {},
+    });
 
     if (today?.entry === null || today === null) {
       this.add.text(centerX, todayCardCenterY, copy.dailyHub.todayUnavailable, {
@@ -204,7 +201,8 @@ export class DailyScene extends Phaser.Scene {
       const actionHeight = density === 'ultra' ? 32 : density === 'tight' ? 36 : narrow ? 36 : 44;
       const actionGap = density === 'ultra' ? 6 : 8;
       const horizontalPadding = density === 'ultra' ? 14 : narrow ? 18 : 24;
-      const contentLeft = centerX - width / 2 + horizontalPadding;
+      const leftTextInset = density === 'ultra' ? 0 : narrow ? 0 : density === 'tight' ? 10 : 14;
+      const contentLeft = centerX - width / 2 + horizontalPadding + leftTextInset;
       const contentRight = centerX + width / 2 - horizontalPadding;
       const availableActionWidth = contentRight - contentLeft;
       const playWidth = narrow
@@ -224,15 +222,14 @@ export class DailyScene extends Phaser.Scene {
         : todayCardCenterY;
       const statusWidth = narrow
         ? width - horizontalPadding * 2
-        : width - actionGroupWidth - 76;
-      const dateY = todayCardTop + (density === 'ultra' ? 13 : narrow ? 18 : 28);
-      const statusY = todayCardTop + (density === 'ultra' ? 31 : narrow ? 42 : 54);
-      const rulesY = todayCardTop + (density === 'ultra' ? 48 : density === 'tight' ? 60 : narrow ? 66 : 72);
-      const statusOriginY = narrow ? 0 : 0.5;
+        : width - actionGroupWidth - 98;
+      const dateY = todayCardTop + (density === 'ultra' ? 12 : density === 'tight' ? 17 : narrow ? 18 : 26);
+      const statusY = todayCardTop + (density === 'ultra' ? 25 : density === 'tight' ? 36 : narrow ? 40 : 54);
+      const rulesY = todayCardTop + (density === 'ultra' ? 39 : density === 'tight' ? 54 : narrow ? 61 : 80);
 
       this.add.text(contentLeft, dateY, this.formatDate(today.dateKey), {
         fontFamily: 'monospace',
-        fontSize: density === 'ultra' ? '10px' : density === 'tight' ? '12px' : narrow ? '13px' : '16px',
+        fontSize: density === 'ultra' ? '10px' : density === 'tight' ? '13px' : narrow ? '13px' : '18px',
         color: '#f4ead7',
         fontStyle: 'bold',
       }).setOrigin(0, 0.5);
@@ -247,11 +244,12 @@ export class DailyScene extends Phaser.Scene {
           : copy.dailyHub.todayUnsolved,
         {
           fontFamily: 'monospace',
-          fontSize: density === 'ultra' ? '8px' : density === 'tight' ? '9px' : narrow ? '10px' : '12px',
-          color: solved ? '#c5cfde' : '#aeb9cb',
+          fontSize: density === 'ultra' ? '9px' : density === 'tight' ? '11px' : narrow ? '11px' : '15px',
+          color: solved ? '#d7deea' : '#d7deea',
+          fontStyle: 'bold',
           wordWrap: { width: statusWidth },
         },
-      ).setOrigin(0, statusOriginY);
+      ).setOrigin(0, 0.5);
 
       this.add.text(
         contentLeft,
@@ -259,11 +257,11 @@ export class DailyScene extends Phaser.Scene {
         solved ? copy.dailyHub.todayReplayRules : copy.dailyHub.todayAttemptRules,
         {
           fontFamily: 'monospace',
-          fontSize: density === 'ultra' ? '7px' : density === 'tight' ? '8px' : narrow ? '9px' : '10px',
-          color: '#718098',
+          fontSize: density === 'ultra' ? '7px' : density === 'tight' ? '9px' : narrow ? '9px' : '12px',
+          color: '#97a5bb',
           wordWrap: { width: statusWidth },
         },
-      ).setOrigin(0, narrow ? 0 : 0.5);
+      ).setOrigin(0, 0.5);
 
       this.createTodayActionButton({
         x: playX,
@@ -292,13 +290,6 @@ export class DailyScene extends Phaser.Scene {
         },
       });
     }
-
-    this.add.text(centerX, viewportTop + shellLayout.archiveTitleY, copy.dailyHub.archiveTitle, {
-      fontFamily: 'monospace',
-      fontSize: density === 'ultra' ? '11px' : density === 'tight' ? '13px' : narrow ? '16px' : '19px',
-      color: '#f4ead7',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
     if (today === null) {
       this.add.text(centerX, viewportTop + shellLayout.monthHeaderY, copy.dailyHub.archiveEmpty, {
         fontFamily: 'monospace',
@@ -534,13 +525,6 @@ export class DailyScene extends Phaser.Scene {
             });
         }
       });
-
-      const outsideRating = this.add.text(centerX, viewportTop + layout.outsideRatingY, copy.dailyHub.archiveOutsideRating, {
-        fontFamily: 'monospace',
-        fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '9px' : '11px',
-        color: '#65728a',
-      }).setOrigin(0.5, 0);
-      calendarContainer.add(outsideRating);
 
       this.contentBottom = viewportTop + layout.contentBottom;
       this.scrollMaxY = this.getScrollMaxY(this.contentBottom);

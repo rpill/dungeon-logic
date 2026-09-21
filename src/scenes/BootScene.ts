@@ -41,6 +41,7 @@ import { preloadMasteryRequirementPanelAssets } from '../runtime/MasteryRequirem
 import { preloadMasteryRequirementRowPanelAssets } from '../runtime/MasteryRequirementRowPanel';
 import { preloadPuzzleHeaderUiAssets } from '../runtime/PuzzleHeaderUiAssets';
 import { preloadCompletionPanelAssets } from '../runtime/CompletionPanel';
+import { preloadModalPanelAssets } from '../runtime/ModalPanel';
 import { preloadMasterySealAssets } from '../runtime/MasterySeal';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { preloadBoardThemeAssets } from '../view/BoardThemeAssets';
@@ -73,6 +74,7 @@ export class BootScene extends Phaser.Scene {
     preloadMasteryRequirementRowPanelAssets(this);
     preloadPuzzleHeaderUiAssets(this);
     preloadCompletionPanelAssets(this);
+    preloadModalPanelAssets(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
     this.load.image('home-logo', 'assets/logo.webp');

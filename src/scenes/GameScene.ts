@@ -97,6 +97,7 @@ import { syncMasterRatingLeaderboard } from '../mastery/MasterRatingLeaderboard'
 import { formatMasterRating, getMasterRatingMilestone } from '../mastery/MasterRating';
 import { getMasterySnapshot } from '../mastery/MasteryProgress';
 import { showMasteryRankUpOverlay } from '../runtime/MasteryRankUpOverlay';
+import { createModalPanel } from '../runtime/ModalPanel';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -1051,9 +1052,7 @@ export class GameScene extends Phaser.Scene {
           : 0;
     onboardingOpen = onboardingIndex >= 0;
 
-    const onboardingPanel = this.add.graphics()
-      .setVisible(false)
-      .setDepth(50);
+    let onboardingPanel: Phaser.GameObjects.NineSlice | null = null;
     const onboardingText = this.add.text(0, 0, '', {
       fontFamily: 'monospace',
       fontSize: '18px',
@@ -1072,7 +1071,7 @@ export class GameScene extends Phaser.Scene {
     const relayoutOnboarding = (): void => {
       const step = currentOnboardingStep();
       if (!onboardingOpen || step === null) {
-        onboardingPanel.setVisible(false);
+        onboardingPanel?.setVisible(false);
         onboardingText.setVisible(false);
         board?.setTutorialCellTargets(null);
         board?.setTutorialGuideClue(null);
@@ -1091,13 +1090,13 @@ export class GameScene extends Phaser.Scene {
       const panelX = boardLayout.originX + boardLayout.boardWidth / 2;
 
       onboardingText
-        .setWordWrapWidth(Math.max(120, panelWidth - 36), true)
+        .setWordWrapWidth(Math.max(120, panelWidth - (narrowScreen ? 52 : 64)), true)
         .setFontSize(narrowScreen ? 15 : 18)
         .setText(step.message);
 
-      const verticalPadding = narrowScreen ? 12 : 15;
+      const verticalPadding = narrowScreen ? 18 : 20;
       const panelHeight = Math.max(
-        narrowScreen ? 56 : 68,
+        narrowScreen ? 82 : 96,
         onboardingText.height + verticalPadding * 2,
       );
       const tutorialClueTopY = boardLayout.originY
@@ -1105,16 +1104,15 @@ export class GameScene extends Phaser.Scene {
       const panelBottomGap = narrowScreen ? 10 : 16;
       const panelY = tutorialClueTopY - panelBottomGap - panelHeight / 2;
 
-      const panelLeft = panelX - panelWidth / 2;
-      const panelTop = panelY - panelHeight / 2;
-      const panelRadius = narrowScreen ? 10 : 12;
-      onboardingPanel
-        .clear()
-        .fillStyle(0x111b2f, 0.98)
-        .fillRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, panelRadius)
-        .lineStyle(narrowScreen ? 1 : 2, 0x6482ad, 0.95)
-        .strokeRoundedRect(panelLeft, panelTop, panelWidth, panelHeight, panelRadius)
-        .setVisible(true);
+      onboardingPanel?.destroy();
+      onboardingPanel = createModalPanel(this, {
+        x: panelX,
+        y: panelY,
+        width: panelWidth,
+        height: panelHeight,
+        variant: 'wide',
+        alpha: 0.985,
+      }).setDepth(50);
       onboardingText
         .setPosition(panelX, panelY)
         .setVisible(true);
@@ -2245,21 +2243,21 @@ export class GameScene extends Phaser.Scene {
 
       const modalChrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
       const width = Math.min(390, modalChrome.modalWidth);
-      const height = 194;
+      const height = 248;
       const container = this.add.container(this.scale.width / 2, this.scale.height / 2).setDepth(80);
       resetDialog = container;
 
-      const shadow = this.add.graphics();
-      shadow.fillStyle(0x050a13, 0.42);
-      shadow.fillRoundedRect(-width / 2 + 4, -height / 2 + 7, width, height, 12);
+      const panel = createModalPanel(this, {
+        x: 0,
+        y: 0,
+        width,
+        height,
+        variant: 'wide',
+        alpha: 0.985,
+      });
 
-      const panel = this.add.graphics();
-      panel.fillStyle(0x1f2c4a, 0.98);
-      panel.fillRoundedRect(-width / 2, -height / 2, width, height, 12);
-      panel.lineStyle(1, 0x4b6386, 0.92);
-      panel.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
-
-      const title = this.add.text(0, -66, copy.game.resetTitle, {
+      const titleY = -height / 2 + 66;
+      const title = this.add.text(0, titleY, copy.game.resetTitle, {
         fontFamily: 'monospace',
         fontSize: `${modalChrome.modalTitleFontSize}px`,
         color: '#f0bd63',
@@ -2271,19 +2269,19 @@ export class GameScene extends Phaser.Scene {
       const titleGap = title.width / 2 + 16;
       const diamondOffset = titleGap + 10;
       titleAccent.lineStyle(1, 0xf0b14f, 0.45);
-      titleAccent.lineBetween(-width / 2 + 28, -66, -diamondOffset - 6, -66);
-      titleAccent.lineBetween(diamondOffset + 6, -66, width / 2 - 28, -66);
+      titleAccent.lineBetween(-width / 2 + 28, titleY, -diamondOffset - 6, titleY);
+      titleAccent.lineBetween(diamondOffset + 6, titleY, width / 2 - 28, titleY);
       titleAccent.fillStyle(0xf0b14f, 0.85);
       for (const x of [-diamondOffset, diamondOffset]) {
         titleAccent.beginPath();
-        titleAccent.moveTo(x, -70);
-        titleAccent.lineTo(x + 4, -66);
-        titleAccent.lineTo(x, -62);
-        titleAccent.lineTo(x - 4, -66);
+        titleAccent.moveTo(x, titleY - 4);
+        titleAccent.lineTo(x + 4, titleY);
+        titleAccent.lineTo(x, titleY + 4);
+        titleAccent.lineTo(x - 4, titleY);
         titleAccent.closePath();
         titleAccent.fillPath();
       }
-      const dialogCopy = this.add.text(0, -20, copy.game.resetBody, {
+      const dialogCopy = this.add.text(0, -4, copy.game.resetBody, {
         fontFamily: 'monospace',
         fontSize: `${modalChrome.modalCopyFontSize}px`,
         color: '#e7e1d6',
@@ -2296,7 +2294,7 @@ export class GameScene extends Phaser.Scene {
       const buttonWidth = Math.floor((width - 44 - gap) / 2);
       const cancelX = -buttonWidth / 2 - gap / 2;
       const resetX = buttonWidth / 2 + gap / 2;
-      const buttonY = 54;
+      const buttonY = height / 2 - 46;
       const buttonHeight = 48;
 
       const cancelButton = createCenteredTextMenuButton(this, {
@@ -2332,7 +2330,7 @@ export class GameScene extends Phaser.Scene {
       });
 
       container.add([
-        shadow, panel, titleAccent, title, dialogCopy,
+        panel, titleAccent, title, dialogCopy,
         cancelButton.fill, cancelButton.frame, cancelButton.label,
         confirmButton.fill, confirmButton.frame, confirmButton.label,
       ]);

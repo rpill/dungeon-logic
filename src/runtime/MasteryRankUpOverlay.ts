@@ -4,6 +4,7 @@ import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import type { UiCopy } from '../i18n/UiCopy';
 import type { MasteryRankId } from '../mastery/MasteryProgress';
 import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from './MasterySeal';
+import { createModalPanel } from './ModalPanel';
 import { createPrimaryActionButton } from './PrimaryActionButton';
 
 export interface MasteryRankUpOverlayOptions {
@@ -29,20 +30,22 @@ export function showMasteryRankUpOverlay(
   const narrow = scene.scale.width < 700;
   const width = scene.scale.width;
   const height = scene.scale.height;
-  const panelWidth = Math.min(width - (narrow ? 28 : 80), narrow ? 360 : 520);
-  const panelHeight = Math.min(height - (narrow ? 52 : 100), narrow ? 500 : 590);
+  const panelWidth = Math.min(width - (narrow ? 28 : 80), narrow ? 360 : 500);
+  const panelHeight = Math.min(height - (narrow ? 52 : 100), narrow ? 500 : 600);
   const centerX = width / 2;
   const centerY = height / 2;
 
   const veil = scene.add.rectangle(centerX, centerY, width, height, 0x050913, 0.84)
     .setDepth(depth)
     .setInteractive();
-  const panel = scene.add.graphics().setDepth(depth + 1);
-  const radius = narrow ? 18 : 22;
-  panel.fillStyle(0x101e35, 0.985);
-  panel.fillRoundedRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, radius);
-  panel.lineStyle(narrow ? 2 : 2.5, 0x6d85a7, 0.95);
-  panel.strokeRoundedRect(centerX - panelWidth / 2, centerY - panelHeight / 2, panelWidth, panelHeight, radius);
+  const panel = createModalPanel(scene, {
+    x: centerX,
+    y: centerY,
+    width: panelWidth,
+    height: panelHeight,
+    variant: 'tall',
+    alpha: 0.985,
+  }).setDepth(depth + 1);
 
   const titleY = centerY - panelHeight * 0.36;
   const title = scene.add.text(
