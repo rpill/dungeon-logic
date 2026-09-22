@@ -42,6 +42,51 @@ class FakeRectangle {
   on(event: string, callback: EventHandler): this { this.handlers.set(event, callback); return this; }
 }
 
+
+class FakeImage {
+  x: number;
+  y: number;
+  displayWidth = 0;
+  displayHeight = 0;
+  visible = true;
+  interactive = false;
+  alpha = 1;
+  tint: number | null = null;
+  texture: string;
+  readonly handlers = new Map<string, EventHandler>();
+
+  constructor(x: number, y: number, texture: string) {
+    this.x = x;
+    this.y = y;
+    this.texture = texture;
+  }
+
+  setDisplaySize(width: number, height: number): this {
+    this.displayWidth = width;
+    this.displayHeight = height;
+    return this;
+  }
+  setVisible(value: boolean): this { this.visible = value; return this; }
+  setAlpha(value: number): this { this.alpha = value; return this; }
+  setTint(value: number): this { this.tint = value; return this; }
+  clearTint(): this { this.tint = null; return this; }
+  setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
+  setTexture(texture: string): this { this.texture = texture; return this; }
+  setOrigin(): this { return this; }
+  setInteractive(): this { this.interactive = true; return this; }
+  on(event: string, callback: EventHandler): this { this.handlers.set(event, callback); return this; }
+}
+
+class FakeTween {
+  restart(): this { return this; }
+  pause(): this { return this; }
+  stop(): this { return this; }
+}
+
+class FakeTimerEvent {
+  destroy(): void {}
+}
+
 class FakeText {
   x: number;
   y: number;
@@ -61,12 +106,20 @@ class FakeText {
   setText(value: string): this { this.value = value; return this; }
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setFontSize(value: number): this { this.fontSize = value; return this; }
+  setScale(): this { return this; }
+  setAlpha(): this { return this; }
 }
 
 class FakeScene {
   readonly rectangles: FakeRectangle[] = [];
+  readonly images: FakeImage[] = [];
   readonly texts: FakeText[] = [];
   readonly add = {
+    image: (x: number, y: number, texture: string) => {
+      const item = new FakeImage(x, y, texture);
+      this.images.push(item);
+      return item;
+    },
     rectangle: (x: number, y: number, width: number, height: number, fillColor?: number) => {
       const item = new FakeRectangle(x, y, width, height, fillColor);
       this.rectangles.push(item);
@@ -79,6 +132,8 @@ class FakeScene {
     },
   };
   readonly input = { on: () => undefined };
+  readonly tweens = { add: () => new FakeTween() };
+  readonly time = { addEvent: () => new FakeTimerEvent() };
 }
 
 const level = {
@@ -107,7 +162,7 @@ const board = new BoardView(
   () => undefined,
 );
 
-const editable = scene.rectangles.find((rectangle) => rectangle.interactive);
+const editable = scene.images.find((image) => image.interactive);
 assert(editable !== undefined, 'Sanity board exposes an editable cell.');
 const beforeX = editable.x;
 const beforeWidth = editable.displayWidth;

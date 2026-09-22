@@ -21,7 +21,6 @@ import type {
 import {
   DAILY_SERVICE_REGISTRY_KEY,
   DailyService,
-  getRecentDailyHistory,
   type DailyCompletionResult,
 } from '../daily/DailyService';
 import { encodeDailyLeaderboardScore, getDailyLeaderboardName } from '../daily/DailyLeaderboard';
@@ -58,7 +57,6 @@ import {
 import {
   completeDailyGameLaunch,
   completeGameLaunch,
-  createCampaignGameSceneData,
   createCampaignReplayGameSceneData,
   createEndlessGameSceneData,
   createNextCampaignGameSceneData,
@@ -74,7 +72,6 @@ import {
 } from '../tutorial/TutorialService';
 import { createCompletedReviewPuzzle, resolveCampaignPlayState } from '../runtime/CampaignPlayState';
 import { calculateGameBoardLayout } from './GameBoardLayout';
-import { LEADERBOARD_SCENE_KEY } from './LeaderboardScene';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { calculatePuzzleChromeLayout } from '../runtime/ResponsiveLayout';
 import { calculatePuzzleHeaderLayout } from '../runtime/PuzzleHeaderLayout';
@@ -131,12 +128,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     const createVersion = this.createVersion + 1;
-    let uiDensity = resolveUiDensity(this.scale.width, this.scale.height);
     this.createVersion = createVersion;
     this.createGame(launchData, createVersion);
   }
 
   private createGame(launchData: GameSceneData, createVersion: number): void {
+    let uiDensity = resolveUiDensity(this.scale.width, this.scale.height);
     const sceneBackground = createSceneBackground(this, 'meta');
 
     const getSafeAreaInsets = () => readCssSafeAreaInsets();
