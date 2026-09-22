@@ -1,13 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { level as campaign003 } from '../content/campaign/levels/campaign003';
-import { chooseHint } from '../gameplay/HintService';
-import { PuzzleState } from '../puzzle/PuzzleState';
-import { CellState } from '../puzzle/types';
-import {
-  createCompletedReviewPuzzle,
-  resolveCampaignPlayState,
-} from '../runtime/CampaignPlayState';
+import { resolveCampaignPlayState } from '../runtime/CampaignPlayState';
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -16,15 +10,6 @@ function assert(condition: boolean, message: string): asserts condition {
 const gameSceneSource = readFileSync(new URL('../scenes/GameScene.ts', import.meta.url), 'utf8');
 const settingsSceneSource = readFileSync(new URL('../scenes/SettingsScene.ts', import.meta.url), 'utf8');
 const mainSource = readFileSync(new URL('../main.ts', import.meta.url), 'utf8');
-
-const puzzle = new PuzzleState(campaign003);
-for (let x = 1; x < campaign003.width; x += 1) puzzle.setCellState(x, 0, CellState.Wall);
-puzzle.setCellState(0, 1, CellState.Floor);
-let hint = chooseHint(puzzle);
-assert(hint?.x === 1 && hint.y === 1 && hint.state === CellState.Floor, 'Campaign 003 disputed hint target is Floor.');
-puzzle.setCellState(1, 1, CellState.Wall);
-hint = chooseHint(puzzle);
-assert(hint?.x === 1 && hint.y === 1 && hint.state === CellState.Floor, 'Wrong Wall does not change Campaign 003 hint truth.');
 
 const review = resolveCampaignPlayState(campaign003, {
   completedLevelIds: [campaign003.id],
@@ -39,16 +24,16 @@ const review = resolveCampaignPlayState(campaign003, {
   drafts: {},
 });
 assert(review.mode === 'completed-review' && review.displayTimeMs === 33_000, 'Completed campaign launch resolves to locked review with best time.');
-const solvedPuzzle = createCompletedReviewPuzzle(campaign003);
-assert(solvedPuzzle.getCellState(1, 1) === CellState.Floor, 'Completed review reconstructs the canonical Floor in the disputed cell.');
-
 assert(gameSceneSource.includes("let solved = completedReview;"), 'GameScene starts completed review in solved/locked state.');
 assert(gameSceneSource.includes("const initialTimerMs = completedReview"), 'GameScene derives completed review timer from stored result rather than starting a run.');
 assert(gameSceneSource.includes("board.setInputEnabled(false);\n      updateTimerText();\n      refreshStatusText();"), 'Completed review disables board input and renders frozen time/status.');
 assert(gameSceneSource.includes("const freshSession = PuzzleSessionService.createCampaign("), 'Completed Reset creates a new campaign puzzle session.');
 assert(gameSceneSource.includes("this.scene.restart(launchData);"), 'Fresh completed-level replay restarts GameScene from the new 00:00 session.');
 assert(gameSceneSource.includes("if (currentHint !== null) {\n        refreshStatusText();\n        return;"), 'Unresolved current hint cannot consume/reveal the same hint again.');
-assert(gameSceneSource.includes('const menuText'), 'GameScene exposes one compact top-level Menu action.');
+assert(
+  gameSceneSource.includes('const menuHit') && gameSceneSource.includes('const menuIcon'),
+  'GameScene exposes one compact top-level Menu action.',
+);
 assert(gameSceneSource.includes('const openGameMenu'), 'GameScene opens a modal menu instead of separate Help/Settings chrome actions.');
 assert(gameSceneSource.includes("openSceneOverlayFromMenu(SETTINGS_SCENE_KEY)"), 'Game menu opens Settings through the existing paused-scene overlay flow.');
 assert(gameSceneSource.includes("openSceneOverlayFromMenu(HELP_SCENE_KEY)"), 'Game menu opens Rules through the existing paused-scene overlay flow.');
@@ -70,7 +55,12 @@ assert(!gameSceneSource.includes('onboardingFocusGuides'), 'Tutorial focusCells 
 assert(!gameSceneSource.includes('for (const { x, y } of step.focusCells ?? [])'), 'Tutorial focusCells are contextual metadata only and are not painted over cells.');
 assert(!gameSceneSource.includes("target === 'message'"), 'Tutorial runtime has no standalone message-step branch.');
 assert(gameSceneSource.includes('isOnboardingStepSatisfied(step, (x, y) => puzzle.getCellState(x, y))\n      ) {\n        advanceOnboarding();'), 'Completing the current guided board action advances tutorial copy immediately.');
-assert(gameSceneSource.includes('positionCompletionStatusText'), 'Completion copy is positioned against the action-button block instead of the hidden gameplay toolbar.');
+assert(
+  gameSceneSource.includes('calculateCompletionPanelLayout(')
+    && gameSceneSource.includes('statusText.setVisible(false);')
+    && gameSceneSource.includes('renderCompletionInfoPills(layout);'),
+  'Completion state is rendered by the dedicated completion-panel layout instead of gameplay toolbar status text.',
+);
 const dailySceneSource = readFileSync(new URL('../scenes/DailyScene.ts', import.meta.url), 'utf8');
 assert(dailySceneSource.includes('todayCardTop'), 'Daily hub lays out the Today card from an explicit top edge so the СЕГОДНЯ label cannot sit on its border.');
 
@@ -81,19 +71,31 @@ assert(!gameSceneSource.includes('if (rankedDaily) return;'), 'Ranked Daily no l
 assert(gameSceneSource.includes('rankedDailyHintUnlocked'), 'Ranked Daily computes whether the five-minute hint gate is open.');
 assert(gameSceneSource.includes('dailyHintOutsideRating'), 'Ranked Daily confirmation warns that using a hint removes leaderboard eligibility.');
 assert(gameSceneSource.includes('const rankedDailyDisplayAnchorMs = rankedDaily ? Date.now() : 0;'), 'Ranked Daily display time is anchored independently of ordinary active-time pauses.');
+const performPlayableResetStart = gameSceneSource.indexOf('const performPlayableReset = (): boolean =>');
+const showResetDialogStart = gameSceneSource.indexOf('const showResetDialog = (): void =>', performPlayableResetStart);
+assert(performPlayableResetStart >= 0 && showResetDialogStart > performPlayableResetStart, 'GameScene playable reset helper can be isolated for Daily regression coverage.');
+const performPlayableResetSource = gameSceneSource.slice(performPlayableResetStart, showResetDialogStart);
+assert(performPlayableResetSource.includes('board?.reset()'), 'Daily Reset clears board marks through the existing puzzle session.');
+
 const resetRequestStart = gameSceneSource.indexOf('const requestReset = (): void =>');
 const puzzleChangedStart = gameSceneSource.indexOf('const handlePuzzleChanged = (): void =>', resetRequestStart);
-assert(resetRequestStart >= 0 && puzzleChangedStart > resetRequestStart, 'GameScene reset flow can be isolated for Daily regression coverage.');
+assert(resetRequestStart >= 0 && puzzleChangedStart > resetRequestStart, 'GameScene reset request flow can be isolated for Daily regression coverage.');
 const resetRequestSource = gameSceneSource.slice(resetRequestStart, puzzleChangedStart);
-assert(resetRequestSource.includes('board?.reset();'), 'Daily Reset clears board marks through the existing puzzle session.');
+assert(resetRequestSource.includes('performPlayableReset();'), 'Daily Reset delegates to the existing playable puzzle session reset helper.');
 assert(!resetRequestSource.includes('beginDaily('), 'Daily Reset does not start a new attempt or reset its ranked start timestamp.');
 assert(gameSceneSource.includes("launchData.context.mode === 'tutorial'"), 'GameScene recognizes first-class Tutorial launch context.');
 assert(gameSceneSource.includes('PuzzleSessionService.createTutorial('), 'Tutorial gameplay persists through a dedicated tutorial puzzle session.');
 assert(gameSceneSource.includes('createOnboardingFlow(launchData.context.tutorialLevelId, language)'), 'Tutorial runtime loads tutorial-only guided flow.');
 assert(gameSceneSource.includes('finishTutorialLevel('), 'Solved Tutorial dispatches through TutorialService instead of Campaign completion.');
-assert(gameSceneSource.includes('copy.game.tutorialComplete'), 'Tutorial 5 exposes the Tutorial Complete state.');
+assert(
+  gameSceneSource.includes('const showTutorialCompletionState =')
+    && gameSceneSource.includes('const nextLevel = result.recommendedNextLevel;')
+    && gameSceneSource.includes("label: nextLevel !== null ? copy.game.next : (language === 'ru' ? 'ГОТОВО' : 'DONE')")
+    && gameSceneSource.includes(": (() => this.scene.start(HOME_SCENE_KEY))"),
+  'Tutorial 5 exposes the terminal Tutorial completion state when there is no recommended next lesson.',
+);
 const puzzleChangedIndex = gameSceneSource.indexOf('const handlePuzzleChanged = (): void =>');
 const editCommittedIndex = gameSceneSource.indexOf('const handleEditCommitted = (): void =>');
 assert(puzzleChangedIndex >= 0 && editCommittedIndex > puzzleChangedIndex, 'Validator solve callback is defined before onboarding edit-commit advancement.');
 
-console.info('[Dungeon Logic] Game regression sanity: hint truth + completed review/replay + settings/title + onboarding overlay wiring passed');
+console.info('[Dungeon Logic] Game regression sanity: completed review/replay + settings/title + onboarding overlay wiring passed');

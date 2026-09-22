@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 import { isTouchLikePointer } from './PointerInput';
 
 export type MaterialButtonVariant = 'secondary' | 'danger';
@@ -23,8 +24,8 @@ export function getMaterialButtonContentY(y: number, height: number): number {
   return y - height * MATERIAL_BUTTON_CONTENT_Y_RATIO;
 }
 
-const MATERIAL_BUTTON_TEXT_COLOR = '#f4ead7';
-const MATERIAL_BUTTON_ICON_TINT = 0xf4ead7;
+const MATERIAL_BUTTON_TEXT_COLOR = uiColorHex(UI_THEME.colors.text.primary);
+const MATERIAL_BUTTON_ICON_TINT = UI_THEME.colors.text.primary;
 
 export const MATERIAL_BUTTON_STATE_TINTS = {
   secondary: {
@@ -41,18 +42,18 @@ export const MATERIAL_BUTTON_STATE_TINTS = {
 
 const GRAPHICS_PALETTES = {
   secondary: {
-    normal: 0x1b2942,
-    hover: 0x263a5d,
-    pressed: 0x142137,
-    top: 0x3a5278,
-    bottom: 0x101b2d,
+    normal: UI_THEME.colors.surface.base,
+    hover: UI_THEME.colors.surface.raised,
+    pressed: UI_THEME.colors.surface.inset,
+    top: UI_THEME.colors.border.bright,
+    bottom: UI_THEME.colors.border.dark,
   },
   danger: {
-    normal: 0xb85c62,
-    hover: 0xcb6970,
-    pressed: 0x98464e,
-    top: 0xdd7a80,
-    bottom: 0x843d45,
+    normal: UI_THEME.colors.semantic.danger,
+    hover: UI_THEME.colors.semantic.danger,
+    pressed: UI_THEME.colors.surface.inset,
+    top: UI_THEME.colors.border.bright,
+    bottom: UI_THEME.colors.border.dark,
   },
 } as const;
 

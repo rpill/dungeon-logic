@@ -4,6 +4,7 @@ import type { UiCopy } from '../i18n/UiCopy';
 import type { MasterySnapshot } from '../mastery/MasteryProgress';
 import { createHomeHubModeCard } from './HomeHubModeCard';
 import { createMasterySeal } from './MasterySeal';
+import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 import { UI_ICON_KEYS } from './UiIcons';
 
 export interface MasteryStripOptions {
@@ -65,17 +66,17 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
   const titleText = scene.add.text(titleX, options.y - options.height * 0.115, title, {
     fontFamily: 'monospace',
     fontSize: `${Math.round(Math.max(13, options.height * 0.2))}px`,
-    color: '#fff0cf',
+    color: uiColorHex(UI_THEME.colors.text.primary),
     fontStyle: 'bold',
   }).setOrigin(0, 0.5);
   fitTextWidth(titleText, textWidth, 11);
 
   const subtitleText = scene.add.text(titleX, options.y + options.height * 0.17, subtitle, {
     fontFamily: 'monospace',
-    fontSize: `${Math.round(Math.max(9, options.height * 0.14))}px`,
-    color: '#c6d2e6',
+    fontSize: `${Math.round(Math.max(10, options.height * 0.14))}px`,
+    color: uiColorHex(UI_THEME.colors.text.secondary),
   }).setOrigin(0, 0.5);
-  fitTextWidth(subtitleText, textWidth, 9);
+  fitTextWidth(subtitleText, textWidth, 10);
 
   return {
     destroy: () => {

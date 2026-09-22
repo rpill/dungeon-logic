@@ -21,10 +21,8 @@ import {
 } from '../runtime/GameLaunch';
 import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
-import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
 import { createMasteryStrip } from '../runtime/MasteryStrip';
-import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
 import {
   calculateAvailableViewport,
   readCssSafeAreaInsets,
@@ -42,6 +40,11 @@ import {
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
+import { createUiButton } from '../ui/UiButton';
+import { resolveUiDensity, type UiDensity } from '../ui/UiDensity';
+import { createUiProgressBar } from '../ui/UiProgressBar';
+import { createUiTextStyle } from '../ui/UiText';
+import { UI_THEME } from '../ui/UiTheme';
 import { DAILY_SCENE_KEY } from './DailyScene';
 import { classifyViewport } from './GameBoardLayout';
 
@@ -61,6 +64,7 @@ interface HomeHubCardOptions {
   readonly width: number;
   readonly height: number;
   readonly variant: HomeCardVariant;
+  readonly density: UiDensity;
   readonly label: string;
   readonly subtitle: string;
   readonly icon: HomeCardIcon;
@@ -118,6 +122,7 @@ export class HomeScene extends Phaser.Scene {
     const mastery = getMasterySnapshot(profile);
     const endlessProgress = endless.getProgress();
     const copy = getUiCopy(profile.settings.language);
+    const density = resolveUiDensity(this.scale.width, this.scale.height);
     const analytics = this.registry.get(ANALYTICS_SERVICE_REGISTRY_KEY) as AnalyticsService | undefined;
     analytics?.screenView('home');
 
@@ -254,6 +259,7 @@ export class HomeScene extends Phaser.Scene {
       width: contentWidth,
       height: primaryHeight,
       variant: 'primary',
+      density,
       label: primary.label,
       subtitle: primary.subtitle,
       icon: primary.icon,
@@ -282,6 +288,7 @@ export class HomeScene extends Phaser.Scene {
       width: tileWidth,
       height: tileHeight,
       variant: 'tall',
+      density,
       label: copy.common.levels,
       subtitle: '',
       icon: 'levels',
@@ -296,6 +303,7 @@ export class HomeScene extends Phaser.Scene {
       tileWidth,
       tileHeight,
       createVersion,
+      density,
     );
 
     createHomeHubCard(this, {
@@ -304,6 +312,7 @@ export class HomeScene extends Phaser.Scene {
       width: contentWidth,
       height: wideHeight,
       variant: 'wide',
+      density,
       label: copy.home.endless,
       subtitle: endlessUnlocked
         ? endlessProgress.rankedComplete
@@ -444,6 +453,7 @@ export class HomeScene extends Phaser.Scene {
     width: number,
     height: number,
     createVersion: number,
+    density: UiDensity,
   ): Promise<void> {
     const initialProfile = profileService.getProfile();
     const initialCopy = getUiCopy(initialProfile.settings.language);
@@ -456,6 +466,7 @@ export class HomeScene extends Phaser.Scene {
         width,
         height,
         variant: 'tall',
+        density,
         label: 'DAILY',
         subtitle: initialCopy.home.dailyLockedShort,
         icon: 'daily',
@@ -471,6 +482,7 @@ export class HomeScene extends Phaser.Scene {
       width,
       height,
       variant: 'tall',
+      density,
       label: 'DAILY',
       subtitle: initialCopy.common.loading,
       icon: 'daily',
@@ -498,6 +510,7 @@ export class HomeScene extends Phaser.Scene {
         width,
         height,
         variant: 'tall',
+        density,
         label: 'DAILY',
         subtitle: copy.home.dailyLockedShort,
         icon: 'daily',
@@ -514,6 +527,7 @@ export class HomeScene extends Phaser.Scene {
         width,
         height,
         variant: 'tall',
+        density,
         label: 'DAILY',
         subtitle: copy.home.dailyUnavailableShort,
         icon: 'daily',
@@ -536,6 +550,7 @@ export class HomeScene extends Phaser.Scene {
       width,
       height,
       variant: 'tall',
+      density,
       label: 'DAILY',
       subtitle: streak,
       icon: 'daily',
@@ -602,7 +617,7 @@ function createHomeHubCard(
   const activeAccent = options.activeAccent ?? false;
 
   if (options.variant === 'primary') {
-    const button = createPrimaryActionButton(scene, {
+    const button = createUiButton(scene, {
       x: options.x,
       y: options.y,
       width: options.width,
@@ -610,6 +625,7 @@ function createHomeHubCard(
       label: options.label,
       subtitle: options.subtitle,
       iconKey: HOME_CARD_ICON_KEYS[options.icon as 'play'],
+      variant: 'primary',
       enabled,
       onActivate: (pointer) => {
         if (pointerGate.canActivate(pointer.id)) options.onActivate();
@@ -639,9 +655,9 @@ function createHomeHubCard(
   // const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
   //         y: options.y + options.height * (narrow ? 0.31 : 0.35),
   const labelColor = enabled
-    ? (activeAccent ? '#ffd978' : '#fff1d2')
-    : '#77849c';
-  const subtitleColor = enabled ? '#c4d0e5' : '#58667f';
+    ? (activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.primary)
+    : UI_THEME.colors.text.disabled;
+  const subtitleColor = enabled ? UI_THEME.colors.text.secondary : UI_THEME.colors.text.disabled;
 
   if (options.variant === 'tall') {
     const iconSize = narrow ? 30 : Math.min(82, cardWidth * 0.31);
@@ -649,7 +665,7 @@ function createHomeHubCard(
     const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
     const icon = scene.add.image(options.x, iconY, iconKey)
       .setDisplaySize(iconSize, iconSize)
-      .setTint(enabled ? (activeAccent ? 0xf5c75f : 0xffefcf) : 0x7d889c)
+      .setTint(enabled ? (activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.primary) : UI_THEME.colors.text.disabled)
       .setAlpha(enabled ? 1 : 0.58);
     objects.push(icon);
 
@@ -661,28 +677,22 @@ function createHomeHubCard(
         UI_ICON_KEYS.lock,
       )
         .setDisplaySize(lockSize, lockSize)
-        .setTint(0x8792a8)
+        .setTint(UI_THEME.colors.text.disabled)
         .setAlpha(0.72);
       objects.push(lock);
     }
 
     const label = scene.add.text(options.x, options.y + cardHeight * 0.08, options.label, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '16px' : '21px',
-      color: labelColor,
-      fontStyle: 'bold',
+      ...createUiTextStyle('bodyStrong', options.density, { color: labelColor, align: 'center' }),
     }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, cardWidth - (narrow ? 22 : 32), narrow ? 12 : 14);
+    fitHomeText(label, cardWidth - (narrow ? 22 : 32), options.density === 'mobile' ? 10 : 11);
     objects.push(label);
 
     if (options.progress !== undefined) {
       const progressLabel = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.24 : 0.28), options.progress.label, {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '10px' : '13px',
-        color: subtitleColor,
-        fontStyle: 'bold',
+        ...createUiTextStyle('meta', options.density, { color: subtitleColor, align: 'center', fontStyle: 'bold' }),
       }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-      fitHomeText(progressLabel, cardWidth - (narrow ? 18 : 28), narrow ? 9 : 10);
+      fitHomeText(progressLabel, cardWidth - (narrow ? 18 : 28), 10);
       objects.push(progressLabel);
 
       const progress = drawHomeCardProgress(scene, {
@@ -697,11 +707,9 @@ function createHomeHubCard(
       objects.push(progress);
     } else {
       const subtitle = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.27 : 0.31), options.subtitle, {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '11px' : '14px',
-        color: subtitleColor,
+        ...createUiTextStyle('meta', options.density, { color: subtitleColor, align: 'center' }),
       }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-      fitHomeText(subtitle, cardWidth - (narrow ? 18 : 28), narrow ? 9 : 10);
+      fitHomeText(subtitle, cardWidth - (narrow ? 18 : 28), 10);
       objects.push(subtitle);
     }
   } else {
@@ -711,7 +719,7 @@ function createHomeHubCard(
     const iconSize = narrow ? 38 : 52;
     const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
       .setDisplaySize(iconSize, iconSize)
-      .setTint(enabled ? 0xdfe8f8 : 0x717d93)
+      .setTint(enabled ? UI_THEME.colors.text.secondary : UI_THEME.colors.text.disabled)
       .setAlpha(enabled ? 0.96 : 0.56);
     objects.push(icon);
 
@@ -723,26 +731,21 @@ function createHomeHubCard(
         UI_ICON_KEYS.lock,
       )
         .setDisplaySize(lockSize, lockSize)
-        .setTint(0x8792a8)
+        .setTint(UI_THEME.colors.text.disabled)
         .setAlpha(0.72);
       objects.push(lock);
     }
 
     const label = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), options.label, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '16px' : '22px',
-      color: labelColor,
-      fontStyle: 'bold',
+      ...createUiTextStyle('bodyStrong', options.density, { color: labelColor }),
     }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, contentWidth, narrow ? 12 : 15);
+    fitHomeText(label, contentWidth, options.density === 'mobile' ? 10 : 11);
     objects.push(label);
 
     const subtitle = scene.add.text(contentLeft, options.y + (narrow ? 15 : 20), options.subtitle, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '11px' : '14px',
-      color: subtitleColor,
+      ...createUiTextStyle('meta', options.density, { color: subtitleColor }),
     }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(subtitle, contentWidth, narrow ? 9 : 10);
+    fitHomeText(subtitle, contentWidth, 10);
     objects.push(subtitle);
   }
 
@@ -765,7 +768,7 @@ function drawHomeCardProgress(
     readonly total: number;
   },
 ): Phaser.GameObjects.Container {
-  return createMasteryProgressBar(scene, {
+  return createUiProgressBar(scene, {
     x: options.x,
     y: options.y,
     width: options.width,

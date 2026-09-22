@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
+import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 
 const PRIMARY_BUTTON_KEY = 'primary-button-normal';
 type PrimaryButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
@@ -10,9 +11,9 @@ type PrimaryButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 const PRIMARY_BUTTON_SLICE_X = 56;
 const PRIMARY_BUTTON_FRAME = 'button-body';
 const PRIMARY_BUTTON_FRAME_INSET = 24;
-const PRIMARY_BUTTON_TEXT_COLOR = '#12243f';
-const PRIMARY_BUTTON_SUBTITLE_COLOR = '#4d5561';
-const PRIMARY_BUTTON_ICON_TINT = 0x12243f;
+const PRIMARY_BUTTON_TEXT_COLOR = uiColorHex(UI_THEME.colors.background.deep);
+const PRIMARY_BUTTON_SUBTITLE_COLOR = uiColorHex(UI_THEME.colors.surface.base);
+const PRIMARY_BUTTON_ICON_TINT = UI_THEME.colors.background.deep;
 
 export function preloadPrimaryActionButtonAssets(scene: Phaser.Scene): void {
   scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/primary_button_normal.webp');

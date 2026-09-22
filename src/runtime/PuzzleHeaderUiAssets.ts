@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { createUiInsetRow } from '../ui/UiInsetRow';
+import { createUiPanel } from '../ui/UiPanel';
 
 export const PUZZLE_HEADER_UI_KEYS = {
   titlePanel: 'puzzle-header-title-panel-v3',
@@ -7,20 +9,11 @@ export const PUZZLE_HEADER_UI_KEYS = {
 } as const;
 
 export function preloadPuzzleHeaderUiAssets(scene: Phaser.Scene): void {
+  // Compatibility preload: streak icon remains in use and old panel art stays available
+  // until the remaining screens finish migrating to the common UI system.
   scene.load.image(PUZZLE_HEADER_UI_KEYS.titlePanel, 'assets/ui/puzzle_header_title_panel_v3.png');
   scene.load.image(PUZZLE_HEADER_UI_KEYS.statusPanel, 'assets/ui/puzzle_header_status_panel_v3.png');
   scene.load.image(PUZZLE_HEADER_UI_KEYS.streakIcon, 'assets/ui/puzzle_header_streak_icon_v3.png');
-}
-
-function createScaledImage(
-  scene: Phaser.Scene,
-  textureKey: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): Phaser.GameObjects.Image {
-  return scene.add.image(x, y, textureKey).setOrigin(0.5).setDisplaySize(width, height);
 }
 
 export function createPuzzleHeaderTitlePanel(
@@ -29,8 +22,8 @@ export function createPuzzleHeaderTitlePanel(
   y: number,
   width: number,
   height: number,
-): Phaser.GameObjects.Image {
-  return createScaledImage(scene, PUZZLE_HEADER_UI_KEYS.titlePanel, x, y, width, height);
+): Phaser.GameObjects.NineSlice {
+  return createUiPanel(scene, { x, y, width, height, variant: 'wide', alpha: 0.98 });
 }
 
 export function createPuzzleHeaderStatusPanel(
@@ -39,6 +32,6 @@ export function createPuzzleHeaderStatusPanel(
   y: number,
   width: number,
   height: number,
-): Phaser.GameObjects.Image {
-  return createScaledImage(scene, PUZZLE_HEADER_UI_KEYS.statusPanel, x, y, width, height);
+): Phaser.GameObjects.Graphics {
+  return createUiInsetRow(scene, { x, y, width, height });
 }

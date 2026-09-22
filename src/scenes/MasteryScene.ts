@@ -16,18 +16,24 @@ import {
 } from '../profile/PlayerProfileService';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, MASTERY_SCENE_KEY } from '../runtime/MetaSelectors';
-import { createMetaPageHeader } from '../runtime/MetaPageHeader';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
+import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
 import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../runtime/MasterySeal';
-import { createMasteryRequirementPanel } from '../runtime/MasteryRequirementPanel';
-import { createMasteryRequirementRowPanel } from '../runtime/MasteryRequirementRowPanel';
-import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
 import { calculateMasteryDesktopLayout, type MasteryDesktopLayout } from '../runtime/MasteryDesktopLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { MASTER_RATING_LEADERBOARD_SCENE_KEY } from './MasterRatingLeaderboardScene';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
+import { resolveUiDensity, type UiDensity } from '../ui/UiDensity';
+import { createUiInsetRow } from '../ui/UiInsetRow';
+import { createUiPanel } from '../ui/UiPanel';
+import { createUiProgressBar } from '../ui/UiProgressBar';
+import { createUiSceneHeader } from '../ui/UiSceneHeader';
+import { createUiTextStyle } from '../ui/UiText';
+import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 
 export class MasteryScene extends Phaser.Scene {
+  private uiDensity: UiDensity = 'comfortable';
 
   constructor() {
     super(MASTERY_SCENE_KEY);
@@ -45,18 +51,37 @@ export class MasteryScene extends Phaser.Scene {
     analytics?.masteryOpen(mastery.currentRank);
 
     const viewport = calculateAvailableViewport(this.scale.width, this.scale.height, readCssSafeAreaInsets());
+    const density = resolveUiDensity(this.scale.width, this.scale.height);
+    this.uiDensity = density;
     const narrow = viewport.width < 680;
 
-    const header = createMetaPageHeader(this, {
-      title: copy.mastery.title,
-      backButton: true,
-      backLabel: copy.common.back,
-      viewport,
-      onBack: () => this.scene.start(HOME_SCENE_KEY),
+    const headerMetrics = calculateMetaPageHeaderMetrics(viewport.width, viewport.height);
+    const actionMetrics = getHeaderActionButtonMetrics(headerMetrics.narrow);
+    const backPresentation = getHeaderBackButtonPresentation(headerMetrics.narrow, copy.common.back);
+    const backPlacement = getHeaderActionPlacement(viewport, 'left', backPresentation.width, actionMetrics.height);
+    createHeaderActionButton(this, {
+      x: backPlacement.x,
+      y: backPlacement.y,
+      width: backPresentation.width,
+      height: actionMetrics.height,
+      radius: actionMetrics.radius,
+      iconKey: 'ui-icon-back',
+      iconSize: actionMetrics.iconSize,
+      label: backPresentation.label,
+      fontSize: actionMetrics.fontSize,
+      gap: actionMetrics.gap,
+      onActivate: () => this.scene.start(HOME_SCENE_KEY),
+    });
+    createUiSceneHeader(this, {
+      x: viewport.centerX,
+      y: viewport.y + headerMetrics.titleY,
+      label: copy.mastery.title,
+      density,
+      maxWidth: Math.max(160, viewport.width - backPresentation.width * 2 - 64),
     });
 
     const maxWidth = narrow ? Math.min(420, viewport.width - 26) : Math.min(860, viewport.width - 70);
-    const top = header.metrics.headerHeight + (narrow ? 12 : 18);
+    const top = viewport.y + headerMetrics.headerHeight + (narrow ? 12 : 18);
 
     if (narrow) {
       this.renderMobileLayout(viewport.centerX, top, maxWidth, mastery, copy, masterRatingLabel);
@@ -95,13 +120,17 @@ export class MasteryScene extends Phaser.Scene {
 
     const textX = left + layout.textOffsetX;
     this.add.text(textX, top + layout.rankLabelOffsetY, `РАНГ ${mastery.currentRank}`, {
-      fontFamily: 'monospace', fontSize: `${Math.round(layout.rankLabelFontSize)}px`, color: '#9fd0ff', fontStyle: 'bold',
+      ...createUiTextStyle('meta', this.uiDensity, { color: UI_THEME.colors.border.bright, fontStyle: 'bold' }),
+      fontSize: `${Math.max(UI_THEME.typography.meta[this.uiDensity], Math.round(layout.rankLabelFontSize))}px`,
     });
     this.add.text(textX, top + layout.rankTitleOffsetY, copy.mastery.rankTitles[mastery.currentRank], {
-      fontFamily: 'monospace', fontSize: `${Math.round(layout.rankTitleFontSize)}px`, color: '#fff1d2', fontStyle: 'bold',
+      ...createUiTextStyle('heading', this.uiDensity),
+      fontSize: `${Math.max(UI_THEME.typography.heading[this.uiDensity], Math.round(layout.rankTitleFontSize))}px`,
     });
     this.add.text(textX, top + layout.descriptionOffsetY, `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
-      fontFamily: 'monospace', fontSize: `${Math.round(layout.descriptionFontSize)}px`, color: '#d8e2f2', wordWrap: { width: width - layout.descriptionWidthInset },
+      ...createUiTextStyle('body', this.uiDensity, { color: UI_THEME.colors.text.secondary }),
+      fontSize: `${Math.max(UI_THEME.typography.body[this.uiDensity], Math.round(layout.descriptionFontSize))}px`,
+      wordWrap: { width: width - layout.descriptionWidthInset },
     });
 
     const panelTop = top + layout.topSectionHeight + layout.cardGap;
@@ -129,15 +158,14 @@ export class MasteryScene extends Phaser.Scene {
 
     const textX = left + width * 0.43;
     const textWidth = width * 0.54;
-    this.add.text(textX, top + 26, `РАНГ ${mastery.currentRank}`, {
-      fontFamily: 'monospace', fontSize: '13px', color: '#9fd0ff', fontStyle: 'bold',
-    });
-    const rankTitle = this.add.text(textX, top + 51, copy.mastery.rankTitles[mastery.currentRank], {
-      fontFamily: 'monospace', fontSize: '22px', color: '#fff1d2', fontStyle: 'bold',
-    });
+    this.add.text(textX, top + 26, `РАНГ ${mastery.currentRank}`, createUiTextStyle('meta', this.uiDensity, {
+      color: UI_THEME.colors.border.bright, fontStyle: 'bold',
+    }));
+    const rankTitle = this.add.text(textX, top + 51, copy.mastery.rankTitles[mastery.currentRank], createUiTextStyle('heading', this.uiDensity));
     this.fitTextWidth(rankTitle, textWidth, 16);
     this.add.text(textX, top + 84, `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
-      fontFamily: 'monospace', fontSize: '10px', color: '#d8e2f2', wordWrap: { width: textWidth },
+      ...createUiTextStyle('body', this.uiDensity, { color: UI_THEME.colors.text.secondary }),
+      wordWrap: { width: textWidth },
       lineSpacing: 2,
     });
 
@@ -158,24 +186,25 @@ export class MasteryScene extends Phaser.Scene {
     masterRatingLabel?: string,
     desktopLayout?: MasteryDesktopLayout,
   ): void {
-    createMasteryRequirementPanel(this, centerX, topY + height / 2, width, height);
+    createUiPanel(this, {
+      x: centerX,
+      y: topY + height / 2,
+      width,
+      height,
+      variant: narrow ? 'tall' : 'wide',
+    });
 
     const title = mastery.nextRank === null
       ? copy.mastery.maxRank
       : `${copy.mastery.nextRank} (${mastery.nextRank})`;
     this.add.text(centerX, topY + (narrow ? height * 0.155 : desktopLayout?.panelTitleOffsetY ?? height * 0.145), title, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '14px' : `${Math.round(desktopLayout?.panelTitleFontSize ?? 18)}px`,
-      color: '#fff1d2',
-      fontStyle: 'bold',
+      ...createUiTextStyle('bodyStrong', this.uiDensity, { align: 'center' }),
+      fontSize: `${Math.max(UI_THEME.typography.bodyStrong[this.uiDensity], Math.round(narrow ? UI_THEME.typography.bodyStrong[this.uiDensity] : desktopLayout?.panelTitleFontSize ?? 18))}px`,
     }).setOrigin(0.5);
 
     if (mastery.nextRank === null && masterRatingLabel !== undefined) {
       this.add.text(centerX, topY + height * (narrow ? 0.43 : 0.4), copy.mastery.rating(masterRatingLabel), {
-        fontFamily: 'monospace',
-        fontSize: narrow ? '20px' : '28px',
-        color: '#f0bd63',
-        fontStyle: 'bold',
+        ...createUiTextStyle('heading', this.uiDensity, { color: UI_THEME.colors.semantic.gold, align: 'center' }),
       }).setOrigin(0.5);
 
       const buttonWidth = Math.min(width * 0.72, narrow ? 280 : 360);
@@ -185,7 +214,7 @@ export class MasteryScene extends Phaser.Scene {
         width: buttonWidth,
         height: narrow ? 48 : 54,
         label: copy.mastery.ratingLeaderboard,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         onActivate: () => this.scene.start(MASTER_RATING_LEADERBOARD_SCENE_KEY),
       });
       button.fill.setDepth(40);
@@ -219,7 +248,7 @@ export class MasteryScene extends Phaser.Scene {
     const complete = condition.complete;
     const rowDepth = 20 + rowIndex * 4;
 
-    createMasteryRequirementRowPanel(this, centerX, y, width, rowHeight, rowDepth);
+    createUiInsetRow(this, { x: centerX, y, width, height: rowHeight, depth: rowDepth });
 
     const iconKey = this.conditionIconKey(condition);
     const iconX = left + (narrow ? 30 : 38);
@@ -231,20 +260,19 @@ export class MasteryScene extends Phaser.Scene {
     const headerY = y - rowHeight * (narrow ? 0.15 : 0.16);
     const barY = y + rowHeight * (narrow ? 0.11 : 0.12);
 
-    this.add.image(iconX, y, iconKey).setDisplaySize(iconSize, iconSize).setTint(0xf6edd5).setDepth(rowDepth + 1);
+    this.add.image(iconX, y, iconKey).setDisplaySize(iconSize, iconSize).setTint(UI_THEME.colors.text.primary).setDepth(rowDepth + 1);
 
     const label = this.requirementLabel(condition, copy, narrow);
-    this.add.text(textLeft, headerY, label, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : `${Math.round(desktopLayout?.rowFontSize ?? 18)}px`,
-      color: complete ? '#fef0b8' : '#ecf1f8',
+    const rowTextColor = complete ? UI_THEME.colors.semantic.goldBright : UI_THEME.colors.text.primary;
+    const labelText = this.add.text(textLeft, headerY, label, {
+      ...createUiTextStyle('bodyStrong', this.uiDensity, { color: rowTextColor }),
+      fontSize: `${Math.max(UI_THEME.typography.bodyStrong[this.uiDensity], Math.round(narrow ? UI_THEME.typography.bodyStrong[this.uiDensity] : desktopLayout?.rowFontSize ?? 18))}px`,
     }).setOrigin(0, 0.5).setDepth(rowDepth + 1);
+    this.fitTextWidth(labelText, Math.max(80, valueX - textLeft - 64), 10);
 
     this.add.text(valueX, headerY, `${condition.current} / ${condition.target}`, {
-      fontFamily: 'monospace',
-      fontSize: narrow ? '12px' : `${Math.round(desktopLayout?.rowFontSize ?? 18)}px`,
-      color: complete ? '#fef0b8' : '#ecf1f8',
-      fontStyle: 'bold',
+      ...createUiTextStyle('bodyStrong', this.uiDensity, { color: rowTextColor, fontStyle: 'bold' }),
+      fontSize: `${Math.max(UI_THEME.typography.bodyStrong[this.uiDensity], Math.round(narrow ? UI_THEME.typography.bodyStrong[this.uiDensity] : desktopLayout?.rowFontSize ?? 18))}px`,
     }).setOrigin(1, 0.5).setDepth(rowDepth + 1);
 
     const barLeft = textLeft;
@@ -253,14 +281,14 @@ export class MasteryScene extends Phaser.Scene {
 
     const statusY = y;
     const marker = this.add.graphics().setDepth(rowDepth + 1);
-    marker.lineStyle(narrow ? 2.4 : 3.0, complete ? 0x63ddc2 : 0xacbed8, 1);
+    marker.lineStyle(narrow ? 2.4 : 3.0, complete ? UI_THEME.colors.semantic.success : UI_THEME.colors.border.bright, 1);
     marker.strokeCircle(statusX, statusY, narrow ? 12 : desktopLayout?.statusRadius ?? 15);
     if (complete) {
-      marker.fillStyle(0x63ddc2, 1);
+      marker.fillStyle(UI_THEME.colors.semantic.success, 1);
       marker.fillCircle(statusX, statusY, narrow ? 8.5 : desktopLayout?.statusFillRadius ?? 10.2);
       this.add.image(statusX, statusY, UI_ICON_KEYS.check)
         .setDisplaySize(narrow ? 11 : desktopLayout?.checkSize ?? 14, narrow ? 11 : desktopLayout?.checkSize ?? 14)
-        .setTint(0x0d2230).setDepth(rowDepth + 2);
+        .setTint(UI_THEME.colors.background.deep).setDepth(rowDepth + 2);
     }
   }
 
@@ -274,7 +302,7 @@ export class MasteryScene extends Phaser.Scene {
     _complete: boolean,
     depth = 0,
   ): void {
-    createMasteryProgressBar(this, {
+    createUiProgressBar(this, {
       x: left + width / 2,
       y,
       width,
@@ -303,9 +331,9 @@ export class MasteryScene extends Phaser.Scene {
     const labelY = topY + (narrow ? 42 : desktopLayout?.rankTrackLabelOffsetY ?? 51);
 
     const path = this.add.graphics();
-    path.lineStyle(narrow ? 2 : 2.2, 0x435878, 0.95);
+    path.lineStyle(narrow ? 2 : 2.2, UI_THEME.colors.border.normal, 0.95);
     path.lineBetween(startX, lineY, startX + step * (MASTERY_RANK_IDS.length - 1), lineY);
-    path.lineStyle(narrow ? 2.8 : 3.2, 0xf0bd48, 1);
+    path.lineStyle(narrow ? 2.8 : 3.2, UI_THEME.colors.semantic.gold, 1);
     path.lineBetween(startX, lineY, startX + step * currentIndex, lineY);
 
     MASTERY_RANK_IDS.forEach((rank, index) => {
@@ -321,35 +349,35 @@ export class MasteryScene extends Phaser.Scene {
       const node = this.add.graphics();
 
       if (isPast) {
-        node.fillStyle(0xffc84f, 1);
-        node.lineStyle(isMaster ? 1.8 : 1.4, 0xffdf82, 1);
+        node.fillStyle(UI_THEME.colors.semantic.gold, 1);
+        node.lineStyle(isMaster ? 1.8 : 1.4, UI_THEME.colors.semantic.goldBright, 1);
         node.fillCircle(x, lineY, pastRadius);
         node.strokeCircle(x, lineY, pastRadius);
       } else if (isCurrent) {
-        node.fillStyle(0xffc343, 1);
+        node.fillStyle(UI_THEME.colors.semantic.gold, 1);
         node.fillCircle(x, lineY, currentRadius);
-        node.fillStyle(0x263653, 1);
+        node.fillStyle(UI_THEME.colors.surface.base, 1);
         node.fillCircle(x, lineY, currentRadius - (narrow ? 1.15 : 1.45));
-        node.fillStyle(0xffc84f, 1);
+        node.fillStyle(UI_THEME.colors.semantic.gold, 1);
         node.fillCircle(x, lineY, isMaster ? (narrow ? 5 : 6) : (narrow ? 4 : 5));
       } else if (isFuture) {
-        node.fillStyle(0x263653, 1);
-        node.lineStyle(isMaster ? 1.8 : 1.4, 0x506482, 1);
+        node.fillStyle(UI_THEME.colors.surface.base, 1);
+        node.lineStyle(isMaster ? 1.8 : 1.4, UI_THEME.colors.border.normal, 1);
         node.fillCircle(x, lineY, futureRadius);
         node.strokeCircle(x, lineY, futureRadius);
 
         this.add.image(x, lineY, UI_ICON_KEYS.lock)
           .setDisplaySize(isMaster ? (narrow ? 10 : 12) : (narrow ? 8 : 10), isMaster ? (narrow ? 10 : 12) : (narrow ? 8 : 10))
-          .setTint(0x8fa0bc)
+          .setTint(UI_THEME.colors.text.muted)
           .setAlpha(0.9);
       }
 
-      this.add.text(x, labelY, rank === 'MASTER' ? 'MASTER' : rank, {
-        fontFamily: 'monospace',
-        fontSize: narrow ? (rank === 'MASTER' ? '7px' : '9px') : `${Math.round((desktopLayout?.rankTrackFontSize ?? 11) - (rank === 'MASTER' ? 2 : 0))}px`,
-        color: isCurrent ? '#ffd66a' : isPast ? '#edf1f8' : '#8b98ad',
+      const rankLabel = this.add.text(x, labelY, rank === 'MASTER' ? 'MASTER' : rank, createUiTextStyle('meta', this.uiDensity, {
+        color: isCurrent ? UI_THEME.colors.semantic.goldBright : isPast ? UI_THEME.colors.text.primary : UI_THEME.colors.text.muted,
         fontStyle: isCurrent ? 'bold' : 'normal',
-      }).setOrigin(0.5);
+        align: 'center',
+      })).setOrigin(0.5);
+      this.fitTextWidth(rankLabel, Math.max(24, step * 0.78), 10);
     });
   }
 

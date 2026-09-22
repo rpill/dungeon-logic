@@ -125,7 +125,8 @@
     "sanity:mastery": "tsx src/dev/masteryProgressSanity.ts",
     "sanity:daily-production": "tsx src/dev/dailyCorpusSanity.ts",
     "sanity:daily-content-cleanup": "node scripts/daily-content-cleanup-sanity.mjs",
-    "sanity:completion-panel": "node --experimental-strip-types src/dev/completionPanelLayoutSanity.ts && node scripts/game-completion-panel-sanity.mjs"
+    "sanity:completion-panel": "node --experimental-strip-types src/dev/completionPanelLayoutSanity.ts && node scripts/game-completion-panel-sanity.mjs",
+    "sanity:ui-system": "node --experimental-strip-types scripts/ui-theme-density-sanity.mjs && node scripts/ui-text-header-sanity.mjs && node scripts/ui-surfaces-sanity.mjs && node scripts/ui-controls-sanity.mjs && node scripts/ui-modal-sanity.mjs && node scripts/ui-home-migration-sanity.mjs && node scripts/ui-mastery-migration-sanity.mjs && node scripts/ui-gameplay-migration-sanity.mjs && node scripts/ui-pilot-acceptance-sanity.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

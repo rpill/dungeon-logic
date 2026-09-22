@@ -94,6 +94,6 @@ export function calculateMasteryDesktopLayout(availableHeight: number): MasteryD
     checkSize: lerp(10, 14, density),
     rankTrackLineOffsetY: lerp(15, 23, density),
     rankTrackLabelOffsetY: lerp(34, 51, density),
-    rankTrackFontSize: lerp(9, 11, density),
+    rankTrackFontSize: lerp(10, 12, density),
   };
 }

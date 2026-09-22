@@ -92,6 +92,9 @@ import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { calculateCompletionPanelLayout, type CompletionActionRect } from '../runtime/CompletionPanelLayout';
 import { createCompletionPanelSurface } from '../runtime/CompletionPanel';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
+import { resolveUiDensity } from '../ui/UiDensity';
+import { createUiTextStyle } from '../ui/UiText';
+import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 import { formatMasteryProgressNote } from '../runtime/MasteryCompletion';
 import { syncMasterRatingLeaderboard } from '../mastery/MasterRatingLeaderboard';
 import { formatMasterRating, getMasterRatingMilestone } from '../mastery/MasterRating';
@@ -128,6 +131,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const createVersion = this.createVersion + 1;
+    let uiDensity = resolveUiDensity(this.scale.width, this.scale.height);
     this.createVersion = createVersion;
     this.createGame(launchData, createVersion);
   }
@@ -366,10 +370,8 @@ export class GameScene extends Phaser.Scene {
       0,
       getTitleLabel(),
       {
-        fontFamily: 'monospace',
+        ...createUiTextStyle('heading', uiDensity, { align: 'center' }),
         fontSize: '32px',
-        color: '#f4ead7',
-        fontStyle: 'bold',
       },
     ).setOrigin(0.5);
 
@@ -381,10 +383,8 @@ export class GameScene extends Phaser.Scene {
       0,
       displayedHeaderTime,
       {
-        fontFamily: 'monospace',
+        ...createUiTextStyle('meta', uiDensity, { color: UI_THEME.colors.text.secondary, align: 'center', fontStyle: 'bold' }),
         fontSize: '14px',
-        color: '#d9e2f0',
-        fontStyle: 'bold',
       },
     ).setOrigin(0.5);
     const headerStatusDivider = this.add.text(
@@ -392,10 +392,8 @@ export class GameScene extends Phaser.Scene {
       0,
       '•',
       {
-        fontFamily: 'monospace',
+        ...createUiTextStyle('meta', uiDensity, { color: UI_THEME.colors.semantic.gold, align: 'center', fontStyle: 'bold' }),
         fontSize: '14px',
-        color: '#d2a84f',
-        fontStyle: 'bold',
       },
     ).setOrigin(0.5);
     const headerStreakText = this.add.text(
@@ -403,10 +401,8 @@ export class GameScene extends Phaser.Scene {
       0,
       String(displayedChallengeStreak),
       {
-        fontFamily: 'monospace',
+        ...createUiTextStyle('meta', uiDensity, { color: UI_THEME.colors.text.primary, align: 'center', fontStyle: 'bold' }),
         fontSize: '14px',
-        color: '#f4ead7',
-        fontStyle: 'bold',
       },
     ).setOrigin(0.5);
     let headerStatusPanelWidth = 0;
@@ -452,14 +448,14 @@ export class GameScene extends Phaser.Scene {
     const topActionBackground = this.add.graphics();
     const backHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
     const menuHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
-    const backIcon = this.add.image(0, 0, 'ui-icon-back').setTint(0xf4ead7);
+    const backIcon = this.add.image(0, 0, 'ui-icon-back').setTint(UI_THEME.colors.text.primary);
     const backText = this.add.text(0, 0, getBackLabel(), {
       fontFamily: 'monospace',
       fontSize: `${getHeaderActionButtonMetrics(this.scale.width < 700).fontSize}px`,
-      color: '#f4ead7',
+      color: uiColorHex(UI_THEME.colors.text.primary),
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
-    const menuIcon = this.add.image(0, 0, 'ui-icon-menu').setTint(0xf4ead7);
+    const menuIcon = this.add.image(0, 0, 'ui-icon-menu').setTint(UI_THEME.colors.text.primary);
     let backHovered = false;
     let menuHovered = false;
 
@@ -483,6 +479,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const layoutTopActions = (insetTop = safeTop): void => {
+      uiDensity = resolveUiDensity(this.scale.width, this.scale.height);
       const safeInsets = getSafeAreaInsets();
       const headerViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeInsets);
       const narrowTop = headerViewport.width < 700;
@@ -884,7 +881,7 @@ export class GameScene extends Phaser.Scene {
       );
       visual.background.setAlpha(visual.disabled ? 0.55 : 1);
       if (visual.guided && !visual.disabled) {
-        visual.background.lineStyle(3, 0xf0bd63, 0.98);
+        visual.background.lineStyle(3, UI_THEME.colors.semantic.gold, 0.98);
         visual.background.strokeRoundedRect(
           visual.hitArea.x - visual.width / 2 + 1.5,
           visual.hitArea.y - visual.height / 2 + 1.5,
@@ -999,7 +996,7 @@ export class GameScene extends Phaser.Scene {
       {
         fontFamily: 'monospace',
         fontSize: `${chrome.statusFontSize}px`,
-        color: '#89929d',
+        color: uiColorHex(UI_THEME.colors.text.muted),
         fontStyle: 'bold',
       },
     ).setOrigin(0.5);
@@ -1056,7 +1053,7 @@ export class GameScene extends Phaser.Scene {
     const onboardingText = this.add.text(0, 0, '', {
       fontFamily: 'monospace',
       fontSize: '18px',
-      color: '#f4ead7',
+      color: uiColorHex(UI_THEME.colors.text.primary),
       fontStyle: 'bold',
       align: 'center',
       wordWrap: { width: 420 },
@@ -1201,7 +1198,7 @@ export class GameScene extends Phaser.Scene {
       const title = this.add.text(centerX, topY, copy.game.menu, {
         fontFamily: 'monospace',
         fontSize: narrowMenu ? '22px' : '28px',
-        color: '#f4ead7',
+        color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
       }).setOrigin(0.5, 0);
       container.add(title);
@@ -1210,25 +1207,25 @@ export class GameScene extends Phaser.Scene {
         {
           label: copy.game.continueGame,
           icon: 'play' as const,
-          labelColor: '#f4ead7',
+          labelColor: uiColorHex(UI_THEME.colors.text.primary),
           action: closeGameMenu,
         },
         {
           label: copy.game.rules,
           icon: 'info' as const,
-          labelColor: '#f4ead7',
+          labelColor: uiColorHex(UI_THEME.colors.text.primary),
           action: () => openSceneOverlayFromMenu(HELP_SCENE_KEY),
         },
         {
           label: copy.common.settings,
           icon: 'settings' as const,
-          labelColor: '#f4ead7',
+          labelColor: uiColorHex(UI_THEME.colors.text.primary),
           action: () => openSceneOverlayFromMenu(SETTINGS_SCENE_KEY),
         },
         {
           label: copy.game.exitHome,
           icon: 'back' as const,
-          labelColor: '#d98a8e',
+          labelColor: uiColorHex(UI_THEME.colors.semantic.danger),
           action: () => leaveGameTo(HOME_SCENE_KEY),
         },
       ];
@@ -1308,17 +1305,17 @@ export class GameScene extends Phaser.Scene {
           && step !== null
           && buttonState.id === step.expectedState;
         const fill = disabled
-          ? 0x1a2238
+          ? UI_THEME.colors.surface.inset
           : buttonState.id === 'reset'
-            ? 0xc96568
+            ? UI_THEME.colors.semantic.danger
             : isToolSelector
-              ? (buttonState.active ? 0x40577f : 0x18233a)
-              : 0x1f2c4a;
+              ? (buttonState.active ? UI_THEME.colors.surface.highlight : UI_THEME.colors.surface.base)
+              : UI_THEME.colors.surface.base;
         const textColor = disabled
-          ? '#6f788c'
+          ? uiColorHex(UI_THEME.colors.text.disabled)
           : guided
-            ? '#fff3cc'
-            : '#f4ead7';
+            ? uiColorHex(UI_THEME.colors.semantic.goldBright)
+            : uiColorHex(UI_THEME.colors.text.primary);
         const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
         const buttonVisible = toolbarVisible && buttonLayout !== undefined;
 
@@ -1407,7 +1404,7 @@ export class GameScene extends Phaser.Scene {
         const explanation = formatHintExplanation(language, currentHint);
         statusText
           .setText(`${targetCopy}\n${explanation}`)
-          .setColor('#f4ead7')
+          .setColor(uiColorHex(UI_THEME.colors.text.primary))
           .setFontStyle('bold')
           .setVisible(true);
         return;
@@ -1521,7 +1518,7 @@ export class GameScene extends Phaser.Scene {
         : copy.game.hintConfirmTitle, {
         fontFamily: 'monospace',
         fontSize: this.scale.width < 700 ? '15px' : '18px',
-        color: '#f4ead7',
+        color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
         align: 'center',
       }).setOrigin(0.5);
@@ -1555,7 +1552,7 @@ export class GameScene extends Phaser.Scene {
         width: buttonWidth,
         height: buttonHeight,
         label: copy.common.cancel,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         compact: true,
         onActivate: () => closeHintConfirm(),
       });
@@ -1699,7 +1696,7 @@ export class GameScene extends Phaser.Scene {
         const label = this.add.text(centerX, centerY, pill.label, {
           fontFamily: 'monospace',
           fontSize: `${layout.mode === 'phone' ? 12 : 15}px`,
-          color: '#f4ead7',
+          color: uiColorHex(UI_THEME.colors.text.primary),
           fontStyle: 'bold',
           align: 'center',
         }).setOrigin(0.5).setDepth(59);
@@ -1779,7 +1776,7 @@ export class GameScene extends Phaser.Scene {
         width: rect.width,
         height: rect.height,
         label: definition.label,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         compact,
         accentFrame: false,
         variant: 'secondary',
@@ -1818,7 +1815,7 @@ export class GameScene extends Phaser.Scene {
       const title = this.add.text(layout.panelX, layout.titleY, getCompletionTitle(), {
         fontFamily: 'monospace',
         fontSize: `${layout.mode === 'phone' ? 20 : this.scale.height <= 640 ? 18 : 20}px`,
-        color: '#f4ead7',
+        color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
         stroke: '#0b1630',
         strokeThickness: 3,
@@ -2303,7 +2300,7 @@ export class GameScene extends Phaser.Scene {
         width: buttonWidth,
         height: buttonHeight,
         label: copy.common.cancel,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         compact: true,
         onActivate: () => closeResetDialog(),
       });
@@ -2313,7 +2310,7 @@ export class GameScene extends Phaser.Scene {
         width: buttonWidth,
         height: buttonHeight,
         label: copy.common.reset,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         compact: true,
         variant: 'danger',
         onActivate: () => {
@@ -2454,7 +2451,7 @@ export class GameScene extends Phaser.Scene {
         width: buttonWidth,
         height: buttonHeight,
         label: copy.common.cancel,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         compact: true,
         onActivate: closeSkipDialog,
       });
@@ -2464,7 +2461,7 @@ export class GameScene extends Phaser.Scene {
         width: buttonWidth,
         height: buttonHeight,
         label: copy.game.skip,
-        labelColor: '#f4ead7',
+        labelColor: uiColorHex(UI_THEME.colors.text.primary),
         compact: true,
         variant: 'danger',
         onActivate: () => { void performSkip(); },
@@ -2763,7 +2760,7 @@ export class GameScene extends Phaser.Scene {
       const label = this.add.text(buttonLayout.x, buttonLayout.y, buttonState.label, {
         fontFamily: 'monospace',
         fontSize: this.scale.width < 700 ? '15px' : '19px',
-        color: '#f4ead7',
+        color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
       }).setOrigin(0.5);
       const iconKey = toolbarIconKeys[buttonState.id];
@@ -2771,7 +2768,7 @@ export class GameScene extends Phaser.Scene {
         ? null
         : this.add.image(buttonLayout.x, buttonLayout.y, iconKey);
       if (icon !== null && buttonState.id !== 'wall' && buttonState.id !== 'floor') {
-        icon.setTint(0xf4ead7);
+        icon.setTint(UI_THEME.colors.text.primary);
       }
       const visual: ToolbarVisual = {
         id: buttonState.id,
@@ -2781,7 +2778,7 @@ export class GameScene extends Phaser.Scene {
         label,
         width: buttonLayout.width,
         height: buttonLayout.height,
-        baseFill: buttonState.id === 'reset' ? 0xc96568 : 0x1f2c4a,
+        baseFill: buttonState.id === 'reset' ? UI_THEME.colors.semantic.danger : UI_THEME.colors.surface.base,
         active: buttonState.active,
         disabled: buttonState.disabled,
         hovered: false,

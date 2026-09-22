@@ -17,8 +17,8 @@ const renderer = readFileSync(rendererPath, 'utf8');
 
 assert(home.includes("from '../runtime/HomeHubModeCard'"), 'Home must use the HomeHubModeCard renderer.');
 assert(home.includes('UI_ICON_KEYS.lock'), 'Locked Home cards must get a dedicated lock glyph.');
-assert(home.includes("'#fff1d2'"), 'Unlocked card titles must use the brighter warm-cream palette.');
-assert(home.includes("'#c4d0e5'"), 'Unlocked card subtitles must use the brighter cool palette.');
+assert(home.includes('UI_THEME.colors.text.primary'), 'Unlocked card titles must use shared primary text color.');
+assert(home.includes('UI_THEME.colors.text.secondary'), 'Unlocked card subtitles must use shared secondary text color.');
 assert(!home.includes("from '../runtime/HomeModeCard'"), 'Home must stop using the legacy HomeModeCard renderer.');
 assert(existsSync(rendererPath), 'HomeHubModeCard renderer must exist.');
 
