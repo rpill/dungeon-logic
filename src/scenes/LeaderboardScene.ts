@@ -91,7 +91,7 @@ export class LeaderboardScene extends Phaser.Scene {
       onBack: () => this.scene.start('DailyScene'),
     });
     this.add.text(this.scale.width / 2, layout.subtitleY, copy.leaderboard.subtitle(this.formatDate(data.dateKey)), {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '11px' : layout.narrow ? '12px' : '15px',
       color: '#a7b3c8',
       fontStyle: 'bold',
@@ -117,7 +117,7 @@ export class LeaderboardScene extends Phaser.Scene {
     );
 
     const status = this.add.text(layout.panelX, layout.tableStartY, copy.common.loading, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '11px' : layout.narrow ? '12px' : '15px',
       color: '#9aa8bf',
       align: 'center',
@@ -349,7 +349,7 @@ export class LeaderboardScene extends Phaser.Scene {
       ? copy.leaderboard.noResult
       : copy.leaderboard.yourResult(this.formatTime(resultMs));
     this.add.text(layout.panelX, layout.infoY, summary, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '12px' : layout.narrow ? '15px' : '20px',
       color: '#f4ead7',
       fontStyle: 'bold',
@@ -363,7 +363,7 @@ export class LeaderboardScene extends Phaser.Scene {
           ? copy.leaderboard.firstResultOnly
           : copy.leaderboard.playToRank;
     const detailText = this.add.text(layout.panelX, layout.infoY + (layout.compactHeight ? 22 : 30), detail, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
       color: place !== null ? '#f0bd63' : '#9aa8bf',
       fontStyle: place !== null ? 'bold' : 'normal',
@@ -458,13 +458,13 @@ export class LeaderboardScene extends Phaser.Scene {
       }
       const name = entry.publicName.trim().length > 0 ? entry.publicName : fallbackName;
       this.add.text(left, y, `#${row.displayPlace}  ${name}${current ? currentSuffix : ''}`, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
         color: current ? '#f0d28a' : '#d8e0ed',
         fontStyle: current ? 'bold' : 'normal',
       }).setOrigin(0, 0.5);
       this.add.text(right, y, this.formatTime(row.timeMs), {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
         color: current ? '#f0d28a' : '#a7b3c8',
         fontStyle: 'bold',

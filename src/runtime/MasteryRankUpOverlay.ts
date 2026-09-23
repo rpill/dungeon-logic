@@ -53,7 +53,7 @@ export function showMasteryRankUpOverlay(
     titleY,
     options.masterRatingMilestone === undefined ? options.copy.newRank : options.copy.ratingMilestoneTitle,
     {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${narrow ? 24 : 34}px`,
     color: '#ffd978',
     fontStyle: 'bold',
@@ -94,7 +94,7 @@ export function showMasteryRankUpOverlay(
       ? options.copy.rankLabel(options.toRank, options.copy.rankTitles[options.toRank])
       : options.masterRatingMilestone.rating,
     {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 19 : 26}px`,
       color: '#fff1d2',
       fontStyle: 'bold',
@@ -109,7 +109,7 @@ export function showMasteryRankUpOverlay(
       ? options.copy.rankDescriptions[options.toRank]
       : options.copy.ratingMilestoneReached(options.masterRatingMilestone.milestone),
     {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${narrow ? 11 : 14}px`,
     color: '#c4d0e5',
     align: 'center',

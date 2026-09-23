@@ -116,7 +116,7 @@ export class SettingsScene extends Phaser.Scene {
 
     const titleY = availableViewport.y + (dense ? (narrow ? 88 : 70) : (narrow ? 108 : 84));
     this.add.text(centerX, titleY, copy.settings.title, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: dense ? (narrow ? '28px' : '32px') : (narrow ? '32px' : '38px'),
       color: '#fff4df',
       fontStyle: 'bold',
@@ -236,7 +236,7 @@ export class SettingsScene extends Phaser.Scene {
       .setDisplaySize(iconSize, iconSize)
       .setTint(0xf4c35d);
     this.add.text(left + (narrow ? 56 : 66), y, label, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '16px' : '19px',
       color: '#fff4df',
       fontStyle: 'bold',
@@ -246,7 +246,7 @@ export class SettingsScene extends Phaser.Scene {
     if (id === 'language') {
       const value = getUiCopy(settings.language).settings.languageName[settings.language];
       const valueText = this.add.text(right - (narrow ? 28 : 34), y, `${value}  ›`, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: narrow ? '13px' : '15px',
         color: '#f4c35d',
         fontStyle: 'bold',
@@ -290,7 +290,7 @@ export class SettingsScene extends Phaser.Scene {
 
   private createSectionDivider(label: string, centerX: number, y: number, width: number, narrow: boolean): void {
     const text = this.add.text(centerX, y, label, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '13px' : '15px',
       color: '#8fa2bd',
       fontStyle: 'bold',
@@ -331,13 +331,13 @@ export class SettingsScene extends Phaser.Scene {
       .setDisplaySize(iconSize, iconSize)
       .setTint(0xffe19a);
     this.add.text(left + (narrow ? 64 : 76), y, label, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '16px' : '19px',
       color: '#fff4df',
       fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     this.add.text(right - (narrow ? 24 : 28), y - 1, '›', {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '30px' : '34px',
       color: '#f4c35d',
       fontStyle: 'bold',

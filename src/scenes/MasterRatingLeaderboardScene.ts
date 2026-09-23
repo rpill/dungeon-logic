@@ -49,7 +49,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
 
     const subtitleY = header.headerHeight + (compact ? 12 : 20);
     this.add.text(this.scale.width / 2, subtitleY, copy.masterRatingLeaderboard.subtitle, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '12px' : '15px',
       color: '#a7b3c8',
       fontStyle: 'bold',
@@ -65,7 +65,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
     panel.strokeRoundedRect(this.scale.width / 2 - panelWidth / 2, panelTop, panelWidth, panelHeight, 12);
 
     const status = this.add.text(this.scale.width / 2, panelTop + 34, copy.common.loading, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '12px' : '15px',
       color: '#c6d2e6',
       align: 'center',
@@ -150,7 +150,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
       ? copy.masterRatingLeaderboard.yourRating(formatMasterRating(profile.mastery.rating, profile.settings.language))
       : `${copy.masterRatingLeaderboard.yourRating(formatMasterRating(current.score, profile.settings.language))} · ${copy.masterRatingLeaderboard.yourPlace(current.place)}`;
     this.add.text(this.scale.width / 2, panelTop + 28, summary, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: this.scale.width < 700 ? '13px' : '17px',
       color: '#f0bd63',
       fontStyle: 'bold',
@@ -172,14 +172,14 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
     const right = this.scale.width / 2 + panelWidth / 2 - 24;
     const color = entry.isCurrentPlayer ? '#fff0c1' : '#d8e2f2';
     this.add.text(left, y, `#${entry.place}`, {
-      fontFamily: 'monospace', fontSize: this.scale.width < 700 ? '11px' : '14px', color, fontStyle: 'bold',
+      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: this.scale.width < 700 ? '11px' : '14px', color, fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     const name = entry.publicName.trim().length > 0 ? entry.publicName : getUiCopy(language).leaderboard.playerFallback;
     this.add.text(left + 62, y, name, {
-      fontFamily: 'monospace', fontSize: this.scale.width < 700 ? '11px' : '14px', color,
+      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: this.scale.width < 700 ? '11px' : '14px', color,
     }).setOrigin(0, 0.5);
     this.add.text(right, y, formatMasterRating(entry.score, language), {
-      fontFamily: 'monospace', fontSize: this.scale.width < 700 ? '12px' : '15px', color: entry.isCurrentPlayer ? '#f0bd63' : '#f4ead7', fontStyle: 'bold',
+      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: this.scale.width < 700 ? '12px' : '15px', color: entry.isCurrentPlayer ? '#f0bd63' : '#f4ead7', fontStyle: 'bold',
     }).setOrigin(1, 0.5);
   }
 

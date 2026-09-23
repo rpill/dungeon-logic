@@ -4,8 +4,6 @@ import type { UiCopy } from '../i18n/UiCopy';
 import type { MasterySnapshot } from '../mastery/MasteryProgress';
 import { createHomeHubModeCard } from './HomeHubModeCard';
 import { createMasterySeal } from './MasterySeal';
-import { UI_THEME, uiColorHex } from '../ui/UiTheme';
-import { UI_ICON_KEYS } from './UiIcons';
 
 export interface MasteryStripOptions {
   readonly x: number;
@@ -33,14 +31,16 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
     onActivate: options.onActivate,
   });
 
-  background.setInteractive({ useHandCursor: true });
+  const narrow = scene.scale.width < 700;
+  const cardWidth = background.displayWidth;
+  const cardHeight = background.displayHeight;
+  const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
+  const contentLeft = options.x - cardWidth * (narrow ? 0.16 : 0.18);
+  const contentWidth = cardWidth * (narrow ? 0.62 : 0.64);
+  const sealSize = Math.min(cardHeight * (narrow ? 0.98 : 0.84), narrow ? 72 : 86);
 
-  const left = options.x - options.width / 2;
-  const right = options.x + options.width / 2;
-  const sealSize = Math.min(options.height * 1.26, 90);
-  const sealX = left + Math.max(42, options.width * 0.1);
   const seal = createMasterySeal(scene, {
-    x: sealX,
+    x: iconX,
     y: options.y,
     size: sealSize,
     rank: options.snapshot.currentRank,
@@ -48,42 +48,40 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
     textureVariant: 'small',
   });
 
-  const arrowSize = Math.max(20, Math.min(26, options.height * 0.38));
-  const arrowX = right - Math.max(28, options.width * 0.06);
-  const arrowKey = UI_ICON_KEYS.masteryForward || UI_ICON_KEYS.back;
-  const arrow = scene.add.image(arrowX, options.y, arrowKey)
-    .setDisplaySize(arrowSize, arrowSize)
-    .setAlpha(0.96);
-
   const rankTitle = options.copy.rankTitles[options.snapshot.currentRank];
   const title = `${options.copy.homeTitle(options.snapshot.currentRank)} — ${rankTitle}`;
   const subtitle = options.snapshot.nextRank === null
     ? (options.masterRatingLabel ?? options.copy.maxRank)
     : options.copy.homeNext(options.snapshot.nextRank, options.snapshot.remainingConditions);
 
-  const titleX = left + Math.max(106, options.width * 0.235);
-  const textRight = arrowX - arrowSize / 2 - 18;
-  const textWidth = Math.max(80, textRight - titleX);
-  const titleText = scene.add.text(titleX, options.y - options.height * 0.115, title, {
-    fontFamily: 'monospace',
-    fontSize: `${Math.round(Math.max(13, options.height * 0.2))}px`,
-    color: uiColorHex(UI_THEME.colors.text.primary),
+  const titleText = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), title, {
+    fontFamily: "'Balsamiq Sans', sans-serif",
+    fontSize: `${narrow ? 18 : 22}px`,
+    color: '#fff1d2',
     fontStyle: 'bold',
-  }).setOrigin(0, 0.5);
-  fitTextWidth(titleText, textWidth, 11);
+    stroke: '#26345f',
+    strokeThickness: narrow ? 2 : 3,
+    shadow: {
+      offsetX: 0,
+      offsetY: narrow ? 1 : 2,
+      color: '#0b1024',
+      blur: 2,
+      fill: true,
+    },
+  }).setOrigin(0, 0.5).setLetterSpacing(narrow ? 1 : 1.5);
+  fitTextWidth(titleText, contentWidth, narrow ? 12 : 13);
 
-  const subtitleText = scene.add.text(titleX, options.y + options.height * 0.17, subtitle, {
-    fontFamily: 'monospace',
-    fontSize: `${Math.round(Math.max(10, options.height * 0.14))}px`,
-    color: uiColorHex(UI_THEME.colors.text.secondary),
+  const subtitleText = scene.add.text(contentLeft, options.y + (narrow ? 15 : 20), subtitle, {
+    fontFamily: "'Balsamiq Sans', sans-serif",
+    fontSize: `${narrow ? 12 : 14}px`,
+    color: '#c6d2e6',
   }).setOrigin(0, 0.5);
-  fitTextWidth(subtitleText, textWidth, 10);
+  fitTextWidth(subtitleText, contentWidth, 9);
 
   return {
     destroy: () => {
       subtitleText.destroy();
       titleText.destroy();
-      arrow.destroy();
       seal.destroy();
       background.destroy();
     },

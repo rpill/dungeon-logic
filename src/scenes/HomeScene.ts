@@ -40,9 +40,8 @@ import {
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
-import { createUiButton } from '../ui/UiButton';
+import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
 import { resolveUiDensity, type UiDensity } from '../ui/UiDensity';
-import { createUiProgressBar } from '../ui/UiProgressBar';
 import { createUiTextStyle } from '../ui/UiText';
 import { UI_THEME } from '../ui/UiTheme';
 import { DAILY_SCENE_KEY } from './DailyScene';
@@ -68,11 +67,6 @@ interface HomeHubCardOptions {
   readonly label: string;
   readonly subtitle: string;
   readonly icon: HomeCardIcon;
-  readonly progress?: {
-    readonly completed: number;
-    readonly total: number;
-    readonly label: string;
-  };
   readonly activeAccent?: boolean;
   readonly enabled?: boolean;
   readonly onActivate: () => void;
@@ -166,9 +160,9 @@ export class HomeScene extends Phaser.Scene {
     // letting the bottom cards clip. A future sticky banner can reserve space
     // by setting the shared sticky bottom inset before entering Home.
     const naturalCardGap = narrow ? 10 : 16;
-    const naturalPrimaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
+    const naturalPrimaryHeight = narrow ? (compactHeight ? 80 : 92) : (compactHeight ? 88 : 104);
     const naturalWideHeight = narrow ? (compactHeight ? 88 : 100) : (compactHeight ? 100 : 116);
-    const naturalMasteryHeight = narrow ? (compactHeight ? 68 : 76) : (compactHeight ? 82 : 92);
+    const naturalMasteryHeight = naturalWideHeight;
     const masteryGap = narrow ? (compactHeight ? 8 : 10) : (compactHeight ? 9 : 12);
     const cardSectionGap = narrow ? (compactHeight ? 10 : 12) : (compactHeight ? 10 : 14);
     const logoToPrimaryGap = narrow ? (compactHeight ? 18 : 22) : (compactHeight ? 18 : 24);
@@ -290,9 +284,8 @@ export class HomeScene extends Phaser.Scene {
       variant: 'tall',
       density,
       label: copy.common.levels,
-      subtitle: '',
+      subtitle: copy.levelSelect.progress(completedCampaign, levels.length),
       icon: 'levels',
-      progress: { completed: completedCampaign, total: levels.length, label: copy.levelSelect.progress(completedCampaign, levels.length) },
       onActivate: () => this.scene.start(LEVELS_SCENE_KEY),
     }, this.pointerGate);
 
@@ -617,7 +610,7 @@ function createHomeHubCard(
   const activeAccent = options.activeAccent ?? false;
 
   if (options.variant === 'primary') {
-    const button = createUiButton(scene, {
+    const button = createPrimaryActionButton(scene, {
       x: options.x,
       y: options.y,
       width: options.width,
@@ -625,7 +618,7 @@ function createHomeHubCard(
       label: options.label,
       subtitle: options.subtitle,
       iconKey: HOME_CARD_ICON_KEYS[options.icon as 'play'],
-      variant: 'primary',
+      homeWideLayout: true,
       enabled,
       onActivate: (pointer) => {
         if (pointerGate.canActivate(pointer.id)) options.onActivate();
@@ -656,18 +649,29 @@ function createHomeHubCard(
   // const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
   //         y: options.y + options.height * (narrow ? 0.31 : 0.35),
   const labelColor = enabled
-    ? (activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.primary)
+    ? UI_THEME.colors.text.primary
     : UI_THEME.colors.text.disabled;
   const subtitleColor = enabled ? UI_THEME.colors.text.secondary : UI_THEME.colors.text.disabled;
+  const HOME_SUBTITLE_FONT_SIZE = narrow ? 12 : 14;
 
   if (options.variant === 'tall') {
-    const iconSize = narrow ? 30 : Math.min(82, cardWidth * 0.31);
-    const iconY = options.y - cardHeight * 0.22;
+    const largeIllustratedIcon = options.icon === 'daily' || options.icon === 'levels';
+    const iconSize = largeIllustratedIcon
+      ? (narrow ? (options.icon === 'levels' ? 66 : 58) : Math.min(106, cardWidth * 0.40))
+      : (narrow ? 30 : Math.min(82, cardWidth * 0.31));
+    const iconY = options.y - cardHeight * (largeIllustratedIcon ? (narrow ? 0.23 : 0.18) : 0.22);
     const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
     const icon = scene.add.image(options.x, iconY, iconKey)
       .setDisplaySize(iconSize, iconSize)
-      .setTint(enabled ? (activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.primary) : UI_THEME.colors.text.disabled)
       .setAlpha(enabled ? 1 : 0.58);
+
+    if (options.icon !== 'daily' && options.icon !== 'levels') {
+      icon.setTint(enabled
+        ? (activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.primary)
+        : UI_THEME.colors.text.disabled);
+    } else if (!enabled) {
+      icon.setTint(UI_THEME.colors.text.disabled);
+    }
     objects.push(icon);
 
     if (!enabled) {
@@ -685,43 +689,37 @@ function createHomeHubCard(
 
     const label = scene.add.text(options.x, options.y + cardHeight * 0.08, options.label, {
       ...createUiTextStyle('bodyStrong', options.density, { color: labelColor, align: 'center' }),
-    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
+      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontSize: `${narrow ? 18 : 22}px`,
+      fontStyle: 'bold',
+      stroke: '#26345f',
+      strokeThickness: narrow ? 2 : 3,
+      shadow: {
+        offsetX: 0,
+        offsetY: narrow ? 1 : 2,
+        color: '#0b1024',
+        blur: 2,
+        fill: true,
+      },
+    }).setOrigin(0.5).setLetterSpacing(narrow ? 1 : 1.5).setAlpha(enabled ? 1 : 0.55);
     fitHomeText(label, cardWidth - (narrow ? 22 : 32), options.density === 'mobile' ? 10 : 11);
     objects.push(label);
 
-    if (options.progress !== undefined) {
-      const progressLabel = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.24 : 0.28), options.progress.label, {
-        ...createUiTextStyle('meta', options.density, { color: subtitleColor, align: 'center', fontStyle: 'bold' }),
-      }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-      fitHomeText(progressLabel, cardWidth - (narrow ? 18 : 28), 10);
-      objects.push(progressLabel);
-
-      const progress = drawHomeCardProgress(scene, {
-        x: options.x,
-        y: options.y + cardHeight * (narrow ? 0.31 : 0.35),
-        width: cardWidth - (narrow ? 40 : 58),
-        height: narrow ? 5 : 7,
-        completed: options.progress.completed,
-        total: options.progress.total,
-      });
-      if (!enabled) progress.setAlpha(0.55);
-      objects.push(progress);
-    } else {
-      const subtitle = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.27 : 0.31), options.subtitle, {
-        ...createUiTextStyle('meta', options.density, { color: subtitleColor, align: 'center' }),
-      }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-      fitHomeText(subtitle, cardWidth - (narrow ? 18 : 28), 10);
-      objects.push(subtitle);
-    }
+    const subtitle = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.27 : 0.31), options.subtitle, {
+      ...createUiTextStyle('meta', options.density, { color: subtitleColor, align: 'center' }),
+      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontSize: `${HOME_SUBTITLE_FONT_SIZE}px`,
+    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
+    fitHomeText(subtitle, cardWidth - (narrow ? 18 : 28), 10);
+    objects.push(subtitle);
   } else {
     const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
-    const contentLeft = options.x - cardWidth * (narrow ? 0.12 : 0.10);
+    const contentLeft = options.x - cardWidth * (narrow ? 0.16 : 0.18);
     const contentWidth = cardWidth * (narrow ? 0.47 : 0.50);
-    const iconSize = narrow ? 38 : 52;
+    const iconSize = narrow ? 68 : 64;
     const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
       .setDisplaySize(iconSize, iconSize)
-      .setTint(enabled ? UI_THEME.colors.text.secondary : UI_THEME.colors.text.disabled)
-      .setAlpha(enabled ? 0.96 : 0.56);
+      .setAlpha(enabled ? 1 : 0.42);
     objects.push(icon);
 
     if (!enabled) {
@@ -735,27 +733,30 @@ function createHomeHubCard(
         .setTint(UI_THEME.colors.text.disabled)
         .setAlpha(0.72);
       objects.push(lock);
-    } else {
-      const arrowSize = narrow ? 16 : 21;
-      const arrow = scene.add.image(
-        options.x + cardWidth * (narrow ? 0.35 : 0.37),
-        options.y,
-        UI_ICON_KEYS.masteryForward,
-      )
-        .setDisplaySize(arrowSize, arrowSize)
-        .setTint(UI_THEME.colors.text.secondary)
-        .setAlpha(0.9);
-      objects.push(arrow);
     }
 
     const label = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), options.label, {
       ...createUiTextStyle('bodyStrong', options.density, { color: labelColor }),
-    }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
+      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontSize: `${narrow ? 18 : 22}px`,
+      fontStyle: 'bold',
+      stroke: '#26345f',
+      strokeThickness: narrow ? 2 : 3,
+      shadow: {
+        offsetX: 0,
+        offsetY: narrow ? 1 : 2,
+        color: '#0b1024',
+        blur: 2,
+        fill: true,
+      },
+    }).setOrigin(0, 0.5).setLetterSpacing(narrow ? 1 : 1.5).setAlpha(enabled ? 1 : 0.55);
     fitHomeText(label, contentWidth, options.density === 'mobile' ? 10 : 11);
     objects.push(label);
 
     const subtitle = scene.add.text(contentLeft, options.y + (narrow ? 15 : 20), options.subtitle, {
       ...createUiTextStyle('meta', options.density, { color: subtitleColor }),
+      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontSize: `${HOME_SUBTITLE_FONT_SIZE}px`,
     }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
     fitHomeText(subtitle, contentWidth, 10);
     objects.push(subtitle);
@@ -767,27 +768,6 @@ function createHomeHubCard(
       for (const object of objects) object.destroy();
     },
   };
-}
-
-function drawHomeCardProgress(
-  scene: Phaser.Scene,
-  options: {
-    readonly x: number;
-    readonly y: number;
-    readonly width: number;
-    readonly height: number;
-    readonly completed: number;
-    readonly total: number;
-  },
-): Phaser.GameObjects.Container {
-  return createUiProgressBar(scene, {
-    x: options.x,
-    y: options.y,
-    width: options.width,
-    height: options.height,
-    current: options.completed,
-    target: options.total,
-  });
 }
 
 function createHomeSettingsButton(

@@ -120,7 +120,7 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#111318');
     this.add.text(width / 2, height / 2 - (narrow ? 70 : 82), title, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 24 : 32}px`,
       color: '#f2e7d5',
       fontStyle: 'bold',
@@ -129,7 +129,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(width / 2, height / 2 - (narrow ? 20 : 24), details, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 14 : 17}px`,
       color: '#aebbd0',
       align: 'center',
@@ -143,7 +143,7 @@ export class BootScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xf0bd63, 1)
       .setInteractive({ useHandCursor: true });
     const label = this.add.text(width / 2, buttonY, retryLabel, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 17 : 19}px`,
       color: '#f0bd63',
       fontStyle: 'bold',

@@ -126,7 +126,7 @@ export function createMaterialActionButton(
   const textMaxWidth = Math.max(24, options.width - padding * 2 - (hasIcon ? iconSize + gap : 0));
   const contentY = getMaterialButtonContentY(options.y, options.height);
   const label = scene.add.text(options.x, contentY, options.label, {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${baseFontSize}px`,
     color: options.labelColor ?? MATERIAL_BUTTON_TEXT_COLOR,
     fontStyle: 'bold',

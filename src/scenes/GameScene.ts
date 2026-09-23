@@ -447,7 +447,7 @@ export class GameScene extends Phaser.Scene {
     const menuHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
     const backIcon = this.add.image(0, 0, 'ui-icon-back').setTint(UI_THEME.colors.text.primary);
     const backText = this.add.text(0, 0, getBackLabel(), {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${getHeaderActionButtonMetrics(this.scale.width < 700).fontSize}px`,
       color: uiColorHex(UI_THEME.colors.text.primary),
       fontStyle: 'bold',
@@ -991,7 +991,7 @@ export class GameScene extends Phaser.Scene {
       Math.min(...toolbarLayout.buttons.map((button) => button.y - button.height / 2)) - 18,
       showTouchToolButtons ? '' : copy.game.mouseControls,
       {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${chrome.statusFontSize}px`,
         color: uiColorHex(UI_THEME.colors.text.muted),
         fontStyle: 'bold',
@@ -1048,7 +1048,7 @@ export class GameScene extends Phaser.Scene {
 
     let onboardingPanel: Phaser.GameObjects.NineSlice | null = null;
     const onboardingText = this.add.text(0, 0, '', {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: '18px',
       color: uiColorHex(UI_THEME.colors.text.primary),
       fontStyle: 'bold',
@@ -1193,7 +1193,7 @@ export class GameScene extends Phaser.Scene {
       const centerX = this.scale.width / 2;
       const topY = this.scale.height / 2 - totalHeight / 2;
       const title = this.add.text(centerX, topY, copy.game.menu, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: narrowMenu ? '22px' : '28px',
         color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
@@ -1513,7 +1513,7 @@ export class GameScene extends Phaser.Scene {
       const hintConfirmTitle = this.add.text(0, -54, rewardedMode
         ? copy.game.rewardedHintConfirmTitle
         : copy.game.hintConfirmTitle, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: this.scale.width < 700 ? '15px' : '18px',
         color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
@@ -1522,7 +1522,7 @@ export class GameScene extends Phaser.Scene {
       const hintConfirmMeta = this.add.text(0, -28, rewardedMode
         ? copy.game.rewardedHintConfirmMeta
         : copy.game.freeHintsRemaining(remaining), {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: this.scale.width < 700 ? '11px' : '13px',
         color: '#aebbd2',
         fontStyle: 'bold',
@@ -1532,7 +1532,7 @@ export class GameScene extends Phaser.Scene {
       const children: Phaser.GameObjects.GameObject[] = [hintConfirmTitle, hintConfirmMeta];
       if (rankedWarning.length > 0) {
         const warning = this.add.text(0, -4, rankedWarning, {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: this.scale.width < 700 ? '10px' : '11px',
           color: '#aebbd2',
           align: 'center',
@@ -1691,7 +1691,7 @@ export class GameScene extends Phaser.Scene {
         const gap = hasIcon ? 8 : 0;
         const horizontalPadding = layout.mode === 'phone' ? 10 : 12;
         const label = this.add.text(centerX, centerY, pill.label, {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: `${layout.mode === 'phone' ? 12 : 15}px`,
           color: uiColorHex(UI_THEME.colors.text.primary),
           fontStyle: 'bold',
@@ -1810,7 +1810,7 @@ export class GameScene extends Phaser.Scene {
       completionPanelObjects.push(panel);
 
       const title = this.add.text(layout.panelX, layout.titleY, getCompletionTitle(), {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${layout.mode === 'phone' ? 20 : this.scale.height <= 640 ? 18 : 20}px`,
         color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
@@ -2252,7 +2252,7 @@ export class GameScene extends Phaser.Scene {
 
       const titleY = -height / 2 + 66;
       const title = this.add.text(0, titleY, copy.game.resetTitle, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${modalChrome.modalTitleFontSize}px`,
         color: '#f0bd63',
         fontStyle: 'bold',
@@ -2276,7 +2276,7 @@ export class GameScene extends Phaser.Scene {
         titleAccent.fillPath();
       }
       const dialogCopy = this.add.text(0, -4, copy.game.resetBody, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${modalChrome.modalCopyFontSize}px`,
         color: '#e7e1d6',
         align: 'center',
@@ -2418,7 +2418,7 @@ export class GameScene extends Phaser.Scene {
       panel.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
 
       const title = this.add.text(0, -70, copy.game.skipTitle, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${modalChrome.modalTitleFontSize}px`,
         color: '#f0bd63',
         fontStyle: 'bold',
@@ -2429,7 +2429,7 @@ export class GameScene extends Phaser.Scene {
         -20,
         endlessContext.kind === 'freeplay' ? copy.game.skipFreePlayBody : copy.game.skipBody,
         {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: `${modalChrome.modalCopyFontSize}px`,
           color: '#e7e1d6',
           align: 'center',
@@ -2755,7 +2755,7 @@ export class GameScene extends Phaser.Scene {
         buttonLayout.height,
       ).setInteractive({ useHandCursor: true });
       const label = this.add.text(buttonLayout.x, buttonLayout.y, buttonState.label, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: this.scale.width < 700 ? '15px' : '19px',
         color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',

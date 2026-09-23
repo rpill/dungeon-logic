@@ -93,7 +93,7 @@ export function createMetaPageHeader(
       buttonPlacement.y,
       options.backLabel.replace(/^←\s*/, ''),
       {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${actionMetrics.fontSize}px`,
         color: '#f4ead7',
         fontStyle: 'bold',
@@ -117,7 +117,7 @@ export function createMetaPageHeader(
 
 
   const title = scene.add.text(viewport.centerX, metrics.titleY, options.title, {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${metrics.titleFontSize}px`,
     color: '#f4ead7',
     fontStyle: 'bold',

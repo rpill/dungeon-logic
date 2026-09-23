@@ -7,19 +7,22 @@ function assert(condition, message) {
 }
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const home = readFileSync(resolve(root, 'src/scenes/HomeScene.ts'), 'utf8');
-const boot = readFileSync(resolve(root, 'src/scenes/BootScene.ts'), 'utf8');
+const homePath = resolve(root, 'src/scenes/HomeScene.ts');
+const bootPath = resolve(root, 'src/scenes/BootScene.ts');
 const rendererPath = resolve(root, 'src/runtime/HomeHubModeCard.ts');
+
+const home = readFileSync(homePath, 'utf8');
+const boot = readFileSync(bootPath, 'utf8');
 const renderer = readFileSync(rendererPath, 'utf8');
 
 assert(home.includes("from '../runtime/HomeHubModeCard'"), 'Home must use the HomeHubModeCard renderer.');
-assert(home.includes("visualStyle: 'soft-stone'"), 'Home must explicitly opt into the approved soft-stone card family.');
 assert(home.includes('UI_ICON_KEYS.lock'), 'Locked Home cards must get a dedicated lock glyph.');
-assert(home.includes('UI_THEME.colors.text.primary'), 'Unlocked card titles must use shared primary text color.');
-assert(home.includes('UI_THEME.colors.text.secondary'), 'Unlocked card subtitles must use shared secondary text color.');
+assert(home.includes('UI_THEME.colors.text.primary'), 'Unlocked card titles must use the shared primary text color.');
+assert(home.includes('UI_THEME.colors.text.secondary'), 'Unlocked card subtitles must use the shared secondary text color.');
+assert(!home.includes("from '../runtime/HomeModeCard'"), 'Home must stop using the legacy HomeModeCard renderer.');
 assert(existsSync(rendererPath), 'HomeHubModeCard renderer must exist.');
 
-const expectedSoftAssets = [
+const expectedAssets = [
   'public/assets/ui/home_hub_card_tall_moody_normal.webp',
   'public/assets/ui/home_hub_card_tall_moody_hover.webp',
   'public/assets/ui/home_hub_card_tall_moody_locked.webp',
@@ -27,21 +30,25 @@ const expectedSoftAssets = [
   'public/assets/ui/home_hub_card_wide_moody_hover.webp',
   'public/assets/ui/home_hub_card_wide_moody_locked.webp',
 ];
-for (const relativePath of expectedSoftAssets) {
-  assert(existsSync(resolve(root, relativePath)), `Soft-dungeon Home card asset must exist: ${relativePath}`);
-  assert(renderer.includes(relativePath.split('/').at(-1)), `Renderer must preload ${relativePath}.`);
+for (const relativePath of expectedAssets) {
+  assert(existsSync(resolve(root, relativePath)), `Soft-stone Home card asset must exist: ${relativePath}`);
 }
 
 assert(
   boot.includes("import { preloadHomeHubModeCardAssets } from '../runtime/HomeHubModeCard';")
     && boot.includes('preloadHomeHubModeCardAssets(this);'),
-  'BootScene must preload Home hub card assets.',
+  'BootScene must preload dedicated Home hub card assets.',
 );
-assert(renderer.includes("export type HomeHubModeCardVisualStyle = 'legacy' | 'soft-stone'"), 'Renderer must isolate the new Home art behind a visual style.');
-assert(renderer.includes("const visualStyle = options.visualStyle ?? 'legacy'"), 'Non-Home consumers must keep the legacy surface by default.');
-assert(!renderer.includes('MATERIAL_BUTTON_KEYS.secondary'), 'Home hub cards must not render from the secondary button texture.');
-assert(!renderer.includes('scene.add.graphics()'), 'Home hub card state feedback must remain asset-driven.');
-assert(renderer.includes("type HomeHubModeCardState = 'normal' | 'hover' | 'pressed' | 'locked'"), 'Renderer must own normal/hover/pressed/locked states.');
+assert(
+  renderer.includes('home_hub_card_tall_moody_normal.webp')
+    && renderer.includes('home_hub_card_wide_moody_normal.webp'),
+  'Home hub cards must use the approved soft-stone tall/wide textures.',
+);
+assert(renderer.includes("type HomeHubModeCardState = 'normal' | 'hover' | 'pressed' | 'locked'"),
+  'Renderer must own normal/hover/pressed/locked states.');
+assert(renderer.includes("surface.setTexture(SOFT_SURFACE_KEYS[options.variant][textureState])"),
+  'Soft-stone hover/locked states must switch dedicated textures.');
+assert(renderer.includes('setAlpha('), 'Pressed state feedback must use alpha changes.');
 assert(renderer.includes('setInteractive({ useHandCursor: true })'), 'Unlocked Home hub cards must remain interactive.');
 assert(renderer.includes('getAudioFeedback'), 'Home hub cards must keep click audio feedback.');
 assert(renderer.includes('isTouchLikePointer(pointer)'), 'Home hub cards must clear synthetic hover after touch release.');

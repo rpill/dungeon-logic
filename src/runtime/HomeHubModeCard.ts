@@ -50,13 +50,13 @@ const LEGACY_SLICE_X: Record<HomeHubModeCardVariant, number> = {
 };
 
 const SOFT_SLICE_X: Record<HomeHubModeCardVariant, number> = {
-  tall: 118,
-  wide: 145,
+  tall: 102,
+  wide: 129,
 };
 
 const SOFT_SLICE_Y: Record<HomeHubModeCardVariant, number> = {
-  tall: 118,
-  wide: 110,
+  tall: 103,
+  wide: 95,
 };
 
 export function preloadHomeHubModeCardAssets(scene: Phaser.Scene): void {

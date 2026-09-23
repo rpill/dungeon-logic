@@ -159,7 +159,7 @@ export class HelpScene extends Phaser.Scene {
     const textWidth = width - paddingX * 2;
 
     const title = this.add.text(left + paddingX, topY + paddingTop, content.title, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '16px' : '20px',
       color: '#f0bd63',
       fontStyle: 'bold',
@@ -180,7 +180,7 @@ export class HelpScene extends Phaser.Scene {
     titleMark.fillPath();
 
     const body = this.add.text(left + paddingX, title.y + title.height + (narrow ? 9 : 11), content.body, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '13px' : '16px',
       color: '#e7e1d6',
       lineSpacing: narrow ? 4 : 6,

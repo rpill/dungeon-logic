@@ -35,7 +35,7 @@ export function createMasteryRankUpDevControl(
     .setStrokeStyle(1, 0xffb85c, 0.95)
     .setDepth(depth);
   const rankLabel = scene.add.text(x + rankWidth / 2, y - height / 2, 'DEV RANK UP', {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: '11px',
     color: '#ffe2a8',
     fontStyle: 'bold',
@@ -48,7 +48,7 @@ export function createMasteryRankUpDevControl(
     .setDepth(depth)
     .setInteractive({ useHandCursor: true });
   const resetLabel = scene.add.text(resetX + resetWidth / 2, y - height / 2, 'DEV RESET', {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: '11px',
     color: '#ffd6d9',
     fontStyle: 'bold',

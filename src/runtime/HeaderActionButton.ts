@@ -134,7 +134,7 @@ export function createHeaderActionButton(
   let label: Phaser.GameObjects.Text | undefined;
   if (options.label !== undefined && options.label.length > 0) {
     label = scene.add.text(0, contentY, options.label.replace(/^←\s*/, ''), {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${options.fontSize ?? 14}px`,
       color: '#f4ead7',
       fontStyle: 'bold',

@@ -121,7 +121,7 @@ export class DailyScene extends Phaser.Scene {
       availableViewport.y + shellLayout.headerHeight + 12,
       copy.common.loading,
       {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: shellLayout.density === 'ultra' ? '10px' : narrow ? '12px' : '14px',
         color: '#89929d',
       },
@@ -189,7 +189,7 @@ export class DailyScene extends Phaser.Scene {
 
     if (today?.entry === null || today === null) {
       this.add.text(centerX, todayCardCenterY, copy.dailyHub.todayUnavailable, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: density === 'ultra' ? '9px' : narrow ? '12px' : '14px',
         color: '#9aa6ba',
         align: 'center',
@@ -228,7 +228,7 @@ export class DailyScene extends Phaser.Scene {
       const rulesY = todayCardTop + (density === 'ultra' ? 39 : density === 'tight' ? 54 : narrow ? 61 : 80);
 
       this.add.text(contentLeft, dateY, this.formatDate(today.dateKey), {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: density === 'ultra' ? '10px' : density === 'tight' ? '13px' : narrow ? '13px' : '18px',
         color: '#f4ead7',
         fontStyle: 'bold',
@@ -243,7 +243,7 @@ export class DailyScene extends Phaser.Scene {
             : copy.dailyHub.todaySolved(this.formatTime(today.result!.bestTimeMs)))
           : copy.dailyHub.todayUnsolved,
         {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: density === 'ultra' ? '9px' : density === 'tight' ? '11px' : narrow ? '11px' : '15px',
           color: solved ? '#d7deea' : '#d7deea',
           fontStyle: 'bold',
@@ -256,7 +256,7 @@ export class DailyScene extends Phaser.Scene {
         rulesY,
         solved ? copy.dailyHub.todayReplayRules : copy.dailyHub.todayAttemptRules,
         {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: density === 'ultra' ? '7px' : density === 'tight' ? '9px' : narrow ? '9px' : '12px',
           color: '#97a5bb',
           wordWrap: { width: statusWidth },
@@ -292,7 +292,7 @@ export class DailyScene extends Phaser.Scene {
     }
     if (today === null) {
       this.add.text(centerX, viewportTop + shellLayout.monthHeaderY, copy.dailyHub.archiveEmpty, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: density === 'ultra' ? '9px' : narrow ? '12px' : '14px',
         color: '#65728a',
       }).setOrigin(0.5);
@@ -321,7 +321,7 @@ export class DailyScene extends Phaser.Scene {
       const monthLabel = `${copy.stats.months[calendar.month - 1]} ${calendar.year}`;
 
       const monthText = this.add.text(centerX, viewportTop + layout.monthHeaderY, monthLabel, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: layout.density === 'ultra' ? '10px' : layout.density === 'tight' ? '12px' : narrow ? '14px' : '17px',
         color: '#f4ead7',
         fontStyle: 'bold',
@@ -333,7 +333,7 @@ export class DailyScene extends Phaser.Scene {
         const x = centerX + direction * Math.min(Math.max(34, gridWidth / 2 - 12), maxArrowOffset);
         const restingColor = enabled ? '#aeb9cb' : '#46536a';
         const arrow = this.add.text(x, viewportTop + layout.monthHeaderY, direction < 0 ? '‹' : '›', {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: layout.density === 'ultra' ? '18px' : narrow ? '24px' : '30px',
           color: restingColor,
           fontStyle: 'bold',
@@ -365,7 +365,7 @@ export class DailyScene extends Phaser.Scene {
       copy.stats.weekdays.forEach((weekday, column) => {
         const x = centerX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
         const text = this.add.text(x, viewportTop + layout.weekdaysY, weekday, {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '9px' : '10px',
           color: '#718098',
           fontStyle: 'bold',
@@ -496,7 +496,7 @@ export class DailyScene extends Phaser.Scene {
         }
 
         const number = this.add.text(x, numberY, String(day.day), {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '10px' : '12px',
           color: style.text,
           fontStyle: day.state === 'today' ? 'bold' : 'normal',

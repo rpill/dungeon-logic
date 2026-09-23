@@ -16,7 +16,7 @@ export function createUiTextStyle(
   options: UiTextStyleOptions = {},
 ): Phaser.Types.GameObjects.Text.TextStyle {
   return {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${UI_THEME.typography[role][density]}px`,
     color: uiColorHex(options.color ?? UI_THEME.colors.text.primary),
     fontStyle: options.fontStyle ?? (role === 'display' || role === 'heading' || role === 'bodyStrong' ? 'bold' : 'normal'),

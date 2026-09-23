@@ -259,7 +259,7 @@ export class BoardView {
         centerY,
         String(value),
         {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: `${Math.max(1, Math.round(this.cellSize * CLUE_FONT_RATIO))}px`,
           color: WIREFRAME.clueActive,
           fontStyle: 'bold',

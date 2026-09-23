@@ -244,7 +244,7 @@ export function createMasterySeal(
   );
 
   const rankLabel = scene.add.text(options.x, plaqueY, plaqueLabel, {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${Math.round(options.size * (options.rank === 'MASTER' ? 0.068 : 0.096))}px`,
     color: '#fff0c1',
     fontStyle: 'bold',

@@ -9,8 +9,11 @@ type PrimaryButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 // Keep the full height of each end cap: the bevel and round rivets must scale
 // uniformly. Only the strip between the caps stretches horizontally.
 const PRIMARY_BUTTON_SLICE_X = 56;
-const PRIMARY_BUTTON_FRAME = 'button-body';
-const PRIMARY_BUTTON_FRAME_INSET = 24;
+const PRIMARY_BUTTON_FRAME = 'button-body-visible';
+const PRIMARY_BUTTON_FRAME_X = 30;
+const PRIMARY_BUTTON_FRAME_Y = 6;
+const PRIMARY_BUTTON_FRAME_RIGHT = 31;
+const PRIMARY_BUTTON_FRAME_BOTTOM = 4;
 const PRIMARY_BUTTON_TEXT_COLOR = uiColorHex(UI_THEME.colors.background.deep);
 const PRIMARY_BUTTON_SUBTITLE_COLOR = uiColorHex(UI_THEME.colors.surface.base);
 const PRIMARY_BUTTON_ICON_TINT = UI_THEME.colors.background.deep;
@@ -29,6 +32,7 @@ export interface PrimaryActionButtonOptions {
   readonly iconKey?: string;
   readonly subtitle?: string;
   readonly compact?: boolean;
+  readonly homeWideLayout?: boolean;
   readonly enabled?: boolean;
   readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
 }
@@ -50,8 +54,14 @@ export function createPrimaryActionButton(
   const texture = scene.textures.get(PRIMARY_BUTTON_KEY);
   if (!texture.has(PRIMARY_BUTTON_FRAME)) {
     const source = texture.get();
-    const inset = PRIMARY_BUTTON_FRAME_INSET;
-    texture.add(PRIMARY_BUTTON_FRAME, 0, inset, 0, source.width - inset * 2, source.height);
+    texture.add(
+      PRIMARY_BUTTON_FRAME,
+      0,
+      PRIMARY_BUTTON_FRAME_X,
+      PRIMARY_BUTTON_FRAME_Y,
+      source.width - PRIMARY_BUTTON_FRAME_X - PRIMARY_BUTTON_FRAME_RIGHT,
+      source.height - PRIMARY_BUTTON_FRAME_Y - PRIMARY_BUTTON_FRAME_BOTTOM,
+    );
   }
   const frame = texture.get(PRIMARY_BUTTON_FRAME);
   const surfaceHeight = options.surfaceHeight ?? options.height;
@@ -69,25 +79,37 @@ export function createPrimaryActionButton(
     0,
   ).setScale(surfaceScale);
 
-  const iconSize = compact
+  const narrow = scene.scale.width < 700;
+  const homeWideLayout = options.homeWideLayout ?? false;
+  const genericIconSize = compact
     ? Math.max(14, Math.min(20, options.height * 0.48))
     : Math.max(24, Math.min(36, options.height * 0.43));
+  const homeIconSize = narrow ? 48 : 52;
+  const iconSize = homeWideLayout ? homeIconSize : genericIconSize;
   const labelFontSize = compact
-    ? Math.max(10, Math.min(scene.scale.width < 700 ? 12 : 14, Math.floor(options.height * 0.34)))
-    : Math.max(17, Math.min(scene.scale.width < 700 ? 20 : 24, Math.floor(options.height * 0.31)));
-  const subtitleFontSize = compact
-    ? Math.max(8, Math.floor(labelFontSize * 0.72))
-    : Math.max(10, Math.floor(labelFontSize * 0.55));
+    ? Math.max(10, Math.min(narrow ? 12 : 14, Math.floor(options.height * 0.34)))
+    : Math.max(17, Math.min(narrow ? 20 : 24, Math.floor(options.height * 0.31)));
+  const subtitleFontSize = homeWideLayout
+    ? (narrow ? 12 : 14)
+    : compact
+      ? Math.max(8, Math.floor(labelFontSize * 0.72))
+      : Math.max(10, Math.floor(labelFontSize * 0.55));
   const hasIcon = Boolean(options.iconKey);
   const objects: Phaser.GameObjects.GameObject[] = [surface];
 
   const contentY = options.y - options.height * 0.045;
   const gap = compact ? 6 : 12;
   const padding = Math.max(10, options.height * 0.27);
-  const textMaxWidth = options.width - padding * 2 - (hasIcon ? iconSize + gap : 0);
+  const copyX = options.x - options.width * (narrow ? 0.16 : 0.18);
+  const iconX = options.x - options.width * (narrow ? 0.31 : 0.32);
+  const textMaxWidth = homeWideLayout
+    ? options.width * (narrow ? 0.47 : 0.50)
+    : options.width - padding * 2 - (hasIcon ? iconSize + gap : 0);
+  const labelY = homeWideLayout ? options.y - (narrow ? 8 : 10) : contentY;
+  const subtitleY = homeWideLayout ? options.y + (narrow ? 15 : 20) : contentY;
 
-  const label = scene.add.text(options.x, contentY, options.label, {
-    fontFamily: 'monospace',
+  const label = scene.add.text(homeWideLayout ? copyX : options.x, labelY, options.label, {
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${labelFontSize}px`,
     color: PRIMARY_BUTTON_TEXT_COLOR,
     fontStyle: 'bold',
@@ -97,8 +119,8 @@ export function createPrimaryActionButton(
 
   let subtitle: Phaser.GameObjects.Text | undefined;
   if (options.subtitle) {
-    subtitle = scene.add.text(options.x, contentY, options.subtitle, {
-      fontFamily: 'monospace',
+    subtitle = scene.add.text(homeWideLayout ? copyX : options.x, subtitleY, options.subtitle, {
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${subtitleFontSize}px`,
       color: PRIMARY_BUTTON_SUBTITLE_COLOR,
       fontStyle: 'bold',
@@ -107,20 +129,34 @@ export function createPrimaryActionButton(
     objects.push(subtitle);
   }
 
-  const copyWidth = Math.max(label.displayWidth, subtitle?.displayWidth ?? 0);
-  const contentWidth = copyWidth + (hasIcon ? iconSize + gap : 0);
-  const contentLeft = options.x - contentWidth / 2;
-  const copyX = contentLeft + (hasIcon ? iconSize + gap : 0) + copyWidth / 2;
-  label.setX(copyX);
-  if (subtitle) {
-    const lineGap = Math.max(2, options.height * 0.04);
-    label.setY(contentY - (subtitle.displayHeight + lineGap) / 2);
-    subtitle.setPosition(copyX, contentY + (label.displayHeight + lineGap) / 2);
+  if (homeWideLayout) {
+    label.setOrigin(0, 0.5);
+    if (subtitle) subtitle.setOrigin(0, 0.5);
+  }
+
+  if (!homeWideLayout) {
+    const copyWidth = Math.max(label.displayWidth, subtitle?.displayWidth ?? 0);
+    const contentWidth = copyWidth + (hasIcon ? iconSize + gap : 0);
+    const contentLeft = options.x - contentWidth / 2;
+    const centeredCopyX = contentLeft + (hasIcon ? iconSize + gap : 0) + copyWidth / 2;
+    label.setX(centeredCopyX);
+    if (subtitle) {
+      const lineGap = Math.max(2, options.height * 0.04);
+      label.setY(contentY - (subtitle.displayHeight + lineGap) / 2);
+      subtitle.setPosition(centeredCopyX, contentY + (label.displayHeight + lineGap) / 2);
+    }
   }
 
   let icon: Phaser.GameObjects.Image | undefined;
   if (options.iconKey) {
-    icon = scene.add.image(contentLeft + iconSize / 2, contentY, options.iconKey)
+    const genericContentWidth = Math.max(label.displayWidth, subtitle?.displayWidth ?? 0)
+      + (hasIcon ? iconSize + gap : 0);
+    const genericContentLeft = options.x - genericContentWidth / 2;
+    icon = scene.add.image(
+      homeWideLayout ? iconX : genericContentLeft + iconSize / 2,
+      homeWideLayout ? options.y : contentY,
+      options.iconKey,
+    )
       .setDisplaySize(iconSize, iconSize)
       .setTint(PRIMARY_BUTTON_ICON_TINT);
     objects.push(icon);

@@ -76,7 +76,7 @@ function addMiniLabel(
   color = '#b8c2d4',
 ): void {
   scene.add.text(x, y, text, {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: narrow ? '11px' : '13px',
     color,
     fontStyle: 'bold',
@@ -118,13 +118,13 @@ function renderClues(scene: Phaser.Scene, options: IllustrationOptions): number 
   }
 
   scene.add.text(boardLeft + size * 1.5, boardTop - (options.narrow ? 15 : 18), '2', {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: options.narrow ? '19px' : '23px',
     color: '#f0b14f',
     fontStyle: 'bold',
   }).setOrigin(0.5).setDepth(6);
   scene.add.text(boardLeft - (options.narrow ? 15 : 18), boardTop + size / 2, '2', {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: options.narrow ? '19px' : '23px',
     color: '#f0b14f',
     fontStyle: 'bold',
@@ -319,7 +319,7 @@ function renderFeedback(scene: Phaser.Scene, options: IllustrationOptions): numb
   addWall(scene, leftX, y, size, 0).setTint(0xb85d63);
   addWall(scene, rightX, y, size, 1).setTint(0xb85d63);
   scene.add.text(leftX - size * 0.72, y, '1', {
-    fontFamily: 'monospace',
+    fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: options.narrow ? '20px' : '24px',
     color: '#c96568',
     fontStyle: 'bold',

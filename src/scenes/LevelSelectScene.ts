@@ -314,7 +314,7 @@ export class LevelSelectScene extends Phaser.Scene {
         cardLayout.numberY,
         String(item.entry.slot),
         {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: `${layout.cardTitleFontSize}px`,
           color,
           fontStyle: 'bold',
@@ -401,7 +401,7 @@ export class LevelSelectScene extends Phaser.Scene {
   ): void {
     const availableViewport = this.getAvailableViewport();
     this.add.text(availableViewport.centerX, layout.progressLabelY, label, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${layout.progressLabelFontSize}px`,
       color: '#e7edf8',
       fontStyle: 'bold',
@@ -673,7 +673,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const dotsY = pagerY + 12;
 
     this.add.text(centerX, labelY, `${firstSlot}–${lastSlot}`, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: '12px',
       color: '#d7dfed',
       fontStyle: 'bold',
@@ -1024,7 +1024,7 @@ export class LevelSelectScene extends Phaser.Scene {
       card.numberY,
       String(slot),
       {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${titleFontSize}px`,
         color: STATE_COLOR.current,
         fontStyle: 'bold',

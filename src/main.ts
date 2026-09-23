@@ -52,5 +52,17 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-const game = new Phaser.Game(config);
-installHiDpiRendering(game);
+function startGame(): void {
+  const game = new Phaser.Game(config);
+  installHiDpiRendering(game);
+}
+
+const fontSet = typeof document !== 'undefined' ? document.fonts : undefined;
+if (fontSet) {
+  void Promise.all([
+    document.fonts.load('400 16px "Balsamiq Sans"'),
+    document.fonts.load('700 20px "Balsamiq Sans"'),
+  ]).then(startGame, startGame);
+} else {
+  startGame();
+}

@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'Balsamiq Sans';
+  src: url('/assets/fonts/BalsamiqSans-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Balsamiq Sans';
+  src: url('/assets/fonts/BalsamiqSans-Bold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}
+
 :root {
   --safe-area-inset-top: env(safe-area-inset-top, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);

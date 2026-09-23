@@ -36,7 +36,7 @@ assert(!home.includes('copy.common.howToPlay'), 'Home must no longer show a stan
 assert(home.includes('subtitle: entry === undefined\n        ? `${completedCampaign} / ${campaignTotal}`\n        : copy.levelSelect.level(entry.slot),'), 'Continue card must show only the current level in its subtitle.');
 assert(home.includes('progress: { completed: completedCampaign, total: levels.length, label: copy.levelSelect.progress(completedCampaign, levels.length) }'), 'Levels card must receive completed/total progress data and localized progress text.');
 assert(home.includes('drawHomeCardProgress'), 'Levels card must render a dedicated progress bar.');
-assert(home.includes('createUiProgressBar'), 'Home Levels progress must use the shared UI progress bar.');
+assert(home.includes('createUiProgressBar'), 'Home Levels progress must use the shared themed progress bar.');
 assert(!home.includes('HOME_PROGRESS_FILL') && !home.includes('HOME_PROGRESS_TRACK_FILL'), 'Home must not keep legacy flat progress colors.');
 assert(!home.includes('HOME_PROGRESS_AVAILABLE_FILL'), 'Home Levels progress must not render the old available-reach segment.');
 

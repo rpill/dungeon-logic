@@ -7,7 +7,7 @@ const text=readFileSync(resolve(root,'src/ui/UiText.ts'),'utf8');
 const header=readFileSync(resolve(root,'src/ui/UiSceneHeader.ts'),'utf8');
 assert(text.includes("export type UiTextRole = 'display' | 'heading' | 'bodyStrong' | 'body' | 'meta';"),'UiText roles must match the spec.');
 assert(text.includes('UI_THEME.typography[role][density]'),'Text sizes must come from UiTheme.');
-assert(text.includes("fontFamily: 'monospace'"),'UI typography must retain the game font family.');
+assert(text.includes(`fontFamily: "'Balsamiq Sans', sans-serif"`),'UI typography must use the Balsamiq Sans game font.');
 assert(header.includes('createUiSceneHeader'),'Scene header primitive must exist.');
 assert(header.includes('createUiSectionHeader'),'Section header primitive must exist.');
 assert(header.includes('UI_THEME.colors.semantic.gold'),'Header decoration must use semantic gold.');

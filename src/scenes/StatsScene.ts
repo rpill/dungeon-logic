@@ -56,7 +56,7 @@ export class StatsScene extends Phaser.Scene {
       layout.summaryCards[0]?.y ?? this.scale.height / 2,
       this.copy.common.loading,
       {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: narrow ? '13px' : '15px',
         color: '#7f8ba2',
         fontStyle: 'bold',
@@ -173,7 +173,7 @@ export class StatsScene extends Phaser.Scene {
       .setDisplaySize(iconSize, iconSize)
       .setTint(0xf0b14f);
     const title = this.add.text(card.x, titleY, content.title, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${titleFontSize}px`,
       color: '#f0bd63',
       fontStyle: 'bold',
@@ -197,7 +197,7 @@ export class StatsScene extends Phaser.Scene {
     );
     content.lines.forEach((line, index) => {
       this.add.text(card.x, firstLineY + index * lineGap, line, {
-        fontFamily: 'monospace',
+        fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${lineFontSize}px`,
         color: index === 0 ? '#f4ead7' : '#b8c2d4',
         fontStyle: index === 0 ? 'bold' : 'normal',

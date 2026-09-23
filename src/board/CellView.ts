@@ -138,7 +138,7 @@ export class CellView {
         centerY,
         fixedVisual?.kind === 'technical' ? fixedVisual.marker : '',
         {
-          fontFamily: 'monospace',
+          fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: `${this.getFixedMarkerFontSize()}px`,
           color: WIREFRAME.fixedText,
           fontStyle: 'bold',
