@@ -112,6 +112,7 @@
     "sanity:home-hub": "node scripts/home-hub-layout-sanity.mjs",
     "sanity:home-mode-cards": "node scripts/home-mode-card-sanity.mjs",
     "sanity:home-hub-mode-cards": "node scripts/home-hub-mode-card-sanity.mjs",
+    "sanity:home-concept": "node scripts/home-concept-plaque-sanity.mjs && node scripts/home-hub-card-moody-palette-sanity.mjs && node scripts/home-hub-card-asset-size-sanity.mjs",
     "sanity:available-viewport": "node --experimental-strip-types scripts/available-viewport-sanity.mjs",
     "sanity:meta-available-viewport": "node scripts/meta-available-viewport-sanity.mjs",
     "sanity:endless-verifier-parallel": "node scripts/endless-verifier-parallel-sanity.mjs",

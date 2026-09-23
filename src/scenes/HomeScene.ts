@@ -167,8 +167,8 @@ export class HomeScene extends Phaser.Scene {
     // by setting the shared sticky bottom inset before entering Home.
     const naturalCardGap = narrow ? 10 : 16;
     const naturalPrimaryHeight = narrow ? (compactHeight ? 66 : 74) : (compactHeight ? 70 : 84);
-    const naturalWideHeight = narrow ? (compactHeight ? 72 : 82) : (compactHeight ? 80 : 96);
-    const naturalMasteryHeight = narrow ? (compactHeight ? 52 : 58) : (compactHeight ? 64 : 72);
+    const naturalWideHeight = narrow ? (compactHeight ? 88 : 100) : (compactHeight ? 100 : 116);
+    const naturalMasteryHeight = narrow ? (compactHeight ? 68 : 76) : (compactHeight ? 82 : 92);
     const masteryGap = narrow ? (compactHeight ? 8 : 10) : (compactHeight ? 9 : 12);
     const cardSectionGap = narrow ? (compactHeight ? 10 : 12) : (compactHeight ? 10 : 14);
     const logoToPrimaryGap = narrow ? (compactHeight ? 18 : 22) : (compactHeight ? 18 : 24);
@@ -640,6 +640,7 @@ function createHomeHubCard(
     width: options.width,
     height: options.height,
     variant: options.variant,
+    visualStyle: 'soft-stone',
     enabled,
     activeAccent,
     onActivate: (pointer) => {
@@ -734,6 +735,17 @@ function createHomeHubCard(
         .setTint(UI_THEME.colors.text.disabled)
         .setAlpha(0.72);
       objects.push(lock);
+    } else {
+      const arrowSize = narrow ? 16 : 21;
+      const arrow = scene.add.image(
+        options.x + cardWidth * (narrow ? 0.35 : 0.37),
+        options.y,
+        UI_ICON_KEYS.masteryForward,
+      )
+        .setDisplaySize(arrowSize, arrowSize)
+        .setTint(UI_THEME.colors.text.secondary)
+        .setAlpha(0.9);
+      objects.push(arrow);
     }
 
     const label = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), options.label, {

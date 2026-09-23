@@ -9,12 +9,10 @@ for (const path of [
   'public/assets/ui/home_hub_card_wide_generated_trimmed.webp',
   'public/assets/ui/home_hub_card_tall_generated_trimmed.webp',
 ]) {
-  assert(existsSync(path), `Trimmed generated Home card asset must exist: ${path}`);
+  assert(existsSync(path), `Legacy shared Home-card asset must remain available for non-Home consumers: ${path}`);
 }
-
-assert(renderer.includes('home_hub_card_wide_generated_trimmed.webp'), 'Wide Home card must use the trimmed generated asset.');
-assert(renderer.includes('home_hub_card_tall_generated_trimmed.webp'), 'Tall Home card must use the trimmed generated asset.');
-assert(renderer.includes('wide: 62'), 'Wide NineSlice must preserve the complete generated corner/rivet artwork after downscaling.');
-assert(renderer.includes('tall: 52'), 'Tall NineSlice must preserve the complete generated corner/rivet artwork after downscaling.');
-
-console.info('[Dungeon Logic] Home generated asset trim sanity: PASS');
+assert(renderer.includes('home_hub_card_wide_generated_trimmed.webp'), 'Legacy wide asset must remain available behind the default visual style.');
+assert(renderer.includes('home_hub_card_tall_generated_trimmed.webp'), 'Legacy tall asset must remain available behind the default visual style.');
+assert(renderer.includes('wide: 62'), 'Legacy wide NineSlice geometry must remain stable.');
+assert(renderer.includes('tall: 52'), 'Legacy tall NineSlice geometry must remain stable.');
+console.info('[Dungeon Logic] Home legacy shared asset compatibility sanity: PASS');

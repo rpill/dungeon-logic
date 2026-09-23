@@ -29,6 +29,7 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
     width: options.width,
     height: options.height,
     variant: 'wide',
+    visualStyle: 'soft-stone',
     onActivate: options.onActivate,
   });
 

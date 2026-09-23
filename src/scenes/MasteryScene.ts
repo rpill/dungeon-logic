@@ -191,7 +191,7 @@ export class MasteryScene extends Phaser.Scene {
       y: topY + height / 2,
       width,
       height,
-      variant: narrow ? 'tall' : 'wide',
+      variant: 'panel',
     });
 
     const title = mastery.nextRank === null
