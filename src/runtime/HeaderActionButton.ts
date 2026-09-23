@@ -2,7 +2,11 @@ import Phaser from 'phaser';
 
 import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import type { AvailableViewport } from './AvailableViewport';
-import { drawMaterialButtonBackground, getMaterialButtonContentY } from './MaterialActionButton';
+import {
+  drawMaterialButtonBackground,
+  getMaterialButtonContentY,
+  MATERIAL_BUTTON_STATE_TINTS,
+} from './MaterialActionButton';
 import { isTouchLikePointer } from './PointerInput';
 
 export type HeaderActionVisualState = 'normal' | 'hover' | 'pressed';
@@ -15,6 +19,36 @@ export interface HeaderActionBounds {
   readonly radius: number;
 }
 
+const HEADER_ACTION_SQUARE_TEXTURE_KEYS = {
+  primary: 'header-action-square-primary',
+  secondary: 'header-action-square-secondary',
+  danger: 'header-action-square-danger',
+} as const;
+const HEADER_ACTION_SQUARE_VISIBLE_FRAME = 'visible-square';
+const HEADER_ACTION_SQUARE_VISIBLE_BOUNDS = { x: 2, y: 21, width: 252, height: 223 } as const;
+
+export function preloadHeaderActionButtonAssets(scene: Phaser.Scene): void {
+  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.primary, 'assets/ui/primary_button_square_normal.webp');
+  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary, 'assets/ui/secondary_button_square_normal.webp');
+  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.danger, 'assets/ui/danger_button_square_normal.webp');
+}
+
+
+
+function ensureHeaderActionSquareFrame(scene: Phaser.Scene): string {
+  const texture = scene.textures.get(HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary);
+  if (!texture.has(HEADER_ACTION_SQUARE_VISIBLE_FRAME)) {
+    texture.add(
+      HEADER_ACTION_SQUARE_VISIBLE_FRAME,
+      0,
+      HEADER_ACTION_SQUARE_VISIBLE_BOUNDS.x,
+      HEADER_ACTION_SQUARE_VISIBLE_BOUNDS.y,
+      HEADER_ACTION_SQUARE_VISIBLE_BOUNDS.width,
+      HEADER_ACTION_SQUARE_VISIBLE_BOUNDS.height,
+    );
+  }
+  return HEADER_ACTION_SQUARE_VISIBLE_FRAME;
+}
 
 export interface HeaderActionButtonMetrics {
   readonly pillWidth: number;
@@ -28,8 +62,8 @@ export interface HeaderActionButtonMetrics {
 
 export function getHeaderActionButtonMetrics(narrow: boolean): HeaderActionButtonMetrics {
   return narrow
-    ? { pillWidth: 116, height: 42, iconButtonSize: 42, radius: 10, iconSize: 22, fontSize: 13, gap: 7 }
-    : { pillWidth: 150, height: 48, iconButtonSize: 48, radius: 11, iconSize: 28, fontSize: 16, gap: 9 };
+    ? { pillWidth: 132, height: 60, iconButtonSize: 60, radius: 13, iconSize: 28, fontSize: 15, gap: 8 }
+    : { pillWidth: 160, height: 64, iconButtonSize: 64, radius: 15, iconSize: 32, fontSize: 17, gap: 10 };
 }
 
 export interface HeaderBackButtonPresentation {
@@ -38,13 +72,13 @@ export interface HeaderBackButtonPresentation {
 }
 
 export function getHeaderBackButtonPresentation(
-  narrow: boolean,
-  label: string,
+  _narrow: boolean,
+  _label: string,
 ): HeaderBackButtonPresentation {
-  const metrics = getHeaderActionButtonMetrics(narrow);
+  const metrics = getHeaderActionButtonMetrics(_narrow);
   return {
-    width: narrow ? metrics.iconButtonSize : metrics.pillWidth,
-    label: narrow ? undefined : label,
+    width: metrics.iconButtonSize,
+    label: undefined,
   };
 }
 
@@ -99,7 +133,7 @@ export interface HeaderActionButtonOptions {
 }
 
 export interface HeaderActionButtonHandle {
-  readonly background: Phaser.GameObjects.Graphics;
+  readonly background: Phaser.GameObjects.Graphics | Phaser.GameObjects.Image;
   readonly icon: Phaser.GameObjects.Image;
   readonly label?: Phaser.GameObjects.Text;
   readonly hit: Phaser.GameObjects.Zone;
@@ -110,7 +144,7 @@ export function createHeaderActionButton(
   options: HeaderActionButtonOptions,
 ): HeaderActionButtonHandle {
   const depth = options.depth ?? 1;
-  const background = scene.add.graphics().setDepth(depth);
+  const iconOnly = options.label === undefined || options.label.length === 0;
   const bounds: HeaderActionBounds = {
     x: options.x,
     y: options.y,
@@ -119,9 +153,32 @@ export function createHeaderActionButton(
     radius: options.radius,
   };
   let state: HeaderActionVisualState = 'normal';
+
+  const background = iconOnly
+    ? scene.add.image(
+      options.x,
+      options.y,
+      HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary,
+      ensureHeaderActionSquareFrame(scene),
+    )
+      .setDisplaySize(options.width, options.height)
+      .setDepth(depth)
+    : scene.add.graphics().setDepth(depth);
+
   const redraw = (): void => {
-    background.clear();
-    drawHeaderActionButtonBackground(background, bounds, state);
+    if (background instanceof Phaser.GameObjects.Graphics) {
+      background.clear();
+      drawHeaderActionButtonBackground(background, bounds, state);
+      return;
+    }
+
+    background.clearTint();
+    const stateTints = MATERIAL_BUTTON_STATE_TINTS.secondary;
+    if (state === 'hover') {
+      background.setTint(stateTints.hover).setTintMode(Phaser.TintModes.ADD);
+    } else if (state === 'pressed') {
+      background.setTint(stateTints.pressed);
+    }
   };
   redraw();
 
@@ -132,9 +189,9 @@ export function createHeaderActionButton(
     .setDepth(depth + 1);
 
   let label: Phaser.GameObjects.Text | undefined;
-  if (options.label !== undefined && options.label.length > 0) {
-    label = scene.add.text(0, contentY, options.label.replace(/^←\s*/, ''), {
-      fontFamily: "'Balsamiq Sans', sans-serif",
+  if (!iconOnly) {
+    label = scene.add.text(0, contentY, options.label!.replace(/^←\s*/, ''), {
+      fontFamily: 'monospace',
       fontSize: `${options.fontSize ?? 14}px`,
       color: '#f4ead7',
       fontStyle: 'bold',

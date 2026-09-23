@@ -11,7 +11,7 @@ const scene=readFileSync(scenePath,'utf8');
 const progress=readFileSync(resolve(root,'src/ui/UiProgressBar.ts'),'utf8');
 assert(scene.includes('createUiSceneHeader'),'MasteryScene must use the shared UI scene header.');
 assert(scene.includes('createMasterySeal'),'MasteryScene must render the labyrinth seal.');
-assert(scene.includes('createUiPanel'),'Mastery requirements must use the shared shell.');
+assert(scene.includes('createMasteryRequirementPanel'),'Mastery requirements must use the dedicated mastery shell asset.');
 assert(scene.includes('createUiInsetRow'),'Mastery requirements must use shared inset rows.');
 assert(!scene.includes('createMasteryRequirementRowPanel'),'Mastery must not use the decorative row asset family.');
 assert(scene.includes('const rowGap = narrow ? rowHeight + 8'),'Requirement rows must keep a positive vertical gap.');

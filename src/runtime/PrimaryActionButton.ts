@@ -4,22 +4,106 @@ import { getAudioFeedback } from '../audio/AudioFeedbackService';
 import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 
 const PRIMARY_BUTTON_KEY = 'primary-button-normal';
-type PrimaryButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
+export type PrimaryButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 
 // Keep the full height of each end cap: the bevel and round rivets must scale
 // uniformly. Only the strip between the caps stretches horizontally.
 const PRIMARY_BUTTON_SLICE_X = 56;
 const PRIMARY_BUTTON_FRAME = 'button-body-visible';
-const PRIMARY_BUTTON_FRAME_X = 30;
-const PRIMARY_BUTTON_FRAME_Y = 6;
-const PRIMARY_BUTTON_FRAME_RIGHT = 31;
-const PRIMARY_BUTTON_FRAME_BOTTOM = 4;
+const PRIMARY_BUTTON_FULL_FRAME = 'button-body-full';
+export const PRIMARY_BUTTON_VISIBLE_FRAME = { y: 11, height: 117 } as const;
 const PRIMARY_BUTTON_TEXT_COLOR = uiColorHex(UI_THEME.colors.background.deep);
 const PRIMARY_BUTTON_SUBTITLE_COLOR = uiColorHex(UI_THEME.colors.surface.base);
 const PRIMARY_BUTTON_ICON_TINT = UI_THEME.colors.background.deep;
 
 export function preloadPrimaryActionButtonAssets(scene: Phaser.Scene): void {
   scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/primary_button_normal.webp');
+}
+
+
+export interface PrimaryButtonSurfaceOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly surfaceHeight?: number;
+  readonly preserveCanvasPadding?: boolean;
+}
+
+function ensurePrimaryButtonFrame(
+  scene: Phaser.Scene,
+  preserveCanvasPadding = false,
+): Phaser.Textures.Frame {
+  const texture = scene.textures.get(PRIMARY_BUTTON_KEY);
+  const frameKey = preserveCanvasPadding ? PRIMARY_BUTTON_FULL_FRAME : PRIMARY_BUTTON_FRAME;
+  if (!texture.has(frameKey)) {
+    const source = texture.get();
+    if (preserveCanvasPadding) {
+      texture.add(frameKey, 0, 0, 0, source.width, source.height);
+    } else {
+      texture.add(
+        frameKey,
+        0,
+        0,
+        PRIMARY_BUTTON_VISIBLE_FRAME.y,
+        source.width,
+        PRIMARY_BUTTON_VISIBLE_FRAME.height,
+      );
+    }
+  }
+  return texture.get(frameKey);
+}
+
+export function layoutPrimaryButtonSurface(
+  scene: Phaser.Scene,
+  surface: Phaser.GameObjects.NineSlice,
+  options: PrimaryButtonSurfaceOptions,
+): void {
+  const frame = ensurePrimaryButtonFrame(scene, options.preserveCanvasPadding);
+  const surfaceHeight = options.surfaceHeight ?? options.height;
+  const surfaceScale = surfaceHeight / frame.height;
+  surface
+    .setPosition(options.x, options.y)
+    .setScale(surfaceScale)
+    .setSize(options.width / surfaceScale, frame.height);
+}
+
+export function createPrimaryButtonSurface(
+  scene: Phaser.Scene,
+  options: PrimaryButtonSurfaceOptions,
+): Phaser.GameObjects.NineSlice {
+  const frame = ensurePrimaryButtonFrame(scene, options.preserveCanvasPadding);
+  const frameKey = options.preserveCanvasPadding ? PRIMARY_BUTTON_FULL_FRAME : PRIMARY_BUTTON_FRAME;
+  const surface = scene.add.nineslice(
+    options.x,
+    options.y,
+    PRIMARY_BUTTON_KEY,
+    frameKey,
+    options.width,
+    frame.height,
+    PRIMARY_BUTTON_SLICE_X,
+    PRIMARY_BUTTON_SLICE_X,
+    0,
+    0,
+  );
+  layoutPrimaryButtonSurface(scene, surface, options);
+  return surface;
+}
+
+export function setPrimaryButtonSurfaceState(
+  surface: Phaser.GameObjects.NineSlice,
+  state: PrimaryButtonState,
+): void {
+  surface.clearTint();
+  surface.setAlpha(1);
+  if (state === 'hover') {
+    surface.setTint(0x100c04).setTintMode(Phaser.TintModes.ADD);
+  } else if (state === 'pressed') {
+    surface.setTint(0xf4f0e8);
+  } else if (state === 'disabled') {
+    surface.setTint(0x9b9688);
+    surface.setAlpha(0.82);
+  }
 }
 
 export interface PrimaryActionButtonOptions {
@@ -51,33 +135,14 @@ export function createPrimaryActionButton(
 ): PrimaryActionButtonHandle {
   const enabled = options.enabled ?? true;
   const compact = options.compact ?? false;
-  const texture = scene.textures.get(PRIMARY_BUTTON_KEY);
-  if (!texture.has(PRIMARY_BUTTON_FRAME)) {
-    const source = texture.get();
-    texture.add(
-      PRIMARY_BUTTON_FRAME,
-      0,
-      PRIMARY_BUTTON_FRAME_X,
-      PRIMARY_BUTTON_FRAME_Y,
-      source.width - PRIMARY_BUTTON_FRAME_X - PRIMARY_BUTTON_FRAME_RIGHT,
-      source.height - PRIMARY_BUTTON_FRAME_Y - PRIMARY_BUTTON_FRAME_BOTTOM,
-    );
-  }
-  const frame = texture.get(PRIMARY_BUTTON_FRAME);
-  const surfaceHeight = options.surfaceHeight ?? options.height;
-  const surfaceScale = surfaceHeight / frame.height;
-  const surface = scene.add.nineslice(
-    options.x,
-    options.y,
-    PRIMARY_BUTTON_KEY,
-    PRIMARY_BUTTON_FRAME,
-    options.width / surfaceScale,
-    frame.height,
-    PRIMARY_BUTTON_SLICE_X,
-    PRIMARY_BUTTON_SLICE_X,
-    0,
-    0,
-  ).setScale(surfaceScale);
+  const surface = createPrimaryButtonSurface(scene, {
+    x: options.x,
+    y: options.y,
+    width: options.width,
+    height: options.height,
+    surfaceHeight: options.surfaceHeight,
+    preserveCanvasPadding: options.homeWideLayout === true,
+  });
 
   const narrow = scene.scale.width < 700;
   const homeWideLayout = options.homeWideLayout ?? false;
@@ -97,7 +162,7 @@ export function createPrimaryActionButton(
   const hasIcon = Boolean(options.iconKey);
   const objects: Phaser.GameObjects.GameObject[] = [surface];
 
-  const contentY = options.y - options.height * 0.045;
+  const contentY = options.y;
   const gap = compact ? 6 : 12;
   const padding = Math.max(10, options.height * 0.27);
   const copyX = options.x - options.width * (narrow ? 0.16 : 0.18);
@@ -163,18 +228,8 @@ export function createPrimaryActionButton(
   }
 
   const setState = (state: PrimaryButtonState): void => {
-    // All states share the exact same artwork and UVs. Independently drawn
-    // state textures move the rivets and bevel even when their bounds match.
     const activeState = enabled ? state : 'disabled';
-    surface.clearTint();
-    if (activeState === 'hover') {
-      surface.setTint(0x100c04).setTintMode(Phaser.TintModes.ADD);
-    } else if (activeState === 'pressed') {
-      // Keep the face bright enough for the dark label and smaller subtitle.
-      surface.setTint(0xf4f0e8);
-    } else if (activeState === 'disabled') {
-      surface.setTint(0x9b9688);
-    }
+    setPrimaryButtonSurfaceState(surface, activeState);
   };
   setState('normal');
 

@@ -14,19 +14,14 @@ assert(
 );
 
 assert(
-  primary.includes("const PRIMARY_BUTTON_FRAME_X = 30;")
-    && primary.includes("const PRIMARY_BUTTON_FRAME_Y = 6;")
-    && primary.includes("const PRIMARY_BUTTON_FRAME_RIGHT = 31;")
-    && primary.includes("const PRIMARY_BUTTON_FRAME_BOTTOM = 4;"),
-  'Primary action must crop transparent texture margins before nine-slicing.',
+  primary.includes("const PRIMARY_BUTTON_FULL_FRAME = 'button-body-full';")
+    && primary.includes('preserveCanvasPadding: options.homeWideLayout === true'),
+  'Home primary action must preserve its already-approved full-canvas treatment while standard buttons use the visible cropped frame.',
 );
 
 assert(
-  primary.includes("PRIMARY_BUTTON_FRAME_X,")
-    && primary.includes("PRIMARY_BUTTON_FRAME_Y,")
-    && primary.includes("source.width - PRIMARY_BUTTON_FRAME_X - PRIMARY_BUTTON_FRAME_RIGHT")
-    && primary.includes("source.height - PRIMARY_BUTTON_FRAME_Y - PRIMARY_BUTTON_FRAME_BOTTOM"),
-  'Primary button visible-bounds crop must be used when creating the texture frame.',
+  !primary.includes('PRIMARY_BUTTON_FRAME_X') && !primary.includes('PRIMARY_BUTTON_FRAME_RIGHT'),
+  'Primary action must not re-apply the legacy crop to the new tightly-trimmed asset.',
 );
 
 console.log('[Dungeon Logic] Home primary button proportion sanity: PASS');

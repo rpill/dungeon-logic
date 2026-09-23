@@ -19,14 +19,15 @@ assert(existsSync(resolve(root, asset)), `Primary CTA asset must exist: ${asset}
 
 assert(existsSync(rendererPath), 'Shared PrimaryActionButton renderer must exist.');
 const renderer = readFileSync(rendererPath, 'utf8');
-assert(renderer.includes("fontFamily: 'monospace'"), 'Primary CTA text must remain code-rendered rather than baked into the texture.');
-assert(renderer.includes('surfaceHeight = options.surfaceHeight ?? options.height'), 'Primary CTA must support a separate uniformly-scaled visual surface height.');
-assert(renderer.includes('const surfaceScale = surfaceHeight / frame.height'), 'Primary CTA visual surface must scale uniformly so circular details stay circular.');
+assert(renderer.includes("fontFamily: \"'Balsamiq Sans', sans-serif\""), 'Primary CTA text must remain code-rendered in the shared UI font rather than baked into the texture.');
+assert(renderer.includes('surfaceHeight = options.surfaceHeight ?? options.height'), 'Primary CTA must use the declared logical height for its visible surface.');
+assert(renderer.includes('PRIMARY_BUTTON_VISIBLE_FRAME'), 'Primary CTA must trim transparent vertical canvas padding for standard buttons.');
+assert(renderer.includes('const surfaceScale = surfaceHeight / frame.height'), 'Primary CTA visible frame must scale uniformly so circular details stay circular.');
 assert(
   renderer.includes('const surfaceScale = surfaceHeight / frame.height;')
     && renderer.includes('options.width / surfaceScale')
-    && renderer.includes(').setScale(surfaceScale);'),
-  'Primary CTA must scale the source uniformly by height and stretch only its horizontal middle so rivets stay circular.',
+    && renderer.includes('.setScale(surfaceScale)'),
+  'Primary CTA must scale the visible source uniformly by height and stretch only its horizontal middle so rivets stay circular.',
 );
 
 assert(boot.includes('preloadPrimaryActionButtonAssets(this)'), 'BootScene must preload primary CTA textures.');
@@ -38,14 +39,14 @@ assert(levels.includes('createPrimaryActionButton(this, {'), 'Levels Continue bu
 assert(levels.includes("iconKey: 'home-menu-icon-play'"), 'Levels Continue primary CTA must keep the play icon.');
 assert(game.includes('createPrimaryActionButton(this, {'), 'Game completion overlay must be able to render the yellow primary CTA renderer.');
 assert(game.includes('primary: true') && game.includes('label: copy.game.next'), 'Completion overlay must mark Next as the primary yellow CTA.');
-assert(/label: copy\.game\.startLevels,[\s\S]{0,120}primary: true/.test(game), 'Tutorial completion Start Game action must use the yellow primary CTA.');
-assert(game.includes('const surfaceHeight = rect.height + 8;'), 'Completion actions must preserve the yellow artwork padding while following the compact responsive panel height.');
+assert(/label: nextLevel !== null \? copy\.game\.next[\s\S]{0,160}primary: true/.test(game), 'Tutorial completion primary action must use the yellow primary CTA for Next/Done.');
+assert(game.includes('const surfaceHeight = rect.height;'), 'Completion actions must use the full declared action height so artwork and hit bounds stay aligned.');
 
 
 assert(
-  responsive.includes('const continueHeight = viewport.height < 620 ? 50 : 54;')
-    && responsive.includes('const continueHeight = shortViewport ? 50 : 54;'),
-  'Levels Continue CTA must use the taller 50/54 px responsive heights.',
+  responsive.includes('const continueHeight = viewport.height < 620 ? 64 : 72;')
+    && responsive.includes('const continueHeight = shortViewport ? 64 : 72;'),
+  'Levels Continue CTA must use the enlarged 64/72 px responsive heights.',
 );
 assert(game.includes('CompletionActionRect'), 'Completion action sizing must come from the responsive completion-panel layout.');
 

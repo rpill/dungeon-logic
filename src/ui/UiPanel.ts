@@ -74,6 +74,7 @@ export function createUiPanel(
     width: options.width,
     height: options.height,
     variant: options.variant,
+    visualStyle: 'soft-stone',
     interactive: false,
     onActivate: () => {},
   }).setDepth(options.depth ?? 0).setAlpha(options.alpha ?? 0.97);

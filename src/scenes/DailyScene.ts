@@ -183,6 +183,7 @@ export class DailyScene extends Phaser.Scene {
       width,
       height: todayHeight,
       variant: 'wide',
+      visualStyle: 'soft-stone',
       interactive: false,
       onActivate: () => {},
     });
@@ -198,7 +199,7 @@ export class DailyScene extends Phaser.Scene {
     } else {
       const entry = today.entry;
       const solved = today.solved && today.result !== null;
-      const actionHeight = density === 'ultra' ? 32 : density === 'tight' ? 36 : narrow ? 36 : 44;
+      const actionHeight = density === 'ultra' ? 60 : density === 'tight' ? 64 : narrow ? 68 : 72;
       const actionGap = density === 'ultra' ? 6 : 8;
       const horizontalPadding = density === 'ultra' ? 14 : narrow ? 18 : 24;
       const leftTextInset = density === 'ultra' ? 0 : narrow ? 0 : density === 'tight' ? 10 : 14;

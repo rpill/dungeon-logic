@@ -34,6 +34,7 @@ import { createTutorialGameSceneData } from '../runtime/GameLaunch';
 import { preloadSceneBackgrounds } from '../runtime/SceneBackground';
 import { preloadHomeMenuAssets } from '../runtime/HomeMenuButton';
 import { preloadPrimaryActionButtonAssets } from '../runtime/PrimaryActionButton';
+import { preloadHeaderActionButtonAssets } from '../runtime/HeaderActionButton';
 import { preloadHomeModeCardAssets } from '../runtime/HomeModeCard';
 import { preloadHomeHubModeCardAssets } from '../runtime/HomeHubModeCard';
 import { preloadCommonUiIcons } from '../runtime/UiIcons';
@@ -66,6 +67,7 @@ export class BootScene extends Phaser.Scene {
     preloadAudioFeedbackAssets(this);
     preloadHomeMenuAssets(this);
     preloadPrimaryActionButtonAssets(this);
+    preloadHeaderActionButtonAssets(this);
     preloadHomeModeCardAssets(this);
     preloadHomeHubModeCardAssets(this);
     preloadCommonUiIcons(this);
@@ -120,7 +122,7 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#111318');
     this.add.text(width / 2, height / 2 - (narrow ? 70 : 82), title, {
-      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontFamily: 'monospace',
       fontSize: `${narrow ? 24 : 32}px`,
       color: '#f2e7d5',
       fontStyle: 'bold',
@@ -129,7 +131,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(width / 2, height / 2 - (narrow ? 20 : 24), details, {
-      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontFamily: 'monospace',
       fontSize: `${narrow ? 14 : 17}px`,
       color: '#aebbd0',
       align: 'center',
@@ -143,7 +145,7 @@ export class BootScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xf0bd63, 1)
       .setInteractive({ useHandCursor: true });
     const label = this.add.text(width / 2, buttonY, retryLabel, {
-      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontFamily: 'monospace',
       fontSize: `${narrow ? 17 : 19}px`,
       color: '#f0bd63',
       fontStyle: 'bold',

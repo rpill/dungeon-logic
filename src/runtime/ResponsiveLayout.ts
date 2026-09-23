@@ -90,7 +90,7 @@ export function calculateLevelSelectLayout(
     const rowPitch = cardSize + numberGap + numberHeight + gapY;
     const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
     const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
-    const continueHeight = viewport.height < 620 ? 50 : 54;
+    const continueHeight = viewport.height < 620 ? 64 : 72;
     const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 26 : 32);
     const progressLabelY = continueY + continueHeight / 2 + (viewport.height < 620 ? 16 : 18);
     const progressBarY = progressLabelY + 18;
@@ -141,7 +141,7 @@ export function calculateLevelSelectLayout(
   const rowsPerBlock = Math.max(1, Math.ceil(8 / columns));
   const shortViewport = viewport.height < 500;
   const blockGap = shortViewport ? 14 : viewport.height >= 860 ? 34 : viewport.height >= 760 ? 28 : 20;
-  const continueHeight = shortViewport ? 50 : 54;
+  const continueHeight = shortViewport ? 64 : 72;
   const continueY = metaHeader.headerHeight + (shortViewport ? 24 : 25);
   const progressLabelY = continueY + continueHeight / 2 + (shortViewport ? 14 : 16);
   const progressBarY = progressLabelY + 16;
@@ -221,7 +221,7 @@ export function calculateMobilePagedLevelSelectLayout(
   const rows = Math.ceil(itemCount / columns);
   const portraitRows = 4;
   const sizingRows = portrait ? portraitRows : rows;
-  const continueHeight = viewport.height < 620 ? 48 : 52;
+  const continueHeight = viewport.height < 620 ? 64 : 68;
   const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 24 : 28);
   const progressLabelY = continueY + continueHeight / 2 + 15;
   const progressBarY = progressLabelY + 17;

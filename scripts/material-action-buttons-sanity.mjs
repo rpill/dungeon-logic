@@ -24,21 +24,24 @@ assert(existsSync(materialPath), 'Shared MaterialActionButton renderer must exis
 const material = readFileSync(materialPath, 'utf8');
 assert(material.includes("type MaterialButtonVariant = 'secondary' | 'danger'"), 'Material buttons must expose secondary and danger variants.');
 assert(material.includes('MATERIAL_BUTTON_SLICE_X = 56'), 'Material buttons must preserve the primary CTA end-cap geometry.');
-assert(material.includes('MATERIAL_BUTTON_FRAME_INSET = 24'), 'Material buttons must preserve the primary CTA crop geometry.');
+assert(material.includes("MATERIAL_BUTTON_FRAME = 'button-body-full'"), 'Material buttons must keep one stable frame key per loaded texture.');
+assert(material.includes('MATERIAL_BUTTON_VISIBLE_FRAME_Y') && material.includes('MATERIAL_BUTTON_VISIBLE_FRAME_HEIGHT'), 'Material buttons must trim transparent vertical canvas padding so secondary and danger have equal visible height.');
+assert(!material.includes('MATERIAL_BUTTON_FRAME_INSET'), 'Material buttons must not re-apply the legacy end-cap crop.');
+assert(!material.includes('MATERIAL_COMPACT_SURFACE_SCALE'), 'Compact secondary/danger buttons must use their declared height instead of hidden visual-only scaling.');
 assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/secondary_button_normal.webp')"), 'Secondary must preload one stable normal texture.');
 assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/danger_button_normal.webp')"), 'Danger must preload one stable normal texture.');
 assert(!material.includes("material-button-secondary-hover"), 'Secondary states must not swap independently drawn textures.');
 assert(!material.includes("material-button-danger-hover"), 'Danger states must not swap independently drawn textures.');
 assert(material.includes('setTintMode(Phaser.TintModes.ADD)'), 'Material buttons must use tint-based hover feedback on one stable texture.');
 assert(!material.includes('surface.setTexture('), 'Material button states must never swap surface textures.');
-assert(material.includes('MATERIAL_BUTTON_CONTENT_Y_RATIO = 0.045'), 'Material button content must use the same optical lift as the approved primary CTA.');
+assert(/getMaterialButtonContentY\([^)]*\)[\s\S]*?return y;/.test(material), 'Material button content must be vertically centered in the declared button bounds.');
 assert(header.includes('getMaterialButtonContentY'), 'Header action icon/text must use the shared optical content center.');
-assert(game.includes('getMaterialButtonContentY'), 'Gameplay toolbar and top actions must use the shared optical content center.');
+assert(game.includes('createMaterialButtonSurface(this, {'), 'Gameplay toolbar must render from the shared textured material surface.');
 
 assert(homeMenu.includes('createMaterialActionButton'), 'Legacy menu-button API must render with the new filled material button system.');
 assert(!homeMenu.includes('HOME_MENU_FRAME_KEYS[state]'), 'Action buttons must no longer depend on the old outline frame state renderer.');
 assert(daily.includes("variant: 'secondary'"), 'Daily leaderboard action must use a secondary filled button.');
 assert(game.includes("variant: 'danger'"), 'Game reset/confirm actions must use the danger material button.');
-assert(header.includes('drawMaterialButtonBackground'), 'Header actions must use the filled material visual language instead of outline pills.');
+assert(header.includes('HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary'), 'Header icon actions must use the square textured secondary-button asset.');
 
 console.info('[Dungeon Logic] Material action buttons sanity: PASS');

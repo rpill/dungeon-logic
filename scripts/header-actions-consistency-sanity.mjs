@@ -27,8 +27,8 @@ assert(metaHeader.includes('fontSize: actionMetrics.fontSize,'), 'Meta Back butt
 assert(metaHeader.includes('const buttonHeight = actionMetrics.height;'), 'Meta Back button height must not shrink on short viewports.');
 assert(!metaHeader.includes('iconSize: metrics.backIconSize,'), 'Meta Back button must not use density-dependent backIconSize.');
 assert(!metaHeader.includes('fontSize: metrics.backFontSize,'), 'Meta Back button must not use density-dependent backFontSize.');
-assert(game.includes('backText.setFontSize(actionMetrics.fontSize).setText(getBackLabel());'), 'Game Back label must use shared header font size.');
-assert(!game.includes('backText.setFontSize(layout.actionFontSize)'), 'Game Back label must not use puzzle chrome font size.');
+assert(!game.includes('backText'), 'Game Back must be icon-only and must not keep the legacy text label.');
+assert(game.includes('iconSize: initialActionMetrics.iconSize,'), 'Game Back/Menu icon size must come from shared header metrics.');
 
 assert(metaHeader.includes('getHeaderActionPlacement'), 'Meta headers must use the shared header-action placement helper.');
 assert(settings.includes('getHeaderActionPlacement'), 'Settings Back must use the shared header-action placement helper.');
@@ -40,12 +40,12 @@ assert(metaHeader.includes('fitTitleBetweenBackAndRightEdge(title, metrics, view
 assert(!game.includes('const backX = layout.actionInset + backWidth / 2;'), 'Game Back must not derive its anchor from puzzle title/chrome layout.');
 assert(!game.includes('const menuX = this.scale.width - layout.actionInset - menuWidth / 2;'), 'Game Menu must not derive its anchor from puzzle title/chrome layout.');
 assert(!game.includes('const menuText ='), 'Game top-right menu action must be icon-only.');
-assert(/const menuWidth = height;/.test(game), 'Game menu action must be a square icon button.');
+assert(game.includes('const menuWidth = buttonSize;'), 'Game menu action must be a square icon button.');
 assert(!settings.includes('private createBackButton('), 'Settings must not keep a separate bespoke Back button implementation.');
 assert(daily.includes('backLabel: copy.common.back,'), 'Daily must label its header action as Back.');
 assert(levels.includes('backLabel: copy.common.back,'), 'Levels must label its header action as Back.');
 assert(stats.includes('backLabel: this.copy.common.back,'), 'Stats must label its header action as Back.');
 assert(leaderboard.includes('backLabel: copy.common.back,'), 'Leaderboard must label its header action as Back.');
-assert(help.includes('backButton: true,'), 'Help must use the same pill Back button.');
+assert(help.includes('backButton: true,'), 'Help must use the same shared square Back button.');
 
 console.info('[Dungeon Logic] Header action consistency sanity: PASS');

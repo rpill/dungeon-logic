@@ -20,6 +20,7 @@ import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createUiPanel } from '../ui/UiPanel';
 import {
   clampMetaScrollY,
   getMetaScrollMaxY,
@@ -88,7 +89,7 @@ export class HelpScene extends Phaser.Scene {
     }
 
     const ctaWidth = Math.min(narrow ? 260 : 300, this.scale.width - (narrow ? 32 : 80));
-    const ctaHeight = narrow ? 48 : 54;
+    const ctaHeight = narrow ? 68 : 72;
     const ctaY = cursorY + ctaHeight / 2 + (narrow ? 6 : 10);
     const cta = createCenteredTextMenuButton(this, {
       x: this.scale.width / 2,
@@ -197,11 +198,14 @@ export class HelpScene extends Phaser.Scene {
     });
     const cardHeight = illustrationTop + illustrationHeight - topY + paddingBottom;
 
-    const card = this.add.graphics().setDepth(1);
-    card.fillStyle(0x1f2c4a, 0.95);
-    card.fillRoundedRect(left, topY, width, cardHeight, narrow ? 10 : 12);
-    card.lineStyle(1, 0x4b6386, 0.82);
-    card.strokeRoundedRect(left, topY, width, cardHeight, narrow ? 10 : 12);
+    createUiPanel(this, {
+      x: left + width / 2,
+      y: topY + cardHeight / 2,
+      width,
+      height: cardHeight,
+      variant: 'wide',
+      alpha: 0.985,
+    }).setDepth(1);
 
     return topY + cardHeight;
   }

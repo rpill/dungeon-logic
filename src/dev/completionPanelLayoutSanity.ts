@@ -10,7 +10,7 @@ const desktop = calculateCompletionPanelLayout(1760, 640, 0, 3);
 assert(desktop.mode === 'desktop', 'Landscape desktop uses the compact desktop completion panel.');
 assert(desktop.panelWidth <= 620, 'Desktop completion panel never stretches across the whole viewport.');
 assert(desktop.panelWidth >= 500, 'Desktop completion panel remains wide enough for three compact actions.');
-assert(desktop.panelHeight <= 150, 'Desktop completion panel stays short at the 640px-height floor.');
+assert(desktop.panelHeight <= 162, 'Desktop completion panel stays compact while fitting the taller standard buttons.');
 assert(desktop.panelBottom <= 632, 'Desktop completion panel keeps a small bottom margin.');
 
 const desktopBoard = calculateGameBoardLayout(

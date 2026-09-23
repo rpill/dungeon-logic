@@ -14,7 +14,8 @@ assert(header.includes("isTouchLikePointer(pointer) ? 'normal' : 'hover'"), 'Hea
 assert(header.includes("hit.on('pointerupoutside'"), 'Header buttons must reset when release happens outside the hit area.');
 assert(game.includes("if (isTouchLikePointer(pointer)) visual.hovered = false;"), 'Gameplay toolbar must clear hover after touch release.');
 assert(game.includes(".on('pointerupoutside', () =>"), 'Gameplay toolbar must clear pressed state after outside release.');
-assert(game.includes('backHovered = !isTouchLikePointer(pointer);'), 'Game Back must clear synthetic hover after touch release.');
-assert(game.includes('menuHovered = !isTouchLikePointer(pointer);'), 'Game Menu must clear synthetic hover after touch release.');
+assert(game.includes('const backAction = createHeaderActionButton(this, {'), 'Game Back must delegate release/hover state to the shared header button.');
+assert(game.includes('const menuAction = createHeaderActionButton(this, {'), 'Game Menu must delegate release/hover state to the shared header button.');
+assert(!game.includes('backHovered') && !game.includes('menuHovered'), 'Game top actions must not keep duplicate local hover state.');
 
 console.info('[Dungeon Logic] Touch button release sanity: PASS');

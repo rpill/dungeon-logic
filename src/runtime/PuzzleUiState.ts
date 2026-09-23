@@ -130,11 +130,11 @@ export function calculatePuzzleToolbarLayout(
   if (!showToolButtons) {
     const margin = viewportClass === 'narrow' ? 12 : 16;
     const gap = 10;
-    const buttonHeight = viewportClass === 'wide' ? 58 : 54;
+    const buttonHeight = 72;
     const actionIds: readonly PuzzleToolbarButtonId[] = showSkipButton
       ? ['undo', 'reset', 'hint', 'skip']
       : ['undo', 'reset', 'hint'];
-    const preferredWidth = viewportClass === 'wide' ? 260 : 210;
+    const preferredWidth = viewportClass === 'wide' ? 220 : 176;
     const buttonWidth = Math.min(
       preferredWidth,
       Math.floor((viewportWidth - margin * 2 - gap * Math.max(0, actionIds.length - 1)) / actionIds.length),
@@ -161,8 +161,8 @@ export function calculatePuzzleToolbarLayout(
     const margin = viewportClass === 'narrow' ? 12 : 18;
     const gapX = 8;
     const gapY = 22;
-    const actionButtonHeight = 48;
-    const toolButtonHeight = 52;
+    const actionButtonHeight = 68;
+    const toolButtonHeight = 68;
     const toolButtonWidth = Math.min(
       viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : 280,
       Math.floor((viewportWidth - margin * 2 - gapX) / 2),
@@ -174,7 +174,7 @@ export function calculatePuzzleToolbarLayout(
       ...(showSkipButton ? ['skip'] as const : []),
     ];
     const actionButtonWidth = Math.min(
-      viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : (actionIds.length === 2 ? 240 : 210),
+      viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : (actionIds.length === 2 ? 220 : 184),
       Math.floor(
         (viewportWidth - margin * 2 - gapX * Math.max(0, actionIds.length - 1)) / actionIds.length,
       ),
@@ -213,7 +213,7 @@ export function calculatePuzzleToolbarLayout(
     };
   }
 
-  const buttonHeight = 48;
+  const buttonHeight = viewportClass === 'wide' ? 72 : 68;
   const gap = viewportClass === 'wide' ? 12 : 10;
   const ids: readonly PuzzleToolbarButtonId[] = [
     'wall', 'floor', 'undo', 'reset', 'hint',

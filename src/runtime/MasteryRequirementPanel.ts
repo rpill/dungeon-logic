@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 
 const MASTERY_REQUIREMENT_PANEL_KEY = 'mastery-requirements-panel';
-const SLICE_X = 52;
-const SLICE_Y = 52;
+const SLICE_X = 120;
+const SLICE_Y = 120;
 
 export function preloadMasteryRequirementPanelAssets(scene: Phaser.Scene): void {
-  scene.load.image(MASTERY_REQUIREMENT_PANEL_KEY, 'assets/ui/home_hub_card_tall_generated_trimmed.webp');
+  scene.load.image(MASTERY_REQUIREMENT_PANEL_KEY, 'assets/ui/mastery_requirements_panel_generated.png');
 }
 
 export function createMasteryRequirementPanel(

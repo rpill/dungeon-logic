@@ -62,7 +62,7 @@ import {
   createNextCampaignGameSceneData,
   createTutorialGameSceneData,
 } from '../runtime/GameLaunch';
-import { drawHeaderActionButtonBackground, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
+import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { HOME_SCENE_KEY, LEVELS_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
@@ -84,8 +84,13 @@ import { PlatformGameplayActivity } from '../runtime/PlatformGameplayActivity';
 import { isTouchLikePointer } from '../runtime/PointerInput';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { createCenteredTextMenuButton, createHomeMenuButton } from '../runtime/HomeMenuButton';
-import { drawMaterialButtonBackground, getMaterialButtonContentY } from '../runtime/MaterialActionButton';
-import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { createMaterialButtonSurface, layoutMaterialButtonSurface, setMaterialButtonSurfaceState } from '../runtime/MaterialActionButton';
+import {
+  createPrimaryActionButton,
+  createPrimaryButtonSurface,
+  layoutPrimaryButtonSurface,
+  setPrimaryButtonSurfaceState,
+} from '../runtime/PrimaryActionButton';
 import { calculateCompletionPanelLayout, type CompletionActionRect } from '../runtime/CompletionPanelLayout';
 import { createCompletionPanelSurface } from '../runtime/CompletionPanel';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
@@ -442,38 +447,32 @@ export class GameScene extends Phaser.Scene {
     };
 
     const getBackLabel = (): string => copy.game.back.replace(/^←\s*/, '');
-    const topActionBackground = this.add.graphics();
-    const backHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
-    const menuHit = this.add.zone(0, 0, 1, 1).setInteractive({ useHandCursor: true });
-    const backIcon = this.add.image(0, 0, 'ui-icon-back').setTint(UI_THEME.colors.text.primary);
-    const backText = this.add.text(0, 0, getBackLabel(), {
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: `${getHeaderActionButtonMetrics(this.scale.width < 700).fontSize}px`,
-      color: uiColorHex(UI_THEME.colors.text.primary),
-      fontStyle: 'bold',
-    }).setOrigin(0, 0.5);
-    const menuIcon = this.add.image(0, 0, 'ui-icon-menu').setTint(UI_THEME.colors.text.primary);
-    let backHovered = false;
-    let menuHovered = false;
+    let handleBackAction: () => void = () => {};
+    let handleMenuAction: () => void = () => {};
 
-    const redrawTopActions = (): void => {
-      const radius = this.scale.width < 700 ? 9 : 11;
-      topActionBackground.clear();
-      drawHeaderActionButtonBackground(topActionBackground, {
-        x: backHit.x,
-        y: backHit.y,
-        width: backHit.width,
-        height: backHit.height,
-        radius,
-      }, backHovered ? 'hover' : 'normal');
-      drawHeaderActionButtonBackground(topActionBackground, {
-        x: menuHit.x,
-        y: menuHit.y,
-        width: menuHit.width,
-        height: menuHit.height,
-        radius,
-      }, menuHovered ? 'hover' : 'normal');
-    };
+    const initialActionMetrics = getHeaderActionButtonMetrics(this.scale.width < 700);
+    const backAction = createHeaderActionButton(this, {
+      x: 0,
+      y: 0,
+      width: initialActionMetrics.iconButtonSize,
+      height: initialActionMetrics.iconButtonSize,
+      radius: initialActionMetrics.radius,
+      iconKey: 'ui-icon-back',
+      iconSize: initialActionMetrics.iconSize,
+      onActivate: () => handleBackAction(),
+    });
+    const menuAction = createHeaderActionButton(this, {
+      x: 0,
+      y: 0,
+      width: initialActionMetrics.iconButtonSize,
+      height: initialActionMetrics.iconButtonSize,
+      radius: initialActionMetrics.radius,
+      iconKey: 'ui-icon-menu',
+      iconSize: initialActionMetrics.iconSize,
+      onActivate: () => handleMenuAction(),
+    });
+    const backHit = backAction.hit;
+    const menuHit = menuAction.hit;
 
     const layoutTopActions = (insetTop = safeTop): void => {
       uiDensity = resolveUiDensity(this.scale.width, this.scale.height);
@@ -482,35 +481,32 @@ export class GameScene extends Phaser.Scene {
       const narrowTop = headerViewport.width < 700;
       const actionMetrics = getHeaderActionButtonMetrics(narrowTop);
       const backPresentation = getHeaderBackButtonPresentation(narrowTop, getBackLabel());
-      const height = actionMetrics.height;
+      const buttonSize = actionMetrics.iconButtonSize;
       const backWidth = backPresentation.width;
-      const menuWidth = height;
-      const gap = actionMetrics.gap;
-      const iconSize = actionMetrics.iconSize;
-      const backPlacement = getHeaderActionPlacement(headerViewport, 'left', backWidth, height);
-      const menuPlacement = getHeaderActionPlacement(headerViewport, 'right', menuWidth, menuWidth);
-      const y = backPlacement.y;
-      const contentY = getMaterialButtonContentY(y, height);
+      const menuWidth = buttonSize;
+      const backPlacement = getHeaderActionPlacement(headerViewport, 'left', backWidth, buttonSize);
+      const menuPlacement = getHeaderActionPlacement(headerViewport, 'right', menuWidth, buttonSize);
       const backX = backPlacement.x;
       const menuX = menuPlacement.x;
 
-      backHit.setPosition(backX, y).setSize(backWidth, height);
-      menuHit.setPosition(menuX, menuPlacement.y).setSize(menuWidth, menuWidth);
-      backText.setFontSize(actionMetrics.fontSize).setText(getBackLabel());
-      backText.setVisible(backPresentation.label !== undefined);
-      backIcon.setDisplaySize(iconSize, iconSize);
-      menuIcon.setDisplaySize(iconSize, iconSize);
-
-      if (backPresentation.label === undefined) {
-        backIcon.setPosition(backX, contentY);
-      } else {
-        const backContentWidth = iconSize + gap + backText.width;
-        const backStartX = backX - backContentWidth / 2;
-        backIcon.setPosition(backStartX + iconSize / 2, contentY);
-        backText.setPosition(backStartX + iconSize + gap, contentY);
+      backHit.setPosition(backX, backPlacement.y).setSize(backWidth, buttonSize);
+      menuHit.setPosition(menuX, menuPlacement.y).setSize(menuWidth, buttonSize);
+      backAction.icon
+        .setPosition(backX, backPlacement.y)
+        .setDisplaySize(actionMetrics.iconSize, actionMetrics.iconSize);
+      menuAction.icon
+        .setPosition(menuX, menuPlacement.y)
+        .setDisplaySize(actionMetrics.iconSize, actionMetrics.iconSize);
+      if (backAction.background instanceof Phaser.GameObjects.Image) {
+        backAction.background
+          .setPosition(backX, backPlacement.y)
+          .setDisplaySize(backWidth, buttonSize);
       }
-
-      menuIcon.setPosition(menuX, getMaterialButtonContentY(menuPlacement.y, menuWidth));
+      if (menuAction.background instanceof Phaser.GameObjects.Image) {
+        menuAction.background
+          .setPosition(menuX, menuPlacement.y)
+          .setDisplaySize(menuWidth, buttonSize);
+      }
 
       const headerLayout = calculatePuzzleHeaderLayout(headerViewport.width, headerViewport.height);
       const titleY = headerLayout.titleY + insetTop;
@@ -589,22 +585,8 @@ export class GameScene extends Phaser.Scene {
       headerStreakIcon.setDepth(11).setDisplaySize(headerStreakIconSize, headerStreakIconSize);
       headerStreakText.setDepth(11);
       layoutHeaderStatusContent();
-
-      redrawTopActions();
     };
 
-    backHit
-      .on('pointerover', () => {
-        backHovered = true;
-        redrawTopActions();
-      })
-      .on('pointerout', () => { backHovered = false; redrawTopActions(); });
-    menuHit
-      .on('pointerover', () => {
-        menuHovered = true;
-        redrawTopActions();
-      })
-      .on('pointerout', () => { menuHovered = false; redrawTopActions(); });
     layoutTopActions();
 
     const platformServices = this.registry.get(PLATFORM_SERVICES_REGISTRY_KEY) as PlatformServices | null | undefined;
@@ -834,13 +816,13 @@ export class GameScene extends Phaser.Scene {
 
     type ToolbarVisual = {
       readonly id: PuzzleToolbarButtonId;
-      readonly background: Phaser.GameObjects.Graphics;
+      readonly background: Phaser.GameObjects.NineSlice;
+      readonly guidanceOutline: Phaser.GameObjects.Graphics;
       readonly hitArea: Phaser.GameObjects.Zone;
       readonly icon: Phaser.GameObjects.Image | null;
       readonly label: Phaser.GameObjects.Text;
       width: number;
       height: number;
-      baseFill: number;
       active: boolean;
       disabled: boolean;
       hovered: boolean;
@@ -861,25 +843,27 @@ export class GameScene extends Phaser.Scene {
         ? (this.scale.width < 700 ? 7 : 8)
         : (this.scale.width < 700 ? 9 : 10)
     );
+    const toolbarButtonVariant = (id: PuzzleToolbarButtonId): 'primary' | 'secondary' | 'danger' => (
+      id === 'reset' ? 'danger' : id === 'hint' ? 'primary' : 'secondary'
+    );
     const redrawToolbarBackground = (visual: ToolbarVisual): void => {
-      visual.background.clear();
-      const state = visual.pressed ? 'pressed' : visual.hovered || visual.active ? 'hover' : 'normal';
-      drawMaterialButtonBackground(
-        visual.background,
-        {
-          x: visual.hitArea.x,
-          y: visual.hitArea.y,
-          width: visual.width,
-          height: visual.height,
-          radius: getToolbarRadius(visual.id),
-        },
-        visual.id === 'reset' ? 'danger' : 'secondary',
-        state,
-      );
-      visual.background.setAlpha(visual.disabled ? 0.55 : 1);
+      const state = visual.disabled
+        ? 'disabled'
+        : visual.pressed
+          ? 'pressed'
+          : visual.hovered || visual.active
+            ? 'hover'
+            : 'normal';
+      const variant = toolbarButtonVariant(visual.id);
+      if (variant === 'primary') {
+        setPrimaryButtonSurfaceState(visual.background, state);
+      } else {
+        setMaterialButtonSurfaceState(visual.background, variant, state);
+      }
+      visual.guidanceOutline.clear();
       if (visual.guided && !visual.disabled) {
-        visual.background.lineStyle(3, UI_THEME.colors.semantic.gold, 0.98);
-        visual.background.strokeRoundedRect(
+        visual.guidanceOutline.lineStyle(3, UI_THEME.colors.semantic.gold, 0.98);
+        visual.guidanceOutline.strokeRoundedRect(
           visual.hitArea.x - visual.width / 2 + 1.5,
           visual.hitArea.y - visual.height / 2 + 1.5,
           visual.width - 3,
@@ -890,8 +874,8 @@ export class GameScene extends Phaser.Scene {
     };
     const syncToolbarGuidancePulse = (visual: ToolbarVisual): void => {
       const pulseTargets = visual.icon === null
-        ? [visual.background, visual.label]
-        : [visual.background, visual.label, visual.icon];
+        ? [visual.background, visual.guidanceOutline, visual.label]
+        : [visual.background, visual.guidanceOutline, visual.label, visual.icon];
 
       if (visual.guided && !visual.disabled) {
         if (visual.guidancePulseTween === null) {
@@ -909,7 +893,7 @@ export class GameScene extends Phaser.Scene {
 
       visual.guidancePulseTween?.stop();
       visual.guidancePulseTween = null;
-      visual.background.setAlpha(1);
+      visual.guidanceOutline.setAlpha(1);
       visual.label.setAlpha(1);
       visual.icon?.setAlpha(visual.disabled ? 0.52 : 1);
     };
@@ -943,7 +927,13 @@ export class GameScene extends Phaser.Scene {
       visual.width = width;
       visual.height = height;
       visual.hitArea.setPosition(x, y).setSize(width, height);
-      const contentY = getMaterialButtonContentY(y, height);
+      const variant = toolbarButtonVariant(visual.id);
+      if (variant === 'primary') {
+        layoutPrimaryButtonSurface(this, visual.background, { x, y, width, height });
+      } else {
+        layoutMaterialButtonSurface(this, visual.background, { x, y, width, height, variant });
+      }
+      const contentY = y;
       const narrowToolbar = this.scale.width < 700;
       const floorMarkIconSize = Math.max(1, boardLayout.cellSize - WIREFRAME.gap);
       const iconSize = visual.id === 'wall'
@@ -1180,25 +1170,14 @@ export class GameScene extends Phaser.Scene {
       container.add(overlay);
 
       const buttonWidth = Math.min(
-        this.scale.width - (narrowMenu ? 36 : 72),
-        narrowMenu ? 340 : 420,
+        this.scale.width - (narrowMenu ? 52 : 104),
+        narrowMenu ? 300 : 360,
       );
-      const buttonHeight = narrowMenu ? 54 : 60;
-      const buttonGap = narrowMenu ? 10 : 14;
-      const titleHeight = narrowMenu ? 44 : 52;
-      const totalHeight = titleHeight
-        + 18
-        + buttonHeight * 4
-        + buttonGap * 3;
+      const buttonHeight = 72;
+      const buttonGap = narrowMenu ? 12 : 16;
+      const totalHeight = buttonHeight * 4 + buttonGap * 3;
       const centerX = this.scale.width / 2;
       const topY = this.scale.height / 2 - totalHeight / 2;
-      const title = this.add.text(centerX, topY, copy.game.menu, {
-        fontFamily: "'Balsamiq Sans', sans-serif",
-        fontSize: narrowMenu ? '22px' : '28px',
-        color: uiColorHex(UI_THEME.colors.text.primary),
-        fontStyle: 'bold',
-      }).setOrigin(0.5, 0);
-      container.add(title);
 
       const options = [
         {
@@ -1222,12 +1201,12 @@ export class GameScene extends Phaser.Scene {
         {
           label: copy.game.exitHome,
           icon: 'back' as const,
-          labelColor: uiColorHex(UI_THEME.colors.semantic.danger),
+          labelColor: uiColorHex(UI_THEME.colors.text.primary),
           action: () => leaveGameTo(HOME_SCENE_KEY),
         },
       ];
 
-      const firstButtonY = topY + titleHeight + 18 + buttonHeight / 2;
+      const firstButtonY = topY + buttonHeight / 2;
       options.forEach((option, index) => {
         const button = createHomeMenuButton(this, {
           x: centerX,
@@ -1301,22 +1280,16 @@ export class GameScene extends Phaser.Scene {
           && !buttonState.active
           && step !== null
           && buttonState.id === step.expectedState;
-        const fill = disabled
-          ? UI_THEME.colors.surface.inset
-          : buttonState.id === 'reset'
-            ? UI_THEME.colors.semantic.danger
-            : isToolSelector
-              ? (buttonState.active ? UI_THEME.colors.surface.highlight : UI_THEME.colors.surface.base)
-              : UI_THEME.colors.surface.base;
         const textColor = disabled
           ? uiColorHex(UI_THEME.colors.text.disabled)
-          : guided
-            ? uiColorHex(UI_THEME.colors.semantic.goldBright)
-            : uiColorHex(UI_THEME.colors.text.primary);
+          : buttonState.id === 'hint'
+            ? uiColorHex(UI_THEME.colors.background.deep)
+            : guided
+              ? uiColorHex(UI_THEME.colors.semantic.goldBright)
+              : uiColorHex(UI_THEME.colors.text.primary);
         const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
         const buttonVisible = toolbarVisible && buttonLayout !== undefined;
 
-        visual.baseFill = fill;
         visual.active = buttonState.active;
         visual.disabled = disabled;
         visual.guided = guided;
@@ -1351,6 +1324,7 @@ export class GameScene extends Phaser.Scene {
         syncToolbarGuidancePulse(visual);
 
         visual.background.setVisible(buttonVisible);
+        visual.guidanceOutline.setVisible(buttonVisible);
         visual.hitArea.setVisible(buttonVisible);
         visual.icon?.setVisible(buttonVisible);
         visual.label.setVisible(buttonVisible);
@@ -1364,6 +1338,7 @@ export class GameScene extends Phaser.Scene {
       for (const [id, visual] of toolbarVisuals) {
         const buttonVisible = visible && visibleIds.has(id);
         visual.background.setVisible(buttonVisible);
+        visual.guidanceOutline.setVisible(buttonVisible);
         visual.hitArea.setVisible(buttonVisible);
         visual.icon?.setVisible(buttonVisible);
         visual.label.setVisible(buttonVisible);
@@ -1499,9 +1474,9 @@ export class GameScene extends Phaser.Scene {
       const width = Math.min(390, this.scale.width - 24);
       const gap = 10;
       const buttonWidth = Math.floor((width - gap) / 2);
-      const buttonHeight = this.scale.width < 700 ? 44 : 48;
+      const buttonHeight = 72;
       const rankedWarning = rankedDaily ? copy.game.dailyHintOutsideRating : '';
-      const buttonLocalY = rankedWarning.length > 0 ? 34 : 12;
+      const buttonLocalY = rankedWarning.length > 0 ? 48 : 22;
       const containerY = this.scale.height - safeBottom - 12 - buttonHeight / 2 - buttonLocalY;
       const container = this.add.container(this.scale.width / 2, containerY).setDepth(70);
       hintConfirmContainer = container;
@@ -1550,7 +1525,6 @@ export class GameScene extends Phaser.Scene {
         height: buttonHeight,
         label: copy.common.cancel,
         labelColor: uiColorHex(UI_THEME.colors.text.primary),
-        compact: true,
         onActivate: () => closeHintConfirm(),
       });
       const confirmButton = createCenteredTextMenuButton(this, {
@@ -1559,9 +1533,9 @@ export class GameScene extends Phaser.Scene {
         width: buttonWidth,
         height: buttonHeight,
         label: rewardedMode ? copy.game.ad : copy.game.show,
-        labelColor: '#f0d28a',
+        labelColor: uiColorHex(UI_THEME.colors.background.deep),
         accentFrame: true,
-        compact: true,
+        variant: 'primary',
         onActivate: () => { void deliverConfirmedHint(); },
       });
       children.push(
@@ -1745,7 +1719,7 @@ export class GameScene extends Phaser.Scene {
       rect: CompletionActionRect,
       compact: boolean,
     ): void => {
-      const surfaceHeight = Math.max(rect.height - 2, 26);
+      const surfaceHeight = rect.height;
       if (definition.primary) {
         const handle = createPrimaryActionButton(this, {
           x: rect.x,
@@ -2289,7 +2263,7 @@ export class GameScene extends Phaser.Scene {
       const cancelX = -buttonWidth / 2 - gap / 2;
       const resetX = buttonWidth / 2 + gap / 2;
       const buttonY = height / 2 - 46;
-      const buttonHeight = 48;
+      const buttonHeight = 72;
 
       const cancelButton = createCenteredTextMenuButton(this, {
         x: cancelX,
@@ -2298,7 +2272,6 @@ export class GameScene extends Phaser.Scene {
         height: buttonHeight,
         label: copy.common.cancel,
         labelColor: uiColorHex(UI_THEME.colors.text.primary),
-        compact: true,
         onActivate: () => closeResetDialog(),
       });
       const confirmButton = createCenteredTextMenuButton(this, {
@@ -2308,7 +2281,6 @@ export class GameScene extends Phaser.Scene {
         height: buttonHeight,
         label: copy.common.reset,
         labelColor: uiColorHex(UI_THEME.colors.text.primary),
-        compact: true,
         variant: 'danger',
         onActivate: () => {
           if (completedReview) {
@@ -2441,7 +2413,7 @@ export class GameScene extends Phaser.Scene {
       const gap = 10;
       const buttonWidth = Math.floor((width - 44 - gap) / 2);
       const buttonY = 58;
-      const buttonHeight = 48;
+      const buttonHeight = 72;
       const cancelButton = createCenteredTextMenuButton(this, {
         x: -buttonWidth / 2 - gap / 2,
         y: buttonY,
@@ -2449,7 +2421,6 @@ export class GameScene extends Phaser.Scene {
         height: buttonHeight,
         label: copy.common.cancel,
         labelColor: uiColorHex(UI_THEME.colors.text.primary),
-        compact: true,
         onActivate: closeSkipDialog,
       });
       const skipButton = createCenteredTextMenuButton(this, {
@@ -2459,7 +2430,6 @@ export class GameScene extends Phaser.Scene {
         height: buttonHeight,
         label: copy.game.skip,
         labelColor: uiColorHex(UI_THEME.colors.text.primary),
-        compact: true,
         variant: 'danger',
         onActivate: () => { void performSkip(); },
       });
@@ -2747,35 +2717,55 @@ export class GameScene extends Phaser.Scene {
       const buttonLayout = toolbarLayout.buttons.find((button) => button.id === buttonState.id);
       if (buttonLayout === undefined) continue;
 
-      const background = this.add.graphics();
+      const variant = toolbarButtonVariant(buttonState.id);
+      const background = variant === 'primary'
+        ? createPrimaryButtonSurface(this, {
+          x: buttonLayout.x,
+          y: buttonLayout.y,
+          width: buttonLayout.width,
+          height: buttonLayout.height,
+        })
+        : createMaterialButtonSurface(this, {
+          x: buttonLayout.x,
+          y: buttonLayout.y,
+          width: buttonLayout.width,
+          height: buttonLayout.height,
+          variant,
+        });
+      const guidanceOutline = this.add.graphics();
       const hitArea = this.add.zone(
         buttonLayout.x,
         buttonLayout.y,
         buttonLayout.width,
         buttonLayout.height,
       ).setInteractive({ useHandCursor: true });
+      const isPrimary = variant === 'primary';
       const label = this.add.text(buttonLayout.x, buttonLayout.y, buttonState.label, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: this.scale.width < 700 ? '15px' : '19px',
-        color: uiColorHex(UI_THEME.colors.text.primary),
+        color: uiColorHex(isPrimary ? UI_THEME.colors.background.deep : UI_THEME.colors.text.primary),
         fontStyle: 'bold',
       }).setOrigin(0.5);
+      if (!isPrimary) {
+        label.setStroke('#263556', this.scale.width < 700 ? 1 : 2);
+        label.setShadow(0, 1, '#10182c', 0.32, false, true);
+      }
       const iconKey = toolbarIconKeys[buttonState.id];
       const icon = iconKey === undefined
         ? null
         : this.add.image(buttonLayout.x, buttonLayout.y, iconKey);
       if (icon !== null && buttonState.id !== 'wall' && buttonState.id !== 'floor') {
-        icon.setTint(UI_THEME.colors.text.primary);
+        icon.setTint(isPrimary ? UI_THEME.colors.background.deep : UI_THEME.colors.text.primary);
       }
       const visual: ToolbarVisual = {
         id: buttonState.id,
         background,
+        guidanceOutline,
         hitArea,
         icon,
         label,
         width: buttonLayout.width,
         height: buttonLayout.height,
-        baseFill: buttonState.id === 'reset' ? UI_THEME.colors.semantic.danger : UI_THEME.colors.surface.base,
         active: buttonState.active,
         disabled: buttonState.disabled,
         hovered: false,
@@ -2820,8 +2810,7 @@ export class GameScene extends Phaser.Scene {
       );
     }
 
-    const handleBackAction = (): void => {
-      feedback.play('ui-click');
+    handleBackAction = (): void => {
       if (gameMenuOpen) {
         closeGameMenu();
         return;
@@ -2855,30 +2844,9 @@ export class GameScene extends Phaser.Scene {
       };
       void leave();
     };
-    backHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      backHovered = !isTouchLikePointer(pointer);
-      redrawTopActions();
-      handleBackAction();
-    });
-    backHit.on('pointerupoutside', () => {
-      backHovered = false;
-      redrawTopActions();
-    });
-
-    const handleMenuAction = (): void => {
-      feedback.play('ui-click');
+    handleMenuAction = (): void => {
       openGameMenu();
     };
-    menuHit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      menuHovered = !isTouchLikePointer(pointer);
-      redrawTopActions();
-      handleMenuAction();
-    });
-    menuHit.on('pointerupoutside', () => {
-      menuHovered = false;
-      redrawTopActions();
-    });
-
     const keyboard = this.input.keyboard;
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.repeat || controlsLocked()) return;
@@ -3029,7 +2997,6 @@ export class GameScene extends Phaser.Scene {
         language = latestLanguage;
         copy = getUiCopy(language);
         titleText.setText(getTitleLabel());
-        backText.setText(getBackLabel());
         refreshStatusText();
       }
       relayoutGameViewport();

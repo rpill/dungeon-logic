@@ -5,7 +5,7 @@ import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 import { isTouchLikePointer } from './PointerInput';
 
 export type MaterialButtonVariant = 'secondary' | 'danger';
-type MaterialButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
+export type MaterialButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 
 export const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
   secondary: 'material-button-secondary-normal',
@@ -16,12 +16,17 @@ export const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
 // These values intentionally mirror the approved yellow primary CTA so all
 // button families keep identical end caps, bevel proportions and rivet shape.
 export const MATERIAL_BUTTON_SLICE_X = 56;
-export const MATERIAL_BUTTON_FRAME = 'button-body';
-export const MATERIAL_BUTTON_FRAME_INSET = 24;
-export const MATERIAL_BUTTON_CONTENT_Y_RATIO = 0.045;
-
-export function getMaterialButtonContentY(y: number, height: number): number {
-  return y - height * MATERIAL_BUTTON_CONTENT_Y_RATIO;
+export const MATERIAL_BUTTON_FRAME = 'button-body-full';
+export const MATERIAL_BUTTON_VISIBLE_FRAME_Y: Record<MaterialButtonVariant, number> = {
+  secondary: 14,
+  danger: 2,
+};
+export const MATERIAL_BUTTON_VISIBLE_FRAME_HEIGHT: Record<MaterialButtonVariant, number> = {
+  secondary: 114,
+  danger: 126,
+};
+export function getMaterialButtonContentY(y: number, _height: number): number {
+  return y;
 }
 
 const MATERIAL_BUTTON_TEXT_COLOR = uiColorHex(UI_THEME.colors.text.primary);
@@ -63,6 +68,88 @@ export function preloadMaterialActionButtonAssets(scene: Phaser.Scene): void {
 }
 
 
+export interface MaterialButtonSurfaceOptions {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly surfaceHeight?: number;
+  readonly variant: MaterialButtonVariant;
+}
+
+function ensureMaterialButtonFrame(
+  scene: Phaser.Scene,
+  variant: MaterialButtonVariant,
+): Phaser.Textures.Frame {
+  const texture = scene.textures.get(MATERIAL_BUTTON_KEYS[variant]);
+  if (!texture.has(MATERIAL_BUTTON_FRAME)) {
+    const source = texture.get();
+    texture.add(
+      MATERIAL_BUTTON_FRAME,
+      0,
+      0,
+      MATERIAL_BUTTON_VISIBLE_FRAME_Y[variant],
+      source.width,
+      MATERIAL_BUTTON_VISIBLE_FRAME_HEIGHT[variant],
+    );
+  }
+  return texture.get(MATERIAL_BUTTON_FRAME);
+}
+
+export function layoutMaterialButtonSurface(
+  scene: Phaser.Scene,
+  surface: Phaser.GameObjects.NineSlice,
+  options: MaterialButtonSurfaceOptions,
+): void {
+  const frame = ensureMaterialButtonFrame(scene, options.variant);
+  const surfaceHeight = options.surfaceHeight ?? options.height;
+  const surfaceScale = surfaceHeight / frame.height;
+  surface
+    .setPosition(options.x, options.y)
+    .setScale(surfaceScale)
+    .setSize(options.width / surfaceScale, frame.height);
+}
+
+export function createMaterialButtonSurface(
+  scene: Phaser.Scene,
+  options: MaterialButtonSurfaceOptions,
+): Phaser.GameObjects.NineSlice {
+  const frame = ensureMaterialButtonFrame(scene, options.variant);
+  const surface = scene.add.nineslice(
+    options.x,
+    options.y,
+    MATERIAL_BUTTON_KEYS[options.variant],
+    MATERIAL_BUTTON_FRAME,
+    options.width,
+    frame.height,
+    MATERIAL_BUTTON_SLICE_X,
+    MATERIAL_BUTTON_SLICE_X,
+    0,
+    0,
+  );
+  layoutMaterialButtonSurface(scene, surface, options);
+  return surface;
+}
+
+export function setMaterialButtonSurfaceState(
+  surface: Phaser.GameObjects.NineSlice,
+  variant: MaterialButtonVariant,
+  state: MaterialButtonState,
+): void {
+  surface.clearTint();
+  surface.setAlpha(1);
+
+  const stateTints = MATERIAL_BUTTON_STATE_TINTS[variant];
+  if (state === 'hover') {
+    surface.setTint(stateTints.hover).setTintMode(Phaser.TintModes.ADD);
+  } else if (state === 'pressed') {
+    surface.setTint(stateTints.pressed);
+  } else if (state === 'disabled') {
+    surface.setTint(stateTints.disabled);
+    surface.setAlpha(0.82);
+  }
+}
+
 export interface MaterialActionButtonOptions {
   readonly x: number;
   readonly y: number;
@@ -91,28 +178,14 @@ export function createMaterialActionButton(
 ): MaterialActionButtonHandle {
   const enabled = options.enabled ?? true;
   const compact = options.compact ?? false;
-  const textureKey = MATERIAL_BUTTON_KEYS[options.variant];
-  const texture = scene.textures.get(textureKey);
-  if (!texture.has(MATERIAL_BUTTON_FRAME)) {
-    const source = texture.get();
-    const inset = MATERIAL_BUTTON_FRAME_INSET;
-    texture.add(MATERIAL_BUTTON_FRAME, 0, inset, 0, source.width - inset * 2, source.height);
-  }
-  const frame = texture.get(MATERIAL_BUTTON_FRAME);
-  const surfaceHeight = options.surfaceHeight ?? options.height;
-  const surfaceScale = surfaceHeight / frame.height;
-  const surface = scene.add.nineslice(
-    options.x,
-    options.y,
-    textureKey,
-    MATERIAL_BUTTON_FRAME,
-    options.width / surfaceScale,
-    frame.height,
-    MATERIAL_BUTTON_SLICE_X,
-    MATERIAL_BUTTON_SLICE_X,
-    0,
-    0,
-  ).setScale(surfaceScale);
+  const surface = createMaterialButtonSurface(scene, {
+    x: options.x,
+    y: options.y,
+    width: options.width,
+    height: options.height,
+    surfaceHeight: options.surfaceHeight,
+    variant: options.variant,
+  });
 
   const iconSize = compact
     ? Math.max(14, Math.min(21, options.height * 0.48))
@@ -131,6 +204,8 @@ export function createMaterialActionButton(
     color: options.labelColor ?? MATERIAL_BUTTON_TEXT_COLOR,
     fontStyle: 'bold',
   }).setOrigin(0.5);
+  label.setStroke('#263556', compact ? 1 : 2);
+  label.setShadow(0, 1, '#10182c', 0.32, false, true);
   fitMaterialText(label, textMaxWidth, compact ? 9 : 13);
 
   let icon: Phaser.GameObjects.Image | undefined;
@@ -145,19 +220,7 @@ export function createMaterialActionButton(
 
   const setState = (state: MaterialButtonState): void => {
     const activeState = enabled ? state : 'disabled';
-    surface.clearTint();
-    surface.setAlpha(1);
-
-    const stateTints = MATERIAL_BUTTON_STATE_TINTS[options.variant];
-    if (activeState === 'hover') {
-      surface.setTint(stateTints.hover).setTintMode(Phaser.TintModes.ADD);
-    } else if (activeState === 'pressed') {
-      surface.setTint(stateTints.pressed);
-    } else if (activeState === 'disabled') {
-      surface.setTint(stateTints.disabled);
-      surface.setAlpha(0.82);
-    }
-
+    setMaterialButtonSurfaceState(surface, options.variant, activeState);
     label.setAlpha(activeState === 'disabled' ? 0.55 : 1);
     icon?.setAlpha(activeState === 'disabled' ? 0.55 : 1);
   };

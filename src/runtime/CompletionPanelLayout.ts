@@ -25,8 +25,8 @@ export interface CompletionPanelLayout {
 
 const DESKTOP_PANEL_MAX_WIDTH = 560;
 const DESKTOP_PANEL_MIN_WIDTH = 500;
-const DESKTOP_SHORT_HEIGHT = 132;
-const DESKTOP_TALL_HEIGHT = 140;
+const DESKTOP_SHORT_HEIGHT = 154;
+const DESKTOP_TALL_HEIGHT = 162;
 const PHONE_SIDE_MARGIN = 12;
 
 function clamp(value: number, min: number, max: number): number {
@@ -51,13 +51,13 @@ export function calculateCompletionPanelLayout(
   if (phone) {
     const short = viewportHeight < 720;
     const panelWidth = Math.max(240, viewportWidth - PHONE_SIDE_MARGIN * 2);
-    const panelHeight = short ? 188 : 214;
+    const panelHeight = short ? 220 : 242;
     const panelBottom = viewportHeight - Math.max(0, safeBottom) - bottomMargin;
     const panelTop = panelBottom - panelHeight;
     const panelX = viewportWidth / 2;
     const panelY = panelTop + panelHeight / 2;
     const innerPadding = 14;
-    const buttonHeight = short ? 34 : 38;
+    const buttonHeight = short ? 52 : 56;
     const rowGap = 8;
     const secondaryCount = Math.max(0, count - (hasPrimary ? 1 : 0));
     const primaryY = panelBottom - innerPadding - buttonHeight * 1.5 - rowGap;
@@ -94,7 +94,7 @@ export function calculateCompletionPanelLayout(
       statusWidth: panelWidth - 40,
       primaryAction,
       secondaryActions,
-      boardBottomReserve: short ? 78 : 56,
+      boardBottomReserve: short ? 88 : 56,
     };
   }
 
@@ -106,7 +106,7 @@ export function calculateCompletionPanelLayout(
   const panelY = panelTop + panelHeight / 2;
   const innerPadding = 20;
   const gap = count >= 3 ? 8 : 12;
-  const actionHeight = viewportHeight <= 640 ? 30 : 32;
+  const actionHeight = viewportHeight <= 640 ? 48 : 52;
   const actionAreaWidth = panelWidth - innerPadding * 2;
   const actionWidth = count <= 1
     ? Math.min(220, actionAreaWidth)

@@ -5,6 +5,7 @@ import {
   preloadMaterialActionButtonAssets,
   type MaterialButtonVariant,
 } from './MaterialActionButton';
+import { createPrimaryActionButton } from './PrimaryActionButton';
 type HomeMenuButtonState = 'normal' | 'hover' | 'pressed';
 
 export type HomeMenuIcon = 'play' | 'daily' | 'levels' | 'statistics' | 'settings' | 'info' | 'back';
@@ -106,7 +107,7 @@ export interface CenteredTextMenuButtonOptions {
   readonly labelColor: string;
   readonly accentFrame?: boolean;
   readonly compact?: boolean;
-  readonly variant?: MaterialButtonVariant;
+  readonly variant?: 'primary' | MaterialButtonVariant;
   readonly surfaceHeight?: number;
   readonly onActivate: (pointer: Phaser.Input.Pointer) => void;
 }
@@ -121,6 +122,21 @@ export function createCenteredTextMenuButton(
   scene: Phaser.Scene,
   options: CenteredTextMenuButtonOptions,
 ): CenteredTextMenuButtonHandle {
+  if (options.variant === 'primary') {
+    const primary = createPrimaryActionButton(scene, {
+      x: options.x,
+      y: options.y,
+      width: options.width,
+      height: options.height,
+      surfaceHeight: options.surfaceHeight,
+      label: options.label,
+      compact: options.compact,
+      onActivate: options.onActivate,
+    });
+    const frame = scene.add.rectangle(options.x, options.y, 1, 1, 0x000000, 0);
+    return { fill: primary.surface, frame, label: primary.label };
+  }
+
   const material = createMaterialActionButton(scene, {
     x: options.x,
     y: options.y,

@@ -11,22 +11,22 @@ function assert(condition, message) {
 }
 
 assert(boot.includes('preloadCommonUiIcons'), 'BootScene must preload common gameplay/settings icons.');
-assert(game.includes('fillRoundedRect'), 'Game toolbar must render solid rounded buttons.');
+assert(game.includes('createMaterialButtonSurface(this, {'), 'Game toolbar must use the shared textured material-button family.');
 assert(game.includes("undo: 'ui-icon-undo'"), 'Undo button must use prepared undo icon.');
 assert(game.includes("reset: 'ui-icon-reset'"), 'Reset button must use prepared reset icon.');
 assert(game.includes("hint: 'ui-icon-hint'"), 'Hint button must use prepared hint icon.');
-assert(game.includes('0xc96568'), 'Reset button must use the softer coral accent fill.');
+assert(game.includes("id === 'reset' ? 'danger' : id === 'hint' ? 'primary' : 'secondary'"), 'Reset must use danger, Hint primary, and other gameplay actions secondary assets.');
 assert(!game.includes('0xff4f57'), 'Game reset action must not use the harsh bright-red fill.');
 
-assert(puzzleUi.includes("const buttonWidth = viewportClass === 'wide' ? 260 : 210"), 'Desktop gameplay action buttons must be substantially wider.');
-assert(puzzleUi.includes("const buttonHeight = viewportClass === 'wide' ? 58 : 54"), 'Desktop gameplay action buttons must be taller.');
+assert(puzzleUi.includes("const preferredWidth = viewportClass === 'wide' ? 220 : 176"), 'Desktop gameplay action buttons must use the narrower high-button proportions.');
+assert(puzzleUi.includes('const buttonHeight = 72;'), 'Desktop gameplay action buttons must use the unified 72px height.');
 assert(puzzleUi.includes('const gapY = 22;'), 'Touch tool selectors must sit above the lower action row.');
 assert(game.includes("wall: 'board-wall-01'"), 'Wall selector must use a real wall-tile icon.');
 assert(game.includes("floor: 'board-floor-mark'"), 'Floor selector must use the coral diamond icon.');
 assert(game.includes('createHomeMenuButton(this, {'), 'Game menu must reuse shared menu buttons.');
 assert(game.includes('active: boolean;'), 'Toolbar visuals must track whether WALL/FLOOR is the active tool.');
-assert(game.includes("const state = visual.pressed ? 'pressed' : visual.hovered || visual.active ? 'hover' : 'normal';"), 'WALL/FLOOR must use the same material button background, with active tool shown as the raised/hover state.');
-assert(!game.includes('visual.background.fillRoundedRect(\n          visual.hitArea.x - visual.width / 2'), 'WALL/FLOOR must not keep the old flat rounded-rectangle renderer.');
+assert(game.includes("visual.hovered || visual.active"), 'WALL/FLOOR must use the same material surface state system, with active tool shown as raised/hovered.');
+assert(!game.includes('drawMaterialButtonBackground('), 'Gameplay toolbar must not keep the old flat Graphics button renderer.');
 
 assert(settings.includes("createSceneBackground(this, 'meta')"), 'Settings must use the meta dungeon background.');
 assert(settings.includes('createControlsPanel('), 'Settings must group Music, Sound, and Language in one controls panel.');

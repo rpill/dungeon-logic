@@ -22,11 +22,11 @@ import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
 import { createMasteryEdgeGlow, createMasteryGlow, createMasterySeal } from '../runtime/MasterySeal';
 import { calculateMasteryDesktopLayout, type MasteryDesktopLayout } from '../runtime/MasteryDesktopLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createMasteryRequirementPanel } from '../runtime/MasteryRequirementPanel';
 import { MASTER_RATING_LEADERBOARD_SCENE_KEY } from './MasterRatingLeaderboardScene';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { resolveUiDensity, type UiDensity } from '../ui/UiDensity';
 import { createUiInsetRow } from '../ui/UiInsetRow';
-import { createUiPanel } from '../ui/UiPanel';
 import { createUiProgressBar } from '../ui/UiProgressBar';
 import { createUiSceneHeader } from '../ui/UiSceneHeader';
 import { createUiTextStyle } from '../ui/UiText';
@@ -186,13 +186,13 @@ export class MasteryScene extends Phaser.Scene {
     masterRatingLabel?: string,
     desktopLayout?: MasteryDesktopLayout,
   ): void {
-    createUiPanel(this, {
-      x: centerX,
-      y: topY + height / 2,
+    createMasteryRequirementPanel(
+      this,
+      centerX,
+      topY + height / 2,
       width,
       height,
-      variant: 'panel',
-    });
+    ).setDepth(0).setAlpha(0.98);
 
     const title = mastery.nextRank === null
       ? copy.mastery.maxRank

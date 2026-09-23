@@ -14,12 +14,12 @@ assert(
   'Shared header helpers must expose mobile/desktop Back presentation.',
 );
 assert(
-  header.includes('width: narrow ? metrics.iconButtonSize : metrics.pillWidth'),
-  'Mobile Back must use the same square width as an icon/menu button.',
+  header.includes('width: metrics.iconButtonSize'),
+  'Back must use the same square width as an icon/menu button on every viewport.',
 );
 assert(
-  header.includes('label: narrow ? undefined : label'),
-  'Mobile Back must hide its text label while desktop keeps it.',
+  header.includes('label: undefined'),
+  'Back must stay icon-only on both mobile and desktop.',
 );
 assert(
   meta.includes('getHeaderBackButtonPresentation'),
@@ -34,12 +34,12 @@ assert(
   'Gameplay Back button must use shared mobile icon-only presentation.',
 );
 assert(
-  /backText[\s\S]*?\.setVisible\(backPresentation\.label !== undefined\)/.test(game),
-  'Gameplay Back text must be hidden on mobile.',
+  !game.includes('backText'),
+  'Gameplay Back must not retain a text object now that the control is always square.',
 );
 assert(
-  game.includes('backIcon.setPosition(backX, contentY);'),
-  'Gameplay Back icon must be centered in the square mobile button.',
+  game.includes('.setPosition(backX, backPlacement.y)'),
+  'Gameplay Back icon must be centered in the shared square button.',
 );
 
 console.info('[Dungeon Logic] Mobile header Back icon-only sanity: PASS');

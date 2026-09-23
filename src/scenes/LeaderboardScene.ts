@@ -23,6 +23,7 @@ import {
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createUiPanel } from '../ui/UiPanel';
 
 export const LEADERBOARD_SCENE_KEY = 'LeaderboardScene';
 
@@ -97,24 +98,14 @@ export class LeaderboardScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const panel = this.add.graphics();
-    const radius = layout.compactHeight ? 10 : 12;
-    panel.fillStyle(0x1f2c4a, 0.96);
-    panel.fillRoundedRect(
-      layout.panelX - layout.panelWidth / 2,
-      layout.panelTop,
-      layout.panelWidth,
-      layout.panelHeight,
-      radius,
-    );
-    panel.lineStyle(1, 0x4b6386, 0.82);
-    panel.strokeRoundedRect(
-      layout.panelX - layout.panelWidth / 2,
-      layout.panelTop,
-      layout.panelWidth,
-      layout.panelHeight,
-      radius,
-    );
+    createUiPanel(this, {
+      x: layout.panelX,
+      y: layout.panelTop + layout.panelHeight / 2,
+      width: layout.panelWidth,
+      height: layout.panelHeight,
+      variant: 'wide',
+      alpha: 0.985,
+    }).setDepth(0);
 
     const status = this.add.text(layout.panelX, layout.tableStartY, copy.common.loading, {
       fontFamily: "'Balsamiq Sans', sans-serif",
@@ -381,7 +372,7 @@ export class LeaderboardScene extends Phaser.Scene {
   ): number {
     const copy = getUiCopy(this.getProfileService().getProfile().settings.language);
     const buttonWidth = Math.min(layout.panelWidth - 32, layout.compactHeight ? 200 : 280);
-    const buttonHeight = layout.compactHeight ? 38 : 46;
+    const buttonHeight = layout.compactHeight ? 64 : 72;
     const authButtonY = Math.max(
       detailBottomY + (layout.compactHeight ? 8 : 12) + buttonHeight / 2,
       layout.infoY + (layout.compactHeight ? 50 : layout.narrow ? 62 : 68),

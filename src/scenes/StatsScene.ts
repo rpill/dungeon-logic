@@ -15,6 +15,7 @@ import { HOME_SCENE_KEY, STATS_SCENE_KEY, isDailyUnlocked } from '../runtime/Met
 import { calculateStatsLayout, type StatsLayout, type StatsSummaryCardLayout } from '../runtime/StatsLayout';
 import { getStatsViewModel, type StatsViewModel } from '../runtime/StatsSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createUiPanel } from '../ui/UiPanel';
 import { DAILY_SCENE_KEY } from './DailyScene';
 
 interface StatsCardContent {
@@ -137,12 +138,14 @@ export class StatsScene extends Phaser.Scene {
     const narrow = layout.viewportClass === 'narrow';
     const isColumns = layout.mode === 'columns';
     const compactVertical = layout.mode === 'vertical' && this.scale.height < 660;
-    const radius = isColumns ? 10 : 12;
-    const panel = this.add.graphics();
-    panel.fillStyle(0x1f2c4a, 0.96);
-    panel.fillRoundedRect(card.x - card.width / 2, card.y - card.height / 2, card.width, card.height, radius);
-    panel.lineStyle(1, 0x4b6386, 0.82);
-    panel.strokeRoundedRect(card.x - card.width / 2, card.y - card.height / 2, card.width, card.height, radius);
+    createUiPanel(this, {
+      x: card.x,
+      y: card.y,
+      width: card.width,
+      height: card.height,
+      variant: 'wide',
+      alpha: 0.985,
+    }).setDepth(0);
 
     const hoverOverlay = this.add.rectangle(
       card.x,

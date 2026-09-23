@@ -19,6 +19,7 @@ import { MASTERY_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createUiPanel } from '../ui/UiPanel';
 
 export const MASTER_RATING_LEADERBOARD_SCENE_KEY = 'MasterRatingLeaderboardScene';
 
@@ -58,11 +59,14 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
     const panelWidth = Math.min(this.scale.width - (narrow ? 28 : 64), 760);
     const panelTop = subtitleY + (compact ? 24 : 34);
     const panelHeight = Math.max(220, Math.min(compact ? 285 : 520, this.scale.height - panelTop - 18));
-    const panel = this.add.graphics();
-    panel.fillStyle(0x1f2c4a, 0.96);
-    panel.fillRoundedRect(this.scale.width / 2 - panelWidth / 2, panelTop, panelWidth, panelHeight, 12);
-    panel.lineStyle(1, 0x4b6386, 0.82);
-    panel.strokeRoundedRect(this.scale.width / 2 - panelWidth / 2, panelTop, panelWidth, panelHeight, 12);
+    createUiPanel(this, {
+      x: this.scale.width / 2,
+      y: panelTop + panelHeight / 2,
+      width: panelWidth,
+      height: panelHeight,
+      variant: 'wide',
+      alpha: 0.985,
+    }).setDepth(0);
 
     const status = this.add.text(this.scale.width / 2, panelTop + 34, copy.common.loading, {
       fontFamily: "'Balsamiq Sans', sans-serif",
@@ -115,7 +119,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
         x: this.scale.width / 2,
         y: Math.min(panelTop + panelHeight - 50, panelTop + 120),
         width: Math.min(320, panelWidth - 60),
-        height: 50,
+        height: 72,
         label: copy.leaderboard.signIn,
         labelColor: '#f4ead7',
         onActivate: () => {
