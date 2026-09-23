@@ -1,0 +1,177 @@
+{
+  "failures": [],
+  "results": [
+    {
+      "name": "desktop",
+      "count": 36,
+      "interactive": 0,
+      "missing": 0,
+      "minX": 621.5999999999999,
+      "maxX": 1298.3999999999999,
+      "minY": 218.09999999999997,
+      "maxY": 894.9,
+      "width": 1920,
+      "height": 1080,
+      "floorCount": 64,
+      "firstFloor": {
+        "x": 722.3999999999999,
+        "y": 318.9
+      },
+      "textures": [
+        "board-frame-top-1",
+        "board-frame-bottom-1",
+        "board-frame-top-2",
+        "board-frame-bottom-2",
+        "board-frame-top-3",
+        "board-frame-bottom-3",
+        "board-frame-top-4",
+        "board-frame-bottom-4",
+        "board-frame-left-1",
+        "board-frame-right-1",
+        "board-frame-left-2",
+        "board-frame-right-2",
+        "board-frame-left-3",
+        "board-frame-right-3",
+        "board-frame-left-4",
+        "board-frame-right-4",
+        "board-frame-corner-tl",
+        "board-frame-corner-tr",
+        "board-frame-corner-bl",
+        "board-frame-corner-br"
+      ]
+    },
+    {
+      "name": "phone",
+      "count": 32,
+      "interactive": 0,
+      "missing": 0,
+      "minX": 14.400000000000006,
+      "maxX": 375.6,
+      "minY": 217.40000000000003,
+      "maxY": 578.6,
+      "width": 390,
+      "height": 844,
+      "floorCount": 49,
+      "firstFloor": {
+        "x": 74.60000000000001,
+        "y": 277.6
+      },
+      "textures": [
+        "board-frame-top-1",
+        "board-frame-bottom-1",
+        "board-frame-top-2",
+        "board-frame-bottom-2",
+        "board-frame-top-3",
+        "board-frame-bottom-3",
+        "board-frame-top-4",
+        "board-frame-bottom-4",
+        "board-frame-left-1",
+        "board-frame-right-1",
+        "board-frame-left-2",
+        "board-frame-right-2",
+        "board-frame-left-3",
+        "board-frame-right-3",
+        "board-frame-left-4",
+        "board-frame-right-4",
+        "board-frame-corner-tl",
+        "board-frame-corner-tr",
+        "board-frame-corner-bl",
+        "board-frame-corner-br"
+      ]
+    },
+    {
+      "name": "4x9",
+      "count": 30
+    },
+    {
+      "name": "9x4",
+      "count": 30
+    },
+    {
+      "name": "1x1",
+      "count": 8
+    },
+    {
+      "name": "12x12",
+      "count": 52
+    },
+    {
+      "name": "small",
+      "count": 32,
+      "interactive": 0,
+      "missing": 0,
+      "minX": 34,
+      "maxX": 286,
+      "minY": 134,
+      "maxY": 386,
+      "width": 320,
+      "height": 568,
+      "floorCount": 49,
+      "firstFloor": {
+        "x": 76,
+        "y": 176
+      },
+      "textures": [
+        "board-frame-top-1",
+        "board-frame-bottom-1",
+        "board-frame-top-2",
+        "board-frame-bottom-2",
+        "board-frame-top-3",
+        "board-frame-bottom-3",
+        "board-frame-top-4",
+        "board-frame-bottom-4",
+        "board-frame-left-1",
+        "board-frame-right-1",
+        "board-frame-left-2",
+        "board-frame-right-2",
+        "board-frame-left-3",
+        "board-frame-right-3",
+        "board-frame-left-4",
+        "board-frame-right-4",
+        "board-frame-corner-tl",
+        "board-frame-corner-tr",
+        "board-frame-corner-bl",
+        "board-frame-corner-br"
+      ]
+    },
+    {
+      "name": "landscape",
+      "count": 32,
+      "interactive": 0,
+      "missing": 0,
+      "minX": 329.6000000000001,
+      "maxX": 514.4000000000001,
+      "minY": 108.6,
+      "maxY": 293.4,
+      "width": 844,
+      "height": 390,
+      "floorCount": 49,
+      "firstFloor": {
+        "x": 360.40000000000003,
+        "y": 139.4
+      },
+      "textures": [
+        "board-frame-top-1",
+        "board-frame-bottom-1",
+        "board-frame-top-2",
+        "board-frame-bottom-2",
+        "board-frame-top-3",
+        "board-frame-bottom-3",
+        "board-frame-top-4",
+        "board-frame-bottom-4",
+        "board-frame-left-1",
+        "board-frame-right-1",
+        "board-frame-left-2",
+        "board-frame-right-2",
+        "board-frame-left-3",
+        "board-frame-right-3",
+        "board-frame-left-4",
+        "board-frame-right-4",
+        "board-frame-corner-tl",
+        "board-frame-corner-tr",
+        "board-frame-corner-bl",
+        "board-frame-corner-br"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { calculateGameBoardLayout, useInlineTouchToolbar } from '../scenes/GameBoardLayout';
 import { calculatePuzzleToolbarLayout } from '../runtime/PuzzleUiState';
+import { calculatePuzzleHeaderLayout } from '../runtime/PuzzleHeaderLayout';
 
 // Includes rectangular boards, short landscape, and the minimum phone width.
 for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1280, 720], [1920, 1080]]) {
@@ -17,7 +18,7 @@ for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [
       const label = `${width}x${height}, ${columns}x${rows}`;
       assert(left >= margin - 0.001 && right <= width - margin + 0.001, `Entire frame fits width: ${label}`);
       assert(Math.abs((left + right) / 2 - width / 2) < 0.001, `Entire frame is centered: ${label}`);
-      assert(top >= (narrow ? 72 : 92) - 0.001, `Frame clears header: ${label}`);
+      assert(top >= calculatePuzzleHeaderLayout(width, height).bottom + 10 - 0.001, `Frame clears timer: ${label}`);
       assert(bottom <= height - (narrow ? 132 : 96) + 0.001, `Frame clears toolbar: ${label}`);
       if (touch) {
         const toolbar = calculatePuzzleToolbarLayout(width, height, 0, true, bottom);

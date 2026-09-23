@@ -1,4 +1,5 @@
 import { BOARD_FRAME } from '../view/BoardFrameMetrics.ts';
+import { calculatePuzzleHeaderLayout } from '../runtime/PuzzleHeaderLayout.ts';
 
 export type ViewportClass = 'wide' | 'compact' | 'narrow';
 
@@ -51,12 +52,15 @@ function getLayoutReserves(viewportClass: ViewportClass, touchControls: boolean)
     ? {
         margin: 12,
         headerHeight: 104,
-        toolbarHeight: touchControls ? 148 : 132,
+        // Two 68px rows, their 22px gap, 12px bottom inset and 12px board gap.
+        toolbarHeight: touchControls ? 182 : 132,
       }
     : {
         margin: 24,
         headerHeight: 108,
-        toolbarHeight: touchControls && viewportClass === 'compact' ? 156 : 96,
+        toolbarHeight: touchControls
+          ? (viewportClass === 'compact' ? 188 : 106)
+          : 96,
       };
 }
 
@@ -78,7 +82,12 @@ export function calculateGameBoardLayout(
   const viewportClass = classifyViewport(viewportWidth);
   const inlineTouch = touchControls && inlineTouchControls;
   const reserves = getLayoutReserves(viewportClass, touchControls && !inlineTouch);
-  const { margin, headerHeight } = reserves;
+  const { margin } = reserves;
+  // The timer panel extends below the historical title-only header reserve.
+  const headerHeight = Math.max(
+    reserves.headerHeight,
+    calculatePuzzleHeaderLayout(viewportWidth, viewportHeight).bottom + 10,
+  );
   const toolbarHeight = inlineTouch ? 96 : reserves.toolbarHeight;
 
   const availableHeight = viewportHeight - headerHeight - toolbarHeight;

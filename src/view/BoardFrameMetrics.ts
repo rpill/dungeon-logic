@@ -1,5 +1,6 @@
 // Extents in cell units, shared by rendering, safe layout and surrounding UI.
 export const BOARD_FRAME = {
+  variants: 4,
   left: 0.9,
   top: 0.9,
   right: 0.5,

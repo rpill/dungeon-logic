@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { BOARD_FRAME } from './BoardFrameMetrics';
 
 const BOARD_FLOOR_ASSETS = [
   { key: 'board-floor-01', path: 'assets/floor/tile_floor_01.png' },
@@ -37,8 +38,14 @@ export function resolveWallTextureKey(x: number, y: number): BoardWallTextureKey
 }
 
 export function preloadBoardThemeAssets(scene: Phaser.Scene): void {
-  for (const name of ['top', 'bottom-a', 'bottom-b', 'left', 'right-a', 'right-b', 'clue', 'corner-tl', 'corner-tr', 'corner-bl', 'corner-br']) {
-    scene.load.image(`board-frame-${name}`, `assets/board-frame/${name}.png`);
+  const frameNames = ['corner-tl', 'corner-tr', 'corner-bl', 'corner-br'];
+  for (const side of ['top', 'left', 'right', 'bottom']) {
+    for (let variant = 1; variant <= BOARD_FRAME.variants; variant += 1) {
+      frameNames.push(`${side}-${variant}`);
+    }
+  }
+  for (const name of frameNames) {
+    scene.load.image(`board-frame-${name}`, `assets/board-frame/v2/${name}.png`);
   }
   BOARD_FLOOR_ASSETS.forEach(({ key, path }) => scene.load.image(key, path));
   BOARD_WALL_ASSETS.forEach(({ key, path }) => scene.load.image(key, path));

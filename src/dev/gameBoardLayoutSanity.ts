@@ -127,6 +127,6 @@ assert(desktop.originY + desktop.boardHeight <= 720 - 96, 'Desktop board stays a
 
 const desktopSeven = calculateGameBoardLayout(1280, 720, 7, 7);
 assert(desktopSeven.cellSize < desktop.cellSize, '7x7 scales down when vertical safe space requires it.');
-assert(desktopSeven.cellSize >= 60, '7x7 desktop cells stay comfortably playable.');
+assert(desktopSeven.cellSize >= 59, '7x7 desktop cells stay readable while clearing the timer panel.');
 
 console.info('[Dungeon Logic] Game board layout sanity: viewport classes + board-centered mobile puzzle passed');
