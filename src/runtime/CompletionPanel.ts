@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 const COMPLETION_PANEL_KEY = 'completion-panel';
-const COMPLETION_PANEL_SLICE_X = 56;
-const COMPLETION_PANEL_SLICE_Y = 56;
+const COMPLETION_PANEL_SLICE_X = 68;
+const COMPLETION_PANEL_SLICE_Y = 68;
 
 export function preloadCompletionPanelAssets(scene: Phaser.Scene): void {
   scene.load.image(COMPLETION_PANEL_KEY, 'assets/ui/completion_panel.webp');

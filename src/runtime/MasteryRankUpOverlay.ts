@@ -30,8 +30,8 @@ export function showMasteryRankUpOverlay(
   const narrow = scene.scale.width < 700;
   const width = scene.scale.width;
   const height = scene.scale.height;
-  const panelWidth = Math.min(width - (narrow ? 28 : 80), narrow ? 360 : 500);
-  const panelHeight = Math.min(height - (narrow ? 52 : 100), narrow ? 500 : 600);
+  const panelWidth = Math.min(width - (narrow ? 34 : 110), narrow ? 360 : 520);
+  const panelHeight = Math.min(height - (narrow ? 64 : 110), narrow ? 590 : 700);
   const centerX = width / 2;
   const centerY = height / 2;
 
@@ -43,25 +43,27 @@ export function showMasteryRankUpOverlay(
     y: centerY,
     width: panelWidth,
     height: panelHeight,
-    variant: 'tall',
+    variant: 'rankup',
     alpha: 0.985,
   }).setDepth(depth + 1);
 
-  const titleY = centerY - panelHeight * 0.36;
+  const titleY = centerY - panelHeight * 0.315;
   const title = scene.add.text(
     centerX,
     titleY,
     options.masterRatingMilestone === undefined ? options.copy.newRank : options.copy.ratingMilestoneTitle,
     {
     fontFamily: "'Balsamiq Sans', sans-serif",
-    fontSize: `${narrow ? 24 : 34}px`,
-    color: '#ffd978',
+    fontSize: `${narrow ? 21 : 29}px`,
+    color: '#fff7ea',
+    stroke: '#425a8e',
+    strokeThickness: narrow ? 4 : 5,
     fontStyle: 'bold',
     },
   ).setOrigin(0.5).setDepth(depth + 2);
 
-  const sealSize = narrow ? Math.min(210, panelWidth * 0.58) : 310;
-  const sealY = centerY - panelHeight * 0.02;
+  const sealSize = narrow ? Math.min(190, panelWidth * 0.55) : 275;
+  const sealY = centerY - panelHeight * 0.025;
   const glow = createMasteryGlow(scene, {
     x: centerX,
     y: sealY - sealSize * 0.07,
@@ -86,7 +88,7 @@ export function showMasteryRankUpOverlay(
     depth: depth + 2,
   });
 
-  const rankY = sealY + sealSize * 0.48;
+  const rankY = sealY + sealSize * 0.54;
   const rank = scene.add.text(
     centerX,
     rankY,
@@ -95,7 +97,7 @@ export function showMasteryRankUpOverlay(
       : options.masterRatingMilestone.rating,
     {
       fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: `${narrow ? 19 : 26}px`,
+      fontSize: `${narrow ? 18 : 22}px`,
       color: '#fff1d2',
       fontStyle: 'bold',
       align: 'center',
@@ -104,22 +106,22 @@ export function showMasteryRankUpOverlay(
 
   const description = scene.add.text(
     centerX,
-    rankY + (narrow ? 38 : 48),
+    rankY + (narrow ? 32 : 40),
     options.masterRatingMilestone === undefined
       ? options.copy.rankDescriptions[options.toRank]
       : options.copy.ratingMilestoneReached(options.masterRatingMilestone.milestone),
     {
     fontFamily: "'Balsamiq Sans', sans-serif",
-    fontSize: `${narrow ? 11 : 14}px`,
+    fontSize: `${narrow ? 10 : 13}px`,
     color: '#c4d0e5',
     align: 'center',
-    wordWrap: { width: panelWidth - (narrow ? 44 : 80) },
+    wordWrap: { width: panelWidth - (narrow ? 52 : 96) },
     },
   ).setOrigin(0.5).setDepth(depth + 2);
 
-  const buttonWidth = Math.min(panelWidth - (narrow ? 42 : 90), narrow ? 280 : 320);
-  const buttonHeight = narrow ? 68 : 72;
-  const buttonY = centerY + panelHeight / 2 - buttonHeight / 2 - (narrow ? 18 : 24);
+  const buttonWidth = Math.min(panelWidth - (narrow ? 62 : 130), narrow ? 238 : 268);
+  const buttonHeight = narrow ? 50 : 56;
+  const buttonY = centerY + panelHeight * 0.315;
   let destroyed = false;
   let button: ReturnType<typeof createPrimaryActionButton> | null = null;
 

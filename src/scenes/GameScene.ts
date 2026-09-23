@@ -895,7 +895,7 @@ export class GameScene extends Phaser.Scene {
       visual.guidancePulseTween = null;
       visual.guidanceOutline.setAlpha(1);
       visual.label.setAlpha(1);
-      visual.icon?.setAlpha(visual.disabled ? 0.52 : 1);
+      visual.icon?.setAlpha(1);
     };
 
     const fitToolbarLabelToButton = (
@@ -1301,7 +1301,7 @@ export class GameScene extends Phaser.Scene {
           : buttonState.label;
         visual.label.setText(buttonLabel).setColor(textColor);
         if (visual.icon !== null) {
-          visual.icon.setAlpha(disabled ? 0.52 : 1);
+          visual.icon.setAlpha(1);
           if (!isToolSelector) {
             visual.icon.setTint(Phaser.Display.Color.HexStringToColor(textColor).color);
           } else {

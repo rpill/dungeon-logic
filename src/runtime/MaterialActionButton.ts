@@ -146,7 +146,6 @@ export function setMaterialButtonSurfaceState(
     surface.setTint(stateTints.pressed);
   } else if (state === 'disabled') {
     surface.setTint(stateTints.disabled);
-    surface.setAlpha(0.82);
   }
 }
 
@@ -221,8 +220,16 @@ export function createMaterialActionButton(
   const setState = (state: MaterialButtonState): void => {
     const activeState = enabled ? state : 'disabled';
     setMaterialButtonSurfaceState(surface, options.variant, activeState);
-    label.setAlpha(activeState === 'disabled' ? 0.55 : 1);
-    icon?.setAlpha(activeState === 'disabled' ? 0.55 : 1);
+    label
+      .setColor(activeState === 'disabled'
+        ? uiColorHex(UI_THEME.colors.text.disabled)
+        : options.labelColor ?? MATERIAL_BUTTON_TEXT_COLOR)
+      .setAlpha(1);
+    if (icon) {
+      icon
+        .setTint(activeState === 'disabled' ? UI_THEME.colors.text.disabled : MATERIAL_BUTTON_ICON_TINT)
+        .setAlpha(1);
+    }
   };
   setState('normal');
 

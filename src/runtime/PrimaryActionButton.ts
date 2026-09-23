@@ -101,8 +101,7 @@ export function setPrimaryButtonSurfaceState(
   } else if (state === 'pressed') {
     surface.setTint(0xf4f0e8);
   } else if (state === 'disabled') {
-    surface.setTint(0x9b9688);
-    surface.setAlpha(0.82);
+    surface.setTint(0x7f817d);
   }
 }
 
