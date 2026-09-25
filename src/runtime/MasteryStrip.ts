@@ -37,7 +37,7 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
   const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
   const contentLeft = options.x - cardWidth * (narrow ? 0.16 : 0.18);
   const contentWidth = cardWidth * (narrow ? 0.62 : 0.64);
-  const sealSize = Math.min(cardHeight * (narrow ? 0.98 : 0.84), narrow ? 72 : 86);
+  const sealSize = Math.min(cardHeight * (narrow ? 1.47 : 1.26), narrow ? 108 : 129);
 
   const seal = createMasterySeal(scene, {
     x: iconX,

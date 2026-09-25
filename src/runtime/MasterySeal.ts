@@ -47,27 +47,27 @@ const SMALL_MASTERY_SEAL_KEYS = {
 } as const satisfies Readonly<Record<MasteryRankId, string>>;
 
 const DEFAULT_MASTERY_SEAL_PATHS = {
-  I: 'assets/ui/mastery_seal_stone.webp',
-  II: 'assets/ui/mastery_seal_gold.webp',
-  III: 'assets/ui/mastery_seal_steel.webp',
-  IV: 'assets/ui/mastery_seal_steel.webp',
-  V: 'assets/ui/mastery_seal_steel.webp',
-  VI: 'assets/ui/mastery_seal_steel.webp',
-  VII: 'assets/ui/mastery_seal_steel.webp',
-  VIII: 'assets/ui/mastery_seal_gold.webp',
-  MASTER: 'assets/ui/mastery_seal_master.webp',
+  I: 'assets/ui/mastery_seal_rank_i.webp',
+  II: 'assets/ui/mastery_seal_rank_ii.webp',
+  III: 'assets/ui/mastery_seal_rank_iii.webp',
+  IV: 'assets/ui/mastery_seal_rank_iv.webp',
+  V: 'assets/ui/mastery_seal_rank_v.webp',
+  VI: 'assets/ui/mastery_seal_rank_vi.webp',
+  VII: 'assets/ui/mastery_seal_rank_vii.webp',
+  VIII: 'assets/ui/mastery_seal_rank_viii.webp',
+  MASTER: 'assets/ui/mastery_seal_rank_master.webp',
 } as const satisfies Readonly<Record<MasteryRankId, string>>;
 
 const SMALL_MASTERY_SEAL_PATHS = {
-  I: 'assets/ui/mastery_seal_small_stone.webp',
-  II: 'assets/ui/mastery_seal_small_gold.webp',
-  III: 'assets/ui/mastery_seal_small_steel.webp',
-  IV: 'assets/ui/mastery_seal_small_steel.webp',
-  V: 'assets/ui/mastery_seal_small_steel.webp',
-  VI: 'assets/ui/mastery_seal_small_steel.webp',
-  VII: 'assets/ui/mastery_seal_small_steel.webp',
-  VIII: 'assets/ui/mastery_seal_small_gold.webp',
-  MASTER: 'assets/ui/mastery_seal_small_master.webp',
+  I: 'assets/ui/mastery_seal_rank_i.webp',
+  II: 'assets/ui/mastery_seal_rank_ii.webp',
+  III: 'assets/ui/mastery_seal_rank_iii.webp',
+  IV: 'assets/ui/mastery_seal_rank_iv.webp',
+  V: 'assets/ui/mastery_seal_rank_v.webp',
+  VI: 'assets/ui/mastery_seal_rank_vi.webp',
+  VII: 'assets/ui/mastery_seal_rank_vii.webp',
+  VIII: 'assets/ui/mastery_seal_rank_viii.webp',
+  MASTER: 'assets/ui/mastery_seal_rank_master.webp',
 } as const satisfies Readonly<Record<MasteryRankId, string>>;
 
 const MASTERY_EDGE_GLOW_PATHS = {

@@ -160,6 +160,12 @@ class FakeRectangle {
 class FakeText {
   value: string;
   color: string | undefined;
+  strokeColor: string | undefined;
+  strokeThickness: number | undefined;
+  shadowX: number | undefined;
+  shadowY: number | undefined;
+  shadowColor: string | undefined;
+  shadowBlur: number | undefined;
   visible = true;
   x: number;
   y: number;
@@ -174,6 +180,18 @@ class FakeText {
   setOrigin(): this { return this; }
   setText(value: string): this { this.value = value; return this; }
   setColor(color: string): this { this.color = color; return this; }
+  setStroke(color: string, thickness: number): this {
+    this.strokeColor = color;
+    this.strokeThickness = thickness;
+    return this;
+  }
+  setShadow(x: number, y: number, color: string, blur: number): this {
+    this.shadowX = x;
+    this.shadowY = y;
+    this.shadowColor = color;
+    this.shadowBlur = blur;
+    return this;
+  }
   setFontSize(): this { return this; }
   setVisible(visible: boolean): this { this.visible = visible; return this; }
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
@@ -263,6 +281,16 @@ function createBoard(level = createLevel()) {
 }
 
 const editable = createBoard();
+const activeClues = editable.scene.texts.filter((text) => text.value === '1');
+assert(
+  activeClues.every(
+    (text) => text.color === WIREFRAME.clueActive
+      && text.strokeThickness === 0
+      && text.shadowX === 0
+      && text.shadowY === 0,
+  ),
+  'Active clues have no outline or drop shadow outside the digit shape.',
+);
 assert(editable.scene.tileSpriteCalls === 0, 'Gameplay board must not create tileSprites.');
 
 const floorImage = editable.scene.images.find((image) => image.textureKey.startsWith('board-floor-'));
@@ -305,6 +333,14 @@ assert(!floorMark.visible, 'Wall state hides the floor mark.');
 assert(
   editable.scene.texts.filter((text) => text.value === '1').every((text) => text.color === WIREFRAME.clueComplete),
   'Satisfied row and column clues switch to the completed clue color.',
+);
+assert(
+  editable.scene.texts.filter((text) => text.value === '1').every(
+    (text) => text.strokeThickness === 0
+      && text.shadowX === 0
+      && text.shadowY === 0,
+  ),
+  'Satisfied clues have no outline or drop shadow outside the digit shape.',
 );
 
 const rightPointer = { isDown: true, rightButtonDown: () => true };

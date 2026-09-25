@@ -230,6 +230,8 @@ export class BoardView {
         this.cells[y][x].relayout(centerX, centerY, cellSize);
       }
     }
+
+    this.updateClues();
   }
 
   private createClues(): void {
@@ -253,7 +255,7 @@ export class BoardView {
     centerY: number,
     value: number,
   ): Phaser.GameObjects.Text {
-    return this.scene.add
+    const clue = this.scene.add
       .text(
         centerX,
         centerY,
@@ -266,6 +268,40 @@ export class BoardView {
         },
       )
       .setOrigin(0.5);
+    this.applyClueAppearance(clue, false);
+    return clue;
+  }
+
+  private applyClueAppearance(clue: Phaser.GameObjects.Text, complete: boolean): void {
+    clue
+      .setColor(complete ? WIREFRAME.clueComplete : WIREFRAME.clueActive)
+      .setStroke('rgba(0, 0, 0, 0)', 0)
+      .setShadow(0, 0, 'rgba(0, 0, 0, 0)', 0);
+
+    const context = clue.context;
+    if (context === undefined || typeof context.createLinearGradient !== 'function') return;
+
+    context.save();
+    context.globalCompositeOperation = 'source-atop';
+    const innerShade = context.createLinearGradient(0, 0, 0, clue.canvas.height);
+    innerShade.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+    innerShade.addColorStop(0.42, 'rgba(255, 255, 255, 0)');
+    innerShade.addColorStop(1, complete ? WIREFRAME.clueCompleteInnerShade : WIREFRAME.clueActiveInnerShade);
+    context.fillStyle = innerShade;
+    context.fillRect(0, 0, clue.canvas.width, clue.canvas.height);
+    context.restore();
+
+    const internals = clue as unknown as {
+      renderer?: { gl?: unknown; canvasToTexture?: (canvas: HTMLCanvasElement, texture: unknown, noRepeat: boolean) => unknown };
+      frame: { source: { glTexture: unknown } };
+    };
+    if (internals.renderer?.gl !== undefined && internals.renderer.canvasToTexture !== undefined) {
+      internals.frame.source.glTexture = internals.renderer.canvasToTexture(
+        clue.canvas,
+        internals.frame.source.glTexture,
+        true,
+      );
+    }
   }
 
   private getGuideClueText(
@@ -443,20 +479,12 @@ export class BoardView {
 
     for (let y = 0; y < level.height; y += 1) {
       const complete = this.puzzle.getRowWallCount(y) === level.rowClues[y];
-      this.rowClues[y].setColor(
-        complete
-          ? WIREFRAME.clueComplete
-          : WIREFRAME.clueActive,
-      );
+      this.applyClueAppearance(this.rowClues[y], complete);
     }
 
     for (let x = 0; x < level.width; x += 1) {
       const complete = this.puzzle.getColumnWallCount(x) === level.columnClues[x];
-      this.columnClues[x].setColor(
-        complete
-          ? WIREFRAME.clueComplete
-          : WIREFRAME.clueActive,
-      );
+      this.applyClueAppearance(this.columnClues[x], complete);
     }
   }
 
