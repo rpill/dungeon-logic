@@ -3,6 +3,7 @@ import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { SupportedLanguage } from '../i18n/Language';
 import { calculateHintRecharge, MAX_FREE_HINTS, type HintRechargeStatus } from '../gameplay/HintEconomy';
 import { createFreshPlayerProfile, normalizePlayerProfile } from './PlayerProfile';
+import { mergePlayerProfiles } from './PlayerProfileMerge';
 import type { PlayerProfileStorage } from './PlayerProfileStorage';
 import type { PlayerProfile } from './types';
 
@@ -25,6 +26,7 @@ export class PlayerProfileService {
   private dirty = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private flushPromise: Promise<void> | null = null;
+  private platformAccountTransitionActive = false;
 
   private constructor(
     manifest: readonly CampaignLevelEntry[],
@@ -74,6 +76,59 @@ export class PlayerProfileService {
   }
 
   getProfile(): PlayerProfile {
+    return this.profile;
+  }
+
+  hasPendingPlatformAccountTransition(): boolean {
+    return this.platformAccountTransitionActive;
+  }
+
+  async beginPlatformAccountTransition(): Promise<void> {
+    if (this.platformAccountTransitionActive) return;
+
+    try {
+      await this.flush();
+    } catch {
+      // The in-memory profile is still authoritative for the merge below. The
+      // failed guest write has already been reported by flush().
+    }
+
+    this.storage.prepareForAccountTransition?.();
+    this.platformAccountTransitionActive = true;
+  }
+
+  cancelPlatformAccountTransition(): void {
+    if (!this.platformAccountTransitionActive) return;
+    this.platformAccountTransitionActive = false;
+    this.storage.cancelAccountTransition?.();
+    if (this.dirty) this.scheduleSave();
+  }
+
+  async completePlatformAccountTransition(): Promise<PlayerProfile> {
+    if (!this.platformAccountTransitionActive) return this.profile;
+
+    const loaded = this.storage.loadPrimary !== undefined
+      ? await this.storage.loadPrimary()
+      : await this.storage.load();
+    const target = loaded === null
+      ? createFreshPlayerProfile(this.manifest, this.defaultLanguage)
+      : normalizePlayerProfile(loaded, this.manifest, this.defaultLanguage);
+    this.profile = mergePlayerProfiles(
+      target,
+      this.profile,
+      this.manifest,
+      this.defaultLanguage,
+    );
+    this.dirty = true;
+    this.platformAccountTransitionActive = false;
+
+    try {
+      await this.flush();
+    } catch {
+      // The merged in-memory profile already contains the account state, so a
+      // later retry is safe and cannot restore the pre-auth guest snapshot.
+      this.scheduleSave();
+    }
     return this.profile;
   }
 

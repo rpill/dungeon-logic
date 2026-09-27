@@ -35,9 +35,10 @@ async function runTechnicalErrorReportingChecks(manifest: readonly CampaignLevel
   const codes: string[] = [];
   const report: TechnicalErrorReporter = (code) => codes.push(code);
   const fallbackProfile = createFreshPlayerProfile(manifest);
+  let platformSaveCalls = 0;
   const platformStorage = {
     async load(): Promise<unknown | null> { throw new Error('platform load failed'); },
-    async save(): Promise<void> { throw new Error('platform save failed'); },
+    async save(): Promise<void> { platformSaveCalls += 1; throw new Error('platform save failed'); },
   };
   const localFallbackStorage: PlayerProfileStorage = {
     async load() { return fallbackProfile; },
@@ -49,12 +50,13 @@ async function runTechnicalErrorReportingChecks(manifest: readonly CampaignLevel
   console.warn = () => {};
   try {
     const loaded = await storage.load();
-    assert(loaded !== null, 'Profile storage preserves local fallback when platform load/promotion fail.');
+    assert(loaded !== null, 'Profile storage preserves local fallback when the platform profile cannot be read.');
   } finally {
     console.warn = originalWarn;
   }
   assert(codes.includes('profile_load_failed'), 'Platform profile load failure is reported.');
-  assert(codes.includes('profile_save_failed'), 'Platform profile promotion save failure is reported.');
+  assert(platformSaveCalls === 0, 'Unknown cloud state must not trigger local-profile promotion into platform storage.');
+  assert(!codes.includes('profile_save_failed'), 'Blocked promotion after a platform load failure must not fabricate a save failure.');
 
   class RejectingStorage implements PlayerProfileStorage {
     async load(): Promise<unknown | null> { throw new Error('load failed'); }

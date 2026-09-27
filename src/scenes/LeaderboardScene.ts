@@ -9,6 +9,7 @@ import {
 } from '../daily/DailyLeaderboard';
 import { getUiCopy } from '../i18n/UiCopy';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
+import { isProfileAuthorizationReady, requestAuthorizationWithProfileMerge } from '../profile/ProfileAuthorization';
 import type { LeaderboardPlayerView, LeaderboardSnapshot, PlatformServices } from '../platform/services';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -171,9 +172,10 @@ export class LeaderboardScene extends Phaser.Scene {
     minHintsUsed: number | null,
   ): Promise<void> {
     const services = this.getPlatformServices();
-    const copy = getUiCopy(this.getProfileService().getProfile().settings.language);
+    const profileService = this.getProfileService();
+    const copy = getUiCopy(profileService.getProfile().settings.language);
     const leaderboardName = getDailyLeaderboardName(data.dailyId);
-    const authorized = await services.leaderboards.isAuthorized();
+    const authorized = await isProfileAuthorizationReady(profileService, services.leaderboards);
     if (!this.isCurrent(version)) return;
 
     const cacheKey = `${leaderboardName}:${data.dateKey}:${authorized ? 'auth' : 'anon'}`;
@@ -410,8 +412,10 @@ export class LeaderboardScene extends Phaser.Scene {
       onActivate: () => {
         button.surface.disableInteractive();
         button.label.setText(copy.common.loading);
-        void this.getPlatformServices().leaderboards.requestAuthorization()
-          .then((ok) => {
+        void requestAuthorizationWithProfileMerge(
+          this.getProfileService(),
+          this.getPlatformServices().leaderboards,
+        ).then((ok) => {
             if (!this.isCurrent(version)) return;
             if (!ok) {
               button.label.setText(copy.leaderboard.signIn);

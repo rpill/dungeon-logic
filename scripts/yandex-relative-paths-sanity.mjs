@@ -25,7 +25,13 @@ assert(
   "Vite production base must be './' so hashed JS/CSS resolve inside the Yandex package path.",
 );
 
-const runtimeFiles = walk('src');
+const runtimeFiles = walk('src').filter((file) => !file.endsWith('.css'));
+const styleSource = readFileSync('src/style.css', 'utf8');
+assert(
+  styleSource.includes("url('/assets/fonts/BalsamiqSans-Regular.woff2')")
+    && styleSource.includes("url('/assets/fonts/BalsamiqSans-Bold.woff2')"),
+  'Public font files must use Vite public-root URLs in source CSS; Vite rewrites CSS url() references for the relative production base.',
+);
 const absoluteAssetRefs = [];
 for (const file of runtimeFiles) {
   const source = readFileSync(file, 'utf8');
@@ -35,7 +41,7 @@ for (const file of runtimeFiles) {
 }
 assert(
   absoluteAssetRefs.length === 0,
-  `Runtime source must not contain root-absolute /assets/ URLs. Found: ${absoluteAssetRefs.join(', ')}`,
+  `Runtime script source must not contain root-absolute /assets/ URLs. Found: ${absoluteAssetRefs.join(', ')}`,
 );
 
 const indexSource = readFileSync('index.html', 'utf8');

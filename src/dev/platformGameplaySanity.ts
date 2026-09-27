@@ -77,7 +77,7 @@ function runSourceWiringChecks(): void {
   assert(game.includes('.lifecycle.isPaused()'), 'GameScene seeds startup-ad pause state before starting gameplay.');
   assert(game.includes('unsubscribePlatformLifecycle'), 'GameScene retains an unsubscribe handle for scene shutdown.');
   assert(game.includes('platformGameplayActivity'), 'GameScene routes gameplay markup through PlatformGameplayActivity.');
-  assert(game.includes('solved || resetDialogOpen || hintConfirmOpen || sceneOverlayPaused'), 'Platform resume keeps board input disabled while Help overlay still owns the GameScene.');
+  assert(game.includes('solved || resetDialogOpen || skipDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused'), 'Platform resume keeps board input disabled while Help overlay still owns the GameScene.');
 }
 
 runCoordinatorChecks();

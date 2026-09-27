@@ -9,6 +9,7 @@ import {
 } from '../mastery/MasterRatingLeaderboard';
 import { getMasterySnapshot } from '../mastery/MasteryProgress';
 import { PLATFORM_SERVICES_REGISTRY_KEY } from '../platform/PlatformRegistry';
+import { isProfileAuthorizationReady, requestAuthorizationWithProfileMerge } from '../profile/ProfileAuthorization';
 import type { LeaderboardPlayerView, PlatformServices } from '../platform/services';
 import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
@@ -136,7 +137,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
       return;
     }
 
-    const authorized = await services.leaderboards.isAuthorized();
+    const authorized = await isProfileAuthorizationReady(profileService, services.leaderboards);
     if (!this.isCurrent(version)) return;
     if (!authorized) {
       clearLoading();
@@ -149,7 +150,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
         label: copy.leaderboard.signIn,
         variant: 'secondary',
         onActivate: () => {
-          void services.leaderboards.requestAuthorization().then((ok) => {
+          void requestAuthorizationWithProfileMerge(profileService, services.leaderboards).then((ok) => {
             if (!ok || !this.isCurrent(version)) return;
             this.scene.restart();
           });

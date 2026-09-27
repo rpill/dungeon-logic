@@ -1,4 +1,5 @@
 import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
+import { LeaderboardSubmissionQueue } from './LeaderboardSubmissionQueue';
 import type {
   AdsPort,
   GameLifecycleHandlers,
@@ -109,16 +110,27 @@ function createYandexPlayerProvider(
 ): YandexPlayerProvider {
   let playerPromise: Promise<YandexPlayerLike> | null = null;
 
+  const acquire = (): Promise<YandexPlayerLike> => {
+    const raw = sdkPromise.then((sdk) => sdk.getPlayer());
+    let guarded: Promise<YandexPlayerLike>;
+    guarded = raw.catch((error) => {
+      if (playerPromise === guarded) playerPromise = null;
+      throw error;
+    });
+    playerPromise = guarded;
+    return guarded;
+  };
+
   return {
-    get() {
-      if (playerPromise === null) {
-        playerPromise = sdkPromise.then((sdk) => sdk.getPlayer());
+    async get() {
+      try {
+        return await (playerPromise ?? acquire());
+      } catch {
+        return playerPromise ?? acquire();
       }
-      return playerPromise;
     },
     refresh() {
-      playerPromise = sdkPromise.then((sdk) => sdk.getPlayer());
-      return playerPromise;
+      return acquire();
     },
   };
 }
@@ -304,6 +316,14 @@ function createYandexAds(
   };
 }
 
+
+function isLeaderboardPlayerNotPresentError(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && (error as { readonly code?: unknown }).code === 'LEADERBOARD_PLAYER_NOT_PRESENT';
+}
+
 function normalizeLeaderboardEntry(
   entry: YandexLeaderboardEntryLike,
   currentUniqueId: string | null,
@@ -324,6 +344,7 @@ function createYandexLeaderboards(
   playerProvider: YandexPlayerProvider,
   reportTechnicalError: TechnicalErrorReporter,
 ): LeaderboardsPort {
+  const submissions = new LeaderboardSubmissionQueue();
   const authorized = async (): Promise<boolean> => {
     try {
       const player = await playerProvider.get();
@@ -353,17 +374,13 @@ function createYandexLeaderboards(
     isAuthorized: authorized,
 
     async requestAuthorization() {
-      try {
-        if (await authorized()) return true;
-        const sdk = await sdkPromise;
-        const openAuthDialog = sdk.auth?.openAuthDialog;
-        if (typeof openAuthDialog !== 'function') return false;
-        await openAuthDialog.call(sdk.auth);
-        const player = await playerProvider.refresh();
-        return typeof player.isAuthorized === 'function' && player.isAuthorized();
-      } catch {
-        return false;
-      }
+      if (await authorized()) return true;
+      const sdk = await sdkPromise;
+      const openAuthDialog = sdk.auth?.openAuthDialog;
+      if (typeof openAuthDialog !== 'function') return false;
+      await openAuthDialog.call(sdk.auth);
+      const player = await playerProvider.refresh();
+      return typeof player.isAuthorized === 'function' && player.isAuthorized();
     },
 
     async submitScore(name, score, extraData) {
@@ -377,7 +394,7 @@ function createYandexLeaderboards(
         const sdk = await sdkPromise;
         const setScore = sdk.leaderboards?.setScore;
         if (typeof setScore !== 'function') return 'unavailable';
-        await setScore.call(sdk.leaderboards, name, score, extraData);
+        await submissions.enqueue(() => setScore.call(sdk.leaderboards, name, score, extraData));
         return 'submitted';
       } catch (error) {
         reportTechnicalError('leaderboard_submit_failed', 'leaderboard');
@@ -396,6 +413,7 @@ function createYandexLeaderboards(
         const raw = await getPlayerEntry.call(sdk.leaderboards, name);
         return normalizeLeaderboardEntry(raw, currentUniqueIdFrom(raw));
       } catch (error) {
+        if (isLeaderboardPlayerNotPresentError(error)) return null;
         reportTechnicalError('leaderboard_load_failed', 'leaderboard');
         console.warn('[Dungeon Logic] Could not load current leaderboard player entry.', { name, error });
         return null;
@@ -415,8 +433,10 @@ function createYandexLeaderboards(
           quantityTop: options?.quantityTop,
         });
         const currentRaw = includeUser && typeof sdk.leaderboards?.getPlayerEntry === 'function'
-          ? await sdk.leaderboards.getPlayerEntry(name).catch(() => {
-              reportTechnicalError('leaderboard_load_failed', 'leaderboard');
+          ? await sdk.leaderboards.getPlayerEntry(name).catch((error) => {
+              if (!isLeaderboardPlayerNotPresentError(error)) {
+                reportTechnicalError('leaderboard_load_failed', 'leaderboard');
+              }
               return null;
             })
           : null;
