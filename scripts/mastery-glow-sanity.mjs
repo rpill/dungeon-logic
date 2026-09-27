@@ -32,14 +32,14 @@ expect(!scene.includes('drawSealGlow('), 'Mastery page must not use the old Grap
 expect(overlay.includes("variant: 'rankup'"), 'Rank-up overlay must use the stronger rank-up glow variant.');
 expect(overlay.includes('createMasteryEdgeGlow'), 'Rank-up overlay must add a compact edge glow around the seal.');
 
-expect(scene.includes('const sealSize = 250;'), 'Desktop Mastery seal must be substantially larger than the previous 178px version.');
-expect(scene.includes('Math.min(156, width * 0.4)'), 'Mobile Mastery seal must be substantially larger while staying responsive.');
+expect(scene.includes('const sealSize = Math.min(short ? 190 : 300'), 'Desktop Mastery seal must fit both short and tall viewports.');
+expect(scene.includes('Math.min(164, width * 0.43)'), 'Mobile Mastery seal must remain prominent and responsive.');
 expect(scene.includes('size: sealSize * 0.82'), 'Mastery page rays must be about 1.5x smaller than the previous 1.22x version.');
-expect(overlay.includes('Math.min(210, panelWidth * 0.58)'), 'Narrow rank-up seal must be enlarged.');
-expect(overlay.includes(': 310;'), 'Desktop rank-up seal must be enlarged.');
+expect(overlay.includes('Math.min(214, panelWidth * 0.60'), 'Narrow rank-up seal must remain prominent.');
+expect(overlay.includes('Math.min(292, panelWidth * 0.31'), 'Desktop rank-up seal must fit beside copy and CTA.');
 expect(overlay.includes('size: sealSize * (narrow ? 0.87 : 0.9)'), 'Rank-up rays must be about 1.5x smaller than the previous version.');
 
 expect(fs.existsSync('public/assets/ui/LIGHT_RAYS_SOURCE.txt'), 'Third-party light-ray source note must be kept with the assets.');
-expect(!fs.existsSync('public/assets/ui/mastery_rank_glow_page.webp'), 'Old generated page glow asset must be removed.');
-expect(!fs.existsSync('public/assets/ui/mastery_rank_glow_rankup.webp'), 'Old generated rank-up glow asset must be removed.');
+expect(!seal.includes("'assets/ui/mastery_rank_glow_page.webp'"), 'Old page glow must not be loaded.');
+expect(!seal.includes("'assets/ui/mastery_rank_glow_rankup.webp'"), 'Old rank-up glow must not be loaded.');
 console.info('[Dungeon Logic] Mastery glow sanity: PASS');

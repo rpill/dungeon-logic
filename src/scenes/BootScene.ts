@@ -35,14 +35,9 @@ import { preloadSceneBackgrounds } from '../runtime/SceneBackground';
 import { preloadHomeMenuAssets } from '../runtime/HomeMenuButton';
 import { preloadPrimaryActionButtonAssets } from '../runtime/PrimaryActionButton';
 import { preloadHeaderActionButtonAssets } from '../runtime/HeaderActionButton';
-import { preloadHomeModeCardAssets } from '../runtime/HomeModeCard';
-import { preloadHomeHubModeCardAssets } from '../runtime/HomeHubModeCard';
 import { preloadCommonUiIcons } from '../runtime/UiIcons';
-import { preloadMasteryRequirementPanelAssets } from '../runtime/MasteryRequirementPanel';
-import { preloadMasteryRequirementRowPanelAssets } from '../runtime/MasteryRequirementRowPanel';
 import { preloadPuzzleHeaderUiAssets } from '../runtime/PuzzleHeaderUiAssets';
-import { preloadCompletionPanelAssets } from '../runtime/CompletionPanel';
-import { preloadModalPanelAssets } from '../runtime/ModalPanel';
+import { preloadSlateSurfaceAsset } from '../runtime/SlateSurface';
 import { preloadMasterySealAssets } from '../runtime/MasterySeal';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { preloadBoardThemeAssets } from '../view/BoardThemeAssets';
@@ -68,15 +63,10 @@ export class BootScene extends Phaser.Scene {
     preloadHomeMenuAssets(this);
     preloadPrimaryActionButtonAssets(this);
     preloadHeaderActionButtonAssets(this);
-    preloadHomeModeCardAssets(this);
-    preloadHomeHubModeCardAssets(this);
     preloadCommonUiIcons(this);
     preloadMasterySealAssets(this);
-    preloadMasteryRequirementPanelAssets(this);
-    preloadMasteryRequirementRowPanelAssets(this);
     preloadPuzzleHeaderUiAssets(this);
-    preloadCompletionPanelAssets(this);
-    preloadModalPanelAssets(this);
+    preloadSlateSurfaceAsset(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
     this.load.image('home-logo', 'assets/logo.webp');
@@ -122,7 +112,7 @@ export class BootScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#111318');
     this.add.text(width / 2, height / 2 - (narrow ? 70 : 82), title, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 24 : 32}px`,
       color: '#f2e7d5',
       fontStyle: 'bold',
@@ -131,7 +121,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(width / 2, height / 2 - (narrow ? 20 : 24), details, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 14 : 17}px`,
       color: '#aebbd0',
       align: 'center',
@@ -141,25 +131,37 @@ export class BootScene extends Phaser.Scene {
     const buttonWidth = Math.min(narrow ? 220 : 260, Math.max(180, width - 56));
     const buttonHeight = narrow ? 48 : 54;
     const buttonY = height / 2 + (narrow ? 58 : 70);
-    const button = this.add.rectangle(width / 2, buttonY, buttonWidth, buttonHeight, 0x1d2b4b, 1)
-      .setStrokeStyle(2, 0xf0bd63, 1)
+    const button = this.add.rectangle(width / 2, buttonY, buttonWidth, buttonHeight, 0x283548, 1)
+      .setStrokeStyle(2, 0xc69e58, 1)
       .setInteractive({ useHandCursor: true });
     const label = this.add.text(width / 2, buttonY, retryLabel, {
-      fontFamily: 'monospace',
+      fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: `${narrow ? 17 : 19}px`,
-      color: '#f0bd63',
+      color: '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
     const reload = (): void => window.location.reload();
-    button.on('pointerover', () => button.setFillStyle(0x2a3d66, 1));
-    button.on('pointerout', () => button.setFillStyle(0x1d2b4b, 1));
-    button.on('pointerdown', () => button.setFillStyle(0x17243e, 1));
+    button.on('pointerover', () => button.setFillStyle(0x34445c, 1));
+    button.on('pointerout', () => button.setFillStyle(0x283548, 1));
+    button.on('pointerdown', () => button.setFillStyle(0x1d2939, 1));
     button.on('pointerup', reload);
     label.setInteractive({ useHandCursor: true }).on('pointerup', reload);
   }
 
   private async routeLaunch(): Promise<void> {
+    const visualQaId = import.meta.env.DEV
+      ? new URLSearchParams(window.location.search).get('visualQa')
+      : null;
+    if (visualQaId !== null) {
+      const { launchVisualQa } = await import('../dev/VisualQaMode');
+      await launchVisualQa(this, visualQaId);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.documentElement.dataset.visualQaReady = visualQaId;
+      }));
+      return;
+    }
+
     const analytics = new AnalyticsService(createYandexMetricaTransport({
       prod: import.meta.env.PROD,
       counterId: import.meta.env.VITE_YANDEX_METRICA_ID,

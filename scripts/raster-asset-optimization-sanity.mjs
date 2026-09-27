@@ -24,13 +24,6 @@ const cases = [
     ref: 'assets/logo.webp',
     maxBytes: 100_000,
   },
-  {
-    webp: 'public/assets/ui/menu_button_fill.webp',
-    old: 'public/assets/ui/menu_button_fill.png',
-    source: 'src/runtime/HomeMenuButton.ts',
-    ref: 'assets/ui/menu_button_fill.webp',
-    maxBytes: 10_000,
-  },
 ];
 
 const failures = [];

@@ -10,16 +10,13 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const copy = readFileSync(resolve(root, 'src/i18n/UiCopy.ts'), 'utf8');
 const scene = readFileSync(resolve(root, 'src/scenes/MasteryScene.ts'), 'utf8');
 
-assert(copy.includes("daily: 'Daily: лучшая серия'"), 'RU narrow Daily Mastery label must describe the lifetime best streak.');
-assert(copy.includes("endless: 'Испытание: лучшая серия'"), 'RU narrow Challenge Mastery label must describe the lifetime best streak.');
-assert(copy.includes('Daily: лучшая серия — ${target} ${day}'), 'RU wide Daily Mastery label must describe the best streak target in days.');
-assert(copy.includes('Испытание: лучшая серия — ${target}'), 'RU wide Challenge Mastery label must describe the best streak target.');
-assert(copy.includes("daily: 'Daily: best streak'"), 'EN narrow Daily Mastery label must describe the lifetime best streak.');
-assert(copy.includes("endless: 'Challenge: best streak'"), 'EN narrow Challenge Mastery label must describe the lifetime best streak.');
-assert(copy.includes('Daily: best streak — ${target} ${target === 1 ? \'day\' : \'days\'}'), 'EN wide Daily Mastery label must describe the best streak target in days.');
-assert(copy.includes('Challenge: best streak — ${target}'), 'EN wide Challenge Mastery label must describe the best streak target.');
-assert(scene.includes('copy.mastery.dailyRequirement(condition.target)'), 'MasteryScene must use localized Daily best-streak requirement copy.');
-assert(scene.includes('copy.mastery.endlessRequirement(condition.target)'), 'MasteryScene must use localized Challenge best-streak requirement copy.');
-assert(!scene.includes('достигните серии') && !scene.includes('Испытание: чистая серия'), 'MasteryScene must not imply streak requirements reset after rank-up.');
+assert(copy.includes("daily: 'Daily: решено'"), 'RU Daily Mastery label must describe completed puzzles.');
+assert(copy.includes("endless: 'Испытание: решено'"), 'RU Challenge Mastery label must describe completed puzzles.');
+assert(copy.includes('Daily: решите ${target}'), 'RU Daily requirement must use total solves.');
+assert(copy.includes('Испытание: решите ${target}'), 'RU Challenge requirement must use total solves.');
+assert(copy.includes("daily: 'Daily: solved'"), 'EN Daily Mastery label must describe completed puzzles.');
+assert(copy.includes("endless: 'Challenge: solved'"), 'EN Challenge Mastery label must describe completed puzzles.');
+assert(scene.includes('copy.mastery.daily') && scene.includes('copy.mastery.endless'), 'MasteryScene must use localized category labels.');
+assert(scene.includes('`${condition.current} / ${condition.target}`'), 'MasteryScene must show live progress values separately from labels.');
 
 console.info('[Dungeon Logic] Mastery lifetime-best requirement copy sanity: PASS');

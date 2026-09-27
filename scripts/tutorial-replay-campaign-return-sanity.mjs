@@ -11,16 +11,16 @@ assert(completionStart >= 0 && completionEnd > completionStart, 'Tutorial comple
 const tutorialCompletion = gameScene.slice(completionStart, completionEnd);
 
 assert(
-  tutorialCompletion.includes('service.getContinueLevel() ?? service.getLevels()[0]'),
-  'Completed Tutorial must continue to the current Campaign level, falling back to campaign-001 only when Campaign has not started.',
+  tutorialCompletion.includes('const nextLevel = result.recommendedNextLevel;'),
+  'Tutorial completion must use the progression result to decide whether another lesson exists.',
 );
 assert(
-  tutorialCompletion.includes('service.startLevel(continueLevel.id)'),
-  'Tutorial completion action must launch the resolved Campaign continue level.',
+  tutorialCompletion.includes('service.startLevel(nextLevel.id)'),
+  'Tutorial completion action must launch the recommended next lesson.',
 );
 assert(
-  !tutorialCompletion.includes('service.startLevel(firstLevel.id)'),
-  'Tutorial completion must not always restart Campaign from level 1.',
+  tutorialCompletion.includes(': (() => this.scene.start(HOME_SCENE_KEY))'),
+  'Final Tutorial completion must retain its existing Home action.',
 );
 
-console.info('[Dungeon Logic] Tutorial replay campaign return sanity: completion continues current Campaign progress');
+console.info('[Dungeon Logic] Tutorial completion navigation sanity: next lesson or Home passed');

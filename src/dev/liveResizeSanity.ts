@@ -103,6 +103,8 @@ class FakeText {
   setOrigin(): this { return this; }
   setVisible(value: boolean): this { this.visible = value; return this; }
   setColor(): this { return this; }
+  setStroke(): this { return this; }
+  setShadow(): this { return this; }
   setText(value: string): this { this.value = value; return this; }
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setFontSize(value: number): this { this.fontSize = value; return this; }

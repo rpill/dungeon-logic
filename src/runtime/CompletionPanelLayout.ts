@@ -15,21 +15,30 @@ export interface CompletionPanelLayout {
   readonly panelHeight: number;
   readonly panelTop: number;
   readonly panelBottom: number;
+  readonly boardCenterX: number;
   readonly titleY: number;
   readonly statusY: number;
   readonly statusWidth: number;
+  readonly illustrationY: number;
+  readonly illustrationSize: number;
   readonly primaryAction: CompletionActionRect | null;
   readonly secondaryActions: readonly CompletionActionRect[];
   readonly boardBottomReserve: number;
 }
 
-const DESKTOP_PANEL_MAX_WIDTH = 560;
-const DESKTOP_PANEL_MIN_WIDTH = 500;
-const COMPLETION_PANEL_ASPECT = 342 / 1026;
-const PHONE_SIDE_MARGIN = 12;
+export interface CompletionContentLayout {
+  readonly boardFrameWidth?: number;
+  readonly infoCount?: number;
+  readonly showMascots?: boolean;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+// Keep the regular gameplay reserve stable; completion has its own overlay.
+export function desktopCompletionPanelHeight(viewportWidth: number): number {
+  return Math.round(clamp(viewportWidth * 0.46, 580, 740) / (1600 / 378));
 }
 
 export function calculateCompletionPanelLayout(
@@ -38,99 +47,85 @@ export function calculateCompletionPanelLayout(
   safeBottom: number,
   actionCount: number,
   hasPrimary = true,
+  content: CompletionContentLayout = {},
 ): CompletionPanelLayout {
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight) || viewportWidth <= 0 || viewportHeight <= 0) {
     throw new RangeError('Completion panel viewport dimensions must be positive finite numbers.');
   }
-
   const phone = viewportWidth < 700 && viewportHeight > viewportWidth;
-  const bottomMargin = phone ? 10 : 8;
   const count = Math.max(0, Math.floor(actionCount));
+  const infoCount = Math.max(0, Math.floor(content.infoCount ?? 2));
+  const showMascots = content.showMascots ?? false;
+  const secondaryCount = Math.max(0, count - (hasPrimary ? 1 : 0));
+  const panelBottom = viewportHeight - Math.max(0, safeBottom) - (phone ? 10 : 14);
 
   if (phone) {
-    const short = viewportHeight < 720;
-    const panelWidth = Math.max(240, viewportWidth - PHONE_SIDE_MARGIN * 2);
-    const panelHeight = short ? Math.max(198, Math.round(panelWidth * COMPLETION_PANEL_ASPECT)) : Math.max(218, Math.round(panelWidth * COMPLETION_PANEL_ASPECT));
-    const panelBottom = viewportHeight - Math.max(0, safeBottom) - bottomMargin;
+    const panelWidth = Math.max(240, viewportWidth - 24);
+    const panelHeight = infoCount > 2 ? 316 : showMascots ? 326 : 284;
     const panelTop = panelBottom - panelHeight;
     const panelX = viewportWidth / 2;
-    const panelY = panelTop + panelHeight / 2;
-    const innerPadding = 14;
-    const buttonHeight = short ? 36 : 40;
-    const rowGap = 10;
-    const secondaryCount = Math.max(0, count - (hasPrimary ? 1 : 0));
-    const primaryY = panelBottom - innerPadding - buttonHeight * 1.5 - rowGap;
-    const secondaryY = panelBottom - innerPadding - buttonHeight / 2;
+    const buttonWidth = panelWidth - 42;
+    const buttonHeight = 50;
     const primaryAction = count > 0 && hasPrimary
-      ? {
-          x: panelX,
-          y: primaryY,
-          width: panelWidth - innerPadding * 2,
-          height: buttonHeight,
-        }
+      ? { x: panelX, y: panelBottom - 96, width: buttonWidth, height: buttonHeight }
       : null;
-    const secondaryGap = 8;
+    const gap = 8;
     const secondaryWidth = secondaryCount > 0
-      ? (panelWidth - innerPadding * 2 - secondaryGap * (secondaryCount - 1)) / secondaryCount
+      ? (buttonWidth - gap * (secondaryCount - 1)) / secondaryCount
       : 0;
     const secondaryActions = Array.from({ length: secondaryCount }, (_, index) => ({
-      x: panelX - (panelWidth - innerPadding * 2) / 2 + secondaryWidth / 2 + index * (secondaryWidth + secondaryGap),
-      y: secondaryY,
+      x: panelX - buttonWidth / 2 + secondaryWidth / 2 + index * (secondaryWidth + gap),
+      y: panelBottom - (hasPrimary ? 39 : 65),
       width: secondaryWidth,
       height: buttonHeight,
     }));
-
+    const oldPhonePanelHeight = Math.round(panelWidth * 747 / 1100);
     return {
-      mode: 'phone',
-      panelX,
-      panelY,
-      panelWidth,
-      panelHeight,
-      panelTop,
-      panelBottom,
-      titleY: panelTop + (short ? 30 : 34),
-      statusY: panelTop + (short ? 78 : 86),
-      statusWidth: panelWidth - 40,
-      primaryAction,
-      secondaryActions,
-      boardBottomReserve: short ? 90 : 70,
+      mode: 'phone', panelX, panelY: panelTop + panelHeight / 2,
+      panelWidth, panelHeight, panelTop, panelBottom,
+      boardCenterX: panelX,
+      titleY: panelTop + 43,
+      statusY: panelTop + (showMascots ? 182 : 130),
+      statusWidth: panelWidth - 46,
+      illustrationY: panelTop + 105,
+      illustrationSize: showMascots ? 94 : 72,
+      primaryAction, secondaryActions,
+      boardBottomReserve: Math.max(0, panelHeight - oldPhonePanelHeight + 18),
     };
   }
 
-  const panelWidth = clamp(viewportWidth * 0.42, DESKTOP_PANEL_MIN_WIDTH, DESKTOP_PANEL_MAX_WIDTH);
-  const panelHeight = Math.round(panelWidth * COMPLETION_PANEL_ASPECT);
-  const panelBottom = viewportHeight - Math.max(0, safeBottom) - bottomMargin;
-  const panelTop = panelBottom - panelHeight;
-  const panelX = viewportWidth / 2;
-  const panelY = panelTop + panelHeight / 2;
-  const innerPadding = 20;
-  const gap = count >= 3 ? 8 : 12;
-  const actionHeight = viewportHeight <= 640 ? 32 : 36;
-  const actionAreaWidth = panelWidth - innerPadding * 2;
-  const actionWidth = count <= 1
-    ? Math.min(220, actionAreaWidth)
-    : (actionAreaWidth - gap * (count - 1)) / count;
-  const actionY = panelBottom - innerPadding - actionHeight / 2;
+  const panelWidth = clamp(viewportWidth * 0.33, 440, 570);
+  const panelHeight = showMascots
+    ? clamp(viewportHeight * 0.47, 300, 430)
+    : clamp(viewportHeight * 0.40, 300, 390);
+  const panelTop = (viewportHeight - panelHeight) / 2 + (viewportHeight > 800 ? 16 : 0);
+  const gapToBoard = clamp(viewportWidth * 0.03, 28, 58);
+  const boardFrameWidth = content.boardFrameWidth ?? viewportWidth * 0.38;
+  const totalWidth = boardFrameWidth + gapToBoard + panelWidth;
+  const groupLeft = (viewportWidth - totalWidth) / 2;
+  const boardCenterX = groupLeft + boardFrameWidth / 2;
+  const panelX = groupLeft + boardFrameWidth + gapToBoard + panelWidth / 2;
+  const actionWidth = panelWidth - 66;
+  const actionGap = 12;
+  const buttonHeight = viewportHeight <= 640 ? 48 : 54;
+  const buttonWidth = count > 0 ? (actionWidth - actionGap * (count - 1)) / count : 0;
   const allActions = Array.from({ length: count }, (_, index) => ({
-    x: panelX - (actionWidth * count + gap * (count - 1)) / 2 + actionWidth / 2 + index * (actionWidth + gap),
-    y: actionY,
-    width: actionWidth,
-    height: actionHeight,
+    x: panelX - actionWidth / 2 + buttonWidth / 2 + index * (buttonWidth + actionGap),
+    y: panelTop + panelHeight - (viewportHeight <= 640 ? 42 : 50),
+    width: buttonWidth,
+    height: buttonHeight,
   }));
-
   return {
-    mode: 'desktop',
-    panelX,
-    panelY,
-    panelWidth,
-    panelHeight,
-    panelTop,
-    panelBottom,
-    titleY: panelTop + (viewportHeight <= 640 ? 32 : 36),
-    statusY: panelTop + (viewportHeight <= 640 ? 78 : 84),
-    statusWidth: panelWidth - 44,
+    mode: 'desktop', panelX, panelY: panelTop + panelHeight / 2,
+    panelWidth, panelHeight, panelTop, panelBottom: panelTop + panelHeight,
+    boardCenterX,
+    titleY: panelTop + (viewportHeight <= 640 ? 47 : 61),
+    statusY: panelTop + (showMascots ? panelHeight * 0.69 : panelHeight * 0.44),
+    statusWidth: panelWidth - 66,
+    illustrationY: panelTop + panelHeight * 0.40,
+    illustrationSize: clamp(panelHeight * 0.35, 90, 140),
     primaryAction: hasPrimary && allActions.length > 0 ? allActions[allActions.length - 1]! : null,
     secondaryActions: hasPrimary ? allActions.slice(0, -1) : allActions,
-    boardBottomReserve: viewportHeight <= 640 ? 90 : 100,
+    boardBottomReserve: 0,
   };
 }

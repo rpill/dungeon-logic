@@ -11,7 +11,7 @@ assert(
   'GameScene must define a tutorial layout reserve independent of onboarding visibility.',
 );
 assert(
-  source.includes('let boardLayout = calculateStableBoardLayout(getTutorialLayoutBottomReserve(), chrome, safeTop);'),
+  source.includes('let boardLayout = calculateStableBoardLayout(getTutorialLayoutBottomReserve(), safeTop);'),
   'Tutorial reserve must be applied before BoardView is created.',
 );
 assert(

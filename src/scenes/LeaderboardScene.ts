@@ -14,7 +14,7 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
-import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
+import { createMaterialActionButton } from '../runtime/MaterialActionButton';
 import {
   reindexDateFilteredLeaderboardRows,
   type DateFilteredLeaderboardRow,
@@ -23,7 +23,8 @@ import {
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
-import { createUiPanel } from '../ui/UiPanel';
+import { createQuietInset } from '../runtime/QuietInset';
+import { createSlateSurface } from '../runtime/SlateSurface';
 
 export const LEADERBOARD_SCENE_KEY = 'LeaderboardScene';
 
@@ -98,22 +99,16 @@ export class LeaderboardScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    createUiPanel(this, {
-      x: layout.panelX,
-      y: layout.panelTop + layout.panelHeight / 2,
-      width: layout.panelWidth,
-      height: layout.panelHeight,
-      variant: 'wide',
-      alpha: 0.985,
-    }).setDepth(0);
+    createSlateSurface(this, layout.panelX, layout.panelTop + layout.panelHeight / 2,
+      layout.panelWidth, layout.panelHeight);
 
     const status = this.add.text(layout.panelX, layout.tableStartY, copy.common.loading, {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '11px' : layout.narrow ? '12px' : '15px',
-      color: '#9aa8bf',
+      color: '#c0cbda',
       align: 'center',
       wordWrap: { width: Math.max(180, layout.panelWidth - 48) },
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5, 0).setDepth(2);
 
     const result = profileService.getProfile().daily.results[data.dateKey];
     const leaderboardEligibleTimeMs = result !== undefined && result.minHintsUsed === 0
@@ -142,14 +137,15 @@ export class LeaderboardScene extends Phaser.Scene {
     const subtitleY = Math.max(header.headerHeight + (compactHeight ? 10 : 16), titleY + (compactHeight ? 28 : 36));
     const panelTop = subtitleY + (compactHeight ? 22 : 30);
     const sideMargin = narrow ? 14 : 28;
-    const panelWidth = Math.min(width - sideMargin * 2, 820);
+    const panelWidth = Math.min(width - sideMargin * 2,
+      narrow ? 460 : Math.min(840, Math.max(680, width * 0.52)));
     const panelHeight = Math.max(
-      compactHeight ? 240 : 360,
-      Math.min(compactHeight ? 292 : 590, height - panelTop - (compactHeight ? 12 : 28)),
+      compactHeight ? 240 : narrow ? 300 : 360,
+      Math.min(compactHeight ? 292 : narrow ? 490 : 500, height - panelTop - (compactHeight ? 12 : 28)),
     );
-    const infoY = panelTop + (compactHeight ? 36 : 48);
-    const tableStartY = panelTop + (compactHeight ? 112 : 142);
-    const rowGap = compactHeight ? 18 : narrow ? 25 : 31;
+    const infoY = panelTop + (compactHeight ? 34 : 48);
+    const tableStartY = panelTop + (compactHeight ? 108 : 140);
+    const rowGap = compactHeight ? 26 : narrow ? 46 : 50;
     return {
       narrow,
       compactHeight,
@@ -263,14 +259,15 @@ export class LeaderboardScene extends Phaser.Scene {
       tableStartY = Math.max(tableStartY, authBottomY + (layout.compactHeight ? 8 : 12));
     }
     status.setY(tableStartY);
-
     if (services.kind === 'local') {
       status.setText(copy.leaderboard.localUnavailable);
+      this.placeEmptyStatus(status, layout, tableStartY);
       return;
     }
 
     if (decodedRows.length === 0) {
       status.setText(table === null ? copy.leaderboard.unavailable : copy.leaderboard.noEntries);
+      this.placeEmptyStatus(status, layout, tableStartY);
       return;
     }
 
@@ -282,6 +279,23 @@ export class LeaderboardScene extends Phaser.Scene {
       layout,
       tableStartY,
     );
+  }
+
+  private placeEmptyStatus(
+    status: Phaser.GameObjects.Text,
+    layout: LeaderboardLayout,
+    tableStartY: number,
+  ): void {
+    const panelBottom = layout.panelTop + layout.panelHeight;
+    const messageY = Math.max(tableStartY + 34, (tableStartY + panelBottom) / 2);
+    createQuietInset(this, {
+      x: layout.panelX,
+      y: messageY,
+      width: layout.panelWidth - (layout.narrow ? 30 : 48),
+      height: layout.compactHeight ? 54 : 70,
+      borderAlpha: 0.28,
+    });
+    status.setPosition(layout.panelX, messageY).setOrigin(0.5).setColor('#d2dce9');
   }
 
 
@@ -336,13 +350,21 @@ export class LeaderboardScene extends Phaser.Scene {
     place: number | null,
   ): number {
     const copy = getUiCopy(this.getProfileService().getProfile().settings.language);
+    const summaryHeight = layout.compactHeight ? 58 : layout.narrow ? 72 : 76;
+    createQuietInset(this, {
+      x: layout.panelX,
+      y: layout.infoY + (layout.compactHeight ? 12 : 14),
+      width: layout.panelWidth - (layout.narrow ? 30 : 48),
+      height: summaryHeight,
+      borderAlpha: 0.38,
+    });
     const summary = resultMs === null
       ? copy.leaderboard.noResult
       : copy.leaderboard.yourResult(this.formatTime(resultMs));
     this.add.text(layout.panelX, layout.infoY, summary, {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '12px' : layout.narrow ? '15px' : '20px',
-      color: '#f4ead7',
+      color: resultMs === null ? '#d8e0eb' : '#f4ead7',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
@@ -356,7 +378,7 @@ export class LeaderboardScene extends Phaser.Scene {
     const detailText = this.add.text(layout.panelX, layout.infoY + (layout.compactHeight ? 22 : 30), detail, {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
-      color: place !== null ? '#f0bd63' : '#9aa8bf',
+      color: place !== null ? '#f0bd63' : '#b8c5d7',
       fontStyle: place !== null ? 'bold' : 'normal',
       align: 'center',
       wordWrap: { width: Math.max(180, layout.panelWidth - 50) },
@@ -372,29 +394,28 @@ export class LeaderboardScene extends Phaser.Scene {
   ): number {
     const copy = getUiCopy(this.getProfileService().getProfile().settings.language);
     const buttonWidth = Math.min(layout.panelWidth - 32, layout.compactHeight ? 200 : 280);
-    const buttonHeight = layout.compactHeight ? 64 : 72;
+    const buttonHeight = layout.compactHeight ? 48 : 54;
     const authButtonY = Math.max(
       detailBottomY + (layout.compactHeight ? 8 : 12) + buttonHeight / 2,
       layout.infoY + (layout.compactHeight ? 50 : layout.narrow ? 62 : 68),
     );
-    const button = createCenteredTextMenuButton(this, {
+    const button = createMaterialActionButton(this, {
       x: layout.panelX,
       y: authButtonY,
       width: buttonWidth,
       height: buttonHeight,
       label: copy.leaderboard.signIn,
-      labelColor: '#f0d28a',
-      accentFrame: true,
-      compact: true,
+      variant: 'secondary',
+      compact: false,
       onActivate: () => {
-        button.fill.disableInteractive();
+        button.surface.disableInteractive();
         button.label.setText(copy.common.loading);
         void this.getPlatformServices().leaderboards.requestAuthorization()
           .then((ok) => {
             if (!this.isCurrent(version)) return;
             if (!ok) {
               button.label.setText(copy.leaderboard.signIn);
-              button.fill.setInteractive({ useHandCursor: true });
+              button.surface.setInteractive({ useHandCursor: true });
               return;
             }
             this.scene.restart(data);
@@ -429,11 +450,11 @@ export class LeaderboardScene extends Phaser.Scene {
     tableStartY: number,
   ): void {
     const entries = rawEntries.slice(0, 10);
-    const left = layout.panelX - layout.panelWidth / 2 + (layout.narrow ? 20 : 30);
-    const right = layout.panelX + layout.panelWidth / 2 - (layout.narrow ? 20 : 30);
+    const left = layout.panelX - layout.panelWidth / 2 + (layout.narrow ? 26 : 40);
+    const right = layout.panelX + layout.panelWidth / 2 - (layout.narrow ? 26 : 40);
     const rowWidth = right - left;
     const panelBottom = layout.panelTop + layout.panelHeight;
-    const availableRowHeight = Math.max(1, panelBottom - tableStartY - (layout.compactHeight ? 8 : 16));
+    const availableRowHeight = Math.max(1, panelBottom - tableStartY - (layout.compactHeight ? 20 : 34));
     const rowGap = entries.length > 1
       ? Math.min(layout.rowGap, availableRowHeight / (entries.length - 1))
       : layout.rowGap;
@@ -442,24 +463,49 @@ export class LeaderboardScene extends Phaser.Scene {
       const entry = row.entry;
       const y = tableStartY + index * rowGap;
       const current = entry.isCurrentPlayer;
+      createQuietInset(this, {
+        x: layout.panelX,
+        y,
+        width: rowWidth + (layout.narrow ? 20 : 28),
+        height: Math.max(21, rowGap - (layout.compactHeight ? 3 : 5)),
+        radius: 7,
+        fillAlpha: current ? 0.94 : 0.72,
+        borderAlpha: current ? 0.62 : 0.18,
+      });
       if (current) {
         const highlight = this.add.graphics();
-        highlight.fillStyle(0xf0bd63, 0.11);
-        highlight.fillRoundedRect(left - 8, y - rowGap * 0.42, rowWidth + 16, rowGap * 0.84, 6);
+        highlight.lineStyle(2, 0xd9ae63, 0.9);
+        highlight.lineBetween(left - 10, y - rowGap * 0.25, left - 10, y + rowGap * 0.25);
       }
       const name = entry.publicName.trim().length > 0 ? entry.publicName : fallbackName;
-      this.add.text(left, y, `#${row.displayPlace}  ${name}${current ? currentSuffix : ''}`, {
+      this.add.text(left, y, `#${row.displayPlace}`, {
         fontFamily: "'Balsamiq Sans', sans-serif",
-        fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
-        color: current ? '#f0d28a' : '#d8e0ed',
-        fontStyle: current ? 'bold' : 'normal',
+        fontSize: layout.compactHeight ? '11px' : layout.narrow ? '14px' : '17px',
+        color: current ? '#f0d28a' : '#d6e0ec',
+        fontStyle: 'bold',
       }).setOrigin(0, 0.5);
-      this.add.text(right, y, this.formatTime(row.timeMs), {
+      const time = this.add.text(right, y, this.formatTime(row.timeMs), {
         fontFamily: "'Balsamiq Sans', sans-serif",
-        fontSize: layout.compactHeight ? '10px' : layout.narrow ? '12px' : '15px',
-        color: current ? '#f0d28a' : '#a7b3c8',
+        fontSize: layout.compactHeight ? '11px' : layout.narrow ? '14px' : '17px',
+        color: current ? '#f0d28a' : '#e0e8f2',
         fontStyle: 'bold',
       }).setOrigin(1, 0.5);
+      const suffix = current ? currentSuffix : '';
+      const playerText = this.add.text(left + (layout.narrow ? 34 : 49), y,
+        `${name}${suffix}`, {
+          fontFamily: "'Balsamiq Sans', sans-serif",
+          fontSize: layout.compactHeight ? '11px' : layout.narrow ? '14px' : '17px',
+          color: current ? '#f0d28a' : '#e0e8f2',
+          fontStyle: current ? 'bold' : 'normal',
+        }).setOrigin(0, 0.5);
+      const playerMaxWidth = time.x - time.width - 14 - playerText.x;
+      if (playerText.width > playerMaxWidth && playerMaxWidth > 0) {
+        let visibleName = name;
+        while (visibleName.length > 1 && playerText.width > playerMaxWidth) {
+          visibleName = visibleName.slice(0, -1);
+          playerText.setText(`${visibleName}…${suffix}`);
+        }
+      }
     });
   }
 

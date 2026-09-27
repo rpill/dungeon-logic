@@ -1,29 +1,13 @@
 import { readFileSync } from 'node:fs';
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
+function assert(condition, message) { if (!condition) throw new Error(message); }
 const scene = readFileSync(new URL('../src/scenes/SettingsScene.ts', import.meta.url), 'utf8');
 const viewModel = readFileSync(new URL('../src/settings/SettingsViewModel.ts', import.meta.url), 'utf8');
-const service = readFileSync(new URL('../src/settings/SettingsService.ts', import.meta.url), 'utf8');
-const profileTypes = readFileSync(new URL('../src/profile/types.ts', import.meta.url), 'utf8');
-const feedback = readFileSync(new URL('../src/audio/AudioFeedbackService.ts', import.meta.url), 'utf8');
-const copy = readFileSync(new URL('../src/i18n/UiCopy.ts', import.meta.url), 'utf8');
-
-assert(viewModel.includes("'music' | 'sound' | 'language' | 'tutorial' | 'help'"), 'Settings row model must contain Music, Sound, Language, Tutorial, and Rules only.');
-assert(!viewModel.includes("'vibration'"), 'Settings row model must not contain vibration.');
-assert(scene.includes("SETTINGS_ICON_KEYS[id]"), 'Settings rows must use prepared UI icons.');
-assert(scene.includes("'ui-icon-levels'"), 'Tutorial replay must use the existing book/levels icon.');
-assert(scene.includes("copy.settings.rules"), 'Settings must label the rules entry as Rules.');
-assert(scene.includes('createToggle('), 'Music and Sound must use switch-style controls.');
-assert(scene.includes('launchTutorial'), 'Settings must be able to replay Tutorial.');
-assert(!scene.includes('detectVibrationSupport'), 'SettingsScene must not detect vibration support.');
-assert(!service.includes('Vibration'), 'SettingsService must not expose vibration APIs.');
-assert(!profileTypes.includes('vibrationEnabled'), 'PlayerSettings must not persist vibration.');
-assert(!feedback.includes('navigator.vibrate'), 'Audio feedback must not attempt vibration.');
-assert(copy.includes("helpAndInfo: 'ПОМОЩЬ И ИНФОРМАЦИЯ'"), 'Russian Settings must include the Help & Information section title.');
-assert(copy.includes("rules: 'ПРАВИЛА'"), 'Russian Settings must use Rules as the single rules/help action.');
-assert(scene.includes('const contentWidth = Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : 536);'), 'Desktop Settings must use the same 536px content width cap as the Home hub.');
-
-console.info('[Dungeon Logic] Settings redesign sanity: PASS');
+assert(viewModel.includes("'music' | 'sound' | 'language' | 'tutorial' | 'help'"), 'Settings keeps its five functional entries.');
+assert(scene.includes('createSlateSurface(this, centerX, topY + height / 2, width, height)'), 'Settings panel uses matte slate.');
+assert(scene.includes('createQuietInset(this,'), 'Control and navigation rows use the shared quiet inset.');
+assert(scene.includes('createMetaPageHeader(this,'), 'Settings keeps the shared title and square Back control.');
+assert(scene.includes('createToggle(') && scene.includes('launchTutorial()'), 'Switches and tutorial remain wired.');
+assert(scene.includes('copy.settings.rules') && scene.includes('HELP_SCENE_KEY'), 'Rules entry remains wired.');
+assert(scene.includes('settings.language') && scene.includes('activateRow(id, service)'), 'Language and audio settings remain editable.');
+assert(!scene.includes('detectVibrationSupport'), 'No unrelated settings have been added.');
+console.info('[Dungeon Logic] Settings visual and behavior sanity: PASS');

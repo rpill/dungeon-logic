@@ -14,12 +14,13 @@ import {
   PLAYER_PROFILE_SERVICE_REGISTRY_KEY,
   PlayerProfileService,
 } from '../profile/PlayerProfileService';
-import { createCenteredTextMenuButton } from '../runtime/HomeMenuButton';
+import { createMaterialActionButton } from '../runtime/MaterialActionButton';
 import { MASTERY_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { createSceneBackground } from '../runtime/SceneBackground';
-import { createUiPanel } from '../ui/UiPanel';
+import { createQuietInset } from '../runtime/QuietInset';
+import { createSlateSurface } from '../runtime/SlateSurface';
 
 export const MASTER_RATING_LEADERBOARD_SCENE_KEY = 'MasterRatingLeaderboardScene';
 
@@ -56,28 +57,48 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    const panelWidth = Math.min(this.scale.width - (narrow ? 28 : 64), 760);
+    const panelWidth = Math.min(this.scale.width - (narrow ? 28 : 64),
+      narrow ? 460 : Math.min(840, Math.max(680, this.scale.width * 0.52)));
     const panelTop = subtitleY + (compact ? 24 : 34);
-    const panelHeight = Math.max(220, Math.min(compact ? 285 : 520, this.scale.height - panelTop - 18));
-    createUiPanel(this, {
+    const panelHeight = Math.max(220, Math.min(compact ? 285 : narrow ? 490 : 500, this.scale.height - panelTop - 18));
+    createSlateSurface(this, this.scale.width / 2, panelTop + panelHeight / 2,
+      panelWidth, panelHeight);
+    const summaryY = panelTop + (compact ? 43 : 55);
+    createQuietInset(this, {
       x: this.scale.width / 2,
-      y: panelTop + panelHeight / 2,
-      width: panelWidth,
-      height: panelHeight,
-      variant: 'wide',
-      alpha: 0.985,
-    }).setDepth(0);
+      y: summaryY,
+      width: panelWidth - (narrow ? 30 : 48),
+      height: compact ? 62 : 76,
+      borderAlpha: 0.38,
+    });
 
-    const status = this.add.text(this.scale.width / 2, panelTop + 34, copy.common.loading, {
+    const status = this.add.text(this.scale.width / 2, summaryY,
+      copy.masterRatingLeaderboard.yourRating(formatMasterRating(profile.mastery.rating, profile.settings.language)), {
       fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: narrow ? '12px' : '15px',
+      fontSize: narrow ? '14px' : '19px',
       color: '#c6d2e6',
       align: 'center',
       wordWrap: { width: panelWidth - 50 },
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5).setDepth(2);
+    const loadingY = panelTop + panelHeight * 0.56;
+    const loadingSurface = createQuietInset(this, {
+      x: this.scale.width / 2,
+      y: loadingY,
+      width: panelWidth - (narrow ? 30 : 48),
+      height: 70,
+      borderAlpha: 0.28,
+    });
+    const loadingText = this.add.text(this.scale.width / 2, loadingY, copy.common.loading, {
+      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontSize: narrow ? '13px' : '16px',
+      color: '#d2dce9',
+    }).setOrigin(0.5).setDepth(2);
 
     const version = ++this.renderVersion;
-    void this.renderTable(version, panelTop, panelWidth, panelHeight, status);
+    void this.renderTable(version, panelTop, panelWidth, panelHeight, status, () => {
+      loadingSurface.destroy();
+      loadingText.destroy();
+    });
 
     const handleResize = (): void => {
       background.sync();
@@ -95,6 +116,7 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
     panelWidth: number,
     panelHeight: number,
     status: Phaser.GameObjects.Text,
+    clearLoading: () => void,
   ): Promise<void> {
     const profileService = this.getProfileService();
     const profile = profileService.getProfile();
@@ -103,25 +125,29 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
     const isMaster = getMasterySnapshot(profile).currentRank === 'MASTER';
 
     if (!isMaster) {
+      clearLoading();
       status.setText(copy.masterRatingLeaderboard.noEntry);
       return;
     }
     if (services.kind === 'local') {
-      status.setText(copy.leaderboard.localUnavailable);
+      clearLoading();
+      status.setText(copy.masterRatingLeaderboard.yourRating(formatMasterRating(profile.mastery.rating, profile.settings.language)));
+      this.renderEmptyStatus(panelTop, panelWidth, panelHeight, copy.leaderboard.localUnavailable);
       return;
     }
 
     const authorized = await services.leaderboards.isAuthorized();
     if (!this.isCurrent(version)) return;
     if (!authorized) {
+      clearLoading();
       status.setText(copy.masterRatingLeaderboard.signInBody);
-      const button = createCenteredTextMenuButton(this, {
+      const button = createMaterialActionButton(this, {
         x: this.scale.width / 2,
-        y: Math.min(panelTop + panelHeight - 50, panelTop + 120),
+        y: panelTop + panelHeight * 0.56,
         width: Math.min(320, panelWidth - 60),
-        height: 72,
+        height: 58,
         label: copy.leaderboard.signIn,
-        labelColor: '#f4ead7',
+        variant: 'secondary',
         onActivate: () => {
           void services.leaderboards.requestAuthorization().then((ok) => {
             if (!ok || !this.isCurrent(version)) return;
@@ -129,9 +155,8 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
           });
         },
       });
-      button.fill.setDepth(20);
-      button.frame.setDepth(21);
-      button.label.setDepth(22);
+      button.surface.setDepth(20);
+      button.label.setDepth(21);
       return;
     }
 
@@ -143,48 +168,98 @@ export class MasterRatingLeaderboardScene extends Phaser.Scene {
       includeUser: true,
     });
     if (!this.isCurrent(version)) return;
+    clearLoading();
     if (snapshot === null) {
-      status.setText(copy.leaderboard.unavailable);
+      status.setText(copy.masterRatingLeaderboard.yourRating(formatMasterRating(profile.mastery.rating, profile.settings.language)));
+      this.renderEmptyStatus(panelTop, panelWidth, panelHeight, copy.leaderboard.unavailable);
       return;
     }
 
-    status.setVisible(false);
     const current = snapshot.currentPlayer;
     const summary = current === null
       ? copy.masterRatingLeaderboard.yourRating(formatMasterRating(profile.mastery.rating, profile.settings.language))
       : `${copy.masterRatingLeaderboard.yourRating(formatMasterRating(current.score, profile.settings.language))} · ${copy.masterRatingLeaderboard.yourPlace(current.place)}`;
-    this.add.text(this.scale.width / 2, panelTop + 28, summary, {
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: this.scale.width < 700 ? '13px' : '17px',
-      color: '#f0bd63',
-      fontStyle: 'bold',
-      align: 'center',
-    }).setOrigin(0.5, 0);
+    status.setText(summary).setColor(current === null ? '#e2e9f2' : '#e8be72');
 
     const rows = [...snapshot.entries];
     if (current !== null && !rows.some((entry) => entry.isCurrentPlayer)) rows.push(current);
     rows.sort((left, right) => left.place - right.place);
     const uniqueRows = rows.filter((entry, index, all) => all.findIndex((candidate) => candidate.place === entry.place && candidate.publicName === entry.publicName) === index);
-    const rowGap = this.scale.height < 520 ? 20 : 30;
-    const startY = panelTop + (this.scale.height < 520 ? 72 : 84);
-    const maxRows = Math.max(1, Math.floor((panelHeight - (startY - panelTop) - 18) / rowGap));
-    uniqueRows.slice(0, maxRows).forEach((entry, index) => this.renderRow(entry, startY + index * rowGap, panelWidth, profile.settings.language));
+    const startY = panelTop + (this.scale.height < 520 ? 108 : 140);
+    if (uniqueRows.length === 0) {
+      this.renderEmptyStatus(panelTop, panelWidth, panelHeight, copy.leaderboard.noEntries);
+      return;
+    }
+    const baseGap = this.scale.height < 520 ? 28 : this.scale.width < 700 ? 46 : 50;
+    const topRows = uniqueRows.slice(0, 10);
+    const ownRow = uniqueRows.find((entry) => entry.isCurrentPlayer);
+    const visibleRows = ownRow !== undefined && !topRows.includes(ownRow)
+      ? [...topRows.slice(0, 9), ownRow]
+      : topRows;
+    const available = panelTop + panelHeight - startY - (this.scale.height < 520 ? 20 : 34);
+    const rowGap = visibleRows.length > 1 ? Math.min(baseGap, available / (visibleRows.length - 1)) : baseGap;
+    visibleRows.forEach((entry, index) => this.renderRow(
+      entry, startY + index * rowGap, panelWidth, rowGap, profile.settings.language,
+    ));
   }
 
-  private renderRow(entry: LeaderboardPlayerView, y: number, panelWidth: number, language: 'ru' | 'en'): void {
-    const left = this.scale.width / 2 - panelWidth / 2 + 24;
-    const right = this.scale.width / 2 + panelWidth / 2 - 24;
-    const color = entry.isCurrentPlayer ? '#fff0c1' : '#d8e2f2';
+  private renderEmptyStatus(panelTop: number, panelWidth: number, panelHeight: number, message: string): void {
+    const narrow = this.scale.width < 700;
+    const messageY = panelTop + panelHeight * 0.56;
+    createQuietInset(this, {
+      x: this.scale.width / 2,
+      y: messageY,
+      width: panelWidth - (narrow ? 30 : 48),
+      height: 70,
+      borderAlpha: 0.28,
+    });
+    this.add.text(this.scale.width / 2, messageY, message, {
+      fontFamily: "'Balsamiq Sans', sans-serif",
+      fontSize: narrow ? '13px' : '16px',
+      color: '#d2dce9',
+      align: 'center',
+      wordWrap: { width: panelWidth - 64 },
+    }).setOrigin(0.5);
+  }
+
+  private renderRow(entry: LeaderboardPlayerView, y: number, panelWidth: number, rowGap: number, language: 'ru' | 'en'): void {
+    const narrow = this.scale.width < 700;
+    const left = this.scale.width / 2 - panelWidth / 2 + (narrow ? 26 : 40);
+    const right = this.scale.width / 2 + panelWidth / 2 - (narrow ? 26 : 40);
+    const color = entry.isCurrentPlayer ? '#f0d28a' : '#e0e8f2';
+    createQuietInset(this, {
+      x: this.scale.width / 2,
+      y,
+      width: right - left + (narrow ? 20 : 28),
+      height: Math.max(22, rowGap - 5),
+      radius: 7,
+      fillAlpha: entry.isCurrentPlayer ? 0.94 : 0.72,
+      borderAlpha: entry.isCurrentPlayer ? 0.62 : 0.18,
+    });
+    if (entry.isCurrentPlayer) {
+      const marker = this.add.graphics();
+      marker.lineStyle(2, 0xd9ae63, 0.9);
+      marker.lineBetween(left - 10, y - rowGap * 0.25, left - 10, y + rowGap * 0.25);
+    }
     this.add.text(left, y, `#${entry.place}`, {
-      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: this.scale.width < 700 ? '11px' : '14px', color, fontStyle: 'bold',
+      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: narrow ? '14px' : '17px', color, fontStyle: 'bold',
     }).setOrigin(0, 0.5);
     const name = entry.publicName.trim().length > 0 ? entry.publicName : getUiCopy(language).leaderboard.playerFallback;
-    this.add.text(left + 62, y, name, {
-      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: this.scale.width < 700 ? '11px' : '14px', color,
-    }).setOrigin(0, 0.5);
-    this.add.text(right, y, formatMasterRating(entry.score, language), {
-      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: this.scale.width < 700 ? '12px' : '15px', color: entry.isCurrentPlayer ? '#f0bd63' : '#f4ead7', fontStyle: 'bold',
+    const score = this.add.text(right, y, formatMasterRating(entry.score, language), {
+      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: narrow ? '14px' : '17px', color, fontStyle: 'bold',
     }).setOrigin(1, 0.5);
+    const player = this.add.text(left + (narrow ? 34 : 49), y, name, {
+      fontFamily: "'Balsamiq Sans', sans-serif", fontSize: narrow ? '14px' : '17px', color,
+      fontStyle: entry.isCurrentPlayer ? 'bold' : 'normal',
+    }).setOrigin(0, 0.5);
+    const maxNameWidth = score.x - score.width - 14 - player.x;
+    if (player.width > maxNameWidth && maxNameWidth > 0) {
+      let visible = name;
+      while (visible.length > 1 && player.width > maxNameWidth) {
+        visible = visible.slice(0, -1);
+        player.setText(`${visible}…`);
+      }
+    }
   }
 
   private isCurrent(version: number): boolean {

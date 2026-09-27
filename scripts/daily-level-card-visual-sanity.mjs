@@ -21,9 +21,8 @@ assert(scene.includes('const hoverOverlay = this.drawRoundedDailyOverlay('), 'Da
 assert(scene.includes("if (day.state === 'future')"), 'Future entries must have an explicit locked-card branch.');
 assert(scene.includes("if (day.state === 'unavailable')"), 'Unavailable calendar days must have an explicit empty-cell branch.');
 assert(!scene.includes("this.add.text(x, cellY, '?',"), 'Daily cards must not use text question marks anymore.');
-assert(layout.includes('columnGap: 10'), 'Regular Daily calendar needs wider horizontal spacing.');
-assert(layout.includes('rowGap: 8'), 'Regular Daily calendar needs wider vertical spacing.');
-assert(layout.includes('columnGap: 9'), 'Medium Daily calendar needs wider horizontal spacing.');
-assert(layout.includes('rowGap: 6'), 'Medium Daily calendar needs wider vertical spacing.');
+assert(layout.includes('largeDesktop ? 10 : 8'), 'Desktop calendar must use responsive horizontal spacing.');
+assert(layout.includes('narrow ? 5 : compact ? 6 : 8'), 'Calendar row spacing must adapt to phone and desktop.');
+assert(scene.includes('const numberY = cellY - layout.cellSize / 2'), 'Day number belongs inside its cell.');
 
 console.info('[Dungeon Logic] Daily card visual sanity: campaign-style states + spacing passed');

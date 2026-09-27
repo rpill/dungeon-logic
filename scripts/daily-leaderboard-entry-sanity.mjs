@@ -14,7 +14,7 @@ assert(!daily.includes('copy.dailyHub.archiveProgress('), 'Daily calendar must n
 assert(!daily.includes("solved ? copy.dailyHub.leaderboard : copy.dailyHub.playToday"), 'Leaderboard must not replace Play Today after solving.');
 assert(daily.includes("copy.dailyHub.playToday"), 'Today card must keep an explicit Play Today action.');
 assert(daily.includes("copy.dailyHub.leaderboard"), 'Today card must expose an explicit Leaderboard action.');
-assert(copy.includes("todayUnsolved: 'Первое прохождение без подсказок попадёт в таблицу лидеров.'"), 'Russian Today copy must name the leaderboard explicitly.');
+assert(copy.includes("todayUnsolved: 'Сегодняшний Daily ещё не решён.'"), 'Russian Today status must clearly distinguish unsolved from replay.');
 assert(copy.includes("dailyHintOutsideRating: 'Подсказка поможет пройти Daily, но результат не попадёт в таблицу лидеров.'"), 'Russian hint copy must use leaderboard terminology.');
 
 console.info('[Dungeon Logic] Daily leaderboard entry sanity: permanent leaderboard action + unambiguous copy passed');

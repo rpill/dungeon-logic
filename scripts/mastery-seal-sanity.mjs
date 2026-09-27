@@ -37,11 +37,10 @@ for (const [rank, key] of [
   assert(component.includes(`${rank}: '${key}'`), `Rank ${rank} must have its own texture key.`);
 }
 
-assert(component.includes("I: 'assets/ui/mastery_seal_stone.webp'"), 'Rank I fallback must use the stone seal.');
-assert(component.includes("II: 'assets/ui/mastery_seal_gold.webp'"), 'Rank II fallback must use the warm gold seal from the concept.');
-assert(component.includes("VIII: 'assets/ui/mastery_seal_gold.webp'"), 'Rank VIII fallback must use the gold seal.');
-assert(component.includes("MASTER: 'assets/ui/mastery_seal_master.webp'"), 'MASTER must use the dedicated master seal.');
-assert(component.includes('MASTERY_SEAL_KEYS[options.rank]'), 'Seal rendering must resolve the texture directly by rank.');
+for (const rank of ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'master']) {
+  assert(component.includes(`assets/ui/mastery_seal_rank_${rank}.webp`), `Rank ${rank} must load its individual emblem.`);
+}
+assert(component.includes('resolveTextureKey(options.rank, textureVariant)'), 'Seal rendering must resolve the texture directly by rank.');
 assert(component.includes('showRankPlaque?: boolean'), 'Mastery seal must support plaque-free small rank-path icons.');
 assert(component.includes('MASTER'), 'Mastery seal component must render rank plaque text dynamically.');
 

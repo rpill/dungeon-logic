@@ -28,19 +28,19 @@ for (const file of foundationFiles) {
 const home = read('src/scenes/HomeScene.ts');
 assert(home.includes("from '../ui/UiTheme'"), 'Home must use the shared theme.');
 assert(home.includes("from '../ui/UiDensity'"), 'Home must use shared density.');
-assert(home.includes("from '../ui/UiButton'"), 'Home must use shared buttons.');
-assert(home.includes("from '../ui/UiProgressBar'"), 'Home must use shared progress bars.');
+assert(home.includes('createPrimaryActionButton'), 'Home must use the shared illustrated primary button.');
+assert(home.includes('createMasteryStrip'), 'Home must use the shared mastery summary.');
 
 const mastery = read('src/scenes/MasteryScene.ts');
 assert(mastery.includes("from '../ui/UiSceneHeader'"), 'Mastery must use the shared scene header.');
-assert(mastery.includes("from '../ui/UiPanel'"), 'Mastery must use shared panels.');
-assert(mastery.includes("from '../ui/UiInsetRow'"), 'Mastery must use shared inset rows.');
+assert(mastery.includes('createMasteryRequirementPanel'), 'Mastery must use the common monolithic shell.');
+assert(mastery.includes('createMasteryRequirementRowPanel'), 'Mastery must use illustrated stone requirement rows.');
 assert(mastery.includes("from '../ui/UiProgressBar'"), 'Mastery must use shared progress bars.');
 
 const gameplayHeader = read('src/runtime/PuzzleHeaderUiAssets.ts');
 assert(
-  gameplayHeader.includes("from '../ui/UiPanel'") && gameplayHeader.includes("from '../ui/UiInsetRow'"),
-  'Gameplay header must delegate to shared panel/inset surfaces.',
+  gameplayHeader.includes('createSlateSurface') && gameplayHeader.includes('createQuietInset'),
+  'Gameplay header must use the shared slate surface and quiet status inset.',
 );
 
 const pilotFontFiles = [

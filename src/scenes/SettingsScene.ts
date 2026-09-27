@@ -10,10 +10,12 @@ import {
 } from '../profile/PlayerProfileService';
 import { calculateAvailableViewport, readCssSafeAreaInsets } from '../runtime/AvailableViewport';
 import { createTutorialGameSceneData } from '../runtime/GameLaunch';
-import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement, getHeaderBackButtonPresentation } from '../runtime/HeaderActionButton';
 import { HOME_SCENE_KEY, SETTINGS_SCENE_KEY } from '../runtime/MetaSelectors';
+import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createSceneBackground } from '../runtime/SceneBackground';
+import { createQuietInset } from '../runtime/QuietInset';
+import { createSlateSurface } from '../runtime/SlateSurface';
 import { SettingsService, type SupportedLanguage } from '../settings/SettingsService';
 import type { SettingsRowId } from '../settings/SettingsViewModel';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
@@ -70,29 +72,15 @@ export class SettingsScene extends Phaser.Scene {
     const viewportHeight = availableViewport.height;
     const narrow = viewportWidth < 700;
     const dense = viewportHeight < (narrow ? 760 : 680);
-    const contentWidth = Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : 536);
+    const contentWidth = Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : Math.min(660, viewportWidth * 0.42));
     const centerX = availableViewport.centerX;
 
-    const headerActionMetrics = getHeaderActionButtonMetrics(narrow);
-    const backPresentation = getHeaderBackButtonPresentation(narrow, copy.common.back);
-    const backPlacement = getHeaderActionPlacement(
-      availableViewport,
-      'left',
-      backPresentation.width,
-      headerActionMetrics.height,
-    );
-    createHeaderActionButton(this, {
-      x: backPlacement.x,
-      y: backPlacement.y,
-      width: backPresentation.width,
-      height: headerActionMetrics.height,
-      radius: headerActionMetrics.radius,
-      iconKey: 'ui-icon-back',
-      iconSize: headerActionMetrics.iconSize,
-      label: backPresentation.label,
-      fontSize: headerActionMetrics.fontSize,
-      gap: headerActionMetrics.gap,
-      onActivate: (pointer) => {
+    const header = createMetaPageHeader(this, {
+      title: copy.settings.title,
+      backLabel: copy.common.back,
+      backButton: true,
+      viewport: availableViewport,
+      onBack: (pointer) => {
         if (!this.canActivate(pointer)) return;
         if (this.returnSceneKey === 'GameScene') {
           this.time.delayedCall(0, () => {
@@ -114,15 +102,8 @@ export class SettingsScene extends Phaser.Scene {
       },
     });
 
-    const titleY = availableViewport.y + (dense ? (narrow ? 88 : 70) : (narrow ? 108 : 84));
-    this.add.text(centerX, titleY, copy.settings.title, {
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: dense ? (narrow ? '28px' : '32px') : (narrow ? '32px' : '38px'),
-      color: '#fff4df',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    const controlsTop = titleY + (dense ? 46 : 58);
+    const desktopCenterOffset = narrow ? 0 : Math.min(110, Math.max(0, (viewportHeight - 800) * 0.4));
+    const controlsTop = header.metrics.titleY + (dense ? 50 : 62) + desktopCenterOffset;
     const controlRowHeight = dense ? (narrow ? 52 : 56) : (narrow ? 60 : 64);
     const controlGap = dense ? 6 : 8;
     const panelPadding = dense ? 8 : 10;
@@ -192,11 +173,7 @@ export class SettingsScene extends Phaser.Scene {
     padding: number,
     narrow: boolean,
   ): void {
-    const panel = this.add.graphics();
-    panel.fillStyle(0x152642, 0.96);
-    panel.fillRoundedRect(centerX - width / 2, topY, width, height, narrow ? 15 : 17);
-    panel.lineStyle(2, 0x587294, 0.92);
-    panel.strokeRoundedRect(centerX - width / 2, topY, width, height, narrow ? 15 : 17);
+    createSlateSurface(this, centerX, topY + height / 2, width, height);
 
     const settings = service.getSettings();
     const copy = getUiCopy(settings.language);
@@ -218,23 +195,24 @@ export class SettingsScene extends Phaser.Scene {
     narrow: boolean,
     service: SettingsService,
   ): void {
-    const background = this.add.graphics();
     const radius = narrow ? 10 : 11;
-    const draw = (fill: number): void => {
-      background.clear();
-      background.fillStyle(fill, 0.96);
-      background.fillRoundedRect(centerX - width / 2, y - height / 2, width, height, radius);
-      background.lineStyle(1.5, 0x365272, 0.9);
-      background.strokeRoundedRect(centerX - width / 2, y - height / 2, width, height, radius);
+    createQuietInset(this, { x: centerX, y, width, height, radius, fillAlpha: 0.94, borderAlpha: 0.24 });
+    const overlay = this.add.graphics();
+    const draw = (alpha: number): void => {
+      overlay.clear();
+      if (alpha > 0) {
+        overlay.fillStyle(0xb3c4dd, alpha);
+        overlay.fillRoundedRect(centerX - width / 2, y - height / 2, width, height, radius);
+      }
     };
-    draw(0x1b3152);
+    draw(0);
 
     const left = centerX - width / 2;
     const right = centerX + width / 2;
     const iconSize = narrow ? 28 : 32;
     this.add.image(left + (narrow ? 30 : 36), y, SETTINGS_ICON_KEYS[id])
       .setDisplaySize(iconSize, iconSize)
-      .setTint(0xf4c35d);
+      .setTint(0xd8bd81);
     this.add.text(left + (narrow ? 56 : 66), y, label, {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '16px' : '19px',
@@ -248,7 +226,7 @@ export class SettingsScene extends Phaser.Scene {
       const valueText = this.add.text(right - (narrow ? 28 : 34), y, `${value}  ›`, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: narrow ? '13px' : '15px',
-        color: '#f4c35d',
+        color: '#e4c583',
         fontStyle: 'bold',
       }).setOrigin(1, 0.5);
       void valueText;
@@ -260,14 +238,14 @@ export class SettingsScene extends Phaser.Scene {
     const hit = this.add.zone(centerX, y, width, height).setInteractive({ useHandCursor: true });
     hit.on('pointerover', () => {
       if (this.mutationPending || this.launchPending) return;
-      draw(0x254264);
+      draw(0.1);
     });
-    hit.on('pointerout', () => draw(0x1b3152));
+    hit.on('pointerout', () => draw(0));
     hit.on('pointerdown', () => {
-      if (!this.mutationPending && !this.launchPending) draw(0x142842);
+      if (!this.mutationPending && !this.launchPending) draw(0.18);
     });
     hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      draw(0x254264);
+      draw(0.1);
       if (!this.canActivate(pointer)) return;
       getAudioFeedback(this).play('ui-click');
       void this.activateRow(id, service);
@@ -279,13 +257,13 @@ export class SettingsScene extends Phaser.Scene {
     const height = narrow ? 30 : 32;
     const radius = height / 2;
     const track = this.add.graphics();
-    track.fillStyle(enabled ? 0xf0b84f : 0x4a5870, 1);
+    track.fillStyle(enabled ? 0xb78b3e : 0x39495f, 1);
     track.fillRoundedRect(x - width / 2, y - height / 2, width, height, radius);
-    track.lineStyle(1.5, enabled ? 0xffd36e : 0x65738a, 1);
+    track.lineStyle(1.5, enabled ? 0xe7c57a : 0x8695a8, 0.9);
     track.strokeRoundedRect(x - width / 2, y - height / 2, width, height, radius);
     const knobRadius = height * 0.37;
     const knobX = x + (enabled ? 1 : -1) * (width / 2 - height / 2);
-    this.add.circle(knobX, y, knobRadius, enabled ? 0xfff3d2 : 0xc4cad4, 1);
+    this.add.circle(knobX, y, knobRadius, enabled ? 0xffe4a3 : 0xc4cad4, 1);
   }
 
   private createSectionDivider(label: string, centerX: number, y: number, width: number, narrow: boolean): void {
@@ -313,23 +291,24 @@ export class SettingsScene extends Phaser.Scene {
     narrow: boolean,
     onActivate: () => void,
   ): void {
-    const background = this.add.graphics();
     const radius = narrow ? 12 : 13;
-    const draw = (fill: number): void => {
-      background.clear();
-      background.fillStyle(fill, 0.97);
-      background.fillRoundedRect(centerX - width / 2, y - height / 2, width, height, radius);
-      background.lineStyle(2, 0x526b8f, 0.95);
-      background.strokeRoundedRect(centerX - width / 2, y - height / 2, width, height, radius);
+    createQuietInset(this, { x: centerX, y, width, height, radius, fillAlpha: 0.94, borderAlpha: 0.32 });
+    const overlay = this.add.graphics();
+    const draw = (alpha: number): void => {
+      overlay.clear();
+      if (alpha > 0) {
+        overlay.fillStyle(0xb3c4dd, alpha);
+        overlay.fillRoundedRect(centerX - width / 2, y - height / 2, width, height, radius);
+      }
     };
-    draw(0x1a2f50);
+    draw(0);
 
     const left = centerX - width / 2;
     const right = centerX + width / 2;
     const iconSize = narrow ? 30 : 34;
     this.add.image(left + (narrow ? 34 : 40), y, SETTINGS_ICON_KEYS[id])
       .setDisplaySize(iconSize, iconSize)
-      .setTint(0xffe19a);
+      .setTint(0xd8bd81);
     this.add.text(left + (narrow ? 64 : 76), y, label, {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '16px' : '19px',
@@ -339,21 +318,21 @@ export class SettingsScene extends Phaser.Scene {
     this.add.text(right - (narrow ? 24 : 28), y - 1, '›', {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: narrow ? '30px' : '34px',
-      color: '#f4c35d',
+      color: '#d8bd81',
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
     const hit = this.add.zone(centerX, y, width, height).setInteractive({ useHandCursor: true });
     hit.on('pointerover', () => {
       if (this.mutationPending || this.launchPending) return;
-      draw(0x254264);
+      draw(0.1);
     });
-    hit.on('pointerout', () => draw(0x1a2f50));
+    hit.on('pointerout', () => draw(0));
     hit.on('pointerdown', () => {
-      if (!this.mutationPending && !this.launchPending) draw(0x142842);
+      if (!this.mutationPending && !this.launchPending) draw(0.18);
     });
     hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      draw(0x254264);
+      draw(0.1);
       if (!this.canActivate(pointer)) return;
       getAudioFeedback(this).play('ui-click');
       onActivate();

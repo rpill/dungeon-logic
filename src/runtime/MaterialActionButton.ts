@@ -13,17 +13,16 @@ export const MATERIAL_BUTTON_KEYS: Record<MaterialButtonVariant, string> = {
 };
 
 
-// These values intentionally mirror the approved yellow primary CTA so all
-// button families keep identical end caps, bevel proportions and rivet shape.
+// All three matte stone skins use the same visible height and end-cap geometry.
 export const MATERIAL_BUTTON_SLICE_X = 56;
 export const MATERIAL_BUTTON_FRAME = 'button-body-full';
 export const MATERIAL_BUTTON_VISIBLE_FRAME_Y: Record<MaterialButtonVariant, number> = {
-  secondary: 14,
-  danger: 2,
+  secondary: 0,
+  danger: 0,
 };
 export const MATERIAL_BUTTON_VISIBLE_FRAME_HEIGHT: Record<MaterialButtonVariant, number> = {
-  secondary: 114,
-  danger: 126,
+  secondary: 128,
+  danger: 128,
 };
 export function getMaterialButtonContentY(y: number, _height: number): number {
   return y;
@@ -63,8 +62,8 @@ const GRAPHICS_PALETTES = {
 } as const;
 
 export function preloadMaterialActionButtonAssets(scene: Phaser.Scene): void {
-  scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/secondary_button_normal.webp');
-  scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/danger_button_normal.webp');
+  scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/action_slate_m1.png');
+  scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/action_red_m1.png');
 }
 
 

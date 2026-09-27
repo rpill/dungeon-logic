@@ -1,14 +1,17 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs';
+import { calculateDailyHubLayout } from '../src/runtime/DailyHubLayout.ts';
+
+const scene = readFileSync(new URL('../src/scenes/DailyScene.ts', import.meta.url), 'utf8');
 function assert(condition, message) { if (!condition) throw new Error(message); }
-const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const scene = readFileSync(resolve(root, 'src/scenes/DailyScene.ts'), 'utf8');
-const layout = readFileSync(resolve(root, 'src/runtime/DailyHubLayout.ts'), 'utf8');
-assert(scene.includes("createHomeHubModeCard(this, {"), 'Daily top plaque must use a real card asset.');
-assert(!scene.includes('copy.dailyHub.todayTitle'), 'Daily screen must not render the TODAY heading above the plaque.');
-assert(!scene.includes('copy.dailyHub.archiveTitle'), 'Daily screen must not render the CALENDAR heading above the grid.');
-assert(scene.includes("const leftTextInset = density === 'ultra' ? 0 : narrow ? 0 : density === 'tight' ? 10 : 14;"), 'Daily top plaque must offset text away from the left bolt/border.');
-assert(layout.includes('todayCardTop: 132,') && layout.includes('todayHeight: 126,'), 'Desktop daily plaque must be larger and higher.');
-assert(layout.includes('monthHeaderY: 296,') && layout.includes('gridTopY: 346,'), 'Calendar block must move upward after removing the extra heading.');
-console.info('[Dungeon Logic] Daily top panel sanity: PASS');
+
+assert(scene.includes('createSlateSurface(this, centerX, todayCardCenterY, width, todayHeight)'), 'Daily status uses the shared scalable slate surface.');
+assert(!scene.includes('createHomeHubModeCard'), 'Daily must not reuse the old glossy Home card.');
+assert(scene.includes('createTodayActionButton({') && scene.includes('accentFrame: solved'), 'Play and Leaderboard remain separate actions with solved hierarchy.');
+assert(scene.includes('createQuietInset(this'), 'Loading uses placeholders in the same page composition.');
+for (const [w, h] of [[1920, 1080], [1366, 768], [390, 844], [412, 915]]) {
+  const layout = calculateDailyHubLayout(w, h, 6);
+  assert(layout.todayCardTop > layout.headerHeight, `${w}x${h}: summary stays below header.`);
+  assert(layout.gridTopY > layout.monthHeaderY, `${w}x${h}: calendar follows month controls.`);
+  assert(layout.contentBottom <= h, `${w}x${h}: six-row calendar fits the viewport.`);
+}
+console.info('[Dungeon Logic] Daily top panel sanity: matte summary, separate actions, stable loading, responsive calendar passed');

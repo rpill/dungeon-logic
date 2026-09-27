@@ -30,6 +30,7 @@ import { createHeaderActionButton } from '../runtime/HeaderActionButton';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { createMasteryProgressBar } from '../runtime/MasteryProgressBar';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { createSlateSurface } from '../runtime/SlateSurface';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import {
@@ -55,7 +56,7 @@ const STATE_COLOR = {
   completed: '#73d0bd',
   current: '#f0bd63',
   unlocked: '#f4ead7',
-  locked: '#7f8ba2',
+  locked: '#a2adc0',
 } as const;
 
 const STATE_FILL = {
@@ -74,8 +75,8 @@ const INNER_FILL = {
 
 const PROGRESS_FILL = 0xf0bd63;
 const SECTION_LINE_COLOR = 0xf0bd63;
-const SCROLLBAR_TRACK_FILL = 0x29466f;
-const SCROLLBAR_THUMB_FILL = 0xf0bd63;
+const SCROLLBAR_TRACK_FILL = 0x1d2c44;
+const SCROLLBAR_THUMB_FILL = 0xc89d50;
 const SCROLLBAR_THUMB_MAX_RATIO = 0.36;
 const SCROLLBAR_HIT_WIDTH = 30;
 const WHEEL_SCROLL_SCALE = 0.32;
@@ -277,34 +278,31 @@ export class LevelSelectScene extends Phaser.Scene {
       const strokeColor = Phaser.Display.Color.HexStringToColor(color).color;
 
       if (visualState === 'current') {
-        this.drawCurrentGlow(cardLayout, strokeColor);
+        this.drawCurrentGlow(cardLayout, strokeColor).setAlpha(0.22);
       }
 
-      this.drawRoundedCardShape(
-        cardLayout.x,
-        cardLayout.y + 3,
-        cardLayout.width,
-        cardLayout.height,
-        0x040912,
-        visualState === 'locked' ? 0.16 : 0.22,
-        0x000000,
-        0,
-        0,
-        CARD_RADIUS,
-      );
-
-      this.drawRoundedCardShape(
+      const surface = createSlateSurface(
+        this,
         cardLayout.x,
         cardLayout.y,
         cardLayout.width,
         cardLayout.height,
-        cardTone.color,
-        cardTone.alpha,
-        strokeColor,
-        visualState === 'locked' ? 0.72 : 0.96,
-        visualState === 'current' ? 3 : 2.5,
-        CARD_RADIUS,
       );
+      if (visualState === 'locked') surface.setTint(0x9199a6);
+      if (visualState === 'current') {
+        this.drawRoundedCardShape(
+          cardLayout.x,
+          cardLayout.y,
+          cardLayout.width - 2,
+          cardLayout.height - 2,
+          cardTone.color,
+          0,
+          strokeColor,
+          0.82,
+          2,
+          CARD_RADIUS,
+        );
+      }
 
       this.drawLevelPreview(item.entry, preview, cardLayout, visualState);
       this.drawLevelStateMarkers(visualState, cardLayout);
@@ -466,8 +464,8 @@ export class LevelSelectScene extends Phaser.Scene {
       this.drawRoundedCardShape(
         cardLayout.x,
         cardLayout.y,
-        Math.max(1, cardLayout.width - 6),
-        Math.max(1, cardLayout.height - 6),
+        Math.max(1, cardLayout.width - 14),
+        Math.max(1, cardLayout.height - 14),
         innerTone.color,
         innerTone.alpha,
         0x000000,
@@ -1330,9 +1328,13 @@ export class LevelSelectScene extends Phaser.Scene {
     const availableViewport = this.getAvailableViewport();
     const trackBottom = availableViewport.bottom - viewportInset;
     const trackHeight = Math.max(72, trackBottom - trackTop);
-    const trackWidth = 7;
-    const thumbWidth = 10;
-    const x = availableViewport.right - 15;
+    const trackWidth = 5;
+    const thumbWidth = 7;
+    const gridRight = layout.cards.reduce(
+      (right, card) => Math.max(right, card.x + card.width / 2),
+      availableViewport.centerX,
+    );
+    const x = Math.min(availableViewport.right - 15, gridRight + 24);
     const totalScrollableHeight = this.scrollMaxY + availableViewport.height;
     const naturalThumbHeight = Math.round(trackHeight * (availableViewport.height / totalScrollableHeight));
     const maxThumbHeight = Math.max(32, Math.round(trackHeight * SCROLLBAR_THUMB_MAX_RATIO));
@@ -1344,9 +1346,9 @@ export class LevelSelectScene extends Phaser.Scene {
       trackWidth,
       trackHeight,
       SCROLLBAR_TRACK_FILL,
-      0.68,
-      0x5876a8,
-      0.34,
+      0.78,
+      0x64758b,
+      0.28,
     ).setScrollFactor(0).setDepth(2000);
 
     const thumbVisual = this.createScrollbarCapsule(
@@ -1355,9 +1357,9 @@ export class LevelSelectScene extends Phaser.Scene {
       thumbWidth,
       thumbHeight,
       SCROLLBAR_THUMB_FILL,
-      0.98,
-      0xffe29b,
-      0.42,
+      0.94,
+      0xe2c488,
+      0.28,
     ).setScrollFactor(0).setDepth(2002);
 
     const trackHitArea = this.add.zone(

@@ -2,7 +2,7 @@ import type { CampaignLevelEntry } from '../content/campaign/types';
 import { isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import { CellState, type GridPosition } from '../puzzle/types';
 import type { SerializedPuzzleState } from '../profile/types';
-export { mergePreviewWallCells } from '../view/LevelThumbnailRenderer';
+export { mergePreviewWallCells } from './PreviewWallGeometry';
 
 export type CampaignLevelPreviewStatus = 'unstarted' | 'started' | 'completed';
 

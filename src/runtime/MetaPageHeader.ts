@@ -29,11 +29,12 @@ function fitTitleBetweenBackAndRightEdge(
   backRight: number,
   backY: number,
 ): void {
-  if (Math.abs(metrics.titleY - backY) >= 28) return;
-  const symmetricInset = Math.max(backRight - viewport.x + 12, 18);
+  const sharesBackRow = Math.abs(metrics.titleY - backY) < 28;
+  const symmetricInset = sharesBackRow ? Math.max(backRight - viewport.x + 12, 18) : 18;
   const availableWidth = Math.max(92, viewport.width - symmetricInset * 2);
   if (title.width <= availableWidth) return;
-  title.setFontSize(Math.max(18, Math.floor(metrics.titleFontSize * availableWidth / title.width)));
+  title.setFontSize(Math.max(16, Math.floor(metrics.titleFontSize * availableWidth / title.width)));
+  if (title.width > availableWidth) title.setScale(availableWidth / title.width);
 }
 
 export function createMetaPageHeader(
@@ -130,8 +131,8 @@ export function createMetaPageHeader(
   const desiredLineWidth = metrics.density === 'ultra' ? 26 : metrics.narrow ? 34 : 46;
   const gap = metrics.density === 'ultra' ? 16 : metrics.narrow ? 20 : 34;
   const sideGap = metrics.density === 'ultra' ? 8 : metrics.narrow ? 12 : 20;
-  const leftDiamondX = title.x - title.width / 2 - gap;
-  const rightDiamondX = title.x + title.width / 2 + gap;
+  const leftDiamondX = title.x - title.displayWidth / 2 - gap;
+  const rightDiamondX = title.x + title.displayWidth / 2 + gap;
   const maxLineWidth = Math.max(0, Math.min(
     desiredLineWidth,
     leftDiamondX - viewport.x - sideGap - 8,

@@ -33,8 +33,8 @@ export function calculateMetaPageHeaderMetrics(
       : density === 'tight'
         ? { backY: 28, titleY: 64, headerHeight: 90 }
         : density === 'medium'
-          ? { backY: 32, titleY: 72, headerHeight: 102 }
-          : { backY: 36, titleY: 82, headerHeight: 116 };
+          ? { backY: 32, titleY: 82, headerHeight: 112 }
+          : { backY: 36, titleY: 92, headerHeight: 126 };
   } else {
     vertical = density === 'ultra'
       ? { backY: 24, titleY: 28, headerHeight: 48 }

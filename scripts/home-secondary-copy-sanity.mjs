@@ -1,35 +1,11 @@
-import fs from 'node:fs';
-
-const home = fs.readFileSync('src/scenes/HomeScene.ts', 'utf8');
-const primary = fs.readFileSync('src/runtime/PrimaryActionButton.ts', 'utf8');
-const mastery = fs.readFileSync('src/runtime/MasteryStrip.ts', 'utf8');
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-assert(
-  home.includes("subtitle: copy.levelSelect.progress(completedCampaign, levels.length),")
-    && !home.includes("progress: { completed: completedCampaign"),
-  'Levels Home card must show campaign progress as plain subtitle copy, not a progress bar.',
-);
-assert(
-  !home.includes("createUiProgressBar") && !home.includes("function drawHomeCardProgress"),
-  'Home must no longer create the Levels progress bar.',
-);
-assert(
-  home.includes("const HOME_SUBTITLE_FONT_SIZE = narrow ? 12 : 14;")
-    && home.split("fontSize: `${HOME_SUBTITLE_FONT_SIZE}px`,").length - 1 >= 2,
-  'Tall and wide Home card secondary copy must be slightly larger.',
-);
-assert(
-  primary.includes("const subtitleFontSize = homeWideLayout")
-    && primary.includes("? (narrow ? 12 : 14)"),
-  'Home primary button secondary copy must use the larger Home subtitle size.',
-);
-assert(
-  mastery.includes("fontSize: `${narrow ? 12 : 14}px`,"),
-  'Mastery strip secondary copy must match the larger Home subtitle size.',
-);
-
-console.log('[Dungeon Logic] Home secondary copy sanity: PASS');
+import { readFileSync } from 'node:fs';
+function assert(condition, message) { if (!condition) throw new Error(message); }
+const home = readFileSync(new URL('../src/scenes/HomeScene.ts', import.meta.url), 'utf8');
+const strip = readFileSync(new URL('../src/runtime/MasteryStrip.ts', import.meta.url), 'utf8');
+assert(home.includes('subtitle: copy.levelSelect.progress(completedCampaign, levels.length)'), 'Levels progress remains live localized copy.');
+assert(home.includes('copy.home.dailyLockedShort') && home.includes('copy.home.dailyUnavailableShort'), 'Daily locked and unavailable copy remains distinct.');
+assert(home.includes('copy.home.dailyStreak') && home.includes('copy.home.dailySolvedShort'), 'Daily streak and solved copy remain data driven.');
+assert(home.includes('copy.home.endlessFreePlay') && home.includes('copy.home.endlessLockedAfterLevel'), 'Challenge free play and locked copy remain distinct.');
+assert(home.includes('fitHomeText(subtitle, textWidth, 10)'), 'Card secondary text fits variable RU/EN width.');
+assert(strip.includes('fitTextWidth(subtitleText, contentWidth, 9)'), 'Rank secondary text fits variable RU/EN width.');
+console.info('[Dungeon Logic] Home secondary copy sanity: PASS');

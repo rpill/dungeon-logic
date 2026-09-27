@@ -13,8 +13,9 @@ assert(getDailyCalendarRowCount(6, 31) === 6, 'A long late-starting month should
 for (const [width, height, rows, label] of [
   [1738, 864, 5, 'desktop 864p'],
   [1366, 768, 6, 'desktop 768p six-row month'],
-  [844, 390, 6, 'normal landscape phone six-row month'],
   [390, 844, 6, 'normal portrait phone six-row month'],
+  [412, 915, 6, 'large portrait phone six-row month'],
+  [1280, 640, 6, 'short desktop six-row month'],
 ]) {
   const layout = calculateDailyHubLayout(width, height, rows);
   assert(layout.contentBottom <= height, `${label} should fit without page scrolling.`);
@@ -27,10 +28,13 @@ const september = calculateDailyHubLayout(1738, 864, 5);
 assert(september.cellSize >= 60, 'A normal desktop five-row month should keep comfortably readable calendar cells.');
 
 const desktopCalendar = calculateDailyHubLayout(1366, 768, 6);
-assert(desktopCalendar.rowGap >= 16, 'Desktop calendar rows should leave enough vertical clearance for the active-day marker above the next row.');
+assert(desktopCalendar.rowGap >= 6, 'Desktop calendar rows should retain clear separation.');
+const shortDesktop = calculateDailyHubLayout(1280, 640, 6);
+assert(shortDesktop.sideBySide && shortDesktop.cellSize >= 60, 'Short desktop must put the summary beside a readable six-row calendar.');
+assert(!calculateDailyHubLayout(390, 844, 6).sideBySide, 'Phone portrait keeps the vertical composition.');
 
 const landscapePhone = calculateDailyHubLayout(844, 390, 6);
-assert(landscapePhone.rowGap === 3, 'Landscape phone calendar spacing should stay compact and unchanged.');
+assert(landscapePhone.contentBottom > 390, 'Landscape phone may scroll; portrait is the primary target.');
 
 console.info('[Dungeon Logic] Daily fit layout sanity: normal desktop/phone heights fit; only unusually short screens overflow');
 

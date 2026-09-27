@@ -8,7 +8,7 @@ const home = fs.readFileSync('src/scenes/HomeScene.ts', 'utf8');
 const devPath = 'src/dev/MasteryRankUpDevControl.ts';
 
 expect(fs.existsSync(devPath), 'Dev-only Mastery rank-up control module must exist.');
-expect(home.includes('if (import.meta.env.DEV)'), 'Home must guard the rank-up dev control with import.meta.env.DEV.');
+expect(home.includes('if (import.meta.env.DEV && this.registry.get(\'visual-qa-active\') !== true)'), 'Home must guard the rank-up dev control and hide it in Visual QA.');
 expect(home.includes("import('../dev/MasteryRankUpDevControl')"), 'Home must load the rank-up dev control through a dynamic import.');
 expect(!home.includes("import { createMasteryRankUpDevControl } from '../dev/MasteryRankUpDevControl'"), 'Home must not statically import the dev-only rank-up control.');
 

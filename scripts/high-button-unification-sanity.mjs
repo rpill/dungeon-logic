@@ -15,7 +15,8 @@ assert(material.includes('label.setStroke('), 'Shared material buttons must add 
 assert(homeMenu.includes("variant === 'primary'"), 'Centered text buttons must support the yellow primary button family.');
 assert(game.includes("variant: 'primary'"), 'Gameplay hint confirmation must use a yellow primary confirm button.');
 assert(!game.includes('labelColor: uiColorHex(UI_THEME.colors.semantic.danger)'), 'Exit to Home in the game menu must not stay red.');
-assert(header.includes('iconButtonSize: 50') || header.includes('iconButtonSize: 56'), 'Header square buttons must use the larger unified square sizing.');
-assert(toolbar.includes('const buttonHeight = 56') || toolbar.includes('const actionButtonHeight = 56'), 'Gameplay toolbar must use the taller unified button height.');
+assert(header.includes('iconButtonSize: 60') && header.includes('iconButtonSize: 64'), 'Header square buttons use the current shared phone/desktop square sizes.');
+assert(toolbar.includes("const buttonHeight = viewportClass === 'wide' ? 72 : 68;")
+  && toolbar.includes('const actionButtonHeight = 68;'), 'Gameplay toolbar uses the current shared desktop/touch action heights.');
 
 console.log('[Dungeon Logic] High button unification sanity: PASS');

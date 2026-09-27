@@ -1,5 +1,8 @@
 import { GameBoardViewportTooSmallError, tryGameBoardLayoutForResize } from '../scenes/GameBoardLayout';
 import * as layoutModule from '../scenes/GameBoardLayout';
+import { BOARD_FRAME } from '../view/BoardFrameMetrics';
+import { calculatePuzzleHeaderLayout } from '../runtime/PuzzleHeaderLayout';
+import { desktopCompletionPanelHeight } from '../runtime/CompletionPanelLayout';
 
 interface GameBoardLayout {
   cellSize: number;
@@ -117,7 +120,7 @@ assert(widerPhone.cellSize >= 48, 'A 430px-wide phone provides 48px 7x7 cells wi
 
 const desktop = calculateGameBoardLayout(1280, 720, 6, 6);
 assert(desktop.cellSize <= 72, 'Desktop cell size is capped instead of expanding with the viewport.');
-assert(desktop.cellSize >= 64, '6x6 desktop board remains comfortably readable.');
+assert(desktop.cellSize >= 56, '6x6 desktop board remains readable with room for the result plaque.');
 assert(
   approxEqual(desktop.originX + desktop.boardWidth / 2 - desktop.cellSize * 0.2, 1280 / 2),
   'Desktop framed puzzle stays horizontally centered.',
@@ -127,6 +130,29 @@ assert(desktop.originY + desktop.boardHeight <= 720 - 96, 'Desktop board stays a
 
 const desktopSeven = calculateGameBoardLayout(1280, 720, 7, 7);
 assert(desktopSeven.cellSize < desktop.cellSize, '7x7 scales down when vertical safe space requires it.');
-assert(desktopSeven.cellSize >= 59, '7x7 desktop cells stay readable while clearing the timer panel.');
+assert(desktopSeven.cellSize >= 50, '7x7 desktop cells stay readable while reserving the result plaque.');
+
+const wideSmall = calculateGameBoardLayout(1920, 1080, 5, 5);
+const mediumSmall = calculateGameBoardLayout(1366, 768, 5, 5);
+const shortSmall = calculateGameBoardLayout(1280, 640, 5, 5);
+assert(wideSmall.cellSize >= 96, 'A small puzzle uses the available space on 1920x1080.');
+assert(mediumSmall.cellSize === 72, '1366x768 keeps the balanced existing small-board scale.');
+assert(shortSmall.cellSize < mediumSmall.cellSize, 'A 640px-tall desktop scales the board down before controls collide.');
+
+for (const [width, height] of [[1920, 1080], [1366, 768], [1280, 640]] as const) {
+  const headerBottom = Math.max(108, calculatePuzzleHeaderLayout(width, height).bottom + 10);
+  const controlsTop = height - Math.max(96, desktopCompletionPanelHeight(width) + 22);
+  for (const size of [5, 8, 10]) {
+    const layout = calculateGameBoardLayout(width, height, size, size);
+    const frameTop = layout.originY - layout.cellSize * BOARD_FRAME.top;
+    const frameBottom = layout.originY + layout.boardHeight + layout.cellSize * BOARD_FRAME.bottom;
+    assert(frameTop >= headerBottom, `${width}x${height} ${size}x${size} frame clears the header.`);
+    assert(frameBottom <= controlsTop, `${width}x${height} ${size}x${size} frame clears controls and completion reserve.`);
+  }
+}
+assert(
+  calculateGameBoardLayout(1920, 1080, 8, 8).cellSize <= wideSmall.cellSize,
+  'Large grids use smaller cells than small grids at the same viewport.',
+);
 
 console.info('[Dungeon Logic] Game board layout sanity: viewport classes + board-centered mobile puzzle passed');

@@ -102,7 +102,8 @@ import { syncMasterRatingLeaderboard } from '../mastery/MasterRatingLeaderboard'
 import { formatMasterRating, getMasterRatingMilestone } from '../mastery/MasterRating';
 import { getMasterySnapshot } from '../mastery/MasteryProgress';
 import { showMasteryRankUpOverlay } from '../runtime/MasteryRankUpOverlay';
-import { createModalPanel } from '../runtime/ModalPanel';
+import { createQuietInset } from '../runtime/QuietInset';
+import { createSlateSurface } from '../runtime/SlateSurface';
 import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
@@ -198,8 +199,9 @@ export class GameScene extends Phaser.Scene {
       : null;
     const usesPersistentTutorialLayoutReserve = tutorialContext !== null
       && launchData.contextualOnboarding;
+    const hasSideTutorialNote = (): boolean => this.scale.width >= 1100 && this.scale.height >= 600;
     const getTutorialLayoutBottomReserve = (): number => (
-      usesPersistentTutorialLayoutReserve
+      usesPersistentTutorialLayoutReserve && !hasSideTutorialNote()
         ? (this.scale.width < 700 ? 92 : 86)
         : 0
     );
@@ -207,7 +209,7 @@ export class GameScene extends Phaser.Scene {
       layout: ReturnType<typeof calculateSafeBoardLayout>,
       safeTopInset: number,
     ): ReturnType<typeof calculateSafeBoardLayout> => {
-      if (!usesPersistentTutorialLayoutReserve) return layout;
+      if (!usesPersistentTutorialLayoutReserve || hasSideTutorialNote()) return layout;
 
       const compactTutorial = this.scale.width < 700 || this.scale.height < 520;
       const reservedPanelHeight = compactTutorial ? 100 : 110;
@@ -422,11 +424,11 @@ export class GameScene extends Phaser.Scene {
       headerStatusDivider.setY(headerStatusCenterY);
       headerStreakText.setY(headerStatusCenterY);
       headerStreakIcon.setY(headerStatusCenterY + 1);
-      const panelLeft = this.scale.width / 2 - headerStatusPanelWidth / 2;
+      const panelLeft = headerTitlePanel.x - headerStatusPanelWidth / 2;
       if (!showStreak) {
-        headerTimeText.setX(this.scale.width / 2);
-        headerStatusDivider.setX(this.scale.width / 2);
-        headerStreakText.setX(this.scale.width / 2);
+        headerTimeText.setX(headerTitlePanel.x);
+        headerStatusDivider.setX(headerTitlePanel.x);
+        headerStreakText.setX(headerTitlePanel.x);
         return;
       }
       const contentWidth = headerTimeText.width
@@ -652,7 +654,9 @@ export class GameScene extends Phaser.Scene {
                 profileService.getProfile().endless.activePuzzle ?? undefined,
               )
               : null;
-    const puzzle = completedReview
+    const qaCompletionVisual = import.meta.env.DEV
+      && String(this.registry.get('visual-qa-detail') ?? '').startsWith('completion-');
+    const puzzle = completedReview || qaCompletionVisual
       ? createCompletedReviewPuzzle(launchData.level)
       : puzzleSession?.getPuzzle() ?? new PuzzleState(launchData.level);
     puzzleSession?.saveNow();
@@ -660,7 +664,7 @@ export class GameScene extends Phaser.Scene {
     let boardLayout = calculateStableBoardLayout(getTutorialLayoutBottomReserve(), safeTop);
 
     let board: BoardView | null = null;
-    let solved = completedReview;
+    let solved = completedReview || qaCompletionVisual;
     let onboardingOpen = false;
     let onboardingBlocksInteraction = false;
     let onboardingBlocksTimer = false;
@@ -979,18 +983,27 @@ export class GameScene extends Phaser.Scene {
     const statusText = this.add.text(
       this.scale.width / 2,
       Math.min(...toolbarLayout.buttons.map((button) => button.y - button.height / 2)) - 18,
-      showTouchToolButtons ? '' : copy.game.mouseControls,
+      showTouchToolButtons || this.scale.height < 700 ? '' : copy.game.mouseControls,
       {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${chrome.statusFontSize}px`,
-        color: uiColorHex(UI_THEME.colors.text.muted),
+        color: uiColorHex(UI_THEME.colors.text.secondary),
         fontStyle: 'bold',
+        stroke: '#101a32',
+        strokeThickness: 2,
       },
-    ).setOrigin(0.5);
+    ).setOrigin(0.5).setDepth(46);
 
+    let hintExplanationPanel: Phaser.GameObjects.Graphics | null = null;
     const positionStatusText = (): void => {
       const width = this.scale.width;
       const currentChrome = calculatePuzzleChromeLayout(width, this.scale.height);
+      const syncHintSurface = (x: number, y: number, panelWidth: number, panelHeight: number): void => {
+        hintExplanationPanel?.destroy();
+        hintExplanationPanel = currentHint === null ? null : createPuzzleHeaderStatusPanel(
+          this, x, y, panelWidth, panelHeight,
+        ).setDepth(45);
+      };
       if (showTouchToolButtons && currentHint !== null && toolbarLayout.mode === 'stacked') {
         const toolButtons = toolbarLayout.buttons.filter((button) => button.id === 'wall' || button.id === 'floor');
         const actionButtons = toolbarLayout.buttons.filter((button) => button.id === 'undo' || button.id === 'reset' || button.id === 'hint' || button.id === 'skip');
@@ -1000,19 +1013,26 @@ export class GameScene extends Phaser.Scene {
           statusText
             .setPosition(width / 2, (toolBottom + actionTop) / 2)
             .setWordWrapWidth(Math.min(Math.max(180, width - 32), 520), true)
-            .setFontSize(this.scale.height < 500 ? 12 : width < 700 ? 15 : currentChrome.statusFontSize)
+            .setFontSize(this.scale.height < 500 ? 12 : width < 700 ? 14 : 15)
+            .setColor('#f1eadc')
             .setAlign('center');
+          syncHintSurface(width / 2, statusText.y, Math.min(width - 20, 700),
+            Math.min(actionTop - toolBottom - 4, Math.max(60, statusText.height + 24)));
           return;
         }
       }
       const toolbarTop = Math.min(
         ...toolbarLayout.buttons.map((button) => button.y - button.height / 2),
       );
+      const frameBottom = boardLayout.originY + boardLayout.boardHeight + boardLayout.cellSize * BOARD_FRAME.bottom;
+      const hintY = Math.max(frameBottom + 36, Math.min(toolbarTop - 36, (frameBottom + toolbarTop) / 2));
       statusText
-        .setPosition(width / 2, toolbarTop - (currentHint !== null ? 28 : 18))
-        .setWordWrapWidth(Math.max(120, width - 24), true)
-        .setFontSize(width < 700 ? 14 : currentChrome.statusFontSize)
+        .setPosition(width / 2, currentHint !== null ? hintY : toolbarTop - 18)
+        .setWordWrapWidth(Math.max(120, Math.min(width - 74, 620)), true)
+        .setFontSize(currentHint !== null ? (width < 700 ? 14 : 15) : width < 700 ? 14 : currentChrome.statusFontSize)
+        .setColor(currentHint !== null ? '#f1eadc' : uiColorHex(UI_THEME.colors.text.secondary))
         .setAlign('center');
+      syncHintSurface(width / 2, statusText.y, Math.min(width - 28, 700), Math.max(60, statusText.height + 24));
     };
 
     const onboardingSteps = launchData.context.mode === 'tutorial'
@@ -1036,7 +1056,7 @@ export class GameScene extends Phaser.Scene {
           : 0;
     onboardingOpen = onboardingIndex >= 0;
 
-    let onboardingPanel: Phaser.GameObjects.NineSlice | null = null;
+    let onboardingPanel: Phaser.GameObjects.Graphics | null = null;
     const onboardingText = this.add.text(0, 0, '', {
       fontFamily: "'Balsamiq Sans', sans-serif",
       fontSize: '18px',
@@ -1063,39 +1083,42 @@ export class GameScene extends Phaser.Scene {
       }
 
       const narrowScreen = this.scale.width < 700 || this.scale.height < 520;
-      const panelWidth = Math.min(
-        this.scale.width - (narrowScreen ? 28 : 56),
-        Math.max(
-          narrowScreen ? 300 : 420,
-          boardLayout.boardWidth + boardLayout.cellSize * 1.6,
-        ),
-        narrowScreen ? 360 : 520,
-      );
-      const panelX = boardLayout.originX + boardLayout.boardWidth / 2;
+      const sideNote = hasSideTutorialNote();
+      const panelWidth = sideNote
+        ? 300
+        : Math.min(
+          this.scale.width - (narrowScreen ? 28 : 56),
+          Math.max(narrowScreen ? 300 : 420, boardLayout.boardWidth + boardLayout.cellSize * 1.6),
+          narrowScreen ? 360 : 520,
+        );
+      const frameLeft = boardLayout.originX - boardLayout.cellSize * BOARD_FRAME.left;
+      const panelX = sideNote
+        ? Math.max(28 + panelWidth / 2, frameLeft - 28 - panelWidth / 2)
+        : boardLayout.originX + boardLayout.boardWidth / 2;
 
       onboardingText
-        .setWordWrapWidth(Math.max(120, panelWidth - (narrowScreen ? 52 : 64)), true)
-        .setFontSize(narrowScreen ? 15 : 18)
+        .setWordWrapWidth(Math.max(120, panelWidth - (sideNote ? 32 : narrowScreen ? 52 : 64)), true)
+        .setFontSize(sideNote ? 16 : narrowScreen ? 15 : 18)
         .setText(step.message);
 
-      const verticalPadding = narrowScreen ? 18 : 20;
+      const verticalPadding = sideNote ? 16 : narrowScreen ? 14 : 18;
       const panelHeight = Math.max(
-        narrowScreen ? 82 : 96,
+        sideNote ? 104 : narrowScreen ? 74 : 88,
         onboardingText.height + verticalPadding * 2,
       );
       const tutorialClueTopY = boardLayout.originY
         - boardLayout.cellSize * BOARD_FRAME.top;
       const panelBottomGap = narrowScreen ? 10 : 16;
-      const panelY = tutorialClueTopY - panelBottomGap - panelHeight / 2;
+      const panelY = sideNote
+        ? boardLayout.originY + boardLayout.boardHeight * 0.34
+        : tutorialClueTopY - panelBottomGap - panelHeight / 2;
 
       onboardingPanel?.destroy();
-      onboardingPanel = createModalPanel(this, {
-        x: panelX,
-        y: panelY,
-        width: panelWidth,
-        height: panelHeight,
-        variant: 'wide',
-        alpha: 0.985,
+      onboardingPanel = createQuietInset(this, {
+        x: panelX, y: panelY, width: panelWidth, height: panelHeight,
+        radius: narrowScreen ? 7 : 10,
+        fillAlpha: sideNote ? 0.84 : narrowScreen ? 0.54 : 0.76,
+        borderAlpha: sideNote ? 0.24 : narrowScreen ? 0.08 : 0.18,
       }).setDepth(50);
       onboardingText
         .setPosition(panelX, panelY)
@@ -1165,19 +1188,33 @@ export class GameScene extends Phaser.Scene {
         this.scale.width,
         this.scale.height,
         0x080d18,
-        0.82,
+        0.76,
       ).setInteractive();
       container.add(overlay);
 
-      const buttonWidth = Math.min(
-        this.scale.width - (narrowMenu ? 52 : 104),
-        narrowMenu ? 300 : 360,
-      );
-      const buttonHeight = 72;
-      const buttonGap = narrowMenu ? 12 : 16;
-      const totalHeight = buttonHeight * 4 + buttonGap * 3;
       const centerX = this.scale.width / 2;
-      const topY = this.scale.height / 2 - totalHeight / 2;
+      const centerY = this.scale.height / 2;
+      const panelWidth = Math.min(this.scale.width - (narrowMenu ? 28 : 64), 440);
+      const panelHeight = Math.min(this.scale.height - 32, 402);
+      const panel = createSlateSurface(this, centerX, centerY, panelWidth, panelHeight);
+      container.add(panel);
+      const title = this.add.text(centerX, centerY - panelHeight / 2 + 53, copy.game.menu, {
+        fontFamily: "'Balsamiq Sans', sans-serif",
+        fontSize: narrowMenu ? '22px' : '25px',
+        color: uiColorHex(UI_THEME.colors.text.primary),
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      container.add(title);
+      const divider = this.add.graphics();
+      divider.lineStyle(1, 0xa5adb6, 0.32);
+      divider.lineBetween(centerX - panelWidth / 2 + 34, centerY - panelHeight / 2 + 87,
+        centerX + panelWidth / 2 - 34, centerY - panelHeight / 2 + 87);
+      container.add(divider);
+
+      const buttonWidth = panelWidth - (narrowMenu ? 42 : 68);
+      const buttonHeight = 58;
+      const buttonGap = 11;
+      const firstButtonY = centerY - panelHeight / 2 + 122;
 
       const options = [
         {
@@ -1206,11 +1243,25 @@ export class GameScene extends Phaser.Scene {
         },
       ];
 
-      const firstButtonY = topY + buttonHeight / 2;
       options.forEach((option, index) => {
+        const buttonY = firstButtonY + index * (buttonHeight + buttonGap);
+        if (index === 0) {
+          const button = createCenteredTextMenuButton(this, {
+            x: centerX,
+            y: buttonY,
+            width: buttonWidth,
+            height: buttonHeight,
+            label: option.label,
+            labelColor: option.labelColor,
+            variant: 'primary',
+            onActivate: () => option.action(),
+          });
+          container.add([button.fill, button.frame, button.label]);
+          return;
+        }
         const button = createHomeMenuButton(this, {
           x: centerX,
-          y: firstButtonY + index * (buttonHeight + buttonGap),
+          y: buttonY,
           width: buttonWidth,
           height: buttonHeight,
           label: option.label,
@@ -1346,7 +1397,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const defaultStatusCopy = (): string => (
-      showTouchToolButtons ? '' : copy.game.mouseControls
+      showTouchToolButtons || this.scale.height < 700 ? '' : copy.game.mouseControls
     );
 
     const refreshStatusText = (): void => {
@@ -1368,6 +1419,7 @@ export class GameScene extends Phaser.Scene {
         return;
       }
       if (completionMode || hintConfirmOpen || onboardingOpen) return;
+      if (currentHint === null) positionStatusText();
       if (currentHint !== null) {
         positionStatusText();
         const targetCopy = currentHint.state === 'wall'
@@ -1471,13 +1523,14 @@ export class GameScene extends Phaser.Scene {
       if (!hintConfirmOpen) return;
 
       const safeBottom = getSafeAreaInsets().bottom;
-      const width = Math.min(390, this.scale.width - 24);
+      const width = Math.min(420, this.scale.width - 24);
       const gap = 10;
-      const buttonWidth = Math.floor((width - gap) / 2);
-      const buttonHeight = 72;
+      const buttonWidth = Math.floor((width - 46 - gap) / 2);
+      const buttonHeight = 52;
       const rankedWarning = rankedDaily ? copy.game.dailyHintOutsideRating : '';
-      const buttonLocalY = rankedWarning.length > 0 ? 48 : 22;
-      const containerY = this.scale.height - safeBottom - 12 - buttonHeight / 2 - buttonLocalY;
+      const panelHeight = rankedWarning.length > 0 ? 234 : 204;
+      const buttonLocalY = panelHeight / 2 - 48;
+      const containerY = (this.scale.height - safeBottom) / 2;
       const container = this.add.container(this.scale.width / 2, containerY).setDepth(70);
       hintConfirmContainer = container;
 
@@ -1485,7 +1538,8 @@ export class GameScene extends Phaser.Scene {
 
       const remaining = profileService?.getFreeHintsRemaining(Date.now()) ?? 0;
       const rewardedMode = hintConfirmMode === 'rewarded';
-      const hintConfirmTitle = this.add.text(0, -54, rewardedMode
+      const surface = createSlateSurface(this, 0, 0, width, panelHeight);
+      const hintConfirmTitle = this.add.text(0, -panelHeight / 2 + 54, rewardedMode
         ? copy.game.rewardedHintConfirmTitle
         : copy.game.hintConfirmTitle, {
         fontFamily: "'Balsamiq Sans', sans-serif",
@@ -1494,7 +1548,7 @@ export class GameScene extends Phaser.Scene {
         fontStyle: 'bold',
         align: 'center',
       }).setOrigin(0.5);
-      const hintConfirmMeta = this.add.text(0, -28, rewardedMode
+      const hintConfirmMeta = this.add.text(0, -panelHeight / 2 + 83, rewardedMode
         ? copy.game.rewardedHintConfirmMeta
         : copy.game.freeHintsRemaining(remaining), {
         fontFamily: "'Balsamiq Sans', sans-serif",
@@ -1504,9 +1558,9 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5);
 
-      const children: Phaser.GameObjects.GameObject[] = [hintConfirmTitle, hintConfirmMeta];
+      const children: Phaser.GameObjects.GameObject[] = [surface, hintConfirmTitle, hintConfirmMeta];
       if (rankedWarning.length > 0) {
-        const warning = this.add.text(0, -4, rankedWarning, {
+        const warning = this.add.text(0, -panelHeight / 2 + 111, rankedWarning, {
           fontFamily: "'Balsamiq Sans', sans-serif",
           fontSize: this.scale.width < 700 ? '10px' : '11px',
           color: '#aebbd2',
@@ -1591,6 +1645,8 @@ export class GameScene extends Phaser.Scene {
     };
 
     let completionInfoPills: readonly CompletionInfoPill[] = [];
+    let completionTitleOverride: string | null = null;
+    let completionShowMascots = false;
 
     const setCompletionInfoPills = (items: readonly CompletionInfoPill[]): void => {
       completionInfoPills = items
@@ -1619,64 +1675,44 @@ export class GameScene extends Phaser.Scene {
     ): void => {
       if (completionInfoPills.length === 0) return;
 
-      const topInset = layout.mode === 'phone' ? 14 : 18;
-      const pillGap = layout.mode === 'phone' ? 8 : 12;
-      const basePillHeight = layout.mode === 'phone' ? 32 : 36;
-      const firstRowY = layout.titleY + (layout.mode === 'phone' ? 34 : 30);
-      const actionRects = [
-        ...(layout.primaryAction === null ? [] : [layout.primaryAction]),
-        ...layout.secondaryActions,
-      ];
-      const actionTop = actionRects.length > 0
-        ? Math.min(...actionRects.map((rect) => rect.y - rect.height / 2))
-        : layout.panelBottom - topInset;
-      const contentWidth = layout.panelWidth - topInset * 2;
-      const itemsInRow = layout.mode === 'desktop'
-        ? completionInfoPills.length
-        : Math.min(2, completionInfoPills.length);
-      const rowCount = layout.mode === 'desktop' ? 1 : Math.ceil(completionInfoPills.length / itemsInRow);
-      const availableHeight = Math.max(basePillHeight, actionTop - firstRowY - 10);
-      const resolvedPillHeight = Math.min(basePillHeight, Math.max(28, availableHeight / Math.max(1, rowCount) - (rowCount - 1) * 8));
+      const sideInset = layout.mode === 'phone' ? 25 : 34;
+      const pillGap = layout.mode === 'phone' ? 8 : 18;
+      const contentWidth = layout.panelWidth - sideInset * 2;
+      const itemsInRow = Math.min(2, completionInfoPills.length);
+      const rowCount = Math.ceil(completionInfoPills.length / itemsInRow);
+      const resolvedPillHeight = layout.mode === 'phone' ? 36 : 52;
+      const divider = this.add.graphics().setDepth(58);
+      divider.lineStyle(1, 0x9ca9b4, 0.34);
+      divider.lineBetween(layout.panelX - contentWidth / 2, layout.statusY - 34,
+        layout.panelX + contentWidth / 2, layout.statusY - 34);
+      completionPanelObjects.push(divider);
 
       completionInfoPills.forEach((pill, index) => {
-        const row = layout.mode === 'desktop' ? 0 : Math.floor(index / itemsInRow);
-        const column = layout.mode === 'desktop' ? index : index % itemsInRow;
-        const visibleCount = layout.mode === 'desktop'
-          ? completionInfoPills.length
-          : (row === rowCount - 1 ? completionInfoPills.length - row * itemsInRow : itemsInRow);
+        const row = Math.floor(index / itemsInRow);
+        const column = index % itemsInRow;
+        const visibleCount = row === rowCount - 1 ? completionInfoPills.length - row * itemsInRow : itemsInRow;
         const pillWidth = (contentWidth - pillGap * Math.max(0, visibleCount - 1)) / Math.max(1, visibleCount);
         const rowWidth = pillWidth * visibleCount + pillGap * Math.max(0, visibleCount - 1);
         const centerX = layout.panelX - rowWidth / 2 + pillWidth / 2 + column * (pillWidth + pillGap);
-        const centerY = firstRowY + row * (resolvedPillHeight + 8);
-        const left = centerX - pillWidth / 2;
-        const top = centerY - resolvedPillHeight / 2;
-        const radius = Math.min(12, resolvedPillHeight / 2);
+        const centerY = layout.statusY + row * resolvedPillHeight;
 
-        const fill = this.add.graphics().setDepth(58);
-        fill.fillStyle(0x0b2345, 0.96);
-        fill.fillRoundedRect(left, top, pillWidth, resolvedPillHeight, radius);
-        fill.lineStyle(2, 0x2d5f96, 0.78);
-        fill.strokeRoundedRect(left + 1, top + 1, Math.max(0, pillWidth - 2), Math.max(0, resolvedPillHeight - 2), radius);
-        fill.lineStyle(1, 0x88bdf5, 0.10);
-        fill.lineBetween(left + radius, top + 2, left + pillWidth - radius, top + 2);
-
-        const hasIcon = pill.iconKey !== undefined;
-        const iconSize = resolvedPillHeight - (layout.mode === 'phone' ? 14 : 12);
-        const gap = hasIcon ? 8 : 0;
-        const horizontalPadding = layout.mode === 'phone' ? 10 : 12;
+        const hasIcon = pill.iconKey !== undefined && !(layout.mode === 'phone' && pill.label.length > 13);
+        const iconSize = layout.mode === 'phone' ? 18 : 23;
+        const gap = hasIcon ? 7 : 0;
+        const horizontalPadding = 3;
         const label = this.add.text(centerX, centerY, pill.label, {
           fontFamily: "'Balsamiq Sans', sans-serif",
-          fontSize: `${layout.mode === 'phone' ? 12 : 15}px`,
+          fontSize: `${layout.mode === 'phone' ? 14 : 17}px`,
           color: uiColorHex(UI_THEME.colors.text.primary),
           fontStyle: 'bold',
           align: 'center',
         }).setOrigin(0.5).setDepth(59);
 
-        const maxTextWidth = pillWidth - horizontalPadding * 2 - (hasIcon ? iconSize + gap : 0) + (layout.mode === 'desktop' ? 6 : 0);
-        fitCompletionPillText(label, Math.max(18, maxTextWidth), layout.mode === 'desktop' ? 10 : 8);
+        const maxTextWidth = pillWidth - horizontalPadding * 2 - (hasIcon ? iconSize + gap : 0);
+        fitCompletionPillText(label, Math.max(18, maxTextWidth), layout.mode === 'desktop' ? 12 : 10);
 
         let icon: Phaser.GameObjects.Image | null = null;
-        if (pill.iconKey !== undefined) {
+        if (hasIcon && pill.iconKey !== undefined) {
           const contentWidthWithIcon = iconSize + gap + label.displayWidth;
           const startX = centerX - contentWidthWithIcon / 2;
           icon = this.add.image(startX + iconSize / 2, centerY, pill.iconKey)
@@ -1686,12 +1722,13 @@ export class GameScene extends Phaser.Scene {
           label.setPosition(startX + iconSize + gap, centerY).setOrigin(0, 0.5);
         }
 
-        completionPanelObjects.push(fill, label);
+        completionPanelObjects.push(label);
         if (icon !== null) completionPanelObjects.push(icon);
       });
     };
 
     const getCompletionTitle = (): string => {
+      if (completionTitleOverride !== null) return completionTitleOverride;
       if (dailyContext !== null) {
         return language === 'ru' ? 'DAILY РЕШЁН' : 'DAILY SOLVED';
       }
@@ -1763,16 +1800,41 @@ export class GameScene extends Phaser.Scene {
     const renderCompletionButtons = (): void => {
       clearCompletionButtons();
       if (!completionMode || completionActions.length === 0) return;
+      hintExplanationPanel?.destroy();
+      hintExplanationPanel = null;
 
       completionActionCount = completionActions.length;
       completionHasPrimary = completionActions.some((definition) => definition.primary === true);
+      const boardFrameWidth = boardLayout.cellSize * (launchData.level.width + BOARD_FRAME.left + BOARD_FRAME.right);
       const layout = calculateCompletionPanelLayout(
         this.scale.width,
         this.scale.height,
         getSafeAreaInsets().bottom,
         completionActionCount,
         completionHasPrimary,
+        { boardFrameWidth, infoCount: completionInfoPills.length, showMascots: completionShowMascots },
       );
+      if (layout.mode === 'phone') {
+        boardLayout = calculateStableBoardLayout(Math.max(getCurrentBoardBottomReserve(), layout.boardBottomReserve));
+        const frameBottom = boardLayout.originY + boardLayout.boardHeight + boardLayout.cellSize * BOARD_FRAME.bottom;
+        const frameTop = boardLayout.originY - boardLayout.cellSize * BOARD_FRAME.top;
+        const headerBottom = calculatePuzzleHeaderLayout(this.scale.width, this.scale.height).bottom + getSafeAreaInsets().top;
+        const overlap = Math.max(0, frameBottom + 12 - layout.panelTop);
+        const availableUp = Math.max(0, frameTop - headerBottom - 12);
+        boardLayout = { ...boardLayout, originY: boardLayout.originY - Math.min(overlap, availableUp) };
+      } else {
+        boardLayout = {
+          ...boardLayout,
+          originX: layout.boardCenterX - boardFrameWidth / 2 + boardLayout.cellSize * BOARD_FRAME.left,
+        };
+      }
+      board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
+      if (layout.mode === 'desktop') {
+        headerTitlePanel.setX(layout.boardCenterX);
+        headerStatusPanel.setX(layout.boardCenterX - this.scale.width / 2);
+        titleText.setX(layout.boardCenterX);
+        layoutHeaderStatusContent();
+      }
 
       const panel = createCompletionPanelSurface(
         this,
@@ -1785,14 +1847,24 @@ export class GameScene extends Phaser.Scene {
 
       const title = this.add.text(layout.panelX, layout.titleY, getCompletionTitle(), {
         fontFamily: "'Balsamiq Sans', sans-serif",
-        fontSize: `${layout.mode === 'phone' ? 20 : this.scale.height <= 640 ? 18 : 20}px`,
+        fontSize: `${layout.mode === 'phone' ? 22 : this.scale.height <= 640 ? 23 : 28}px`,
         color: uiColorHex(UI_THEME.colors.text.primary),
         fontStyle: 'bold',
         stroke: '#0b1630',
-        strokeThickness: 3,
+        strokeThickness: 2,
         align: 'center',
       }).setOrigin(0.5).setDepth(58);
+      fitCompletionPillText(title, layout.panelWidth - 52, layout.mode === 'phone' ? 17 : 20);
       completionPanelObjects.push(title);
+
+      if (completionShowMascots) {
+        const offset = layout.illustrationSize * 0.53;
+        const pink = this.add.image(layout.panelX - offset, layout.illustrationY, 'monster-pink-01')
+          .setDisplaySize(layout.illustrationSize, layout.illustrationSize).setDepth(59);
+        const ghost = this.add.image(layout.panelX + offset, layout.illustrationY, 'monster-ghost-01')
+          .setDisplaySize(layout.illustrationSize, layout.illustrationSize).setDepth(59);
+        completionPanelObjects.push(pink, ghost);
+      }
 
       statusText.setVisible(false);
       renderCompletionInfoPills(layout);
@@ -1826,6 +1898,8 @@ export class GameScene extends Phaser.Scene {
       _masteryNote: string = '',
     ): void => {
       completionMode = true;
+      completionTitleOverride = null;
+      completionShowMascots = true;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
@@ -1879,6 +1953,10 @@ export class GameScene extends Phaser.Scene {
 
     const showEndlessCompletionState = (result: EndlessCompletionResult, _masteryNote: string = ''): void => {
       completionMode = true;
+      completionTitleOverride = result.catalogComplete
+        ? (language === 'ru' ? 'КАТАЛОГ ИСПЫТАНИЙ ПРОЙДЕН' : 'TRIAL CATALOG COMPLETE')
+        : null;
+      completionShowMascots = false;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
@@ -1888,6 +1966,9 @@ export class GameScene extends Phaser.Scene {
         { label: result.ranked && result.ratingAward > 0
           ? (language === 'ru' ? `+${result.ratingAward}` : `+${result.ratingAward}`)
           : (language === 'ru' ? '+0' : '+0'), iconKey: UI_ICON_KEYS.star },
+        ...(result.catalogComplete
+          ? [{ label: language === 'ru' ? 'Каталог завершён' : 'Catalog complete', iconKey: UI_ICON_KEYS.check }]
+          : []),
       ]);
       statusText.setVisible(false);
 
@@ -1921,6 +2002,10 @@ export class GameScene extends Phaser.Scene {
       result: TutorialCompletionResult,
     ): void => {
       completionMode = true;
+      completionTitleOverride = result.tutorialCompleted
+        ? (language === 'ru' ? 'ОБУЧЕНИЕ ПРОЙДЕНО' : 'TUTORIAL COMPLETE')
+        : null;
+      completionShowMascots = true;
       onboardingIndex = -1;
       onboardingOpen = false;
       onboardingBlocksInteraction = false;
@@ -1978,6 +2063,8 @@ export class GameScene extends Phaser.Scene {
       _masteryNote: string = '',
     ): void => {
       completionMode = true;
+      completionTitleOverride = null;
+      completionShowMascots = false;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
@@ -2007,6 +2094,8 @@ export class GameScene extends Phaser.Scene {
       result: DailyCompletionResult,
     ): void => {
       completionMode = true;
+      completionTitleOverride = null;
+      completionShowMascots = false;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
@@ -2034,6 +2123,8 @@ export class GameScene extends Phaser.Scene {
       result: DailyCompletionResult,
     ): void => {
       completionMode = true;
+      completionTitleOverride = null;
+      completionShowMascots = false;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
@@ -2061,6 +2152,8 @@ export class GameScene extends Phaser.Scene {
       metadata: CampaignCompletionMetadata,
     ): void => {
       completionMode = true;
+      completionTitleOverride = language === 'ru' ? 'DAILY · ПОВТОР' : 'DAILY REPLAY';
+      completionShowMascots = false;
       currentHint = null;
       board?.setHintCellTarget(null);
       setToolbarVisible(false);
@@ -2211,45 +2304,21 @@ export class GameScene extends Phaser.Scene {
 
       const modalChrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
       const width = Math.min(390, modalChrome.modalWidth);
-      const height = 248;
+      const height = 216;
       const container = this.add.container(this.scale.width / 2, this.scale.height / 2).setDepth(80);
       resetDialog = container;
 
-      const panel = createModalPanel(this, {
-        x: 0,
-        y: 0,
-        width,
-        height,
-        variant: 'wide',
-        alpha: 0.985,
-      });
+      const panel = createSlateSurface(this, 0, 0, width, height);
 
-      const titleY = -height / 2 + 66;
+      const titleY = -height / 2 + 54;
       const title = this.add.text(0, titleY, copy.game.resetTitle, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${modalChrome.modalTitleFontSize}px`,
-        color: '#f0bd63',
+        color: '#e99b96',
         fontStyle: 'bold',
         align: 'center',
       }).setOrigin(0.5);
-
-      const titleAccent = this.add.graphics();
-      const titleGap = title.width / 2 + 16;
-      const diamondOffset = titleGap + 10;
-      titleAccent.lineStyle(1, 0xf0b14f, 0.45);
-      titleAccent.lineBetween(-width / 2 + 28, titleY, -diamondOffset - 6, titleY);
-      titleAccent.lineBetween(diamondOffset + 6, titleY, width / 2 - 28, titleY);
-      titleAccent.fillStyle(0xf0b14f, 0.85);
-      for (const x of [-diamondOffset, diamondOffset]) {
-        titleAccent.beginPath();
-        titleAccent.moveTo(x, titleY - 4);
-        titleAccent.lineTo(x + 4, titleY);
-        titleAccent.lineTo(x, titleY + 4);
-        titleAccent.lineTo(x - 4, titleY);
-        titleAccent.closePath();
-        titleAccent.fillPath();
-      }
-      const dialogCopy = this.add.text(0, -4, copy.game.resetBody, {
+      const dialogCopy = this.add.text(0, -3, copy.game.resetBody, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${modalChrome.modalCopyFontSize}px`,
         color: '#e7e1d6',
@@ -2262,8 +2331,8 @@ export class GameScene extends Phaser.Scene {
       const buttonWidth = Math.floor((width - 44 - gap) / 2);
       const cancelX = -buttonWidth / 2 - gap / 2;
       const resetX = buttonWidth / 2 + gap / 2;
-      const buttonY = height / 2 - 46;
-      const buttonHeight = 72;
+      const buttonY = height / 2 - 43;
+      const buttonHeight = 52;
 
       const cancelButton = createCenteredTextMenuButton(this, {
         x: cancelX,
@@ -2296,7 +2365,7 @@ export class GameScene extends Phaser.Scene {
       });
 
       container.add([
-        panel, titleAccent, title, dialogCopy,
+        panel, title, dialogCopy,
         cancelButton.fill, cancelButton.frame, cancelButton.label,
         confirmButton.fill, confirmButton.frame, confirmButton.label,
       ]);
@@ -2376,20 +2445,13 @@ export class GameScene extends Phaser.Scene {
 
       const modalChrome = calculatePuzzleChromeLayout(this.scale.width, this.scale.height);
       const width = Math.min(420, modalChrome.modalWidth);
-      const height = 206;
+      const height = 216;
       const container = this.add.container(this.scale.width / 2, this.scale.height / 2).setDepth(82);
       skipDialog = container;
 
-      const shadow = this.add.graphics();
-      shadow.fillStyle(0x050a13, 0.42);
-      shadow.fillRoundedRect(-width / 2 + 4, -height / 2 + 7, width, height, 12);
-      const panel = this.add.graphics();
-      panel.fillStyle(0x1f2c4a, 0.98);
-      panel.fillRoundedRect(-width / 2, -height / 2, width, height, 12);
-      panel.lineStyle(1, 0x4b6386, 0.92);
-      panel.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
+      const panel = createSlateSurface(this, 0, 0, width, height);
 
-      const title = this.add.text(0, -70, copy.game.skipTitle, {
+      const title = this.add.text(0, -height / 2 + 54, copy.game.skipTitle, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: `${modalChrome.modalTitleFontSize}px`,
         color: '#f0bd63',
@@ -2398,7 +2460,7 @@ export class GameScene extends Phaser.Scene {
       }).setOrigin(0.5);
       const body = this.add.text(
         0,
-        -20,
+        -3,
         endlessContext.kind === 'freeplay' ? copy.game.skipFreePlayBody : copy.game.skipBody,
         {
           fontFamily: "'Balsamiq Sans', sans-serif",
@@ -2412,8 +2474,8 @@ export class GameScene extends Phaser.Scene {
 
       const gap = 10;
       const buttonWidth = Math.floor((width - 44 - gap) / 2);
-      const buttonY = 58;
-      const buttonHeight = 72;
+      const buttonY = height / 2 - 43;
+      const buttonHeight = 52;
       const cancelButton = createCenteredTextMenuButton(this, {
         x: -buttonWidth / 2 - gap / 2,
         y: buttonY,
@@ -2434,7 +2496,7 @@ export class GameScene extends Phaser.Scene {
         onActivate: () => { void performSkip(); },
       });
       container.add([
-        shadow, panel, title, body,
+        panel, title, body,
         cancelButton.fill, cancelButton.frame, cancelButton.label,
         skipButton.fill, skipButton.frame, skipButton.label,
       ]);
@@ -3059,6 +3121,68 @@ export class GameScene extends Phaser.Scene {
     }
 
     void platformServices?.readiness.ready();
+
+    // Review-only entry to existing presentation functions. No puzzle result is
+    // submitted and the fixture profile is backed by in-memory storage.
+    if (import.meta.env.DEV) {
+      const qaDetail = this.registry.get('visual-qa-detail') as string | undefined;
+      if (qaCompletionVisual) {
+        board.setInputEnabled(false);
+        board.setSolvedVisualState(true);
+      }
+      if (qaDetail === 'menu' || qaDetail === 'menu-large') openGameMenu();
+      else if (qaDetail === 'reset') showResetDialog();
+      else if (qaDetail === 'skip' || qaDetail === 'skip-large') showSkipDialog();
+      else if (qaDetail === 'hint') {
+        hintConfirmOpen = true;
+        hintConfirmMode = 'free';
+        board?.setInputEnabled(false);
+        setToolbarVisible(false);
+        renderHintConfirm();
+        syncToolbar();
+      }
+      else if (qaDetail === 'hint-explanation' || qaDetail === 'hint-explanation-large') {
+        currentHint = chooseHint(puzzle);
+        if (currentHint !== null) board?.setHintCellTarget(currentHint);
+        recalculateToolbarLayout();
+        syncToolbar();
+        refreshStatusText();
+      }
+      else if (qaDetail === 'completion-tutorial' || qaDetail === 'completion-tutorial-final') {
+        const next = qaDetail === 'completion-tutorial-final'
+          ? null : tutorialService?.getLevels().find((entry) => entry.slot === (tutorialEntry?.slot ?? 1) + 1) ?? null;
+        showTutorialCompletionState({ recommendedNextLevel: next,
+          tutorialCompleted: next === null, persisted: false });
+      }
+      else if (qaDetail === 'completion-campaign' || qaDetail === 'completion-campaign-large' || qaDetail === 'completion-campaign-final') {
+        const progress = campaignService?.getProgress() ?? { completedLevelIds: [], lastPlayedLevelId: null };
+        const next = qaDetail === 'completion-campaign-final'
+          ? null : campaignService?.getLevels().find((entry) => entry.slot === (campaignEntry?.slot ?? 1) + 1) ?? null;
+        showCompletionState({ progress, recommendedNextLevel: next, rowUnlock: null, unlockedFeatures: [], persisted: false },
+          { bestTimeMs: 93_000, minHintsUsed: 0, solveCount: 1, solvedWithoutHints: true }, false);
+      } else if (qaDetail === 'completion-endless' || qaDetail === 'completion-endless-large' || qaDetail === 'completion-endless-final') {
+        const catalogLength = endlessService?.getCatalogLength() ?? 500;
+        const catalogComplete = qaDetail === 'completion-endless-final';
+        const completedOrdinal = catalogComplete ? catalogLength - 1 : endlessContext?.ordinal ?? 0;
+        showEndlessCompletionState({ completedOrdinal,
+          completed: completedOrdinal + 1, catalogLength,
+          ranked: true, catalogComplete, ratingAward: 25, masterRating: 12_450,
+          currentStreak: 4, bestStreak: 7, persisted: false });
+      } else if (qaDetail === 'completion-daily' || qaDetail === 'completion-daily-repeat'
+        || qaDetail === 'completion-daily-archive' || qaDetail === 'completion-daily-assisted') {
+        const result: DailyCompletionResult = {
+          dailyId: dailyContext?.dailyId ?? 'daily-001', dateKey: dailyContext?.dateKey ?? '2026-09-25',
+          wasFirstSolve: qaDetail === 'completion-daily', ranked: qaDetail === 'completion-daily', archive: false,
+          currentStreak: 3, bestStreak: 5, totalSolved: 8,
+          result: { bestTimeMs: 93_000, minHintsUsed: 0, solvedWithoutHints: true }, persisted: false,
+        };
+        if (qaDetail === 'completion-daily-repeat') {
+          showDailyPracticeCompletionState({ bestTimeMs: 93_000, minHintsUsed: 0, solveCount: 2, solvedWithoutHints: true });
+        } else if (qaDetail === 'completion-daily-archive') showDailyArchiveCompletionState(result);
+        else if (qaDetail === 'completion-daily-assisted') showDailyAssistedCompletionState(result);
+        else showDailyCompletionState(result, null);
+      }
+    }
   }
 
   private async finishCampaignLevel(

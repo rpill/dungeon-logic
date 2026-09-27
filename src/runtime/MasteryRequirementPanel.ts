@@ -1,12 +1,5 @@
 import Phaser from 'phaser';
-
-const MASTERY_REQUIREMENT_PANEL_KEY = 'mastery-requirements-panel';
-const SLICE_X = 120;
-const SLICE_Y = 120;
-
-export function preloadMasteryRequirementPanelAssets(scene: Phaser.Scene): void {
-  scene.load.image(MASTERY_REQUIREMENT_PANEL_KEY, 'assets/ui/mastery_requirements_panel_generated.png');
-}
+import { createSlateSurface } from './SlateSurface';
 
 export function createMasteryRequirementPanel(
   scene: Phaser.Scene,
@@ -15,21 +8,5 @@ export function createMasteryRequirementPanel(
   width: number,
   height: number,
 ): Phaser.GameObjects.NineSlice {
-  const source = scene.textures.get(MASTERY_REQUIREMENT_PANEL_KEY).get();
-  const sourceHeight = Math.max(1, source.height);
-  const surfaceScale = height / sourceHeight;
-  const localWidth = width / surfaceScale;
-
-  return scene.add.nineslice(
-    x,
-    y,
-    MASTERY_REQUIREMENT_PANEL_KEY,
-    undefined,
-    localWidth,
-    sourceHeight,
-    SLICE_X,
-    SLICE_X,
-    SLICE_Y,
-    SLICE_Y,
-  ).setScale(surfaceScale);
+  return createSlateSurface(scene, x, y, width, height);
 }

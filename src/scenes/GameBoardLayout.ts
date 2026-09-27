@@ -1,5 +1,6 @@
 import { BOARD_FRAME } from '../view/BoardFrameMetrics.ts';
 import { calculatePuzzleHeaderLayout } from '../runtime/PuzzleHeaderLayout.ts';
+import { desktopCompletionPanelHeight } from '../runtime/CompletionPanelLayout.ts';
 
 export type ViewportClass = 'wide' | 'compact' | 'narrow';
 
@@ -29,7 +30,10 @@ export function tryGameBoardLayoutForResize<T>(calculate: () => T): T | null {
 
 const WIDE_MIN_WIDTH = 1100;
 const COMPACT_MIN_WIDTH = 700;
-const DESKTOP_MAX_CELL_SIZE = 72;
+const BASE_MAX_CELL_SIZE = 72;
+const FIELD_VIEWPORT_WIDTH_RATIO = 0.42;
+const FIELD_AVAILABLE_HEIGHT_RATIO = 0.92;
+const WIDE_FIELD_MAX_SPAN = 760;
 
 interface LayoutReserves {
   readonly margin: number;
@@ -53,7 +57,7 @@ function getLayoutReserves(viewportClass: ViewportClass, touchControls: boolean)
         margin: 12,
         headerHeight: 104,
         // Two 68px rows, their 22px gap, 12px bottom inset and 12px board gap.
-        toolbarHeight: touchControls ? 182 : 132,
+        toolbarHeight: touchControls ? 212 : 172,
       }
     : {
         margin: 24,
@@ -88,7 +92,17 @@ export function calculateGameBoardLayout(
     reserves.headerHeight,
     calculatePuzzleHeaderLayout(viewportWidth, viewportHeight).bottom + 10,
   );
-  const toolbarHeight = inlineTouch ? 96 : reserves.toolbarHeight;
+  const phonePanelHeight = Math.round(Math.max(240, viewportWidth - 24) * 747 / 1100);
+  const phoneClearanceReserve = Math.min(
+    phonePanelHeight + 18,
+    Math.max(reserves.toolbarHeight,
+      2 * (phonePanelHeight + 14) + headerHeight + (viewportWidth - 24) - viewportHeight),
+  );
+  const toolbarHeight = inlineTouch ? 96 : viewportClass === 'wide'
+    ? Math.max(reserves.toolbarHeight, desktopCompletionPanelHeight(viewportWidth) + 22)
+    : viewportClass === 'narrow' && viewportHeight > viewportWidth
+      ? Math.max(reserves.toolbarHeight, phoneClearanceReserve)
+      : reserves.toolbarHeight;
 
   const availableHeight = viewportHeight - headerHeight - toolbarHeight;
   if (availableHeight <= 0) {
@@ -97,16 +111,28 @@ export function calculateGameBoardLayout(
 
   // Fit and center the entire framed puzzle, including clues and all four rims.
   const widthCellDivisor = boardColumns + BOARD_FRAME.left + BOARD_FRAME.right;
+  const heightCellDivisor = boardRows + BOARD_FRAME.top + BOARD_FRAME.bottom;
   const maxCellFromWidth = Math.floor(
     (viewportWidth - 2 * margin) / widthCellDivisor,
   );
 
   const maxCellFromHeight = Math.floor(
-    availableHeight / (boardRows + BOARD_FRAME.top + BOARD_FRAME.bottom),
+    availableHeight / heightCellDivisor,
+  );
+  // On a spacious desktop, let smaller grids grow toward a shared framed-field
+  // footprint. The width/height fit below still protects larger grids and short viewports.
+  const fieldSpan = Math.min(
+    viewportWidth * FIELD_VIEWPORT_WIDTH_RATIO,
+    availableHeight * FIELD_AVAILABLE_HEIGHT_RATIO,
+    WIDE_FIELD_MAX_SPAN,
+  );
+  const responsiveMaxCell = Math.max(
+    BASE_MAX_CELL_SIZE,
+    Math.floor(fieldSpan / Math.max(widthCellDivisor, heightCellDivisor)),
   );
 
   const cellSize = Math.min(
-    DESKTOP_MAX_CELL_SIZE,
+    responsiveMaxCell,
     maxCellFromWidth,
     maxCellFromHeight,
   );
@@ -121,7 +147,7 @@ export function calculateGameBoardLayout(
   const frameWidth = (boardColumns + BOARD_FRAME.left + BOARD_FRAME.right) * cellSize;
   const originX = (viewportWidth - frameWidth) / 2 + BOARD_FRAME.left * cellSize;
 
-  const totalPuzzleHeight = (boardRows + BOARD_FRAME.top + BOARD_FRAME.bottom) * cellSize;
+  const totalPuzzleHeight = heightCellDivisor * cellSize;
   const safeTop = headerHeight;
   const totalTop = safeTop + (availableHeight - totalPuzzleHeight) / 2;
   const originY = totalTop + BOARD_FRAME.top * cellSize;

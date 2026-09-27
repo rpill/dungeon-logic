@@ -4,6 +4,7 @@ import {
   resolveCampaignPlayState,
 } from '../runtime/CampaignPlayState';
 import { CellState } from '../puzzle/types';
+import { PuzzleState } from '../puzzle/PuzzleState';
 import type { SerializedPuzzleState } from '../profile/types';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -26,14 +27,13 @@ const noActive = resolveCampaignPlayState(campaign003, {
 assert(noActive.mode === 'completed-review', 'Completed level without an active replay opens in review mode.');
 assert(noActive.displayTimeMs === 42_000, 'Completed review displays the stored best time.');
 
+const freshPuzzle = new PuzzleState(campaign003);
 const freshReplay: SerializedPuzzleState = {
   mode: 'campaign',
   puzzleId: campaign003.id,
   cells: Array.from({ length: campaign003.height }, (_, y) => Array.from(
     { length: campaign003.width },
-    (_, x) => campaign003.monsters.some((monster) => monster.x === x && monster.y === y)
-      ? CellState.Floor
-      : CellState.Unknown,
+    (_, x) => freshPuzzle.getCellState(x, y),
   )),
   activePlayMs: 0,
   hintsUsed: 0,

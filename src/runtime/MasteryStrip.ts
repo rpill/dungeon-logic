@@ -1,9 +1,12 @@
 import Phaser from 'phaser';
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 
 import type { UiCopy } from '../i18n/UiCopy';
 import type { MasterySnapshot } from '../mastery/MasteryProgress';
-import { createHomeHubModeCard } from './HomeHubModeCard';
 import { createMasterySeal } from './MasterySeal';
+import { createSlateSurface } from './SlateSurface';
+import { UI_ICON_KEYS } from './UiIcons';
+import { isTouchLikePointer } from './PointerInput';
 
 export interface MasteryStripOptions {
   readonly x: number;
@@ -21,23 +24,13 @@ export interface MasteryStripHandle {
 }
 
 export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOptions): MasteryStripHandle {
-  const background = createHomeHubModeCard(scene, {
-    x: options.x,
-    y: options.y,
-    width: options.width,
-    height: options.height,
-    variant: 'wide',
-    visualStyle: 'soft-stone',
-    onActivate: options.onActivate,
-  });
-
+  const background = createSlateSurface(scene, options.x, options.y, options.width, options.height);
   const narrow = scene.scale.width < 700;
-  const cardWidth = background.displayWidth;
-  const cardHeight = background.displayHeight;
-  const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
-  const contentLeft = options.x - cardWidth * (narrow ? 0.16 : 0.18);
-  const contentWidth = cardWidth * (narrow ? 0.62 : 0.64);
-  const sealSize = Math.min(cardHeight * (narrow ? 1.47 : 1.26), narrow ? 108 : 129);
+  const left = options.x - options.width / 2;
+  const sealSize = Math.min(options.height * 0.76, narrow ? 74 : 126);
+  const iconX = left + sealSize / 2 + (narrow ? 12 : 18);
+  const contentLeft = left + sealSize + (narrow ? 22 : 38);
+  const contentWidth = options.width - (contentLeft - left) - (narrow ? 38 : 46);
 
   const seal = createMasterySeal(scene, {
     x: iconX,
@@ -49,40 +42,65 @@ export function createMasteryStrip(scene: Phaser.Scene, options: MasteryStripOpt
   });
 
   const rankTitle = options.copy.rankTitles[options.snapshot.currentRank];
-  const title = `${options.copy.homeTitle(options.snapshot.currentRank)} — ${rankTitle}`;
+  const title = narrow ? options.copy.homeTitle(options.snapshot.currentRank)
+    : `${options.copy.homeTitle(options.snapshot.currentRank)} — ${rankTitle}`;
   const subtitle = options.snapshot.nextRank === null
     ? (options.masterRatingLabel ?? options.copy.maxRank)
     : options.copy.homeNext(options.snapshot.nextRank, options.snapshot.remainingConditions);
 
-  const titleText = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), title, {
+  const titleText = scene.add.text(contentLeft, options.y - (narrow ? 15 : 24), title, {
     fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${narrow ? 18 : 22}px`,
     color: '#fff1d2',
     fontStyle: 'bold',
-    stroke: '#26345f',
-    strokeThickness: narrow ? 2 : 3,
-    shadow: {
-      offsetX: 0,
-      offsetY: narrow ? 1 : 2,
-      color: '#0b1024',
-      blur: 2,
-      fill: true,
-    },
-  }).setOrigin(0, 0.5).setLetterSpacing(narrow ? 1 : 1.5);
+    stroke: '#17243a',
+    strokeThickness: narrow ? 1 : 2,
+  }).setOrigin(0, 0.5);
   fitTextWidth(titleText, contentWidth, narrow ? 12 : 13);
 
-  const subtitleText = scene.add.text(contentLeft, options.y + (narrow ? 15 : 20), subtitle, {
+  const subtitleText = scene.add.text(contentLeft, options.y + (narrow ? 9 : 6), subtitle, {
     fontFamily: "'Balsamiq Sans', sans-serif",
     fontSize: `${narrow ? 12 : 14}px`,
     color: '#c6d2e6',
   }).setOrigin(0, 0.5);
   fitTextWidth(subtitleText, contentWidth, 9);
+  const progress = options.snapshot.nextRank === null
+    ? 1
+    : options.snapshot.conditions.length === 0 ? 0 : options.snapshot.conditions.reduce(
+        (total, condition) => total + Math.min(1, condition.current / condition.target),
+        0,
+      ) / options.snapshot.conditions.length;
+  const bar = scene.add.graphics();
+  const barWidth = Math.max(40, contentWidth - (narrow ? 2 : 20));
+  const barHeight = narrow ? 5 : 8;
+  const barY = options.y + (narrow ? 30 : 44);
+  bar.fillStyle(0x101c30, 0.95);
+  bar.fillRoundedRect(contentLeft, barY, barWidth, barHeight, barHeight / 2);
+  if (progress > 0) {
+    bar.fillStyle(0xd4a64f, 1);
+    bar.fillRoundedRect(contentLeft, barY, Math.max(barHeight, barWidth * progress), barHeight, barHeight / 2);
+  }
+  const arrow = scene.add.image(options.x + options.width / 2 - (narrow ? 19 : 24), options.y,
+    UI_ICON_KEYS.masteryForward).setDisplaySize(narrow ? 18 : 22, narrow ? 18 : 22).setTint(0xc6d2e6);
+
+  background.setInteractive({ useHandCursor: true });
+  background.on('pointerover', () => background.setTint(0xe4e8ef));
+  background.on('pointerout', () => background.clearTint());
+  background.on('pointerdown', () => background.setTint(0xc5cedc));
+  background.on('pointerupoutside', () => background.clearTint());
+  background.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    background.setTint(isTouchLikePointer(pointer) ? 0xffffff : 0xe4e8ef);
+    getAudioFeedback(scene).play('ui-click');
+    options.onActivate(pointer);
+  });
 
   return {
     destroy: () => {
       subtitleText.destroy();
       titleText.destroy();
+      bar.destroy();
       seal.destroy();
+      arrow.destroy();
       background.destroy();
     },
   };

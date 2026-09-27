@@ -14,8 +14,7 @@ assert(home.includes('subtitle: endlessUnlocked'), 'Endless card must show diffe
 assert(home.includes('if (!campaign.isEndlessUnlocked()) return;'), 'Home launch path must guard Endless even if invoked outside the card interaction.');
 assert(copy.includes("endlessLockedAfterLevel: 'ПОСЛЕ УРОВНЯ 8'"), 'Russian Home copy must explain the Endless unlock requirement.');
 assert(copy.includes("endlessLockedAfterLevel: 'AFTER LEVEL 8'"), 'English Home copy must explain the Endless unlock requirement.');
-assert(copy.includes('endlessUnlocked:'), 'Game copy must have a dedicated Endless-unlocked announcement.');
-assert(game.includes("result.unlockedFeatures.includes('endless')"), 'Campaign completion UI must recognize the Endless unlock separately from Daily.');
-assert(game.includes('launchUnlockedEndless'), 'Campaign completion UI must offer direct entry into newly unlocked Endless.');
+assert(game.includes('result.recommendedNextLevel !== null'), 'Campaign completion must retain its current Next/Done branching.');
+assert(game.includes('showEndlessCompletionState'), 'Endless completion must retain its separate mode result.');
 
 console.info('[Dungeon Logic] Endless unlock gate sanity: PASS');

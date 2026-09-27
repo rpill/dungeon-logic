@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "qa:screenshots": "node --experimental-strip-types scripts/visual-qa-screenshots.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "context": "node scripts/chatgpt-context.mjs",

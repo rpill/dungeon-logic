@@ -59,6 +59,7 @@ export interface UiCopy {
   readonly mastery: {
     readonly title: string;
     readonly homeTitle: (rank: MasteryRankId) => string;
+    readonly rankKicker: (rank: MasteryRankId) => string;
     readonly homeNext: (rank: MasteryRankId, remaining: number) => string;
     readonly maxRank: string;
     readonly nextRank: string;
@@ -293,6 +294,7 @@ const RU: UiCopy = {
   mastery: {
     title: 'МАСТЕРСТВО',
     homeTitle: (rank) => `МАСТЕРСТВО ${rank}`,
+    rankKicker: (rank) => `РАНГ ${rank}`,
     homeNext: (rank, remaining) => {
       const suffix = remaining % 10 === 1 && remaining % 100 !== 11
         ? 'условие'
@@ -544,6 +546,7 @@ const EN: UiCopy = {
   mastery: {
     title: 'MASTERY',
     homeTitle: (rank) => `MASTERY ${rank}`,
+    rankKicker: (rank) => `RANK ${rank}`,
     homeNext: (rank, remaining) => `To rank ${rank}: ${remaining} ${remaining === 1 ? 'condition' : 'conditions'}`,
     maxRank: 'MAXIMUM RANK',
     nextRank: 'TO THE NEXT RANK',

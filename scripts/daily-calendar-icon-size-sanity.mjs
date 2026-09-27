@@ -1,5 +1,5 @@
 import fs from 'node:fs';
 const s=fs.readFileSync('src/scenes/HomeScene.ts','utf8');
-if(!s.includes("options.icon === 'daily'")) throw new Error('Daily-specific icon sizing missing');
-if(!s.includes('Math.min(106, cardWidth * 0.40)')) throw new Error('Desktop Daily icon size not enlarged');
+if(!s.includes('HOME_CARD_ICON_KEYS[options.icon]')) throw new Error('Home card icon mapping missing');
+if(!s.includes('Math.min(narrow ? 45 : 54, options.height * 0.6)')) throw new Error('Responsive Home card icon sizing missing');
 console.log('[Dungeon Logic] Daily calendar icon size sanity: PASS');

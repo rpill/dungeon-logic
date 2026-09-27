@@ -12,19 +12,17 @@ const bootSource = readFileSync(resolve(projectRoot, 'src/scenes/BootScene.ts'),
 const homeSource = readFileSync(resolve(projectRoot, 'src/scenes/HomeScene.ts'), 'utf8');
 const rendererPath = resolve(projectRoot, 'src/runtime/HomeMenuButton.ts');
 const headerActionPath = resolve(projectRoot, 'src/runtime/HeaderActionButton.ts');
-const homeModeCardPath = resolve(projectRoot, 'src/runtime/HomeModeCard.ts');
-const homeHubModeCardPath = resolve(projectRoot, 'src/runtime/HomeHubModeCard.ts');
+const renderer = readFileSync(rendererPath, 'utf8');
 
 const expectedAssets = [
-  'public/assets/ui/menu_button_fill.webp',
-  'public/assets/ui/menu_button_frame_normal.png',
-  'public/assets/ui/menu_button_frame_hover.png',
-  'public/assets/ui/menu_button_frame_pressed.png',
+  'public/assets/ui/action_gold_m1.png',
+  'public/assets/ui/action_slate_m1.png',
+  'public/assets/ui/slate_surface_m1.png',
   'public/assets/ui/icons/play.svg',
-  'public/assets/ui/icons/daily.svg',
-  'public/assets/ui/icons/levels.svg',
+  'public/assets/ui/icons/daily_calendar_star.webp',
+  'public/assets/ui/icons/levels_book_blue.webp',
   'public/assets/ui/icons/settings.svg',
-  'public/assets/ui/icons/endless.svg',
+  'public/assets/ui/icons/endless_infinity_cream_blue.webp',
 ];
 
 for (const relativePath of expectedAssets) {
@@ -34,14 +32,14 @@ for (const relativePath of expectedAssets) {
 assert(existsSync(rendererPath), 'Shared HomeMenuButton renderer must remain available to game menus.');
 assert(
   bootSource.includes('preloadHomeMenuAssets(this)'),
-  'BootScene must preload the shared Home hub textures and SVG icons.',
+  'BootScene must preload the shared Home icons and action skins.',
 );
 assert(
   homeSource.includes("play: 'home-menu-icon-play'")
     && homeSource.includes("daily: 'home-menu-icon-daily'")
     && homeSource.includes("levels: 'home-menu-icon-levels'")
     && homeSource.includes("endless: 'home-menu-icon-endless'"),
-  'Home hub cards must reuse the matching project SVG icons.',
+  'Home cards must reuse the matching project icons.',
 );
 assert(existsSync(headerActionPath), 'Shared header-action renderer must exist for top navigation controls.');
 assert(
@@ -49,17 +47,17 @@ assert(
     && homeSource.includes("iconKey: 'home-menu-icon-settings'"),
   'Home must expose Settings as a compact top-right gear using the shared header style.',
 );
-assert(existsSync(homeModeCardPath), 'Legacy HomeModeCard renderer must remain available and untouched.');
-assert(existsSync(homeHubModeCardPath), 'New HomeHubModeCard renderer must exist for Home navigation cards.');
 assert(
-  bootSource.includes('preloadHomeModeCardAssets(this)')
-    && bootSource.includes('preloadHomeHubModeCardAssets(this)')
-    && homeSource.includes('createHomeHubModeCard(scene, {'),
-  'Home navigation cards must use their dedicated card textures while preserving the shared HomeHubModeCard renderer.',
+  homeSource.includes('createSlateSurface(scene,')
+    && homeSource.includes('createPrimaryActionButton(scene, {')
+    && renderer.includes('createMaterialActionButton(scene, {')
+    && !bootSource.includes('preloadHomeModeCardAssets(this)')
+    && !bootSource.includes('preloadHomeHubModeCardAssets(this)'),
+  'Home and shared menu actions must use the current slate/material family without legacy card preloads.',
 );
 assert(
   !homeSource.includes('STATS_SCENE_KEY'),
   'Statistics must not return as a dedicated Home action.',
 );
 
-console.info('[Dungeon Logic] Home hub buttons sanity: new Home-only mode cards + shared icons passed');
+console.info('[Dungeon Logic] Home hub buttons sanity: shared slate/actions/icons passed');

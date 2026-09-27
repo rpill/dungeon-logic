@@ -15,24 +15,21 @@ const game = readFileSync(resolve(root, 'src/scenes/GameScene.ts'), 'utf8');
 const home = readFileSync(resolve(root, 'src/scenes/HomeScene.ts'), 'utf8');
 
 assert(copy.includes("endless: 'ИСПЫТАНИЕ'"), 'RU Home mode name must be ИСПЫТАНИЕ.');
-assert(copy.includes("endlessTitle: (ordinal) => `ИСПЫТАНИЕ · ${ordinal}`"), 'RU game title must use ИСПЫТАНИЕ.');
-assert(copy.includes("endless: 'Испытание: лучшая серия'"), 'RU Mastery requirement must use Испытание and lifetime streak wording.');
-assert(copy.includes("endlessStreak: (streak) => `СЕРИЯ: ${streak}`"), 'Game copy must expose persistent streak HUD copy.');
-assert(game.includes('challengeStreakText'), 'GameScene must render a dedicated challenge streak HUD text.');
-assert(game.includes('copy.game.endlessStreak'), 'GameScene streak HUD must use localized streak copy.');
+assert(copy.includes("endlessTitle: (ordinal) => `ИСПЫТАНИЕ ${ordinal}`"), 'RU game title must use ИСПЫТАНИЕ.');
+assert(copy.includes("endless: 'Испытание: решено'"), 'RU Mastery requirement must use Испытание and completed-puzzle wording.');
+assert(game.includes('copy.game.endlessTitle'), 'GameScene must render localized Challenge title.');
 assert(home.includes('profile.endless.currentStreak') && home.includes('profile.endless.bestStreak'), 'Home Challenge card must show current and best streak.');
 
-assert(strip.includes('createHeaderActionButton'), 'Mastery strip must use the shared header/material action button.');
-assert(!strip.includes("scene.add.image(chevronX"), 'Mastery strip must not use a naked chevron image.');
-assert(strip.includes('sealSize = Math.min(options.height * 0.7'), 'Mastery strip seal must keep safe padding.');
+assert(strip.includes('createSlateSurface'), 'Mastery strip must use the shared matte slate surface.');
+assert(strip.includes('sealSize = Math.min(options.height * 0.76'), 'Mastery strip seal must keep safe padding.');
 
-assert(/imageSize = options\.size \* \(showRankPlaque \? 0\.82 : 0\.88\)/.test(seal), 'Mastery seals must render inside a safe padded image box.');
+assert(seal.includes("textureVariant === 'small' ? 0.96 : 0.88"), 'Mastery seals must render inside a safe padded image box.');
 assert(seal.includes('showRankPlaque?: boolean'), 'Mastery seal must support plaque-free small rank-path icons.');
 
 assert(scene.includes("'home-menu-icon-daily'"), 'Mastery condition rows must use a Daily icon.');
 assert(scene.includes("'home-menu-icon-endless'"), 'Mastery condition rows must use the challenge infinity icon.');
 assert(scene.includes('drawRequirementProgress'), 'Mastery requirement rows must render a real progress track.');
-assert(scene.includes('createHomeHubModeCard') && scene.includes("variant: 'wide'"), 'Mastery requirements panel must reuse the native wide-card component.');
-assert(scene.includes('createMasterySeal(this, {'), 'Mastery rank path must use mastery seals instead of plain circles.');
+assert(scene.includes('createMasteryRequirementPanel'), 'Mastery requirements panel must use the shared slate shell.');
+assert(scene.includes('createMasterySeal(this, {'), 'Current rank must retain its distinct emblem.');
 
 console.info('[Dungeon Logic] Mastery + Challenge polish sanity: PASS');

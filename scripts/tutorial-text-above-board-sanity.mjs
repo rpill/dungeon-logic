@@ -11,12 +11,14 @@ assert(
   'Tutorial text must anchor to the board/clue geometry.',
 );
 assert(
-  source.includes('const panelX = boardLayout.originX + boardLayout.boardWidth / 2'),
-  'Tutorial text must be centered on the gameplay board.',
+  source.includes('const hasSideTutorialNote = (): boolean => this.scale.width >= 1100 && this.scale.height >= 600;')
+    && source.includes('const panelX = sideNote')
+    && source.includes(': boardLayout.originX + boardLayout.boardWidth / 2;'),
+  'Tutorial text must sit beside the board on wide desktop and align above it on narrow screens.',
 );
 assert(
-  source.includes('.setFontSize(narrowScreen ? 15 : 18)'),
-  'Tutorial copy should be more prominent above the board.',
+  source.includes('.setFontSize(sideNote ? 16 : narrowScreen ? 15 : 18)'),
+  'Tutorial copy must remain readable at desktop and phone sizes.',
 );
 assert(
   source.includes('applyTutorialBoardTopClearance'),

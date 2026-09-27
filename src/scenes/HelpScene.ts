@@ -20,7 +20,7 @@ import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { calculateMetaPageHeaderMetrics } from '../runtime/MetaPageHeaderLayout';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import { createSceneBackground } from '../runtime/SceneBackground';
-import { createUiPanel } from '../ui/UiPanel';
+import { createQuietInset } from '../runtime/QuietInset';
 import {
   clampMetaScrollY,
   getMetaScrollMaxY,
@@ -63,9 +63,9 @@ export class HelpScene extends Phaser.Scene {
     analytics?.screenView('help');
     const header = calculateMetaPageHeaderMetrics(this.scale.width, this.scale.height);
     const narrow = header.narrow;
-    const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 48), narrow ? 620 : 760);
-    const cardGap = narrow ? 14 : 18;
-    let cursorY = header.headerHeight + (narrow ? 18 : 24);
+    const contentWidth = Math.min(this.scale.width - (narrow ? 24 : 64), narrow ? 620 : 1040);
+    const panelTop = header.headerHeight + (narrow ? 14 : 24);
+    let cursorY = panelTop + (narrow ? 24 : 34);
 
     const sceneBackground = createSceneBackground(this, 'meta');
     sceneBackground.image.setScrollFactor(0);
@@ -80,17 +80,21 @@ export class HelpScene extends Phaser.Scene {
       },
     });
 
-    for (const rule of getHelpRules(language)) {
-      cursorY = this.createRuleCard(rule, cursorY, contentWidth, narrow) + cardGap;
-    }
-
-    for (const utility of getHelpUtilities(language)) {
-      cursorY = this.createUtilityCard(utility, cursorY, contentWidth, narrow) + cardGap;
+    const sections = [...getHelpRules(language), ...getHelpUtilities(language)];
+    const dividers = this.add.graphics().setDepth(2);
+    for (const [index, section] of sections.entries()) {
+      cursorY = this.createSection(section, cursorY, contentWidth, narrow);
+      if (index < sections.length - 1) {
+        const halfWidth = contentWidth / 2 - (narrow ? 22 : 38);
+        dividers.lineStyle(1, 0x9ca9b4, 0.25);
+        dividers.lineBetween(this.scale.width / 2 - halfWidth, cursorY, this.scale.width / 2 + halfWidth, cursorY);
+        cursorY += narrow ? 26 : 34;
+      }
     }
 
     const ctaWidth = Math.min(narrow ? 260 : 300, this.scale.width - (narrow ? 32 : 80));
     const ctaHeight = narrow ? 68 : 72;
-    const ctaY = cursorY + ctaHeight / 2 + (narrow ? 6 : 10);
+    const ctaY = cursorY + ctaHeight / 2 + (narrow ? 18 : 28);
     const cta = createCenteredTextMenuButton(this, {
       x: this.scale.width / 2,
       y: ctaY,
@@ -107,7 +111,17 @@ export class HelpScene extends Phaser.Scene {
     cta.fill.setDepth(2);
     cta.frame.setDepth(3);
     cta.label.setDepth(4);
-    this.contentBottom = ctaY + ctaHeight / 2 + (narrow ? 20 : 30);
+    const panelBottom = ctaY + ctaHeight / 2 + (narrow ? 24 : 34);
+    createQuietInset(this, {
+      x: this.scale.width / 2,
+      y: (panelTop + panelBottom) / 2,
+      width: contentWidth,
+      height: panelBottom - panelTop,
+      radius: narrow ? 15 : 20,
+      fillAlpha: 0.98,
+      borderAlpha: 0.42,
+    }).setDepth(1);
+    this.contentBottom = panelBottom + (narrow ? 18 : 30);
 
     const handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
       this.pointerGate.notePointerDown(pointer.id);
@@ -129,39 +143,20 @@ export class HelpScene extends Phaser.Scene {
     });
   }
 
-  private createRuleCard(
-    rule: HelpRule,
-    topY: number,
-    width: number,
-    narrow: boolean,
-  ): number {
-    return this.createCard(rule, topY, width, narrow);
-  }
-
-  private createUtilityCard(
-    utility: HelpUtility,
-    topY: number,
-    width: number,
-    narrow: boolean,
-  ): number {
-    return this.createCard(utility, topY, width, narrow);
-  }
-
-  private createCard(
+  private createSection(
     content: HelpRule | HelpUtility,
     topY: number,
     width: number,
     narrow: boolean,
   ): number {
     const left = this.scale.width / 2 - width / 2;
-    const paddingX = narrow ? 16 : 24;
-    const paddingTop = narrow ? 16 : 20;
-    const paddingBottom = narrow ? 16 : 20;
-    const textWidth = width - paddingX * 2;
+    const paddingX = narrow ? 22 : 40;
+    const textWidth = narrow ? width - paddingX * 2 : Math.round((width - paddingX * 2) * 0.57);
+    const illustrationWidth = width - paddingX * 2 - textWidth - 24;
 
-    const title = this.add.text(left + paddingX, topY + paddingTop, content.title, {
+    const title = this.add.text(left + paddingX, topY, content.title, {
       fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: narrow ? '16px' : '20px',
+      fontSize: narrow ? '17px' : '21px',
       color: '#f0bd63',
       fontStyle: 'bold',
       wordWrap: { width: textWidth },
@@ -180,34 +175,23 @@ export class HelpScene extends Phaser.Scene {
     titleMark.closePath();
     titleMark.fillPath();
 
-    const body = this.add.text(left + paddingX, title.y + title.height + (narrow ? 9 : 11), content.body, {
+    const body = this.add.text(left + paddingX, title.y + title.height + (narrow ? 9 : 12), content.body, {
       fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: narrow ? '13px' : '16px',
+      fontSize: narrow ? '14px' : '17px',
       color: '#e7e1d6',
       lineSpacing: narrow ? 4 : 6,
       wordWrap: { width: textWidth },
     }).setOrigin(0, 0).setDepth(3);
 
-    const illustrationTop = body.y + body.height + (narrow ? 14 : 18);
+    const illustrationTop = narrow ? body.y + body.height + 16 : topY + 4;
     const illustrationHeight = renderHelpIllustration(this, content.id, {
-      x: this.scale.width / 2,
+      x: narrow ? this.scale.width / 2 : left + paddingX + textWidth + 24 + illustrationWidth / 2,
       topY: illustrationTop,
-      width: textWidth,
+      width: narrow ? textWidth : illustrationWidth,
       narrow,
       language: this.getProfileService().getProfile().settings.language,
     });
-    const cardHeight = illustrationTop + illustrationHeight - topY + paddingBottom;
-
-    createUiPanel(this, {
-      x: left + width / 2,
-      y: topY + cardHeight / 2,
-      width,
-      height: cardHeight,
-      variant: 'wide',
-      alpha: 0.985,
-    }).setDepth(1);
-
-    return topY + cardHeight;
+    return Math.max(body.y + body.height, illustrationTop + illustrationHeight) + (narrow ? 24 : 30);
   }
 
   private setupScroll(): void {

@@ -1,12 +1,5 @@
 import Phaser from 'phaser';
-
-const COMPLETION_PANEL_KEY = 'completion-panel';
-const COMPLETION_PANEL_SLICE_X = 68;
-const COMPLETION_PANEL_SLICE_Y = 68;
-
-export function preloadCompletionPanelAssets(scene: Phaser.Scene): void {
-  scene.load.image(COMPLETION_PANEL_KEY, 'assets/ui/completion_panel.webp');
-}
+import { createSlateSurface } from './SlateSurface';
 
 export function createCompletionPanelSurface(
   scene: Phaser.Scene,
@@ -15,18 +8,7 @@ export function createCompletionPanelSurface(
   width: number,
   height: number,
 ): Phaser.GameObjects.NineSlice {
-  return scene.add.nineslice(
-    x,
-    y,
-    COMPLETION_PANEL_KEY,
-    undefined,
-    width,
-    height,
-    COMPLETION_PANEL_SLICE_X,
-    COMPLETION_PANEL_SLICE_X,
-    COMPLETION_PANEL_SLICE_Y,
-    COMPLETION_PANEL_SLICE_Y,
-  );
+  return createSlateSurface(scene, x, y, width, height);
 }
 
 export function drawCompletionCrown(

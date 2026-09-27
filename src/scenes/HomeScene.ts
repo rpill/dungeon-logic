@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getAudioFeedback } from '../audio/AudioFeedbackService';
 
 import { ANALYTICS_SERVICE_REGISTRY_KEY, type AnalyticsService } from '../analytics/AnalyticsService';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
@@ -21,7 +22,6 @@ import {
 } from '../runtime/GameLaunch';
 import { createHeaderActionButton, getHeaderActionButtonMetrics, getHeaderActionPlacement } from '../runtime/HeaderActionButton';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
-import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
 import { createMasteryStrip } from '../runtime/MasteryStrip';
 import {
   calculateAvailableViewport,
@@ -41,6 +41,7 @@ import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
 import { TUTORIAL_SERVICE_REGISTRY_KEY, TutorialService } from '../tutorial/TutorialService';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { createSlateSurface } from '../runtime/SlateSurface';
 import { resolveUiDensity, type UiDensity } from '../ui/UiDensity';
 import { createUiTextStyle } from '../ui/UiText';
 import { UI_THEME } from '../ui/UiTheme';
@@ -123,7 +124,6 @@ export class HomeScene extends Phaser.Scene {
     const action = getHomeCampaignAction(campaign, profile);
     const viewportClass = classifyViewport(this.scale.width);
     const narrow = viewportClass === 'narrow';
-    const compactHeight = this.scale.height < (narrow ? 650 : 590);
     const safeAreaInsets = readCssSafeAreaInsets();
     const safeViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeAreaInsets);
     const levels = campaign.getLevels();
@@ -155,43 +155,8 @@ export class HomeScene extends Phaser.Scene {
       },
     });
 
-    // Build Home as one cohesive stack. The whole stack is centered inside the
-    // usable viewport and scales down together on short screens instead of
-    // letting the bottom cards clip. A future sticky banner can reserve space
-    // by setting the shared sticky bottom inset before entering Home.
-    const naturalCardGap = narrow ? 10 : 16;
-    const naturalPrimaryHeight = narrow ? (compactHeight ? 80 : 92) : (compactHeight ? 88 : 104);
-    const naturalWideHeight = narrow ? (compactHeight ? 88 : 100) : (compactHeight ? 100 : 116);
-    const naturalMasteryHeight = naturalWideHeight;
-    const masteryGap = narrow ? (compactHeight ? 8 : 10) : (compactHeight ? 9 : 12);
-    const cardSectionGap = narrow ? (compactHeight ? 10 : 12) : (compactHeight ? 10 : 14);
-    const logoToPrimaryGap = narrow ? (compactHeight ? 18 : 22) : (compactHeight ? 18 : 24);
-
-    const naturalDesktopTileSide = Math.max(200, Math.min(
-      260,
-      (safeViewport.width - 80 - naturalCardGap) / 2,
-    ));
-    const naturalContentWidth = narrow
-      ? Math.min(safeViewport.width - 28, 390)
-      : (naturalDesktopTileSide * 2) + naturalCardGap;
-    const naturalTileWidth = (naturalContentWidth - naturalCardGap) / 2;
-    const naturalTileHeight = naturalTileWidth;
-    const naturalLogoWidth = narrow
-      ? Math.min(naturalContentWidth * 0.88, 330)
-      : Math.min(naturalContentWidth * 0.94, 500);
-    const naturalLogoHeight = naturalLogoWidth / logoAspect;
-    const naturalStackHeight = naturalLogoHeight
-      + logoToPrimaryGap
-      + naturalPrimaryHeight
-      + masteryGap
-      + naturalMasteryHeight
-      + masteryGap
-      + naturalTileHeight
-      + cardSectionGap
-      + naturalWideHeight;
-
-    // Home explicitly opts in to sticky-banner reservation. Other scenes only
-    // reserve this inset when they choose to read the same registry value.
+    // Preserve the existing actions while letting desktop use its width and
+    // phone use compact navigation rows. Reserve the platform's sticky area.
     const stickyBottomInset = sanitizeViewportInset(
       this.registry.get(STICKY_BOTTOM_INSET_REGISTRY_KEY) as unknown,
     );
@@ -201,56 +166,56 @@ export class HomeScene extends Phaser.Scene {
       bottom: safeAreaInsets.bottom + (narrow ? 18 : 24) + stickyBottomInset,
       left: safeAreaInsets.left,
     });
-    const availableHeight = contentViewport.height;
-    const stackScale = Math.min(1, availableHeight / naturalStackHeight);
-
-    const contentWidth = naturalContentWidth * stackScale;
-    const cardGap = naturalCardGap * stackScale;
+    const naturalWidth = narrow
+      ? Math.min(contentViewport.width - 28, 390)
+      : Math.min(contentViewport.width - 104, 1260);
+    const naturalGap = narrow ? 10 : 16;
+    const naturalLogoWidth = narrow ? Math.min(naturalWidth * 0.82, 310) : Math.min(naturalWidth * 0.46, 560);
+    const naturalLogoHeight = naturalLogoWidth / logoAspect;
+    const naturalPrimaryHeight = narrow ? 82 : 92;
+    const naturalMasteryHeight = narrow ? 94 : 190;
+    const naturalNavHeight = narrow ? 78 : 124;
+    const naturalHeroHeight = narrow
+      ? naturalPrimaryHeight + naturalGap + naturalMasteryHeight
+      : naturalMasteryHeight;
+    const naturalNavBlockHeight = narrow ? naturalNavHeight * 3 + naturalGap * 2 : naturalNavHeight;
+    const naturalLogoGap = narrow ? 16 : 22;
+    const naturalSectionGap = narrow ? 13 : 22;
+    const naturalStackHeight = naturalLogoHeight + naturalLogoGap + naturalHeroHeight
+      + naturalSectionGap + naturalNavBlockHeight;
+    const stackScale = Math.min(1, contentViewport.height / naturalStackHeight);
+    const contentWidth = naturalWidth * stackScale;
+    const gap = naturalGap * stackScale;
     const primaryHeight = naturalPrimaryHeight * stackScale;
-    const tileWidth = naturalTileWidth * stackScale;
-    const tileHeight = naturalTileHeight * stackScale;
-    const wideHeight = naturalWideHeight * stackScale;
     const masteryHeight = naturalMasteryHeight * stackScale;
-    const scaledLogoWidth = naturalLogoWidth * stackScale;
-    const scaledLogoHeight = naturalLogoHeight * stackScale;
-    const scaledLogoGap = logoToPrimaryGap * stackScale;
-    const scaledCardSectionGap = cardSectionGap * stackScale;
-    const scaledMasteryGap = masteryGap * stackScale;
+    const navHeight = naturalNavHeight * stackScale;
+    const heroHeight = naturalHeroHeight * stackScale;
+    const navBlockHeight = naturalNavBlockHeight * stackScale;
     const scaledStackHeight = naturalStackHeight * stackScale;
+    const stackCenterY = contentViewport.centerY - (narrow ? contentViewport.height * 0.035 : 0);
+    const stackTop = Phaser.Math.Clamp(
+      stackCenterY - scaledStackHeight / 2,
+      contentViewport.y,
+      contentViewport.bottom - scaledStackHeight,
+    );
+    const logoHeight = naturalLogoHeight * stackScale;
+    logo.setPosition(centerX, stackTop + logoHeight / 2);
+    logo.setDisplaySize(naturalLogoWidth * stackScale, logoHeight);
 
-    const desiredCenterRatio = narrow ? 0.47 : 0.5;
-    const desiredCenterY = contentViewport.y + availableHeight * desiredCenterRatio;
-    const minCenterY = contentViewport.y + scaledStackHeight / 2;
-    const maxCenterY = contentViewport.bottom - scaledStackHeight / 2;
-    const stackCenterY = Phaser.Math.Clamp(desiredCenterY, minCenterY, maxCenterY);
-    const stackTop = stackCenterY - scaledStackHeight / 2;
-
-    const logoY = stackTop + scaledLogoHeight / 2;
-    const primaryY = stackTop
-      + scaledLogoHeight
-      + scaledLogoGap
-      + primaryHeight / 2;
-    const masteryY = primaryY
-      + primaryHeight / 2
-      + scaledMasteryGap
-      + masteryHeight / 2;
-    const tileY = masteryY
-      + masteryHeight / 2
-      + scaledMasteryGap
-      + tileHeight / 2;
-    const wideY = tileY
-      + tileHeight / 2
-      + scaledCardSectionGap
-      + wideHeight / 2;
-
-    logo.setPosition(centerX, logoY);
-    logo.setDisplaySize(scaledLogoWidth, scaledLogoHeight);
+    const heroY = stackTop + logoHeight + naturalLogoGap * stackScale + heroHeight / 2;
+    const primaryY = narrow ? heroY - (masteryHeight + gap) / 2 : heroY;
+    const masteryY = narrow ? heroY + (primaryHeight + gap) / 2 : heroY;
+    const leftHeroWidth = narrow ? contentWidth : (contentWidth - gap) * 0.48;
+    const rightHeroWidth = narrow ? contentWidth : contentWidth - gap - leftHeroWidth;
+    const primaryX = narrow ? centerX : centerX - (contentWidth - leftHeroWidth) / 2;
+    const masteryX = narrow ? centerX : centerX + (contentWidth - rightHeroWidth) / 2;
+    if (!narrow) createSlateSurface(this, primaryX, primaryY, leftHeroWidth, heroHeight);
 
     const primary = this.resolvePrimaryCard(campaign, tutorial, action, completedCampaign, levels.length, copy);
     createHomeHubCard(this, {
-      x: centerX,
+      x: primaryX,
       y: primaryY,
-      width: contentWidth,
+      width: narrow ? contentWidth : leftHeroWidth - 38 * stackScale,
       height: primaryHeight,
       variant: 'primary',
       density,
@@ -261,9 +226,9 @@ export class HomeScene extends Phaser.Scene {
     }, this.pointerGate);
 
     createMasteryStrip(this, {
-      x: centerX,
+      x: masteryX,
       y: masteryY,
-      width: contentWidth,
+      width: rightHeroWidth,
       height: masteryHeight,
       snapshot: mastery,
       copy: copy.mastery,
@@ -276,12 +241,17 @@ export class HomeScene extends Phaser.Scene {
       },
     });
 
+    const navTop = heroY + heroHeight / 2 + naturalSectionGap * stackScale;
+    const navWidth = narrow ? contentWidth : (contentWidth - gap * 2) / 3;
+    const navPosition = (index: number): { x: number; y: number } => narrow
+      ? { x: centerX, y: navTop + navHeight / 2 + index * (navHeight + gap) }
+      : { x: centerX - contentWidth / 2 + navWidth / 2 + index * (navWidth + gap), y: navTop + navBlockHeight / 2 };
+    const levelsPosition = navPosition(0);
     createHomeHubCard(this, {
-      x: centerX - (tileWidth + cardGap) / 2,
-      y: tileY,
-      width: tileWidth,
-      height: tileHeight,
-      variant: 'tall',
+      ...levelsPosition,
+      width: navWidth,
+      height: navHeight,
+      variant: 'wide',
       density,
       label: copy.common.levels,
       subtitle: copy.levelSelect.progress(completedCampaign, levels.length),
@@ -291,19 +261,18 @@ export class HomeScene extends Phaser.Scene {
 
     void this.renderDailyCard(
       profileService,
-      centerX + (tileWidth + cardGap) / 2,
-      tileY,
-      tileWidth,
-      tileHeight,
+      navPosition(1).x,
+      navPosition(1).y,
+      navWidth,
+      navHeight,
       createVersion,
       density,
     );
 
     createHomeHubCard(this, {
-      x: centerX,
-      y: wideY,
-      width: contentWidth,
-      height: wideHeight,
+      ...navPosition(2),
+      width: navWidth,
+      height: navHeight,
       variant: 'wide',
       density,
       label: copy.home.endless,
@@ -331,7 +300,7 @@ export class HomeScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
     });
 
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && this.registry.get('visual-qa-active') !== true) {
       void import('../dev/MasteryRankUpDevControl').then(({ createMasteryRankUpDevControl }) => {
         if (!this.scene.isActive() || this.createVersion !== createVersion) return;
         createMasteryRankUpDevControl(this, {
@@ -531,10 +500,12 @@ export class HomeScene extends Phaser.Scene {
     }
 
     const solved = action.kind === 'solved';
-    const streak = action.currentStreak > 0
-      ? copy.home.dailyStreak(action.currentStreak)
-      : solved
-        ? copy.home.dailySolvedShort
+    const streak = solved
+      ? action.currentStreak > 0
+        ? `${copy.home.dailySolvedShort} · ${copy.home.dailyStreak(action.currentStreak)}`
+        : copy.home.dailySolvedShort
+      : action.currentStreak > 0
+        ? copy.home.dailyStreak(action.currentStreak)
         : copy.home.dailyNewShort;
 
     createHomeHubCard(this, {
@@ -617,7 +588,7 @@ function createHomeHubCard(
       height: options.height,
       label: options.label,
       subtitle: options.subtitle,
-      iconKey: HOME_CARD_ICON_KEYS[options.icon as 'play'],
+      iconKey: HOME_CARD_ICON_KEYS[options.icon],
       homeWideLayout: true,
       enabled,
       onActivate: (pointer) => {
@@ -627,147 +598,53 @@ function createHomeHubCard(
     return { destroy: () => button.destroy() };
   }
 
-  const card = createHomeHubModeCard(scene, {
-    x: options.x,
-    y: options.y,
-    width: options.width,
-    height: options.height,
-    variant: options.variant,
-    visualStyle: 'soft-stone',
-    enabled,
-    activeAccent,
-    onActivate: (pointer) => {
-      if (pointerGate.canActivate(pointer.id)) options.onActivate();
-    },
-  });
-  const objects: Phaser.GameObjects.GameObject[] = [];
-
   const narrow = scene.scale.width < 700;
-  const cardWidth = card.displayWidth;
-  const cardHeight = card.displayHeight;
-  // Legacy sanity anchors retained after switching to aspect-safe card bounds:
-  // const iconSize = narrow ? 30 : Math.min(82, options.width * 0.31);
-  //         y: options.y + options.height * (narrow ? 0.31 : 0.35),
-  const labelColor = enabled
-    ? UI_THEME.colors.text.primary
-    : UI_THEME.colors.text.disabled;
-  const subtitleColor = enabled ? UI_THEME.colors.text.secondary : UI_THEME.colors.text.disabled;
-  const HOME_SUBTITLE_FONT_SIZE = narrow ? 12 : 14;
-
-  if (options.variant === 'tall') {
-    const largeIllustratedIcon = options.icon === 'daily' || options.icon === 'levels';
-    const iconSize = largeIllustratedIcon
-      ? (narrow ? (options.icon === 'levels' ? 66 : 58) : Math.min(106, cardWidth * 0.40))
-      : (narrow ? 30 : Math.min(82, cardWidth * 0.31));
-    const iconY = options.y - cardHeight * (largeIllustratedIcon ? (narrow ? 0.23 : 0.18) : 0.22);
-    const iconKey = HOME_CARD_ICON_KEYS[options.icon as 'daily' | 'levels'];
-    const icon = scene.add.image(options.x, iconY, iconKey)
-      .setDisplaySize(iconSize, iconSize)
-      .setAlpha(enabled ? 1 : 0.58);
-
-    if (options.icon !== 'daily' && options.icon !== 'levels') {
-      icon.setTint(enabled
-        ? (activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.primary)
-        : UI_THEME.colors.text.disabled);
-    } else if (!enabled) {
-      icon.setTint(UI_THEME.colors.text.disabled);
-    }
-    objects.push(icon);
-
-    if (!enabled) {
-      const lockSize = narrow ? 14 : Math.max(16, Math.min(24, cardWidth * 0.085));
-      const lock = scene.add.image(
-        options.x + cardWidth * 0.29,
-        options.y - options.height * 0.19,
-        UI_ICON_KEYS.lock,
-      )
-        .setDisplaySize(lockSize, lockSize)
-        .setTint(UI_THEME.colors.text.disabled)
-        .setAlpha(0.72);
-      objects.push(lock);
-    }
-
-    const label = scene.add.text(options.x, options.y + cardHeight * 0.08, options.label, {
-      ...createUiTextStyle('bodyStrong', options.density, { color: labelColor, align: 'center' }),
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: `${narrow ? 18 : 22}px`,
-      fontStyle: 'bold',
-      stroke: '#26345f',
-      strokeThickness: narrow ? 2 : 3,
-      shadow: {
-        offsetX: 0,
-        offsetY: narrow ? 1 : 2,
-        color: '#0b1024',
-        blur: 2,
-        fill: true,
-      },
-    }).setOrigin(0.5).setLetterSpacing(narrow ? 1 : 1.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, cardWidth - (narrow ? 22 : 32), options.density === 'mobile' ? 10 : 11);
-    objects.push(label);
-
-    const subtitle = scene.add.text(options.x, options.y + cardHeight * (narrow ? 0.27 : 0.31), options.subtitle, {
-      ...createUiTextStyle('meta', options.density, { color: subtitleColor, align: 'center' }),
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: `${HOME_SUBTITLE_FONT_SIZE}px`,
-    }).setOrigin(0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(subtitle, cardWidth - (narrow ? 18 : 28), 10);
-    objects.push(subtitle);
-  } else {
-    const iconX = options.x - cardWidth * (narrow ? 0.31 : 0.32);
-    const contentLeft = options.x - cardWidth * (narrow ? 0.16 : 0.18);
-    const contentWidth = cardWidth * (narrow ? 0.47 : 0.50);
-    const iconSize = narrow ? 68 : 64;
-    const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
-      .setDisplaySize(iconSize, iconSize)
-      .setAlpha(enabled ? 1 : 0.42);
-    objects.push(icon);
-
-    if (!enabled) {
-      const lockSize = narrow ? 14 : 20;
-      const lock = scene.add.image(
-        options.x + cardWidth * (narrow ? 0.34 : 0.36),
-        options.y,
-        UI_ICON_KEYS.lock,
-      )
-        .setDisplaySize(lockSize, lockSize)
-        .setTint(UI_THEME.colors.text.disabled)
-        .setAlpha(0.72);
-      objects.push(lock);
-    }
-
-    const label = scene.add.text(contentLeft, options.y - (narrow ? 8 : 10), options.label, {
-      ...createUiTextStyle('bodyStrong', options.density, { color: labelColor }),
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: `${narrow ? 18 : 22}px`,
-      fontStyle: 'bold',
-      stroke: '#26345f',
-      strokeThickness: narrow ? 2 : 3,
-      shadow: {
-        offsetX: 0,
-        offsetY: narrow ? 1 : 2,
-        color: '#0b1024',
-        blur: 2,
-        fill: true,
-      },
-    }).setOrigin(0, 0.5).setLetterSpacing(narrow ? 1 : 1.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(label, contentWidth, options.density === 'mobile' ? 10 : 11);
-    objects.push(label);
-
-    const subtitle = scene.add.text(contentLeft, options.y + (narrow ? 15 : 20), options.subtitle, {
-      ...createUiTextStyle('meta', options.density, { color: subtitleColor }),
-      fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: `${HOME_SUBTITLE_FONT_SIZE}px`,
-    }).setOrigin(0, 0.5).setAlpha(enabled ? 1 : 0.55);
-    fitHomeText(subtitle, contentWidth, 10);
-    objects.push(subtitle);
+  const surface = createSlateSurface(scene, options.x, options.y, options.width, options.height);
+  if (!enabled) surface.setTint(0x8490a0);
+  const left = options.x - options.width / 2;
+  const iconSize = Math.min(narrow ? 45 : 54, options.height * 0.6);
+  const iconX = left + (narrow ? 34 : 39);
+  const textX = left + (narrow ? 66 : 76);
+  const textWidth = options.width - (textX - left) - (narrow ? 43 : 48);
+  const icon = scene.add.image(iconX, options.y, HOME_CARD_ICON_KEYS[options.icon])
+    .setDisplaySize(iconSize, iconSize);
+  if (!enabled) icon.setTint(UI_THEME.colors.text.disabled);
+  const label = scene.add.text(textX, options.y - (narrow ? 10 : 12), options.label, {
+    ...createUiTextStyle('bodyStrong', options.density, {
+      color: enabled ? UI_THEME.colors.text.primary : UI_THEME.colors.text.disabled,
+    }),
+    fontSize: `${narrow ? 17 : 19}px`,
+    fontStyle: 'bold',
+  }).setOrigin(0, 0.5);
+  fitHomeText(label, textWidth, 12);
+  const subtitle = scene.add.text(textX, options.y + (narrow ? 15 : 17), options.subtitle, {
+    ...createUiTextStyle('meta', options.density, {
+      color: !enabled ? UI_THEME.colors.text.disabled
+        : activeAccent ? UI_THEME.colors.semantic.gold : UI_THEME.colors.text.secondary,
+    }),
+    fontSize: `${narrow ? 12 : 14}px`,
+  }).setOrigin(0, 0.5);
+  fitHomeText(subtitle, textWidth, 10);
+  const stateIcon = scene.add.image(
+    options.x + options.width / 2 - (narrow ? 20 : 24),
+    options.y,
+    enabled ? UI_ICON_KEYS.masteryForward : UI_ICON_KEYS.lock,
+  ).setDisplaySize(narrow ? 17 : 20, narrow ? 17 : 20)
+    .setTint(enabled ? UI_THEME.colors.text.secondary : UI_THEME.colors.text.disabled);
+  if (enabled) {
+    surface.setInteractive({ useHandCursor: true });
+    surface.on('pointerover', () => surface.setTint(0xe4e8ef));
+    surface.on('pointerout', () => surface.clearTint());
+    surface.on('pointerdown', () => surface.setTint(0xc5cedc));
+    surface.on('pointerupoutside', () => surface.clearTint());
+    surface.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      surface.clearTint();
+      if (!pointerGate.canActivate(pointer.id)) return;
+      getAudioFeedback(scene).play('ui-click');
+      options.onActivate();
+    });
   }
-
-  return {
-    destroy: () => {
-      card.destroy();
-      for (const object of objects) object.destroy();
-    },
-  };
+  return { destroy: () => { surface.destroy(); icon.destroy(); label.destroy(); subtitle.destroy(); stateIcon.destroy(); } };
 }
 
 function createHomeSettingsButton(

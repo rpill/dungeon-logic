@@ -3,6 +3,7 @@ export type DailyHubDensity = 'ultra' | 'tight' | 'medium' | 'regular';
 export interface DailyHubLayout {
   readonly density: DailyHubDensity;
   readonly narrow: boolean;
+  readonly sideBySide: boolean;
   readonly headerHeight: number;
   readonly titleY: number;
   readonly backY: number;
@@ -44,13 +45,6 @@ export function getDailyCalendarRowCount(leadingEmptyDays: number, dayCount: num
   return Math.ceil((leadingEmptyDays + dayCount) / 7);
 }
 
-function getDensity(viewportHeight: number): DailyHubDensity {
-  if (viewportHeight < 460) return 'ultra';
-  if (viewportHeight < 620) return 'tight';
-  if (viewportHeight < 800) return 'medium';
-  return 'regular';
-}
-
 export function calculateDailyHubLayout(
   viewportWidth: number,
   viewportHeight: number,
@@ -62,170 +56,63 @@ export function calculateDailyHubLayout(
 
   const rows = clampRows(rowCount);
   const narrow = viewportWidth < 700;
-  const density = getDensity(viewportHeight);
-
-  const vertical = density === 'ultra'
-    ? {
-        headerHeight: 48,
-        titleY: 28,
-        backY: 24,
-        todayTitleY: 56,
-        todayCardTop: 56,
-        todayHeight: 58,
-        archiveTitleY: 118,
-        archiveProgressY: 126,
-        monthHeaderY: 126,
-        weekdaysY: 142,
-        gridTopY: 154,
-        columnGap: 6,
-        numberGap: 1,
-        numberHeight: 7,
-        rowGap: 3,
-        outsideGap: 4,
-        outsideHeight: 7,
-        bottomMargin: 5,
-        cellCap: 36,
-        cellMin: 18,
-      }
-    : density === 'tight'
-      ? {
-          headerHeight: 70,
-          titleY: 42,
-          backY: 28,
-          todayTitleY: 82,
-          todayCardTop: 78,
-          todayHeight: 82,
-          archiveTitleY: 170,
-          archiveProgressY: 180,
-          monthHeaderY: 186,
-          weekdaysY: 206,
-          gridTopY: 222,
-          columnGap: 7,
-          numberGap: 2,
-          numberHeight: 8,
-          rowGap: 4,
-          outsideGap: 5,
-          outsideHeight: 8,
-          bottomMargin: 8,
-          cellCap: 46,
-          cellMin: 22,
-        }
-      : density === 'medium'
-        ? {
-            headerHeight: 96,
-            titleY: 60,
-            backY: 34,
-            todayTitleY: 116,
-            todayCardTop: 112,
-            todayHeight: 106,
-            archiveTitleY: 228,
-            archiveProgressY: 238,
-            monthHeaderY: 246,
-            weekdaysY: 268,
-            gridTopY: 288,
-            columnGap: 9,
-            numberGap: 3,
-            numberHeight: 9,
-            rowGap: 6,
-            outsideGap: 7,
-            outsideHeight: 9,
-            bottomMargin: 10,
-            cellCap: 58,
-            cellMin: 26,
-          }
-        : {
-            headerHeight: 118,
-            titleY: 78,
-            backY: 40,
-            todayTitleY: 140,
-            todayCardTop: 132,
-            todayHeight: 126,
-            archiveTitleY: 278,
-            archiveProgressY: 288,
-            monthHeaderY: 296,
-            weekdaysY: 324,
-            gridTopY: 346,
-            columnGap: 10,
-            numberGap: 4,
-            numberHeight: 10,
-            rowGap: 8,
-            outsideGap: 8,
-            outsideHeight: 10,
-            bottomMargin: 12,
-            cellCap: 68,
-            cellMin: 28,
-          };
-
-  const contentWidth = Math.min(
-    viewportWidth - (narrow ? 24 : 56),
-    narrow ? 460 : 700,
-  );
-  const narrowTodayHeight = density === 'ultra'
-    ? 108
-    : density === 'tight'
-      ? 112
-      : density === 'medium'
-        ? 124
-        : 132;
-  const todayHeight = narrow ? Math.max(vertical.todayHeight, narrowTodayHeight) : vertical.todayHeight;
-  const todayHeightDelta = todayHeight - vertical.todayHeight;
-  const archiveTitleY = vertical.archiveTitleY + todayHeightDelta;
-  const archiveProgressY = vertical.archiveProgressY + todayHeightDelta;
-  const monthHeaderY = vertical.monthHeaderY + todayHeightDelta;
-  const weekdaysY = vertical.weekdaysY + todayHeightDelta;
-  const gridTopY = vertical.gridTopY + todayHeightDelta;
-  const calendarWidth = Math.min(contentWidth, 680);
-  const desktopRowClearance = !narrow && viewportWidth >= 900 ? 10 : 0;
-  const rowGap = vertical.rowGap + (narrow ? 8 : desktopRowClearance);
-  const maxCellFromWidth = Math.floor(
-    (calendarWidth - vertical.columnGap * 6) / 7,
-  );
-  const maxCellFromHeight = Math.floor(
-    (
-      viewportHeight
-      - vertical.bottomMargin
-      - gridTopY
-      - rows * (vertical.numberGap + vertical.numberHeight)
-      - Math.max(0, rows - 1) * rowGap
-      - vertical.outsideGap
-      - vertical.outsideHeight
-    ) / rows,
-  );
-  const cellSize = Math.max(
-    vertical.cellMin,
-    Math.min(vertical.cellCap, maxCellFromWidth, maxCellFromHeight),
-  );
-  const rowPitch = cellSize + vertical.numberGap + vertical.numberHeight + rowGap;
-  const calendarBottom = gridTopY
-    + rows * (cellSize + vertical.numberGap + vertical.numberHeight)
-    + Math.max(0, rows - 1) * rowGap;
-  const outsideRatingY = calendarBottom + vertical.outsideGap;
-  const contentBottom = outsideRatingY + vertical.outsideHeight + vertical.bottomMargin;
+  const sideBySide = !narrow && viewportWidth >= 900 && viewportHeight < 700;
+  const density: DailyHubDensity = viewportHeight < 460 ? 'ultra'
+    : viewportHeight < 680 ? 'tight'
+      : viewportHeight < 860 ? 'medium' : 'regular';
+  const compact = viewportHeight < 700;
+  const largeDesktop = !narrow && viewportWidth >= 1600 && viewportHeight >= 860;
+  const contentWidth = sideBySide ? Math.min(480, viewportWidth * 0.42)
+    : Math.min(viewportWidth - (narrow ? 28 : 80), narrow ? 420 : largeDesktop ? 850 : 740);
+  const todayCardTop = sideBySide ? 185 : narrow ? (compact ? 105 : viewportHeight >= 900 ? 145 : 135)
+    : compact ? 105 : largeDesktop ? 150 : 120;
+  const todayHeight = sideBySide ? 110 : narrow ? (compact ? 82 : 96) : compact ? 76 : largeDesktop ? 108 : 92;
+  const actionHeight = narrow ? (compact ? 50 : 58) : compact ? 56 : 66;
+  const actionGap = narrow ? 8 : 14;
+  const actionsBottom = narrow
+    ? todayCardTop + todayHeight + 12 + actionHeight * 2 + actionGap
+    : todayCardTop + todayHeight + 15 + actionHeight;
+  const monthHeaderY = sideBySide ? 128 : actionsBottom + (narrow ? 42 : compact ? 42 : 48);
+  const weekdaysY = monthHeaderY + (narrow ? 34 : 37);
+  const gridTopY = weekdaysY + (narrow ? 15 : 19);
+  const calendarWidth = sideBySide ? Math.min(viewportWidth * 0.44, 560)
+    : Math.min(contentWidth, narrow ? contentWidth : largeDesktop ? 720 : 650);
+  const columnGap = narrow ? 5 : largeDesktop ? 10 : 8;
+  const rowGap = narrow ? 5 : compact ? 6 : 8;
+  const sideBound = Math.floor((calendarWidth - columnGap * 6) / 7);
+  const heightBound = Math.floor((viewportHeight - gridTopY - (narrow ? 48 : 22) - rowGap * (rows - 1)) / rows);
+  const cellCap = narrow ? 52 : largeDesktop ? 82 : sideBySide ? 68 : 74;
+  const cellMin = narrow ? 37 : compact ? 38 : 43;
+  const cellSize = Math.max(cellMin, Math.min(cellCap, sideBound, heightBound));
+  const rowPitch = cellSize + rowGap;
+  const calendarBottom = gridTopY + rows * cellSize + (rows - 1) * rowGap;
+  const contentBottom = calendarBottom + (narrow ? 24 : 16);
 
   return {
     density,
     narrow,
-    headerHeight: vertical.headerHeight,
-    titleY: vertical.titleY,
-    backY: vertical.backY,
+    sideBySide,
+    headerHeight: narrow ? 112 : 110,
+    titleY: narrow ? 78 : 78,
+    backY: narrow ? 46 : 60,
     contentWidth,
-    todayTitleY: vertical.todayTitleY,
-    todayCardTop: vertical.todayCardTop,
+    todayTitleY: todayCardTop + todayHeight / 2,
+    todayCardTop,
     todayHeight,
-    archiveTitleY,
-    archiveProgressY,
+    archiveTitleY: monthHeaderY,
+    archiveProgressY: monthHeaderY,
     monthHeaderY,
     weekdaysY,
     gridTopY,
     calendarWidth,
-    columnGap: vertical.columnGap,
+    columnGap,
     cellSize,
-    numberGap: vertical.numberGap,
-    numberHeight: vertical.numberHeight,
+    numberGap: 0,
+    numberHeight: 0,
     rowGap,
     rowPitch,
     calendarBottom,
-    outsideRatingY,
+    outsideRatingY: calendarBottom + 10,
     contentBottom,
   };
 }

@@ -17,14 +17,17 @@ const thumbnailRenderer = source('src/view/LevelThumbnailRenderer.ts');
 
 assert(!home.includes('ARCHIVE_SCENE_KEY'), 'Home campaign navigation no longer routes through ArchiveScene.');
 assert(home.includes('LEVELS_SCENE_KEY'), 'Home campaign navigation routes through LevelSelectScene.');
-assert(home.includes('copy.home.levelsProgress(completed, campaign.getLevels().length)'), 'Home progress derives total from the actual Levels catalog.');
+assert(home.includes('const levels = campaign.getLevels();')
+  && home.includes('copy.levelSelect.progress(completedCampaign, levels.length)'), 'Home progress derives total from the actual Levels catalog.');
 assert(!home.includes('getManuscriptForSlot'), 'Home level context no longer mentions manuscripts.');
 
 assert(levelSelect.includes('copy.common.levels'), 'LevelSelectScene title uses localized LEVELS copy.');
 assert(levelSelect.includes("createSceneBackground(this, 'meta')"), 'LevelSelectScene reuses the shared meta background art.');
-assert(levelSelect.includes('createHomeMenuButton'), 'LevelSelectScene reuses the shared menu-button component for its primary action.');
-assert(levelSelect.includes('copy.common.backHome'), 'Levels scene exposes a fixed back-to-main-menu action.');
-assert(levelSelect.includes(".on('pointerdown', () => {"), 'Levels back action activates on the first pointer press.');
+assert(levelSelect.includes('createPrimaryActionButton(this, {'), 'LevelSelectScene reuses the shared primary action component.');
+assert(levelSelect.includes('backLabel: copy.common.back,')
+  && levelSelect.includes('this.scene.start(HOME_SCENE_KEY)'), 'Levels scene exposes a fixed back-to-main-menu action.');
+assert(levelSelect.includes('createMetaPageHeader(this, {')
+  && levelSelect.includes('fixedBack: true,'), 'Levels back action uses the shared fixed header navigation.');
 assert(levelSelect.includes('this.scene.start(HOME_SCENE_KEY)'), 'Levels back action returns directly to HomeScene.');
 assert(!levelSelect.includes(".on('pointerup', (pointer: Phaser.Input.Pointer) => {\n        if (!this.pointerGate.canActivate(pointer.id)) return;\n        this.scene.start(HOME_SCENE_KEY);"), 'Levels back action does not wait for pointer-gate ownership.');
 assert(!levelSelect.includes("'Dungeon Logic'"), 'LevelSelectScene no longer uses the product title as the level-browser heading.');

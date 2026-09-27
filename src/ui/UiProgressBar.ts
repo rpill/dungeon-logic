@@ -11,6 +11,7 @@ export interface UiProgressBarOptions {
   readonly current: number;
   readonly target: number;
   readonly depth?: number;
+  readonly fillEndColor?: number;
 }
 
 export function createUiProgressBar(
@@ -43,7 +44,7 @@ export function createUiProgressBar(
   const ctx = texture.context;
   const gradient = ctx.createLinearGradient(0, 0, textureWidth, 0);
   gradient.addColorStop(0, uiColorHex(UI_THEME.colors.semantic.gold));
-  gradient.addColorStop(1, uiColorHex(UI_THEME.colors.semantic.success));
+  gradient.addColorStop(1, uiColorHex(options.fillEndColor ?? UI_THEME.colors.semantic.success));
 
   const paintWidth = Math.min(textureWidth, visibleWidth);
   const paintRadius = Math.min(textureHeight / 2, paintWidth / 2);

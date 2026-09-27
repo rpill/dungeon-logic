@@ -43,3 +43,7 @@ public/assets/oryx/
 .DS_Store
 Thumbs.db
 .generated/
+
+# Local visual review output
+visual-qa/
+.pnpm-store/

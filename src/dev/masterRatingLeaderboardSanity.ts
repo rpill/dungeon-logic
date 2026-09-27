@@ -21,8 +21,8 @@ assert(submitted === null, 'Non-MASTER profile must not submit hidden rating.');
 const master = {
   ...fresh,
   campaign: { ...fresh.campaign, completedLevelIds: Array.from({ length: 64 }, (_, i) => `campaign-${String(i + 1).padStart(3, '0')}`) },
-  daily: { ...fresh.daily, bestStreak: 30 },
-  endless: { ...fresh.endless, bestStreak: 50 },
+  daily: { ...fresh.daily, totalSolved: 20 },
+  endless: { ...fresh.endless, completed: 500 },
   mastery: { rating: 4321 },
 };
 assert(await syncMasterRatingLeaderboard(master, leaderboards) === 'submitted', 'MASTER profile must submit rating.');

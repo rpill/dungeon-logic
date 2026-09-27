@@ -6,16 +6,7 @@ import {
   type MaterialButtonVariant,
 } from './MaterialActionButton';
 import { createPrimaryActionButton } from './PrimaryActionButton';
-type HomeMenuButtonState = 'normal' | 'hover' | 'pressed';
-
 export type HomeMenuIcon = 'play' | 'daily' | 'levels' | 'statistics' | 'settings' | 'info' | 'back';
-
-const HOME_MENU_FILL_KEY = 'home-menu-fill';
-const HOME_MENU_FRAME_KEYS: Record<HomeMenuButtonState, string> = {
-  normal: 'home-menu-frame-normal',
-  hover: 'home-menu-frame-hover',
-  pressed: 'home-menu-frame-pressed',
-};
 
 const HOME_MENU_ICON_KEYS: Record<HomeMenuIcon, string> = {
   play: 'home-menu-icon-play',
@@ -31,10 +22,6 @@ const HOME_MENU_ICON_RASTER_SIZE = 96;
 
 export function preloadHomeMenuAssets(scene: Phaser.Scene): void {
   preloadMaterialActionButtonAssets(scene);
-  scene.load.image(HOME_MENU_FILL_KEY, 'assets/ui/menu_button_fill.webp');
-  scene.load.image(HOME_MENU_FRAME_KEYS.normal, 'assets/ui/menu_button_frame_normal.png');
-  scene.load.image(HOME_MENU_FRAME_KEYS.hover, 'assets/ui/menu_button_frame_hover.png');
-  scene.load.image(HOME_MENU_FRAME_KEYS.pressed, 'assets/ui/menu_button_frame_pressed.png');
 
   const rasterizeConfig = { width: HOME_MENU_ICON_RASTER_SIZE, height: HOME_MENU_ICON_RASTER_SIZE };
   scene.load.svg('home-menu-icon-play', 'assets/ui/icons/play.svg', rasterizeConfig);

@@ -15,7 +15,7 @@ assert(dailySource.includes('this.scene.start(LEADERBOARD_SCENE_KEY'), 'Solved c
 assert(gameSource.includes('encodeDailyLeaderboardScore'), 'Ranked Daily completion encodes date and time into the single leaderboard score.');
 assert(gameSource.includes("getDailyLeaderboardName(result.dailyId)"), 'Ranked Daily submission resolves the single technical leaderboard through the Daily id validator.');
 assert(gameSource.includes('if (!result.ranked'), 'Leaderboard submission is gated by the completion result, so late/archive completions cannot submit.');
-assert(gameSource.includes('copy.common.leaderboard'), 'Ranked Daily completion exposes a leaderboard button.');
+assert(gameSource.includes('action: () => this.scene.start(DAILY_SCENE_KEY)'), 'Daily completion returns to the Daily hub, where the leaderboard opens.');
 assert(gameSource.includes('RANKED_DAILY_HINT_UNLOCK_MS'), 'Ranked Daily delays hints behind the explicit five-minute gate instead of blocking them forever.');
 assert(leaderboardSource.includes('decodeDailyLeaderboardScore'), 'Leaderboard rows decode the packed single-table score.');
 assert(leaderboardSource.includes('decoded.dateKey !== dateKey'), 'Leaderboard filters rows to the requested current Daily date.');
@@ -27,6 +27,10 @@ assert(leaderboardSource.includes('LEADERBOARD_STALE_FALLBACK_MS'), 'Leaderboard
 assert(leaderboardSource.includes('getPlayerEntry(leaderboardName)'), 'Leaderboard screen must fall back to the current player entry when the full table is temporarily unavailable.');
 assert(leaderboardSource.includes('`#${row.displayPlace}'), 'Leaderboard rows must display date-filtered places.');
 assert(leaderboardSource.includes('result.minHintsUsed === 0'), 'LeaderboardScene never re-submits an assisted Daily result after a hint disqualified it.');
+assert(leaderboardSource.includes('createSlateSurface(this'), 'Leaderboard uses the shared matte slate panel.');
+assert(leaderboardSource.includes('createQuietInset(this'), 'Leaderboard summary and rows use shared quiet insets.');
+assert(!leaderboardSource.includes('createSoftStonePanel'), 'Legacy glossy SoftStonePanel must not remain in Daily Leaderboard.');
+assert(!leaderboardSource.includes('panel.destroy()'), 'Async table loading must not resize the main panel after data arrives.');
 assert(copySource.includes("dailyResultFixed: 'РЕЗУЛЬТАТ ЗАФИКСИРОВАН'"), 'RU result copy clearly says the Daily result is fixed.');
 assert(copySource.includes("dailyArchiveComplete: 'АРХИВНЫЙ DAILY ПРОЙДЕН'"), 'RU archive completion copy explicitly distinguishes unranked archive play.');
 

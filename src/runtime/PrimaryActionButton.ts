@@ -6,18 +6,17 @@ import { UI_THEME, uiColorHex } from '../ui/UiTheme';
 const PRIMARY_BUTTON_KEY = 'primary-button-normal';
 export type PrimaryButtonState = 'normal' | 'hover' | 'pressed' | 'disabled';
 
-// Keep the full height of each end cap: the bevel and round rivets must scale
-// uniformly. Only the strip between the caps stretches horizontally.
+// The compact generated skin has quiet center pixels for horizontal stretching.
 const PRIMARY_BUTTON_SLICE_X = 56;
 const PRIMARY_BUTTON_FRAME = 'button-body-visible';
 const PRIMARY_BUTTON_FULL_FRAME = 'button-body-full';
-export const PRIMARY_BUTTON_VISIBLE_FRAME = { y: 11, height: 117 } as const;
+export const PRIMARY_BUTTON_VISIBLE_FRAME = { y: 0, height: 128 } as const;
 const PRIMARY_BUTTON_TEXT_COLOR = uiColorHex(UI_THEME.colors.background.deep);
 const PRIMARY_BUTTON_SUBTITLE_COLOR = uiColorHex(UI_THEME.colors.surface.base);
 const PRIMARY_BUTTON_ICON_TINT = UI_THEME.colors.background.deep;
 
 export function preloadPrimaryActionButtonAssets(scene: Phaser.Scene): void {
-  scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/primary_button_normal.webp');
+  scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/action_gold_m1.png');
 }
 
 
@@ -229,6 +228,15 @@ export function createPrimaryActionButton(
   const setState = (state: PrimaryButtonState): void => {
     const activeState = enabled ? state : 'disabled';
     setPrimaryButtonSurfaceState(surface, activeState);
+    label.setColor(activeState === 'disabled'
+      ? uiColorHex(UI_THEME.colors.text.disabled)
+      : PRIMARY_BUTTON_TEXT_COLOR);
+    subtitle?.setColor(activeState === 'disabled'
+      ? uiColorHex(UI_THEME.colors.text.disabled)
+      : PRIMARY_BUTTON_SUBTITLE_COLOR);
+    icon?.setTint(activeState === 'disabled'
+      ? UI_THEME.colors.text.disabled
+      : PRIMARY_BUTTON_ICON_TINT);
   };
   setState('normal');
 

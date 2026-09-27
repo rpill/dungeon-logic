@@ -31,8 +31,11 @@ import {
   getDailyCalendarRowCount,
 } from '../runtime/DailyHubLayout';
 import { createDailyGameSceneData } from '../runtime/GameLaunch';
-import { createHomeMenuButton } from '../runtime/HomeMenuButton';
 import { createPrimaryActionButton } from '../runtime/PrimaryActionButton';
+import { createMaterialActionButton } from '../runtime/MaterialActionButton';
+import { createHeaderActionButton } from '../runtime/HeaderActionButton';
+import { createSlateSurface } from '../runtime/SlateSurface';
+import { createQuietInset } from '../runtime/QuietInset';
 import { createMetaPageHeader } from '../runtime/MetaPageHeader';
 import { MetaPointerGate } from '../runtime/MetaPointerGate';
 import {
@@ -40,7 +43,6 @@ import {
   getMetaScrollMaxY,
   isMetaScrollDrag,
 } from '../runtime/MetaScroll';
-import { createHomeHubModeCard } from '../runtime/HomeHubModeCard';
 import { HOME_SCENE_KEY } from '../runtime/MetaSelectors';
 import { createSceneBackground } from '../runtime/SceneBackground';
 import { UI_ICON_KEYS } from '../runtime/UiIcons';
@@ -58,11 +60,11 @@ const CALENDAR_STATE_STYLE: Readonly<Record<DailyHubCalendarDayState, {
   readonly strokeAlpha: number;
   readonly text: string;
 }>> = {
-  unavailable: { fill: 0x0f1728, alpha: 0.3, stroke: 0x30415e, strokeAlpha: 0.42, text: '#52617a' },
-  'archive-unsolved': { fill: 0x142038, alpha: 0.94, stroke: 0xf4ead7, strokeAlpha: 0.9, text: '#f4ead7' },
-  'archive-solved': { fill: 0x15243d, alpha: 0.96, stroke: 0x73d0bd, strokeAlpha: 1, text: '#73d0bd' },
-  today: { fill: 0x1a2843, alpha: 0.98, stroke: 0xf0bd63, strokeAlpha: 1, text: '#f0bd63' },
-  future: { fill: 0x0f1728, alpha: 0.74, stroke: 0x7f8ba2, strokeAlpha: 0.72, text: '#7f8ba2' },
+  unavailable: { fill: 0x111c2e, alpha: 0.86, stroke: 0x65748a, strokeAlpha: 0.26, text: '#9aa9bc' },
+  'archive-unsolved': { fill: 0x1a2a40, alpha: 0.98, stroke: 0x8192a8, strokeAlpha: 0.58, text: '#e1e7f1' },
+  'archive-solved': { fill: 0x203449, alpha: 0.98, stroke: 0x92c9bb, strokeAlpha: 0.65, text: '#dff2e9' },
+  today: { fill: 0x27354b, alpha: 1, stroke: 0xe4b65d, strokeAlpha: 1, text: '#ffe2a4' },
+  future: { fill: 0x152238, alpha: 0.96, stroke: 0x788aa1, strokeAlpha: 0.48, text: '#aab7ca' },
 };
 
 const DAILY_CARD_RADIUS = 8;
@@ -102,6 +104,8 @@ export class DailyScene extends Phaser.Scene {
     const availableViewport = this.getAvailableViewport();
     const shellLayout = calculateDailyHubLayout(availableViewport.width, availableViewport.height, 6);
     const { narrow } = shellLayout;
+    const summaryX = shellLayout.sideBySide ? availableViewport.x + availableViewport.width * 0.27 : availableViewport.centerX;
+    const calendarX = shellLayout.sideBySide ? availableViewport.x + availableViewport.width * 0.73 : availableViewport.centerX;
 
 
     createMetaPageHeader(this, {
@@ -116,16 +120,62 @@ export class DailyScene extends Phaser.Scene {
       },
     });
 
+    const loadingShell = this.add.container(0, 0);
+    loadingShell.add(createSlateSurface(
+      this,
+      summaryX,
+      availableViewport.y + shellLayout.todayCardTop + shellLayout.todayHeight / 2,
+      shellLayout.contentWidth,
+      shellLayout.todayHeight,
+    ));
     const loading = this.add.text(
-      availableViewport.centerX,
-      availableViewport.y + shellLayout.headerHeight + 12,
+      summaryX,
+      availableViewport.y + shellLayout.todayCardTop + shellLayout.todayHeight / 2,
       copy.common.loading,
       {
       fontFamily: "'Balsamiq Sans', sans-serif",
-      fontSize: shellLayout.density === 'ultra' ? '10px' : narrow ? '12px' : '14px',
-        color: '#89929d',
+      fontSize: shellLayout.density === 'ultra' ? '11px' : narrow ? '13px' : '16px',
+        color: '#d0d9e8',
       },
-    ).setOrigin(0.5, 0);
+    ).setOrigin(0.5);
+    loadingShell.add(loading);
+    const actionHeight = narrow ? (shellLayout.density === 'tight' ? 50 : 58) : shellLayout.density === 'tight' ? 56 : 66;
+    const actionY = availableViewport.y + shellLayout.todayCardTop + shellLayout.todayHeight + 12 + actionHeight / 2;
+    const actionWidths = narrow ? [Math.min(shellLayout.contentWidth - 28, 330), Math.min(shellLayout.contentWidth - 28, 330)]
+      : shellLayout.sideBySide ? [220, 220] : [290, 238];
+    const actionGap = narrow ? 8 : 14;
+    const actionGroupWidth = actionWidths[0]! + actionGap + actionWidths[1]!;
+    for (let index = 0; index < 2; index += 1) {
+      const x = narrow ? summaryX : summaryX - actionGroupWidth / 2
+        + (index === 0 ? actionWidths[0]! / 2 : actionWidths[0]! + actionGap + actionWidths[1]! / 2);
+      loadingShell.add(createQuietInset(this, {
+        x,
+        y: narrow ? actionY + index * (actionHeight + actionGap) : actionY,
+        width: actionWidths[index]!,
+        height: actionHeight,
+        fillAlpha: 0.68,
+        borderAlpha: 0.2,
+      }));
+    }
+    const loadingMonth = this.add.text(calendarX,
+      availableViewport.y + shellLayout.monthHeaderY, '···', {
+        fontFamily: "'Balsamiq Sans', sans-serif",
+        fontSize: narrow ? '14px' : '17px',
+        color: '#a9b8ca',
+      }).setOrigin(0.5);
+    loadingShell.add(loadingMonth);
+    const loadingGridWidth = shellLayout.cellSize * 7 + shellLayout.columnGap * 6;
+    for (let row = 0; row < 6; row += 1) {
+      for (let column = 0; column < 7; column += 1) {
+        const x = calendarX - loadingGridWidth / 2
+          + shellLayout.cellSize / 2 + column * (shellLayout.cellSize + shellLayout.columnGap);
+        const y = availableViewport.y + shellLayout.gridTopY + shellLayout.cellSize / 2 + row * shellLayout.rowPitch;
+        loadingShell.add(createQuietInset(this, {
+          x, y, width: shellLayout.cellSize, height: shellLayout.cellSize,
+          radius: 6, fillAlpha: 0.42, borderAlpha: 0.12,
+        }));
+      }
+    }
 
     const renderVersion = Date.now();
     this.registry.set('daily-scene-render-version', renderVersion);
@@ -134,7 +184,7 @@ export class DailyScene extends Phaser.Scene {
       this.getDailyService().getArchive(),
     ]).then(([today, archiveRows]) => {
       if (!this.scene.isActive() || this.registry.get('daily-scene-render-version') !== renderVersion) return;
-      loading.destroy();
+      loadingShell.destroy(true);
       this.renderContent(
         today,
         archiveRows,
@@ -145,7 +195,8 @@ export class DailyScene extends Phaser.Scene {
     }).catch((error) => {
       console.warn('[Dungeon Logic] Could not load Daily hub.', error);
       if (!this.scene.isActive()) return;
-      loading.setText(copy.home.dailyUnavailable);
+      loadingShell.destroy(true);
+      this.renderContent(null, [], this.getProfileService().getProfile().daily, copy);
     });
 
     this.setupPointerOwnership();
@@ -170,99 +221,65 @@ export class DailyScene extends Phaser.Scene {
     const shellLayout = calculateDailyHubLayout(availableViewport.width, availableViewport.height, 6);
     const { narrow, density } = shellLayout;
     const width = shellLayout.contentWidth;
-    const centerX = availableViewport.centerX;
+    const centerX = shellLayout.sideBySide ? availableViewport.x + availableViewport.width * 0.27 : availableViewport.centerX;
+    const calendarX = shellLayout.sideBySide ? availableViewport.x + availableViewport.width * 0.73 : availableViewport.centerX;
     const viewportTop = availableViewport.y;
     const dailyEntries = this.getDailyService().getEntries();
 
     const todayHeight = shellLayout.todayHeight;
     const todayCardTop = viewportTop + shellLayout.todayCardTop;
     const todayCardCenterY = todayCardTop + todayHeight / 2;
-    createHomeHubModeCard(this, {
-      x: centerX,
-      y: todayCardCenterY,
-      width,
-      height: todayHeight,
-      variant: 'wide',
-      visualStyle: 'soft-stone',
-      interactive: false,
-      onActivate: () => {},
-    });
+    createSlateSurface(this, centerX, todayCardCenterY, width, todayHeight);
 
     if (today?.entry === null || today === null) {
       this.add.text(centerX, todayCardCenterY, copy.dailyHub.todayUnavailable, {
         fontFamily: "'Balsamiq Sans', sans-serif",
-        fontSize: density === 'ultra' ? '9px' : narrow ? '12px' : '14px',
-        color: '#9aa6ba',
+        fontSize: narrow ? '14px' : '17px',
+        color: '#d0d9e8',
         align: 'center',
         wordWrap: { width: width - 40 },
       }).setOrigin(0.5);
     } else {
       const entry = today.entry;
       const solved = today.solved && today.result !== null;
-      const actionHeight = density === 'ultra' ? 60 : density === 'tight' ? 64 : narrow ? 68 : 72;
-      const actionGap = density === 'ultra' ? 6 : 8;
-      const horizontalPadding = density === 'ultra' ? 14 : narrow ? 18 : 24;
-      const leftTextInset = density === 'ultra' ? 0 : narrow ? 0 : density === 'tight' ? 10 : 14;
-      const contentLeft = centerX - width / 2 + horizontalPadding + leftTextInset;
-      const contentRight = centerX + width / 2 - horizontalPadding;
-      const availableActionWidth = contentRight - contentLeft;
-      const playWidth = narrow
-        ? Math.floor((availableActionWidth - actionGap) * 0.44)
-        : 148;
-      const leaderboardWidth = narrow
-        ? availableActionWidth - actionGap - playWidth
-        : 184;
-      const actionGroupWidth = playWidth + actionGap + leaderboardWidth;
-      const actionGroupRight = narrow
-        ? contentRight
-        : centerX + width / 2 - 22;
-      const playX = actionGroupRight - actionGroupWidth + playWidth / 2;
-      const leaderboardX = actionGroupRight - leaderboardWidth / 2;
-      const actionY = narrow
-        ? todayCardTop + todayHeight - actionHeight / 2 - (density === 'ultra' ? 7 : 10)
-        : todayCardCenterY;
-      const statusWidth = narrow
-        ? width - horizontalPadding * 2
-        : width - actionGroupWidth - 98;
-      const dateY = todayCardTop + (density === 'ultra' ? 12 : density === 'tight' ? 17 : narrow ? 18 : 26);
-      const statusY = todayCardTop + (density === 'ultra' ? 25 : density === 'tight' ? 36 : narrow ? 40 : 54);
-      const rulesY = todayCardTop + (density === 'ultra' ? 39 : density === 'tight' ? 54 : narrow ? 61 : 80);
-
-      this.add.text(contentLeft, dateY, this.formatDate(today.dateKey), {
+      const pad = narrow ? 18 : 26;
+      const left = centerX - width / 2 + pad;
+      const right = centerX + width / 2 - pad;
+      const dateY = todayCardTop + (todayHeight < 90 ? 25 : narrow ? 27 : 32);
+      const secondaryY = todayCardTop + (todayHeight < 90 ? 53 : narrow ? 63 : 70);
+      const status = solved
+        ? (today.result!.minHintsUsed > 0
+          ? copy.dailyHub.todaySolvedOutsideRating(this.formatTime(today.result!.bestTimeMs))
+          : copy.dailyHub.todaySolved(this.formatTime(today.result!.bestTimeMs)))
+        : copy.dailyHub.todayUnsolved;
+      this.add.text(left, dateY, this.formatDate(today.dateKey), {
         fontFamily: "'Balsamiq Sans', sans-serif",
-        fontSize: density === 'ultra' ? '10px' : density === 'tight' ? '13px' : narrow ? '13px' : '18px',
+        fontSize: narrow ? '17px' : '21px',
         color: '#f4ead7',
         fontStyle: 'bold',
       }).setOrigin(0, 0.5);
+      const streak = copy.home.dailyStreak(today.currentStreak);
+      this.add.text(right, dateY, streak, {
+        fontFamily: "'Balsamiq Sans', sans-serif",
+        fontSize: narrow ? '13px' : '17px',
+        color: '#e4bd70',
+        fontStyle: 'bold',
+      }).setOrigin(1, 0.5);
+      this.add.text(left, secondaryY, status, {
+        fontFamily: "'Balsamiq Sans', sans-serif",
+        fontSize: narrow ? '12px' : '15px',
+        color: '#d1dbea',
+        wordWrap: { width: width - pad * 2 },
+      }).setOrigin(0, 0.5);
 
-      this.add.text(
-        contentLeft,
-        statusY,
-        solved
-          ? (today.result!.minHintsUsed > 0
-            ? copy.dailyHub.todaySolvedOutsideRating(this.formatTime(today.result!.bestTimeMs))
-            : copy.dailyHub.todaySolved(this.formatTime(today.result!.bestTimeMs)))
-          : copy.dailyHub.todayUnsolved,
-        {
-          fontFamily: "'Balsamiq Sans', sans-serif",
-          fontSize: density === 'ultra' ? '9px' : density === 'tight' ? '11px' : narrow ? '11px' : '15px',
-          color: solved ? '#d7deea' : '#d7deea',
-          fontStyle: 'bold',
-          wordWrap: { width: statusWidth },
-        },
-      ).setOrigin(0, 0.5);
-
-      this.add.text(
-        contentLeft,
-        rulesY,
-        solved ? copy.dailyHub.todayReplayRules : copy.dailyHub.todayAttemptRules,
-        {
-          fontFamily: "'Balsamiq Sans', sans-serif",
-          fontSize: density === 'ultra' ? '7px' : density === 'tight' ? '9px' : narrow ? '9px' : '12px',
-          color: '#97a5bb',
-          wordWrap: { width: statusWidth },
-        },
-      ).setOrigin(0, 0.5);
+      const actionHeight = narrow ? (density === 'tight' ? 50 : 58) : density === 'tight' ? 56 : 66;
+      const gap = narrow ? 8 : 14;
+      const actionY = todayCardTop + todayHeight + 12 + actionHeight / 2;
+      const playWidth = narrow ? Math.min(width - 28, 330) : shellLayout.sideBySide ? 220 : 290;
+      const leaderboardWidth = narrow ? playWidth : shellLayout.sideBySide ? 220 : 238;
+      const groupWidth = playWidth + gap + leaderboardWidth;
+      const playX = narrow ? centerX : centerX - groupWidth / 2 + playWidth / 2;
+      const leaderboardX = narrow ? centerX : centerX + groupWidth / 2 - leaderboardWidth / 2;
 
       this.createTodayActionButton({
         x: playX,
@@ -279,7 +296,7 @@ export class DailyScene extends Phaser.Scene {
       });
       this.createTodayActionButton({
         x: leaderboardX,
-        y: actionY,
+        y: narrow ? actionY + actionHeight + gap : actionY,
         width: leaderboardWidth,
         height: actionHeight,
         label: copy.dailyHub.leaderboard,
@@ -292,7 +309,7 @@ export class DailyScene extends Phaser.Scene {
       });
     }
     if (today === null) {
-      this.add.text(centerX, viewportTop + shellLayout.monthHeaderY, copy.dailyHub.archiveEmpty, {
+      this.add.text(calendarX, viewportTop + shellLayout.monthHeaderY, copy.dailyHub.archiveEmpty, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: density === 'ultra' ? '9px' : narrow ? '12px' : '14px',
         color: '#65728a',
@@ -321,7 +338,7 @@ export class DailyScene extends Phaser.Scene {
       const gridWidth = layout.cellSize * 7 + layout.columnGap * 6;
       const monthLabel = `${copy.stats.months[calendar.month - 1]} ${calendar.year}`;
 
-      const monthText = this.add.text(centerX, viewportTop + layout.monthHeaderY, monthLabel, {
+      const monthText = this.add.text(calendarX, viewportTop + layout.monthHeaderY, monthLabel, {
         fontFamily: "'Balsamiq Sans', sans-serif",
         fontSize: layout.density === 'ultra' ? '10px' : layout.density === 'tight' ? '12px' : narrow ? '14px' : '17px',
         color: '#f4ead7',
@@ -331,44 +348,45 @@ export class DailyScene extends Phaser.Scene {
 
       const createMonthArrow = (direction: -1 | 1, enabled: boolean): void => {
         const maxArrowOffset = layout.density === 'ultra' ? 180 : narrow ? 156 : 220;
-        const x = centerX + direction * Math.min(Math.max(34, gridWidth / 2 - 12), maxArrowOffset);
-        const restingColor = enabled ? '#aeb9cb' : '#46536a';
-        const arrow = this.add.text(x, viewportTop + layout.monthHeaderY, direction < 0 ? '‹' : '›', {
-          fontFamily: "'Balsamiq Sans', sans-serif",
-          fontSize: layout.density === 'ultra' ? '18px' : narrow ? '24px' : '30px',
-          color: restingColor,
-          fontStyle: 'bold',
-        }).setOrigin(0.5);
-        if (enabled) {
-          arrow.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => {
-              arrow.setColor('#f0bd63');
-            })
-            .on('pointerout', () => arrow.setColor(restingColor))
-            .on('pointerup', (pointer: Phaser.Input.Pointer) => {
-              if (!this.shouldActivatePointer(pointer)) return;
-              getAudioFeedback(this).play('ui-click');
-              selectedMonth = shiftDailyHubCalendarMonth(
-                dailyEntries,
-                today.dateKey,
-                calendar.year,
-                calendar.month,
-                direction,
-              );
-              renderCalendarMonth();
-            });
+        const x = calendarX + direction * Math.min(Math.max(34, gridWidth / 2 - 12), maxArrowOffset);
+        const size = layout.density === 'ultra' ? 32 : narrow ? 38 : 44;
+        const arrow = createHeaderActionButton(this, {
+          x,
+          y: viewportTop + layout.monthHeaderY,
+          width: size,
+          height: size,
+          radius: 8,
+          iconKey: UI_ICON_KEYS.back,
+          iconSize: Math.round(size * 0.44),
+          onActivate: (pointer) => {
+            if (!enabled || !this.shouldActivatePointer(pointer)) return;
+            selectedMonth = shiftDailyHubCalendarMonth(
+              dailyEntries,
+              today.dateKey,
+              calendar.year,
+              calendar.month,
+              direction,
+            );
+            renderCalendarMonth();
+          },
+        });
+        if (direction > 0) arrow.icon.setRotation(Math.PI);
+        if (!enabled) {
+          arrow.hit.disableInteractive();
+          arrow.background.setAlpha(0.45);
+          arrow.icon.setAlpha(0.45);
         }
-        calendarContainer.add(arrow);
+        calendarContainer.add([arrow.background, arrow.icon, arrow.hit]);
       };
       createMonthArrow(-1, calendar.canGoPrevious);
       createMonthArrow(1, calendar.canGoNext);
 
       copy.stats.weekdays.forEach((weekday, column) => {
-        const x = centerX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
+        const x = calendarX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
         const text = this.add.text(x, viewportTop + layout.weekdaysY, weekday, {
           fontFamily: "'Balsamiq Sans', sans-serif",
-          fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '9px' : '10px',
-          color: '#718098',
+          fontSize: layout.density === 'ultra' ? '9px' : layout.density === 'tight' ? '10px' : narrow ? '11px' : '13px',
+          color: '#bac6d6',
           fontStyle: 'bold',
         }).setOrigin(0.5);
         calendarContainer.add(text);
@@ -378,9 +396,9 @@ export class DailyScene extends Phaser.Scene {
         const position = calendar.leadingEmptyDays + day.day - 1;
         const column = position % 7;
         const row = Math.floor(position / 7);
-        const x = centerX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
+        const x = calendarX - gridWidth / 2 + layout.cellSize / 2 + column * (layout.cellSize + layout.columnGap);
         const cellY = viewportTop + layout.gridTopY + layout.cellSize / 2 + row * layout.rowPitch;
-        const numberY = cellY + layout.cellSize / 2 + layout.numberGap;
+        const numberY = cellY - layout.cellSize / 2 + Math.max(3, Math.round(layout.cellSize * 0.08));
         const style = CALENDAR_STATE_STYLE[day.state];
         const radius = Math.min(DAILY_CARD_RADIUS, Math.max(5, Math.floor(layout.cellSize * 0.14)));
 
@@ -411,7 +429,7 @@ export class DailyScene extends Phaser.Scene {
           style.alpha,
           style.stroke,
           style.strokeAlpha,
-          day.state === 'today' ? 3 : day.state === 'unavailable' ? 1.5 : 2.5,
+          day.state === 'today' ? 2 : 1,
           radius,
         );
 
@@ -437,8 +455,8 @@ export class DailyScene extends Phaser.Scene {
               cellY,
               Math.max(1, layout.cellSize - 6),
               Math.max(1, layout.cellSize - 6),
-              day.state === 'today' ? 0x324468 : 0x31425f,
-              day.state === 'today' ? 0.86 : 0.62,
+              day.state === 'today' ? 0x304055 : 0x26364b,
+              day.state === 'today' ? 0.86 : 0.76,
               0x000000,
               0,
               0,
@@ -472,7 +490,7 @@ export class DailyScene extends Phaser.Scene {
             0,
             style.stroke,
             style.strokeAlpha,
-            day.state === 'today' ? 3 : 2.5,
+            day.state === 'today' ? 2 : 1,
             radius,
           );
         }
@@ -498,7 +516,7 @@ export class DailyScene extends Phaser.Scene {
 
         const number = this.add.text(x, numberY, String(day.day), {
           fontFamily: "'Balsamiq Sans', sans-serif",
-          fontSize: layout.density === 'ultra' ? '7px' : layout.density === 'tight' ? '8px' : narrow ? '10px' : '12px',
+          fontSize: layout.density === 'ultra' ? '9px' : layout.density === 'tight' ? '10px' : narrow ? '11px' : '13px',
           color: style.text,
           fontStyle: day.state === 'today' ? 'bold' : 'normal',
         }).setOrigin(0.5, 0);
@@ -619,7 +637,7 @@ export class DailyScene extends Phaser.Scene {
 
     const glow = this.add.image(x, y, textureKey)
       .setDisplaySize(logicalSize, logicalSize)
-      .setAlpha(0.8);
+      .setAlpha(0.24);
     container.add(glow);
   }
 
@@ -652,8 +670,8 @@ export class DailyScene extends Phaser.Scene {
     size: number,
   ): void {
     const marker = this.add.rectangle(
-      x,
-      y - size / 2 - Math.max(6, Math.round(size * 0.11)),
+      x + size / 2 - Math.max(9, Math.round(size * 0.17)),
+      y - size / 2 + Math.max(9, Math.round(size * 0.17)),
       Math.max(6, Math.round(size * 0.12)),
       Math.max(6, Math.round(size * 0.12)),
       0xf0bd63,
@@ -673,8 +691,8 @@ export class DailyScene extends Phaser.Scene {
       y,
       Math.max(8, Math.round(size * 0.22)),
       Math.max(2, Math.round(size * 0.045)),
-      0x52617a,
-      0.72,
+      0x9aabc1,
+      0.88,
     );
     container.add(marker);
   }
@@ -714,22 +732,20 @@ export class DailyScene extends Phaser.Scene {
         height: options.height,
         label: options.label,
         iconKey: options.icon === 'play' ? 'home-menu-icon-play' : 'home-menu-icon-statistics',
-        compact: true,
+        compact: false,
         onActivate: options.onActivate,
       });
       return;
     }
 
-    createHomeMenuButton(this, {
+    createMaterialActionButton(this, {
       x: options.x,
       y: options.y,
       width: options.width,
       height: options.height,
       label: options.label,
-      labelColor: '#d8d1c4',
-      icon: options.icon,
-      compact: true,
-      accentFrame: false,
+      iconKey: options.icon === 'play' ? 'home-menu-icon-play' : 'home-menu-icon-statistics',
+      compact: false,
       variant: 'secondary',
       onActivate: options.onActivate,
     });

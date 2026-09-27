@@ -145,20 +145,21 @@ export function calculateLevelSelectLayout(
   const continueY = metaHeader.headerHeight + (shortViewport ? 24 : 25);
   const progressLabelY = continueY + continueHeight / 2 + (shortViewport ? 14 : 16);
   const progressBarY = progressLabelY + 16;
-  const progressBarWidth = Math.min(shortViewport ? 208 : 244, viewport.width - margin * 2 - 48);
+  const progressBarWidth = Math.min(shortViewport ? 208 : viewport.width >= 1600 ? 300 : 244, viewport.width - margin * 2 - 48);
   const progressBarHeight = shortViewport ? 5 : 6;
   const headerBottom = progressBarY + progressBarHeight / 2 + (shortViewport ? 16 : 22);
   const gridTop = headerBottom + 10;
   const numberGap = 2;
-  const numberFontSize = shortViewport ? 10 : 11;
+  const numberFontSize = shortViewport ? 10 : viewport.width >= 1600 ? 15 : 12;
   const numberHeight = numberFontSize + 2;
   const maxCardFromWidth = Math.floor(
     (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
   );
   const minimumReadableCard = shortViewport ? 46 : viewport.height < 760 ? 39 : 48;
+  const maxCardSize = viewport.width >= 1600 && viewport.height >= 860 ? 134 : 108;
   const cardSize = Math.max(
     minimumReadableCard,
-    Math.min(108, maxCardFromWidth),
+    Math.min(maxCardSize, maxCardFromWidth),
   );
   const rowPitch = cardSize + numberGap + numberHeight + gapY;
   const totalWidth = columns * cardSize + Math.max(0, columns - 1) * gapX;
@@ -182,11 +183,11 @@ export function calculateLevelSelectLayout(
     titleY: metaHeader.titleY,
     titleFontSize: metaHeader.titleFontSize,
     continueY,
-    continueWidth: Math.min(shortViewport ? 240 : 260, viewport.width - margin * 2),
+    continueWidth: Math.min(shortViewport ? 240 : viewport.width >= 1600 ? 310 : 260, viewport.width - margin * 2),
     continueHeight,
     continueFontSize: shortViewport ? 14 : 16,
     progressLabelY,
-    progressLabelFontSize: shortViewport ? 11 : 12,
+    progressLabelFontSize: shortViewport ? 11 : viewport.width >= 1600 ? 15 : 12,
     progressBarY,
     progressBarWidth,
     progressBarHeight,

@@ -61,15 +61,17 @@ assert(
 );
 
 assert(
-  rankUp.includes('const buttonHeight = narrow ? 68 : 72;'),
-  'Mastery rank-up CTA must use the same taller standard button proportions.',
+  rankUp.includes('const buttonHeight = narrow ? 60 : 70;')
+    && rankUp.includes('button = createPrimaryActionButton(scene, {'),
+  'Rank-up CTA uses the shared primary skin with explicit responsive button bounds.',
 );
 
-assert(daily.includes("density === 'ultra' ? 60 : density === 'tight' ? 64 : narrow ? 68 : 72"), 'Daily standard actions must use the taller declared bounds.');
+assert(daily.includes("const actionHeight = narrow ? (shellLayout.density === 'tight' ? 50 : 58) : shellLayout.density === 'tight' ? 56 : 66;"), 'Daily standard actions must use the current density-aware bounds.');
 assert(help.includes('const ctaHeight = narrow ? 68 : 72;'), 'Help CTA must use the taller standard bounds.');
-assert(leaderboard.includes('const buttonHeight = layout.compactHeight ? 64 : 72;'), 'Leaderboard auth action must use the taller standard bounds.');
-assert(mastery.includes('height: narrow ? 68 : 72,'), 'Mastery standard action must use the taller bounds.');
-assert(masterRatingLeaderboard.includes('height: 72,'), 'Master Rating leaderboard action must use the taller standard bounds.');
+assert(leaderboard.includes('const buttonHeight = layout.compactHeight ? 48 : 54;'), 'Leaderboard auth action must use its current responsive bounds.');
+assert(mastery.includes('height: narrow ? 54 : 60,')
+  && mastery.includes('createMaterialActionButton(this, {'), 'Mastery action uses the shared button component with its current responsive bounds.');
+assert(masterRatingLeaderboard.includes('height: 70,'), 'Master Rating leaderboard action must use its current standard bounds.');
 assert(
   responsive.includes('const continueHeight = viewport.height < 620 ? 64 : 72;')
     && responsive.includes('const continueHeight = shortViewport ? 64 : 72;')
@@ -77,9 +79,9 @@ assert(
   'Level-select Continue actions must use taller responsive bounds.',
 );
 assert(
-  completion.includes('const buttonHeight = short ? 52 : 56;')
-    && completion.includes('const actionHeight = viewportHeight <= 640 ? 48 : 52;'),
-  'Victory panel actions must be taller while remaining compact enough to leave the board visible.',
+  completion.includes('const buttonHeight = 50;')
+    && completion.includes('const buttonHeight = viewportHeight <= 640 ? 48 : 54;'),
+  'Completion primary and secondary actions use matching production-size bounds.',
 );
 assert(
   puzzleUi.includes('const buttonHeight = 72;')

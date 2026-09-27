@@ -25,12 +25,10 @@ const HEADER_ACTION_SQUARE_TEXTURE_KEYS = {
   danger: 'header-action-square-danger',
 } as const;
 const HEADER_ACTION_SQUARE_VISIBLE_FRAME = 'visible-square';
-const HEADER_ACTION_SQUARE_VISIBLE_BOUNDS = { x: 2, y: 21, width: 252, height: 223 } as const;
+const HEADER_ACTION_SQUARE_VISIBLE_BOUNDS = { x: 0, y: 0, width: 192, height: 192 } as const;
 
 export function preloadHeaderActionButtonAssets(scene: Phaser.Scene): void {
-  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.primary, 'assets/ui/primary_button_square_normal.webp');
-  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary, 'assets/ui/secondary_button_square_normal.webp');
-  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.danger, 'assets/ui/danger_button_square_normal.webp');
+  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary, 'assets/ui/action_square_slate_m1.png');
 }
 
 

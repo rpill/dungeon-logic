@@ -10,7 +10,8 @@ assert(source.includes("from '../runtime/MetaPointerGate'"), 'Level Select must 
 assert(source.includes("from '../runtime/MetaScroll'"), 'Level Select must use the shared MetaScroll helpers.');
 assert(source.includes('this.cameras.main.setScroll(0, 0)'), 'Level Select must reset camera scroll when created/restarted.');
 assert(!source.includes('headerScrim'), 'Level Select must not draw a fixed header underlay.');
-assert(!source.includes('fixed: true'), 'Level Select header must scroll with the page content.');
+assert(source.includes('this.createMobileLevelPager(') && source.includes('fixed: true'),
+  'Mobile page controls stay fixed while desktop grid and header use camera scrolling.');
 assert(!source.includes('pinHomeMenuButton'), 'Level Select Continue button must scroll with the page content.');
 assert(source.includes("this.input.on('wheel'"), 'Level Select must support wheel scrolling.');
 assert(source.includes("this.input.on('pointermove'"), 'Level Select must support touch/pointer drag scrolling.');
