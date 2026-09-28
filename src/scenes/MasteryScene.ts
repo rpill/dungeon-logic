@@ -56,8 +56,9 @@ export class MasteryScene extends Phaser.Scene {
     const narrow = viewport.width < 680;
 
     const headerMetrics = calculateMetaPageHeaderMetrics(viewport.width, viewport.height);
-    const actionMetrics = getHeaderActionButtonMetrics(headerMetrics.narrow);
-    const backPresentation = getHeaderBackButtonPresentation(headerMetrics.narrow, copy.common.back);
+    const compactHeaderActions = headerMetrics.density === 'ultra' || headerMetrics.density === 'tight';
+    const actionMetrics = getHeaderActionButtonMetrics(headerMetrics.narrow, compactHeaderActions);
+    const backPresentation = getHeaderBackButtonPresentation(headerMetrics.narrow, copy.common.back, compactHeaderActions);
     const backPlacement = getHeaderActionPlacement(viewport, 'left', backPresentation.width, actionMetrics.height);
     createHeaderActionButton(this, {
       x: backPlacement.x,
@@ -70,6 +71,7 @@ export class MasteryScene extends Phaser.Scene {
       label: backPresentation.label,
       fontSize: actionMetrics.fontSize,
       gap: actionMetrics.gap,
+      depth: 20,
       onActivate: () => this.scene.start(HOME_SCENE_KEY),
     });
     createUiSceneHeader(this, {
@@ -84,7 +86,7 @@ export class MasteryScene extends Phaser.Scene {
     const top = viewport.y + headerMetrics.headerHeight + (narrow ? 12 : 18);
 
     if (narrow) {
-      this.renderMobileLayout(viewport.centerX, top, maxWidth, mastery, copy, masterRatingLabel);
+      this.renderMobileLayout(viewport.centerX, top, maxWidth, Math.max(1, viewport.bottom - top - 8), mastery, copy, masterRatingLabel);
     } else {
       this.renderDesktopLayout(viewport.centerX, top, maxWidth, Math.max(1, viewport.bottom - top - 8), mastery, copy, masterRatingLabel);
     }
@@ -151,35 +153,37 @@ export class MasteryScene extends Phaser.Scene {
     centerX: number,
     top: number,
     width: number,
+    availableHeight: number,
     mastery: ReturnType<typeof getMasterySnapshot>,
     copy: ReturnType<typeof getUiCopy>,
     masterRatingLabel?: string,
   ): void {
-    const sealSize = Math.min(164, width * 0.43);
+    const compact = availableHeight < 700;
+    const sealSize = Math.min(compact ? 142 : 164, width * (compact ? 0.39 : 0.43));
     const sealX = centerX;
-    const sealY = top + 100;
+    const sealY = top + (compact ? 82 : 100);
     createMasteryGlow(this, { x: sealX, y: sealY - sealSize * 0.07, size: sealSize * 0.82, alpha: 0.24, variant: 'page' });
     createMasteryEdgeGlow(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, alpha: 0.24 });
     createMasterySeal(this, { x: sealX, y: sealY, size: sealSize, rank: mastery.currentRank, plaqueLabel: masterRatingLabel });
 
-    this.add.text(centerX, top + 5, copy.mastery.rankKicker(mastery.currentRank), createUiTextStyle('meta', this.uiDensity, {
+    this.add.text(centerX, top + (compact ? 2 : 5), copy.mastery.rankKicker(mastery.currentRank), createUiTextStyle('meta', this.uiDensity, {
       color: UI_THEME.colors.border.bright, fontStyle: 'bold',
     })).setOrigin(0.5);
-    const rankTitle = this.add.text(centerX, top + 190, copy.mastery.rankTitles[mastery.currentRank], createUiTextStyle('heading', this.uiDensity)).setOrigin(0.5);
+    const rankTitle = this.add.text(centerX, top + (compact ? 158 : 190), copy.mastery.rankTitles[mastery.currentRank], createUiTextStyle('heading', this.uiDensity)).setOrigin(0.5);
     this.fitTextWidth(rankTitle, width - 40, 16);
-    this.add.text(centerX, top + 221, `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
+    this.add.text(centerX, top + (compact ? 184 : 221), `«${copy.mastery.rankDescriptions[mastery.currentRank]}»`, {
       ...createUiTextStyle('body', this.uiDensity, { color: UI_THEME.colors.text.secondary }),
-      wordWrap: { width: width - 56 },
+      wordWrap: { width: width - (compact ? 72 : 56) },
       align: 'center',
-      lineSpacing: 2,
+      lineSpacing: compact ? 0 : 2,
     }).setOrigin(0.5, 0);
 
-    const panelTop = top + 270;
+    const panelTop = top + (compact ? 225 : 270);
     const panelHeight = mastery.nextRank === null
-      ? 230
-      : 170 + Math.max(0, Math.min(3, mastery.conditions.length) - 1) * 70;
+      ? (compact ? 204 : 230)
+      : (compact ? 152 : 170) + Math.max(0, Math.min(3, mastery.conditions.length) - 1) * (compact ? 62 : 70);
     this.renderRequirementPanel(centerX, panelTop, width, panelHeight, mastery, copy, true, masterRatingLabel);
-    this.renderRankTrack(centerX, panelTop + panelHeight + 10, width, 100, mastery.currentRank, true, copy);
+    this.renderRankTrack(centerX, panelTop + panelHeight + (compact ? 2 : 10), width, compact ? 82 : 100, mastery.currentRank, true, copy);
   }
 
   private renderRequirementPanel(

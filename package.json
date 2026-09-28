@@ -29,6 +29,8 @@
     "sanity:campaign-runtime": "tsx src/dev/campaignRuntimeSanity.ts",
     "sanity:responsive-shell": "tsx src/dev/responsiveShellSanity.ts",
     "sanity:live-resize": "tsx src/dev/liveResizeSanity.ts",
+    "sanity:visual-viewport": "node --experimental-strip-types src/dev/visualViewportSanity.mjs",
+    "sanity:mobile-header-layer": "node --experimental-strip-types src/dev/mobileHeaderLayerSanity.mjs",
     "sanity:wireframe-ui": "tsx src/dev/wireframeUiSanity.ts",
     "sanity:pointer-policy": "tsx src/dev/puzzlePointerPolicySanity.ts",
     "sanity:campaign-unlock": "tsx src/dev/campaignUnlockSanity.ts",

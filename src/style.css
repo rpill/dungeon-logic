@@ -44,9 +44,11 @@ body {
 }
 
 #app {
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--app-viewport-width, 100vw);
+  height: var(--app-viewport-height, 100dvh);
   overflow: hidden;
 }
 

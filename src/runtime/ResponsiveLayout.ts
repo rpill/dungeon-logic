@@ -214,25 +214,29 @@ export function calculateMobilePagedLevelSelectLayout(
   const viewportClass = classifyViewport(viewport.width);
   const metaHeader = calculateMetaPageHeaderMetrics(viewport.width, viewport.height);
   const portrait = viewport.height >= viewport.width;
+  const compactPortrait = portrait && viewport.height < 720;
   const portraitSideMargin = 12;
   const margin = portrait ? portraitSideMargin : 18;
-  const gapX = portrait ? 28 : 12;
-  const gapY = portrait ? 18 : 10;
-  const columns = portrait ? 2 : Math.min(8, Math.max(1, itemCount));
+  const gapX = portrait ? (compactPortrait ? 16 : 20) : 12;
+  const gapY = portrait ? (compactPortrait ? 10 : 14) : 10;
+  const mobileTripleRows = portrait;
+  const columns = portrait
+    ? Math.min(3, Math.max(1, itemCount >= 5 ? 3 : itemCount))
+    : Math.min(8, Math.max(1, itemCount));
   const rows = Math.ceil(itemCount / columns);
-  const portraitRows = 4;
+  const portraitRows = mobileTripleRows ? 3 : 4;
   const sizingRows = portrait ? portraitRows : rows;
-  const continueHeight = viewport.height < 620 ? 64 : 68;
-  const continueY = metaHeader.headerHeight + (viewport.height < 620 ? 24 : 28);
-  const progressLabelY = continueY + continueHeight / 2 + 15;
-  const progressBarY = progressLabelY + 17;
+  const continueHeight = compactPortrait ? 60 : viewport.height < 620 ? 64 : 68;
+  const continueY = metaHeader.headerHeight + (compactPortrait ? 18 : viewport.height < 620 ? 24 : 28);
+  const progressLabelY = continueY + continueHeight / 2 + (compactPortrait ? 12 : 15);
+  const progressBarY = progressLabelY + (compactPortrait ? 15 : 17);
   const progressBarWidth = Math.min(viewport.width - margin * 2 - 44, 208);
   const progressBarHeight = 6;
-  const headerBottom = progressBarY + progressBarHeight / 2 + 20;
-  const pagerReserve = portrait ? 64 : 44;
-  const gridTop = headerBottom + (portrait ? 14 : 10);
-  const numberGap = 4;
-  const numberFontSize = portrait ? 12 : 10;
+  const headerBottom = progressBarY + progressBarHeight / 2 + (compactPortrait ? 14 : 20);
+  const pagerReserve = portrait ? (compactPortrait ? 50 : 58) : 44;
+  const gridTop = headerBottom + (portrait ? (compactPortrait ? 10 : 14) : 10);
+  const numberGap = compactPortrait ? 3 : 4;
+  const numberFontSize = portrait ? (compactPortrait ? 11 : 12) : 10;
   const numberHeight = numberFontSize + 3;
   const maxCardFromWidth = Math.floor(
     (viewport.width - margin * 2 - gapX * Math.max(0, columns - 1)) / columns,
@@ -251,23 +255,25 @@ export function calculateMobilePagedLevelSelectLayout(
         ) / sizingRows,
       );
   const rawCardSize = Math.max(
-    portrait ? 78 : 42,
-    Math.min(portrait ? 132 : 70, maxCardFromWidth, maxCardFromHeight),
+    portrait ? (compactPortrait ? 60 : 68) : 42,
+    Math.min(portrait ? (compactPortrait ? 108 : 118) : 70, maxCardFromWidth, maxCardFromHeight),
   );
-  const portraitCardScale = 0.93;
+  const portraitCardScale = compactPortrait ? 0.92 : 0.96;
   const cardSize = portrait
-    ? Math.max(74, Math.floor(rawCardSize * portraitCardScale))
+    ? Math.max(compactPortrait ? 56 : 64, Math.floor(rawCardSize * portraitCardScale))
     : rawCardSize;
   const rowPitch = cardSize + numberGap + numberHeight + gapY;
   const effectiveGapX = gapX;
-  const totalWidth = columns * cardSize + Math.max(0, columns - 1) * effectiveGapX;
-  const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;
   const cards = Array.from({ length: itemCount }, (_, index): LevelCardLayout => {
-    const column = index % columns;
     const row = Math.floor(index / columns);
+    const rowStartIndex = row * columns;
+    const rowItemCount = Math.min(columns, itemCount - rowStartIndex);
+    const rowColumn = index - rowStartIndex;
+    const rowWidth = rowItemCount * cardSize + Math.max(0, rowItemCount - 1) * effectiveGapX;
+    const rowStartX = (viewport.width - rowWidth) / 2 + cardSize / 2;
     const y = gridTop + cardSize / 2 + row * rowPitch;
     return {
-      x: startX + column * (cardSize + effectiveGapX),
+      x: rowStartX + rowColumn * (cardSize + effectiveGapX),
       y,
       width: cardSize,
       height: cardSize,

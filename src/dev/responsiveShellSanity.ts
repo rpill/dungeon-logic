@@ -15,7 +15,7 @@ assert(initial.width === 390 && initial.height === 844, 'Game boots at the real 
 
 const phone = calculateMobilePagedLevelSelectLayout(390, 844, 8);
 assert(phone.viewportClass === 'narrow', '390px viewport uses narrow Level Select layout.');
-assert(phone.columns === 2, 'Narrow portrait mobile page uses two large columns across four rows.');
+assert(phone.columns === 3, 'Narrow portrait mobile page uses a compact 3/3/2 grid.');
 assert(phone.cards.length === 8, 'Mobile Level Select renders only one 8-level page.');
 assert(phone.headerBottom > phone.continueY + phone.continueHeight / 2, 'Paged cards start below the Level Select header.');
 for (const card of phone.cards) {
@@ -24,6 +24,20 @@ for (const card of phone.cards) {
   assert(card.numberY > card.y + card.height / 2, 'Level number sits below the preview square.');
 }
 assert(getMetaScrollMaxY(844, phone.contentBottom) === 0, 'Portrait mobile page fits without vertical scrolling.');
+assert(phone.cards[0].y === phone.cards[2].y, 'First mobile row contains three level cards.');
+assert(phone.cards[3].y === phone.cards[5].y, 'Second mobile row contains three level cards.');
+assert(phone.cards[6].y === phone.cards[7].y, 'Third mobile row contains the remaining two level cards.');
+assert(
+  Math.abs((phone.cards[6].x + phone.cards[7].x) / 2 - 390 / 2) < 0.001,
+  'Final two-card mobile row stays centered.',
+);
+
+const browserChromePhone = calculateMobilePagedLevelSelectLayout(412, 612, 8);
+const browserChromeLast = browserChromePhone.cards.at(-1)!;
+assert(
+  browserChromeLast.numberY + browserChromePhone.cardTitleFontSize / 2 <= 612 - 72,
+  'Short mobile viewport keeps the final 3/3/2 row clear of pager and browser chrome.',
+);
 
 const desktop = calculateLevelSelectLayout(1280, 720, 64);
 assert(desktop.viewportClass === 'wide', '1280px viewport uses wide Level Select layout.');

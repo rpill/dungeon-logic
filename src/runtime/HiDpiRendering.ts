@@ -117,26 +117,23 @@ export function installHiDpiRendering(game: Phaser.Game): void {
       state.logicalWidth = logicalWidth;
       state.logicalHeight = logicalHeight;
 
-      // Keep DOM/input geometry logical. Only the backing buffer becomes HiDPI.
-      canvas.style.width = `${logicalWidth}px`;
-      canvas.style.height = `${logicalHeight}px`;
-
-      // Phaser has already completed its RESIZE refresh before this listener runs.
-      // Re-sync centering and pointer transforms immediately after overriding the
-      // CSS size, otherwise one large resize can leave stale margins / bounds
-      // until a second browser resize event happens.
-      game.scale.updateCenter();
-      game.scale.updateBounds();
-      game.scale.displayScale.set(
-        game.scale.baseSize.width / Math.max(1, game.scale.canvasBounds.width),
-        game.scale.baseSize.height / Math.max(1, game.scale.canvasBounds.height),
-      );
-
       canvas.width = physicalWidth;
       canvas.height = physicalHeight;
 
       renderer.resize(physicalWidth, physicalHeight);
       renderer.setProjectionMatrix(logicalWidth, logicalHeight);
+
+      // Scale.NONE leaves viewport ownership to VisualViewportBridge. Keep the
+      // DOM/input rectangle in logical CSS pixels while only the backing buffer
+      // uses HiDPI pixels. Never recenter here: fullscreen/browser-chrome
+      // transitions must not accumulate Phaser canvas margins.
+      canvas.style.width = `${logicalWidth}px`;
+      canvas.style.height = `${logicalHeight}px`;
+      game.scale.updateBounds();
+      game.scale.displayScale.set(
+        game.scale.baseSize.width / Math.max(1, game.scale.canvasBounds.width),
+        game.scale.baseSize.height / Math.max(1, game.scale.canvasBounds.height),
+      );
     };
 
     // Phaser's renderer handles RESIZE first and temporarily restores a 1x

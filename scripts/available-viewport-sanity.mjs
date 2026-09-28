@@ -45,6 +45,19 @@ const safe = readCssSafeAreaInsets(() => fakeRoot);
 assert(safe.top === 12 && safe.bottom === 18.5, 'CSS safe-area reader must parse top and bottom inset variables.');
 assert(safe.left === 0 && safe.right === 0, 'CSS safe-area reader must default absent side insets to zero.');
 
+const fakeBrowserChromeRoot = {
+  getPropertyValue(name) {
+    if (name === '--safe-area-inset-top') return '12px';
+    if (name === '--safe-area-inset-bottom') return '18px';
+    if (name === '--browser-ui-inset-top') return '28px';
+    if (name === '--browser-ui-inset-bottom') return '56px';
+    return '0px';
+  },
+};
+const browserSafe = readCssSafeAreaInsets(() => fakeBrowserChromeRoot);
+assert(browserSafe.top === 28, 'Browser UI top gutter must win over a smaller device safe-area inset.');
+assert(browserSafe.bottom === 56, 'Browser UI bottom gutter must win over a smaller device safe-area inset.');
+
 assert(STICKY_BOTTOM_INSET_REGISTRY_KEY === 'sticky-bottom-inset-px', 'Sticky inset registry key must be generic, not Home-specific.');
 
 const home = readFileSync(new URL('../src/scenes/HomeScene.ts', import.meta.url), 'utf8');

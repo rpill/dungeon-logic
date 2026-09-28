@@ -51,13 +51,22 @@ export function useInlineTouchToolbar(width: number, height: number): boolean {
   return width >= 600 && height < 520;
 }
 
-function getLayoutReserves(viewportClass: ViewportClass, touchControls: boolean): LayoutReserves {
+function getLayoutReserves(
+  viewportClass: ViewportClass,
+  touchControls: boolean,
+  viewportWidth: number,
+  viewportHeight: number,
+): LayoutReserves {
+  const shortPortraitTouch = touchControls
+    && viewportClass === 'narrow'
+    && viewportHeight > viewportWidth
+    && viewportHeight < 780;
   return viewportClass === 'narrow'
     ? {
         margin: 12,
         headerHeight: 104,
-        // Two 68px rows, their 22px gap, 12px bottom inset and 12px board gap.
-        toolbarHeight: touchControls ? 212 : 172,
+        // Short browser viewport on phones uses a more compact stacked toolbar.
+        toolbarHeight: touchControls ? (shortPortraitTouch ? 170 : 212) : 172,
       }
     : {
         margin: 24,
@@ -86,7 +95,17 @@ export function calculateGameBoardLayout(
 
   const viewportClass = classifyViewport(viewportWidth);
   const inlineTouch = touchControls && inlineTouchControls;
-  const reserves = getLayoutReserves(viewportClass, touchControls && !inlineTouch);
+  const shortPortraitTouch = touchControls
+    && !inlineTouch
+    && viewportClass === 'narrow'
+    && viewportHeight > viewportWidth
+    && viewportHeight < 780;
+  const reserves = getLayoutReserves(
+    viewportClass,
+    touchControls && !inlineTouch,
+    viewportWidth,
+    viewportHeight,
+  );
   const { margin } = reserves;
   // Timed modes reserve the status/timer panel; untimed modes only need the title header.
   const headerHeight = showStatusPanel
@@ -96,11 +115,13 @@ export function calculateGameBoardLayout(
       )
     : reserves.headerHeight;
   const phonePanelHeight = Math.round(Math.max(240, viewportWidth - 24) * 747 / 1100);
-  const phoneClearanceReserve = Math.min(
-    phonePanelHeight + 18,
-    Math.max(reserves.toolbarHeight,
-      2 * (phonePanelHeight + 14) + headerHeight + (viewportWidth - 24) - viewportHeight),
-  );
+  const phoneClearanceReserve = shortPortraitTouch
+    ? reserves.toolbarHeight
+    : Math.min(
+      phonePanelHeight + 18,
+      Math.max(reserves.toolbarHeight,
+        2 * (phonePanelHeight + 14) + headerHeight + (viewportWidth - 24) - viewportHeight),
+    );
   const toolbarHeight = inlineTouch ? 96 : viewportClass === 'wide'
     ? Math.max(reserves.toolbarHeight, desktopCompletionPanelHeight(viewportWidth) + 22)
     : viewportClass === 'narrow' && viewportHeight > viewportWidth

@@ -16,7 +16,7 @@ assert(scene.includes('createMasteryRequirementRowPanel'),'Mastery requirements 
 assert(scene.includes('const rowGap = rowHeight + (narrow ? 8 : 10)'),'Requirement rows must keep a positive vertical gap.');
 assert(scene.includes("case 'campaign':")&&scene.includes("case 'daily-completed':")&&scene.includes("case 'endless-completed':"),'MasteryScene must render all three requirement types.');
 assert(scene.includes('MASTERY_RANK_IDS'),'MasteryScene must render the full rank path.');
-assert(scene.includes('const sealX = centerX;')&&scene.includes('const rankTitle = this.add.text(centerX, top + 190'),'Narrow Mastery hero must center the emblem and rank copy.');
+assert(scene.includes('const sealX = centerX;')&&scene.includes('compact ? 158 : 190'),'Narrow Mastery hero must center the emblem and compact its rank copy on short viewports.');
 assert(scene.includes('? copy.mastery.maxRank'),'Maximum Mastery rank must show maximum-rank copy.');
 assert(scene.includes('UI_ICON_KEYS.lock'),'Future mastery ranks must use lock icons.');
 assert(scene.includes('const isPast = index < currentIndex;')&&scene.includes('const isFuture = index > currentIndex;'),'Rank track must distinguish completed and future ranks.');

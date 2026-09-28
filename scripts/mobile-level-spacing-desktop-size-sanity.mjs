@@ -11,13 +11,15 @@ const layout = readFileSync(resolve(root, 'src/runtime/ResponsiveLayout.ts'), 'u
 const scene = readFileSync(resolve(root, 'src/scenes/LevelSelectScene.ts'), 'utf8');
 
 assert(layout.includes('const portraitSideMargin = 12;'), 'Portrait mobile cards must use a small side margin near screen edges.');
-assert(layout.includes('const gapX = portrait ? 28 : 12;'), 'Portrait mobile level columns must keep a balanced 28px center gap.');
-assert(layout.includes('const gapY = portrait ? 18 : 10;'), 'Portrait mobile rows must keep a roomier 18px vertical gap.');
-assert(layout.includes('const portraitCardScale = 0.93;'), 'Portrait mobile cards must be reduced slightly so vertical spacing can breathe.');
+assert(layout.includes("const gapX = portrait ? (compactPortrait ? 24 : 28) : 12;"), 'Regular portrait keeps a 28px center gap while short browser viewports compact to 24px.');
+assert(layout.includes('const compactPortrait = portrait && viewport.height < 720;'), 'Short portrait browser viewport must have an explicit compact layout mode.');
+assert(layout.includes('const gapY = portrait ? (compactPortrait ? 12 : 18) : 10;'), 'Regular portrait keeps 18px row spacing while short browser viewports compact to 12px.');
+assert(layout.includes('const portraitCardScale = compactPortrait ? 0.88 : 0.93;'), 'Regular portrait keeps its breathing-room scale while short browser viewports compact further.');
 assert(layout.includes('const cardSize = portrait'), 'Portrait mobile card size must apply its own scale without affecting landscape or desktop.');
 assert(layout.includes('const effectiveGapX = gapX;'), 'Portrait mobile columns must keep a compact fixed gap instead of dumping leftover width into the middle.');
 assert(layout.includes('const startX = (viewport.width - totalWidth) / 2 + cardSize / 2;'), 'Portrait mobile columns must remain centered as one compact grid block.');
-assert(layout.includes('Math.min(108, maxCardFromWidth)'), 'Desktop level cards must grow to roughly 1.5x the old 72px cap.');
+assert(layout.includes('const maxCardSize = viewport.width >= 1600 && viewport.height >= 860 ? 134 : 108;'), 'Desktop level cards must keep the larger responsive cap.');
+assert(layout.includes('Math.min(maxCardSize, maxCardFromWidth)'), 'Desktop level card sizing must apply the responsive cap against available width.');
 assert(!layout.includes('Math.min(72, maxCardFromWidth, maxCardFromHeight)'), 'Desktop cards must not be shrunk back to the old 72px height-fitting cap.');
 assert(scene.includes("from '../runtime/HeaderActionButton'"), 'Mobile pager arrows must use the shared HeaderActionButton component.');
 assert(scene.includes('UI_ICON_KEYS.back'), 'Pager arrows must use the standard back-arrow icon asset.');

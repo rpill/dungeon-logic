@@ -37,6 +37,22 @@ export interface PuzzleToolbarLayout {
   readonly buttons: readonly PuzzleToolbarButtonLayout[];
 }
 
+export function getPuzzleToolbarIconSize(
+  id: PuzzleToolbarButtonId,
+  narrowToolbar: boolean,
+  boardCellSize: number,
+  boardGap: number,
+): number {
+  const floorMarkIconSize = Math.max(1, boardCellSize - boardGap);
+  if (id === 'wall') return narrowToolbar ? 30 : 34;
+  if (id === 'floor') {
+    return narrowToolbar
+      ? Math.max(34, Math.min(38, floorMarkIconSize + 8))
+      : Math.max(34, Math.min(40, floorMarkIconSize + 8));
+  }
+  return narrowToolbar ? 22 : 28;
+}
+
 export function formatCompactHintLabel(freeHintsRemaining: number): string {
   if (!Number.isInteger(freeHintsRemaining) || freeHintsRemaining < 0) {
     throw new RangeError('Free hints remaining must be a non-negative integer.');
@@ -126,6 +142,10 @@ export function calculatePuzzleToolbarLayout(
 
   const viewportClass = classifyViewport(viewportWidth);
   const bottomInset = Math.max(0, safeAreaBottom);
+  const shortPortraitTouch = showToolButtons
+    && viewportClass === 'narrow'
+    && viewportHeight > viewportWidth
+    && viewportHeight < 780;
 
   if (!showToolButtons) {
     const margin = viewportClass === 'narrow' ? 12 : 16;
@@ -158,13 +178,15 @@ export function calculatePuzzleToolbarLayout(
   }
 
   if (showToolButtons && viewportClass !== 'wide' && !useInlineTouchToolbar(viewportWidth, viewportHeight)) {
-    const margin = viewportClass === 'narrow' ? 12 : 18;
-    const gapX = 8;
-    const gapY = 22;
-    const actionButtonHeight = 68;
-    const toolButtonHeight = 68;
+    const margin = viewportClass === 'narrow' ? (shortPortraitTouch ? 10 : 12) : 18;
+    const gapX = shortPortraitTouch ? 12 : 8;
+    const gapY = shortPortraitTouch ? 12 : 22;
+    const actionButtonHeight = shortPortraitTouch ? 54 : 68;
+    const toolButtonHeight = shortPortraitTouch ? 52 : 68;
     const toolButtonWidth = Math.min(
-      viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : 280,
+      viewportClass === 'narrow'
+        ? (shortPortraitTouch ? 150 : Number.POSITIVE_INFINITY)
+        : 280,
       Math.floor((viewportWidth - margin * 2 - gapX) / 2),
     );
     const actionIds: readonly PuzzleToolbarButtonId[] = [
@@ -174,7 +196,9 @@ export function calculatePuzzleToolbarLayout(
       ...(showSkipButton ? ['skip'] as const : []),
     ];
     const actionButtonWidth = Math.min(
-      viewportClass === 'narrow' ? Number.POSITIVE_INFINITY : (actionIds.length === 2 ? 220 : 184),
+      viewportClass === 'narrow'
+        ? Number.POSITIVE_INFINITY
+        : (actionIds.length === 2 ? 220 : 184),
       Math.floor(
         (viewportWidth - margin * 2 - gapX * Math.max(0, actionIds.length - 1)) / actionIds.length,
       ),
@@ -216,7 +240,8 @@ export function calculatePuzzleToolbarLayout(
   const buttonHeight = viewportClass === 'wide' ? 72 : 68;
   const gap = viewportClass === 'wide' ? 12 : 10;
   const ids: readonly PuzzleToolbarButtonId[] = [
-    'wall', 'floor', 'undo', 'reset', 'hint',
+    'wall', 'floor', 'undo', 'reset',
+    ...(hideHintButton ? [] : ['hint'] as const),
     ...(showSkipButton ? ['skip'] as const : []),
   ];
   const toolWidth = viewportClass === 'wide' ? 126 : 108;

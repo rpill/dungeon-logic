@@ -26,8 +26,8 @@ assert(
   'Meta-page Back buttons must use shared mobile icon-only presentation.',
 );
 assert(
-  settings.includes('getHeaderBackButtonPresentation'),
-  'Settings Back button must use shared mobile icon-only presentation.',
+  settings.includes('createMetaPageHeader'),
+  'Settings Back button must delegate to the shared meta header icon-only presentation.',
 );
 assert(
   game.includes('getHeaderBackButtonPresentation'),

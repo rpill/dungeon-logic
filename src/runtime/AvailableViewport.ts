@@ -89,10 +89,12 @@ export function readCssSafeAreaInsets(
   getStyle: CssStyleProvider = defaultCssStyleProvider,
 ): Required<ViewportInsets> {
   const style = getStyle();
+  const browserTop = parseCssInset(style, '--browser-ui-inset-top');
+  const browserBottom = parseCssInset(style, '--browser-ui-inset-bottom');
   return {
-    top: parseCssInset(style, '--safe-area-inset-top'),
+    top: Math.max(parseCssInset(style, '--safe-area-inset-top'), browserTop),
     right: parseCssInset(style, '--safe-area-inset-right'),
-    bottom: parseCssInset(style, '--safe-area-inset-bottom'),
+    bottom: Math.max(parseCssInset(style, '--safe-area-inset-bottom'), browserBottom),
     left: parseCssInset(style, '--safe-area-inset-left'),
   };
 }

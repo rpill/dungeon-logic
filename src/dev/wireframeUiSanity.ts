@@ -2,10 +2,12 @@ import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
   formatCompactHintLabel,
+  getPuzzleToolbarIconSize,
   shouldConfirmReset,
   shouldShowTouchToolButtons,
   shouldUseCompactHintLabel,
 } from '../runtime/PuzzleUiState.ts';
+import { calculateGameBoardLayout } from '../scenes/GameBoardLayout';
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -37,6 +39,18 @@ assert(narrow.buttons.every((button) => button.x + button.width / 2 <= 378), 'Ph
 const safe = calculatePuzzleToolbarLayout(390, 844, 24, true);
 assert(safe.bottomY < narrow.bottomY, 'Bottom safe area moves toolbar upward.');
 
+const shortBrowserBoard = calculateGameBoardLayout(390, 612, 6, 6, true, false, false);
+const shortBrowserBoardBottom = shortBrowserBoard.originY
+  + shortBrowserBoard.boardHeight
+  + shortBrowserBoard.cellSize * 0.5;
+const shortBrowserToolbar = calculatePuzzleToolbarLayout(390, 612, 0, true, shortBrowserBoardBottom);
+const shortBrowserWall = shortBrowserToolbar.buttons.find((button) => button.id === 'wall')!;
+const shortBrowserFloor = shortBrowserToolbar.buttons.find((button) => button.id === 'floor')!;
+assert(shortBrowserBoard.cellSize >= 44, 'Short browser viewport keeps the puzzle field readable instead of over-reserving toolbar space.');
+assert(shortBrowserWall.width <= 150 && shortBrowserFloor.width <= 150, 'Short browser Wall/Floor controls do not span half the phone width.');
+assert(shortBrowserWall.height <= 54 && shortBrowserFloor.height <= 54, 'Short browser Wall/Floor controls use compact height.');
+assert(getPuzzleToolbarIconSize('floor', true, shortBrowserBoard.cellSize, 2) >= 34, 'Phone Floor mark icon remains visually prominent inside the compact button.');
+
 const boardAnchored = calculatePuzzleToolbarLayout(390, 844, 0, true, 568);
 const boardAnchoredWall = boardAnchored.buttons.find((button) => button.id === 'wall')!;
 assert(boardAnchoredWall.y - boardAnchoredWall.height / 2 === 580, 'Phone Wall/Floor row starts 12px below the supplied board bottom.');
@@ -50,7 +64,7 @@ assert(!shouldConfirmReset(2), 'One or two edits reset immediately.');
 assert(shouldConfirmReset(3), 'Three or more edits require reset confirmation.');
 
 const compactTouch = calculatePuzzleToolbarLayout(844, 390, 0, true, 250, true);
-assert(compactTouch.mode === 'stacked', 'Landscape touch phone keeps Wall/Floor in a separate row below the board.');
+assert(compactTouch.mode === 'inline', 'Short landscape touch phone uses the dedicated inline toolbar mode.');
 assert(compactTouch.buttons.map((button) => button.id).join(',') === 'wall,floor,undo,reset', 'Landscape touch phone also removes Hint from layout while a hint is pending.');
 
 const wide = calculatePuzzleToolbarLayout(1280, 720, 0, false);

@@ -52,11 +52,15 @@ export function createMetaPageHeader(
   const fixed = options.fixed ?? false;
   const backButton = options.backButton ?? false;
   const fixedBack = options.fixedBack ?? fixed;
-  const actionMetrics = getHeaderActionButtonMetrics(metrics.narrow);
+  const compactActions = metrics.density === 'ultra' || metrics.density === 'tight';
+  const actionMetrics = getHeaderActionButtonMetrics(
+    metrics.narrow,
+    compactActions,
+  );
   const backGap = actionMetrics.gap;
   const titleDepthBase = fixed ? 1001 : 1;
   const backDepthBase = fixedBack ? 1101 : titleDepthBase;
-  const backPresentation = getHeaderBackButtonPresentation(metrics.narrow, options.backLabel);
+  const backPresentation = getHeaderBackButtonPresentation(metrics.narrow, options.backLabel, compactActions);
   const buttonWidth = backPresentation.width;
   const buttonHeight = actionMetrics.height;
   const buttonRadius = actionMetrics.radius;

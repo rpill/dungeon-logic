@@ -14,8 +14,15 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { MasteryScene } from './scenes/MasteryScene';
 import { installHiDpiRendering } from './runtime/HiDpiRendering';
 import { getInitialViewportSize } from './runtime/ResponsiveLayout';
+import {
+  applyBrowserViewportCss,
+  getBrowserViewportMetrics,
+  installVisualViewportSync,
+} from './runtime/VisualViewportBridge';
 
-const initialViewport = getInitialViewportSize(window.innerWidth, window.innerHeight);
+const browserViewport = getBrowserViewportMetrics(window);
+const initialViewport = getInitialViewportSize(browserViewport.width, browserViewport.height);
+applyBrowserViewportCss({ ...initialViewport, offsetLeft: browserViewport.offsetLeft, offsetTop: browserViewport.offsetTop });
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -34,8 +41,12 @@ const config: Phaser.Types.Core.GameConfig = {
   roundPixels: true,
 
   scale: {
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // VisualViewportBridge is the single owner of logical canvas resizing.
+    // Phaser documents ScaleManager.resize() for NONE mode; combining manual
+    // resize calls with RESIZE mode causes competing resize/centering passes on
+    // mobile fullscreen transitions.
+    mode: Phaser.Scale.NONE,
+    autoCenter: Phaser.Scale.NO_CENTER,
   },
 
   scene: [
@@ -54,6 +65,7 @@ const config: Phaser.Types.Core.GameConfig = {
 
 function startGame(): void {
   const game = new Phaser.Game(config);
+  installVisualViewportSync(game);
   installHiDpiRendering(game);
 }
 

@@ -29,12 +29,12 @@ export function calculateMetaPageHeaderMetrics(
   let vertical: Pick<MetaPageHeaderMetrics, 'backY' | 'titleY' | 'headerHeight'>;
   if (narrow) {
     vertical = density === 'ultra'
-      ? { backY: 24, titleY: 58, headerHeight: 82 }
+      ? { backY: 38, titleY: 80, headerHeight: 100 }
       : density === 'tight'
-        ? { backY: 28, titleY: 64, headerHeight: 90 }
+        ? { backY: 38, titleY: 84, headerHeight: 108 }
         : density === 'medium'
-          ? { backY: 32, titleY: 82, headerHeight: 112 }
-          : { backY: 36, titleY: 92, headerHeight: 126 };
+          ? { backY: 42, titleY: 94, headerHeight: 118 }
+          : { backY: 42, titleY: 98, headerHeight: 126 };
   } else {
     vertical = density === 'ultra'
       ? { backY: 24, titleY: 28, headerHeight: 48 }

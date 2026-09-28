@@ -18,16 +18,15 @@ assert(runtime.includes('setScissorBox'), 'Camera scissors must be scaled to phy
 assert(runtime.includes('Phaser.Scale.Events.RESIZE'), 'HiDPI bridge must reapply after Phaser resize events.');
 assert(runtime.includes('GameObjectFactory.prototype'), 'HiDPI bridge must raise Phaser Text texture resolution globally.');
 assert(runtime.includes('resolution: getRenderDpr()'), 'Phaser Text textures must render at the same capped DPR as the framebuffer.');
+assert(!runtime.includes('game.scale.updateCenter()'), 'HiDPI bridge must not mutate canvas centering margins.');
 
+const rendererResizeIndex = runtime.indexOf('renderer.resize(physicalWidth, physicalHeight)');
 const styleHeightIndex = runtime.indexOf('canvas.style.height = `${logicalHeight}px`;');
-const updateCenterIndex = runtime.indexOf('game.scale.updateCenter();');
 const updateBoundsIndex = runtime.indexOf('game.scale.updateBounds();');
 const displayScaleIndex = runtime.indexOf('game.scale.displayScale.set(');
-const rendererResizeIndex = runtime.indexOf('renderer.resize(physicalWidth, physicalHeight)');
 
-assert(updateCenterIndex > styleHeightIndex, 'Sharp resize must recenter immediately after HiDPI changes the CSS size.');
-assert(updateBoundsIndex > updateCenterIndex, 'Sharp resize must refresh canvas bounds after recentering.');
-assert(displayScaleIndex > updateBoundsIndex, 'Sharp resize must refresh input displayScale from the new bounds.');
-assert(rendererResizeIndex > displayScaleIndex, 'ScaleManager DOM/input geometry must be synchronized before the physical buffer resize.');
+assert(styleHeightIndex > rendererResizeIndex, 'Logical CSS size must be restored after the physical framebuffer resize.');
+assert(updateBoundsIndex > styleHeightIndex, 'Input bounds must refresh after restoring logical CSS size.');
+assert(displayScaleIndex > updateBoundsIndex, 'Input displayScale must refresh from the final logical bounds.');
 
-console.info('[Dungeon Logic] HiDPI rendering sanity: logical layout + DPR buffer + one-event sharp resize synchronization passed');
+console.info('[Dungeon Logic] HiDPI rendering sanity: logical layout + DPR buffer without centering-margin drift passed');

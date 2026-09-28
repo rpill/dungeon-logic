@@ -58,9 +58,11 @@ export interface HeaderActionButtonMetrics {
   readonly gap: number;
 }
 
-export function getHeaderActionButtonMetrics(narrow: boolean): HeaderActionButtonMetrics {
+export function getHeaderActionButtonMetrics(narrow: boolean, compact = false): HeaderActionButtonMetrics {
   return narrow
-    ? { pillWidth: 132, height: 60, iconButtonSize: 60, radius: 13, iconSize: 28, fontSize: 15, gap: 8 }
+    ? compact
+      ? { pillWidth: 120, height: 52, iconButtonSize: 52, radius: 12, iconSize: 24, fontSize: 14, gap: 7 }
+      : { pillWidth: 132, height: 60, iconButtonSize: 60, radius: 13, iconSize: 28, fontSize: 15, gap: 8 }
     : { pillWidth: 160, height: 64, iconButtonSize: 64, radius: 15, iconSize: 32, fontSize: 17, gap: 10 };
 }
 
@@ -72,8 +74,9 @@ export interface HeaderBackButtonPresentation {
 export function getHeaderBackButtonPresentation(
   _narrow: boolean,
   _label: string,
+  compact = false,
 ): HeaderBackButtonPresentation {
-  const metrics = getHeaderActionButtonMetrics(_narrow);
+  const metrics = getHeaderActionButtonMetrics(_narrow, compact);
   return {
     width: metrics.iconButtonSize,
     label: undefined,
@@ -87,12 +90,12 @@ export interface HeaderActionPlacement {
 }
 
 export function getHeaderActionPlacement(
-  viewport: Pick<AvailableViewport, 'x' | 'y' | 'right' | 'width'>,
+  viewport: Pick<AvailableViewport, 'x' | 'y' | 'right' | 'width' | 'height'>,
   side: 'left' | 'right',
   width: number,
   height: number,
 ): HeaderActionPlacement {
-  const inset = viewport.width < 700 ? 16 : 28;
+  const inset = viewport.width < 700 ? 12 : 28;
   return {
     x: side === 'left'
       ? viewport.x + inset + width / 2

@@ -126,6 +126,7 @@ export class HomeScene extends Phaser.Scene {
     const narrow = viewportClass === 'narrow';
     const safeAreaInsets = readCssSafeAreaInsets();
     const safeViewport = calculateAvailableViewport(this.scale.width, this.scale.height, safeAreaInsets);
+    const compactNarrow = narrow && safeViewport.height < 720;
     const levels = campaign.getLevels();
     const completedIds = new Set(profile.campaign.completedLevelIds);
     const completedCampaign = levels.reduce(
@@ -139,7 +140,7 @@ export class HomeScene extends Phaser.Scene {
     const logo = this.add.image(centerX, 0, logoTextureKey).setOrigin(0.5);
     const logoAspect = logo.width / logo.height;
 
-    const homeHeaderActionMetrics = getHeaderActionButtonMetrics(safeViewport.width < 700);
+    const homeHeaderActionMetrics = getHeaderActionButtonMetrics(safeViewport.width < 700, compactNarrow);
     const homeSettingsPlacement = getHeaderActionPlacement(
       safeViewport,
       'right',
@@ -161,8 +162,12 @@ export class HomeScene extends Phaser.Scene {
     const stickyBottomInset = sanitizeViewportInset(
       this.registry.get(STICKY_BOTTOM_INSET_REGISTRY_KEY) as unknown,
     );
+    const headerBottom = homeSettingsPlacement.y + homeHeaderActionMetrics.iconButtonSize / 2;
     const contentViewport = calculateAvailableViewport(this.scale.width, this.scale.height, {
-      top: safeAreaInsets.top + (narrow ? 14 : 20),
+      top: Math.max(
+        safeAreaInsets.top + (narrow ? (compactNarrow ? 8 : 14) : 20),
+        headerBottom + (compactNarrow ? 10 : 16),
+      ),
       right: safeAreaInsets.right,
       bottom: safeAreaInsets.bottom + (narrow ? 18 : 24) + stickyBottomInset,
       left: safeAreaInsets.left,
@@ -170,18 +175,22 @@ export class HomeScene extends Phaser.Scene {
     const naturalWidth = narrow
       ? Math.min(contentViewport.width - 28, 390)
       : Math.min(contentViewport.width - 104, 1260);
-    const naturalGap = narrow ? 10 : 16;
-    const naturalLogoWidth = narrow ? Math.min(naturalWidth * 0.82, 310) : Math.min(naturalWidth * 0.46, 560);
+    const naturalGap = narrow ? (compactNarrow ? 8 : 10) : 16;
+    const naturalLogoWidth = narrow
+      ? compactNarrow
+        ? Math.min(naturalWidth * 0.7, 250)
+        : Math.min(naturalWidth * 0.82, 310)
+      : Math.min(naturalWidth * 0.46, 560);
     const naturalLogoHeight = naturalLogoWidth / logoAspect;
-    const naturalPrimaryHeight = narrow ? 82 : 92;
-    const naturalMasteryHeight = narrow ? 94 : 190;
-    const naturalNavHeight = narrow ? 78 : 124;
+    const naturalPrimaryHeight = narrow ? (compactNarrow ? 74 : 82) : 92;
+    const naturalMasteryHeight = narrow ? (compactNarrow ? 86 : 94) : 190;
+    const naturalNavHeight = narrow ? (compactNarrow ? 72 : 78) : 124;
     const naturalHeroHeight = narrow
       ? naturalPrimaryHeight + naturalGap + naturalMasteryHeight
       : naturalMasteryHeight;
     const naturalNavBlockHeight = narrow ? naturalNavHeight * 3 + naturalGap * 2 : naturalNavHeight;
-    const naturalLogoGap = narrow ? 16 : 22;
-    const naturalSectionGap = narrow ? 13 : 22;
+    const naturalLogoGap = narrow ? (compactNarrow ? 10 : 16) : 22;
+    const naturalSectionGap = narrow ? (compactNarrow ? 10 : 13) : 22;
     const naturalStackHeight = naturalLogoHeight + naturalLogoGap + naturalHeroHeight
       + naturalSectionGap + naturalNavBlockHeight;
     const stackScale = Math.min(1, contentViewport.height / naturalStackHeight);
@@ -196,7 +205,7 @@ export class HomeScene extends Phaser.Scene {
     const stackCenterY = contentViewport.centerY - (narrow ? contentViewport.height * 0.035 : 0);
     const stackTop = Phaser.Math.Clamp(
       stackCenterY - scaledStackHeight / 2,
-      contentViewport.y,
+      Math.max(contentViewport.y, headerBottom + (compactNarrow ? 10 : 16)),
       contentViewport.bottom - scaledStackHeight,
     );
     const logoHeight = naturalLogoHeight * stackScale;

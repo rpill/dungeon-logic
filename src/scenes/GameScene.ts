@@ -109,6 +109,7 @@ import {
   calculatePuzzleToolbarLayout,
   createPuzzleToolbarState,
   formatCompactHintLabel,
+  getPuzzleToolbarIconSize,
   shouldConfirmReset,
   shouldShowTouchToolButtons,
   shouldUseCompactHintLabel,
@@ -463,6 +464,7 @@ export class GameScene extends Phaser.Scene {
       radius: initialActionMetrics.radius,
       iconKey: 'ui-icon-back',
       iconSize: initialActionMetrics.iconSize,
+      depth: 20,
       onActivate: () => handleBackAction(),
     });
     const menuAction = createHeaderActionButton(this, {
@@ -473,6 +475,7 @@ export class GameScene extends Phaser.Scene {
       radius: initialActionMetrics.radius,
       iconKey: 'ui-icon-menu',
       iconSize: initialActionMetrics.iconSize,
+      depth: 20,
       onActivate: () => handleMenuAction(),
     });
     const backHit = backAction.hit;
@@ -960,12 +963,12 @@ export class GameScene extends Phaser.Scene {
       }
       const contentY = y;
       const narrowToolbar = this.scale.width < 700;
-      const floorMarkIconSize = Math.max(1, boardLayout.cellSize - WIREFRAME.gap);
-      const iconSize = visual.id === 'wall'
-        ? (narrowToolbar ? 30 : 34)
-        : visual.id === 'floor'
-          ? floorMarkIconSize
-          : (narrowToolbar ? 22 : 28);
+      const iconSize = getPuzzleToolbarIconSize(
+        visual.id,
+        narrowToolbar,
+        boardLayout.cellSize,
+        WIREFRAME.gap,
+      );
       if (visual.icon === null) {
         fitToolbarLabelToButton(visual, width, 0, 0);
         visual.label.setPosition(x, contentY).setOrigin(0.5);
