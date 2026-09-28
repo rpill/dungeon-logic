@@ -90,12 +90,6 @@ function sourceHasAtLeastAsMuchEndlessProgress(target: PlayerProfile, source: Pl
   return true;
 }
 
-function maxNullableTimestamp(left: number | null, right: number | null): number | null {
-  if (left === null) return right;
-  if (right === null) return left;
-  return Math.max(left, right);
-}
-
 /**
  * Merges a currently active device/guest profile (`sourceRaw`) into an account/cloud
  * profile (`targetRaw`) without additive counters. The operation is intentionally
@@ -185,13 +179,6 @@ export function mergePlayerProfiles(
       freeRemaining: source.hints.freeRemaining,
       totalUsed: Math.max(target.hints.totalUsed, source.hints.totalUsed),
       rechargeAnchorMs: source.hints.rechargeAnchorMs ?? null,
-    },
-    ads: {
-      campaignCompletionsSinceOpportunity: source.ads.campaignCompletionsSinceOpportunity,
-      lastInterstitialAtMs: maxNullableTimestamp(
-        target.ads.lastInterstitialAtMs,
-        source.ads.lastInterstitialAtMs,
-      ),
     },
     totals: {
       activePlayMs: Math.max(target.totals.activePlayMs, source.totals.activePlayMs),

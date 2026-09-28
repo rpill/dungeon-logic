@@ -166,8 +166,6 @@ export class CampaignService {
       };
     });
 
-    this.profileService.recordCampaignCompletionForInterstitial(entry.slot);
-
     const progress = this.getProgress();
     const persisted = await this.tryFlush();
 

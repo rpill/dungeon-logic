@@ -9,10 +9,10 @@ const daily = read('src/scenes/DailyScene.ts');
 const levels = read('src/scenes/LevelSelectScene.ts');
 const game = read('src/scenes/GameScene.ts');
 
-if (!existsSync(resolve('public/assets/ui/action_gold_m1.png'))) {
+if (!existsSync(resolve('public/assets/ui/action_gold_m1.webp'))) {
   throw new Error('Shared gold button production skin is missing.');
 }
-if (!renderer.includes("scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/action_gold_m1.png')")) {
+if (!renderer.includes("scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/action_gold_m1.webp')")) {
   throw new Error('Primary button must load the approved gold skin.');
 }
 if (!renderer.includes('new Phaser.GameObjects.NineSlice') && !renderer.includes('scene.add.nineslice(')) {

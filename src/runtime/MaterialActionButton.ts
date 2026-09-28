@@ -62,8 +62,8 @@ const GRAPHICS_PALETTES = {
 } as const;
 
 export function preloadMaterialActionButtonAssets(scene: Phaser.Scene): void {
-  scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/action_slate_m1.png');
-  scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/action_red_m1.png');
+  scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/action_slate_m1.webp');
+  scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/action_red_m1.webp');
 }
 
 

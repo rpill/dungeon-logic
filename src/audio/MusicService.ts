@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 
 import { AUDIO_KEYS } from './AudioAssets';
+import { isGlobalAudioSuspended, subscribeGlobalAudioSuspension } from './AudioRuntimeState';
 
 const MUSIC_VOLUME = 0.10;
 
@@ -21,13 +22,21 @@ function ensureBackgroundMusic(scene: Phaser.Scene): Phaser.Sound.BaseSound | nu
 function applyDesiredState(): void {
   if (backgroundMusic === null) return;
 
-  if (desiredEnabled) {
-    if (!backgroundMusic.isPlaying) backgroundMusic.play();
+  if (isGlobalAudioSuspended()) {
+    if (backgroundMusic.isPlaying) backgroundMusic.pause();
     return;
   }
 
-  if (backgroundMusic.isPlaying) backgroundMusic.stop();
+  if (desiredEnabled) {
+    if (backgroundMusic.isPaused) backgroundMusic.resume();
+    else if (!backgroundMusic.isPlaying) backgroundMusic.play();
+    return;
+  }
+
+  if (backgroundMusic.isPlaying || backgroundMusic.isPaused) backgroundMusic.stop();
 }
+
+subscribeGlobalAudioSuspension(() => applyDesiredState());
 
 export function initializeBackgroundMusic(scene: Phaser.Scene, enabled: boolean): void {
   desiredEnabled = enabled;

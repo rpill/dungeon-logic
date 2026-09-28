@@ -310,6 +310,7 @@ assert(hoverRect !== undefined && !hoverRect.visible, 'Editable cell owns a dedi
 
 const clueBacking = editable.scene.rectangles.find((rectangle) => rectangle.fillColor === WIREFRAME.clueCell);
 assert(clueBacking === undefined, 'Row and column clues render as bare text with no backing tiles.');
+assert(WIREFRAME.clueActive === '#ff6259', 'Active unsatisfied clue digits use the brighter release red.');
 
 const touchPointer = { isDown: true, wasTouch: true, rightButtonDown: () => false };
 editable.board.setActiveTool('floor');

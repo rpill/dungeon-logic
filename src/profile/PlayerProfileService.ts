@@ -61,11 +61,24 @@ export class PlayerProfileService {
       console.warn('[Dungeon Logic] Could not load player profile; starting fresh.', error);
     }
 
-    const profile = loaded === null
+    let profile = loaded === null
       ? createFreshPlayerProfile(manifest, defaultLanguage)
       : normalizePlayerProfile(loaded, manifest, defaultLanguage);
 
-    return new PlayerProfileService(
+    let startupMergeSource: unknown | null = null;
+    if (storage.loadMergeSource !== undefined) {
+      try {
+        startupMergeSource = await storage.loadMergeSource();
+      } catch (error) {
+        reportTechnicalError('profile_load_failed', 'profile');
+        console.warn('[Dungeon Logic] Could not read local profile merge source.', error);
+      }
+    }
+    if (startupMergeSource !== null) {
+      profile = mergePlayerProfiles(profile, startupMergeSource, manifest, defaultLanguage);
+    }
+
+    const service = new PlayerProfileService(
       manifest,
       storage,
       profile,
@@ -73,6 +86,15 @@ export class PlayerProfileService {
       defaultLanguage,
       reportTechnicalError,
     );
+    if (startupMergeSource !== null) {
+      service.dirty = true;
+      try {
+        await service.flush();
+      } catch {
+        service.scheduleSave();
+      }
+    }
+    return service;
   }
 
   getProfile(): PlayerProfile {
@@ -205,41 +227,6 @@ export class PlayerProfileService {
       ...profile,
       totals: {
         activePlayMs: profile.totals.activePlayMs + ms,
-      },
-    }));
-  }
-
-  recordCampaignCompletionForInterstitial(completedSlot: number): void {
-    if (!Number.isInteger(completedSlot) || completedSlot <= 5) return;
-
-    this.update((profile) => ({
-      ...profile,
-      ads: {
-        ...profile.ads,
-        campaignCompletionsSinceOpportunity:
-          profile.ads.campaignCompletionsSinceOpportunity + 1,
-      },
-    }));
-  }
-
-  consumeCampaignInterstitialOpportunity(): void {
-    this.update((profile) => ({
-      ...profile,
-      ads: {
-        ...profile.ads,
-        campaignCompletionsSinceOpportunity: 0,
-      },
-    }));
-  }
-
-  recordInterstitialShown(atMs: number): void {
-    if (!Number.isFinite(atMs) || atMs < 0) return;
-
-    this.update((profile) => ({
-      ...profile,
-      ads: {
-        ...profile.ads,
-        lastInterstitialAtMs: atMs,
       },
     }));
   }

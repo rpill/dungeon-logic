@@ -5,6 +5,7 @@ import {
   type PlayerProfileService,
 } from '../profile/PlayerProfileService';
 import { AUDIO_KEYS } from './AudioAssets';
+import { isGlobalAudioSuspended } from './AudioRuntimeState';
 
 export type AudioFeedbackEvent =
   | 'ui-click'
@@ -117,6 +118,7 @@ export class AudioFeedbackService {
   }
 
   play(event: AudioFeedbackEvent): void {
+    if (isGlobalAudioSuspended()) return;
     const definition = FEEDBACK[event];
     const now = Date.now();
     const previous = this.lastPlayedAt.get(event) ?? -Infinity;

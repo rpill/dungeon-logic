@@ -95,10 +95,6 @@ export interface PlayerProfile {
     readonly totalUsed: number;
     readonly rechargeAnchorMs?: number | null;
   };
-  readonly ads: {
-    readonly campaignCompletionsSinceOpportunity: number;
-    readonly lastInterstitialAtMs: number | null;
-  };
   readonly totals: {
     readonly activePlayMs: number;
   };

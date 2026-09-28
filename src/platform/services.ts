@@ -1,7 +1,8 @@
-export type InterstitialResult = 'shown' | 'skipped' | 'unavailable';
 export type RewardedResult = 'rewarded' | 'closed' | 'unavailable';
 
 export interface PlayerStorage {
+  /** Stable namespace for the currently resolved platform identity. */
+  scope?(): Promise<string>;
   load(): Promise<unknown | null>;
   save(value: unknown): Promise<void>;
 }
@@ -11,7 +12,6 @@ export interface TrustedClock {
 }
 
 export interface AdsPort {
-  showInterstitial(): Promise<InterstitialResult>;
   showRewarded(): Promise<RewardedResult>;
 }
 

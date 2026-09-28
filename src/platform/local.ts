@@ -26,6 +26,10 @@ class LocalPlatformPlayerStorage implements PlayerStorage {
     }
   }
 
+  async scope(): Promise<string> {
+    return 'browser-local';
+  }
+
   async load(): Promise<unknown | null> {
     if (this.browserStorage === null) return this.memoryValue;
 
@@ -83,9 +87,6 @@ export function createLocalPlatformServices(
       async stop() {},
     },
     ads: {
-      async showInterstitial() {
-        return 'unavailable';
-      },
       async showRewarded() {
         return 'unavailable';
       },

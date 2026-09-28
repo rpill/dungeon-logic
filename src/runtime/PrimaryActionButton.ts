@@ -16,7 +16,7 @@ const PRIMARY_BUTTON_SUBTITLE_COLOR = uiColorHex(UI_THEME.colors.surface.base);
 const PRIMARY_BUTTON_ICON_TINT = UI_THEME.colors.background.deep;
 
 export function preloadPrimaryActionButtonAssets(scene: Phaser.Scene): void {
-  scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/action_gold_m1.png');
+  scene.load.image(PRIMARY_BUTTON_KEY, 'assets/ui/action_gold_m1.webp');
 }
 
 

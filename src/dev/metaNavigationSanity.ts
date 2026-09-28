@@ -71,7 +71,6 @@ function profile(
       language: 'ru',
     },
     hints: { freeRemaining: 3, totalUsed: 0 },
-    ads: { campaignCompletionsSinceOpportunity: 0, lastInterstitialAtMs: null },
     totals: { activePlayMs: 0 },
   };
 }

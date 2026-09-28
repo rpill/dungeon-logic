@@ -15,9 +15,9 @@ const headerActionPath = resolve(projectRoot, 'src/runtime/HeaderActionButton.ts
 const renderer = readFileSync(rendererPath, 'utf8');
 
 const expectedAssets = [
-  'public/assets/ui/action_gold_m1.png',
-  'public/assets/ui/action_slate_m1.png',
-  'public/assets/ui/slate_surface_m1.png',
+  'public/assets/ui/action_gold_m1.webp',
+  'public/assets/ui/action_slate_m1.webp',
+  'public/assets/ui/slate_surface_m1.webp',
   'public/assets/ui/icons/play.svg',
   'public/assets/ui/icons/daily_calendar_star.webp',
   'public/assets/ui/icons/levels_book_blue.webp',

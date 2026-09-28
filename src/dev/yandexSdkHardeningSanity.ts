@@ -57,10 +57,56 @@ async function runMissingEntryCheck(): Promise<void> {
   assert(!reported.includes('leaderboard_load_failed'), 'LEADERBOARD_PLAYER_NOT_PRESENT must not be reported as a technical SDK failure.');
 }
 
+
+async function runMissingUniqueIdSafetyCheck(): Promise<void> {
+  const player = {
+    async getData() { return {}; },
+    async setData() {},
+    isAuthorized() { return true; },
+  };
+  const sdk = { async getPlayer() { return player; } };
+  const services = await createYandexPlatformServices({ YaGames: { async init() { return sdk; } } });
+  assert(services !== null, 'Yandex platform must initialize for missing unique-ID safety check.');
+  assert(await services.storage.scope?.() === '', 'Missing getUniqueID must leave account scope unresolved instead of collapsing users into one shared cache scope.');
+}
+
+async function runDuplicateProfileSaveCheck(): Promise<void> {
+  let setDataCalls = 0;
+  const player = {
+    async getData() { return {}; },
+    async setData() { setDataCalls += 1; },
+    isAuthorized() { return true; },
+    getUniqueID() { return 'duplicate-save-user'; },
+  };
+  const sdk = { async getPlayer() { return player; } };
+  const services = await createYandexPlatformServices({ YaGames: { async init() { return sdk; } } });
+  assert(services !== null, 'Yandex platform must initialize for duplicate-save check.');
+
+  await services.storage.save({ same: 'profile' });
+  await services.storage.save({ same: 'profile' });
+  assert(setDataCalls === 1, 'Identical Yandex profile payloads must not call player.setData twice.');
+}
+
+async function runServerUnchangedDataCheck(): Promise<void> {
+  const player = {
+    async getData() { return {}; },
+    async setData() { throw new Error('The data does not differ from the previous ones.'); },
+    isAuthorized() { return true; },
+    getUniqueID() { return 'unchanged-data-user'; },
+  };
+  const sdk = { async getPlayer() { return player; } };
+  const services = await createYandexPlatformServices({ YaGames: { async init() { return sdk; } } });
+  assert(services !== null, 'Yandex platform must initialize for unchanged-data check.');
+  await services.storage.save({ same: 'server-profile' });
+}
+
 async function main(): Promise<void> {
   await runPlayerRetryCheck();
   await runMissingEntryCheck();
-  console.info('[Dungeon Logic] Yandex SDK hardening sanity: getPlayer retry + missing-entry handling passed');
+  await runMissingUniqueIdSafetyCheck();
+  await runDuplicateProfileSaveCheck();
+  await runServerUnchangedDataCheck();
+  console.info('[Dungeon Logic] Yandex SDK hardening sanity: getPlayer retry + missing-entry + account-scope safety + duplicate-save suppression passed');
 }
 
 void main().catch((error) => { throw error; });

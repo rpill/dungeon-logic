@@ -1,6 +1,8 @@
 interface DungeonLogicYandexPlayer {
   getData(keys?: readonly string[]): Promise<Record<string, unknown>>;
   setData(data: Record<string, unknown>, flush?: boolean): Promise<void>;
+  isAuthorized?(): boolean;
+  getUniqueID?(): string;
 }
 
 interface DungeonLogicYandexAdCallbacks {
@@ -31,7 +33,6 @@ interface DungeonLogicYandexSdk {
     };
   };
   adv?: {
-    showFullscreenAdv?: (options?: { callbacks?: DungeonLogicYandexAdCallbacks }) => void;
     showRewardedVideo?: (options?: { callbacks?: DungeonLogicYandexRewardedCallbacks }) => void;
   };
   on?: (event: 'game_api_pause' | 'game_api_resume', handler: () => void) => void;

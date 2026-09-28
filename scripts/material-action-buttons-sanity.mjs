@@ -13,8 +13,8 @@ const daily = readFileSync(resolve(root, 'src/scenes/DailyScene.ts'), 'utf8');
 const game = readFileSync(resolve(root, 'src/scenes/GameScene.ts'), 'utf8');
 
 for (const asset of [
-  'public/assets/ui/action_slate_m1.png',
-  'public/assets/ui/action_red_m1.png',
+  'public/assets/ui/action_slate_m1.webp',
+  'public/assets/ui/action_red_m1.webp',
 ]) {
   assert(existsSync(resolve(root, asset)), `Material button asset must exist: ${asset}`);
 }
@@ -28,8 +28,8 @@ assert(material.includes("MATERIAL_BUTTON_FRAME = 'button-body-full'"), 'Materia
 assert(material.includes('MATERIAL_BUTTON_VISIBLE_FRAME_Y') && material.includes('MATERIAL_BUTTON_VISIBLE_FRAME_HEIGHT'), 'Material buttons must trim transparent vertical canvas padding so secondary and danger have equal visible height.');
 assert(!material.includes('MATERIAL_BUTTON_FRAME_INSET'), 'Material buttons must not re-apply the legacy end-cap crop.');
 assert(!material.includes('MATERIAL_COMPACT_SURFACE_SCALE'), 'Compact secondary/danger buttons must use their declared height instead of hidden visual-only scaling.');
-assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/action_slate_m1.png')"), 'Secondary must preload one stable normal texture.');
-assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/action_red_m1.png')"), 'Danger must preload one stable normal texture.');
+assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.secondary, 'assets/ui/action_slate_m1.webp')"), 'Secondary must preload one stable normal texture.');
+assert(material.includes("scene.load.image(MATERIAL_BUTTON_KEYS.danger, 'assets/ui/action_red_m1.webp')"), 'Danger must preload one stable normal texture.');
 assert(!material.includes("material-button-secondary-hover"), 'Secondary states must not swap independently drawn textures.');
 assert(!material.includes("material-button-danger-hover"), 'Danger states must not swap independently drawn textures.');
 assert(material.includes('setTintMode(Phaser.TintModes.ADD)'), 'Material buttons must use tint-based hover feedback on one stable texture.');

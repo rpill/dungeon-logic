@@ -10,28 +10,29 @@ const scriptDir = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = resolve(scriptDir, '..');
 const bootSource = readFileSync(resolve(projectRoot, 'src/scenes/BootScene.ts'), 'utf8');
 const homeSource = readFileSync(resolve(projectRoot, 'src/scenes/HomeScene.ts'), 'utf8');
-const logoPath = resolve(projectRoot, 'public/assets/logo.webp');
+const logoEnPath = resolve(projectRoot, 'public/assets/logo_en.webp');
+const logoRuPath = resolve(projectRoot, 'public/assets/logo_ru.webp');
 
-assert(existsSync(logoPath), 'Home logo asset must exist at public/assets/logo.webp.');
+assert(existsSync(logoEnPath), 'English Home logo asset must exist at public/assets/logo_en.webp.');
+assert(existsSync(logoRuPath), 'Russian Home logo asset must exist at public/assets/logo_ru.webp.');
 assert(
-  bootSource.includes("this.load.image('home-logo', 'assets/logo.webp')"),
-  'BootScene must preload the home logo texture.',
+  bootSource.includes("this.load.image('home-logo-en', 'assets/logo_en.webp')")
+    && bootSource.includes("this.load.image('home-logo-ru', 'assets/logo_ru.webp')"),
+  'BootScene must preload both localized home logo textures.',
 );
 assert(
-  homeSource.includes("this.add.image(centerX, 0, 'home-logo')")
-    && homeSource.includes('logo.setPosition(centerX, logoY)'),
-  'HomeScene must keep the logo horizontally centered while positioning it inside the responsive stack.',
+  homeSource.includes("profile.settings.language === 'ru' ? 'home-logo-ru' : 'home-logo-en'")
+    && homeSource.includes('this.add.image(centerX, 0, logoTextureKey)')
+    && homeSource.includes('logo.setPosition(centerX, stackTop + logoHeight / 2)'),
+  'HomeScene must select the localized logo and keep it centered in the responsive stack.',
 );
 assert(
-  homeSource.includes('naturalContentWidth * 0.88')
-    && homeSource.includes('naturalContentWidth * 0.94')
-    && homeSource.includes('330')
-    && homeSource.includes('500'),
+  homeSource.includes('const naturalLogoWidth = narrow ? Math.min(naturalWidth * 0.82, 310) : Math.min(naturalWidth * 0.46, 560)'),
   'Home logo must derive responsive width from the shared Home stack width.',
 );
 assert(
   homeSource.includes('const naturalLogoHeight = naturalLogoWidth / logoAspect')
-    && homeSource.includes('logo.setDisplaySize(scaledLogoWidth, scaledLogoHeight)'),
+    && homeSource.includes('logo.setDisplaySize(naturalLogoWidth * stackScale, logoHeight)'),
   'Home logo must preserve source aspect ratio while scaling with the whole stack.',
 );
 assert(

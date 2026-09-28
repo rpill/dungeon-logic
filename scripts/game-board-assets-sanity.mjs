@@ -8,15 +8,15 @@ const assert = (condition, message) => {
 };
 
 const expectedAssets = [
-  'public/assets/floor/tile_floor_01.png',
-  'public/assets/floor/tile_floor_02.png',
-  'public/assets/floor/tile_floor_03.png',
-  'public/assets/floor/tile_floor_04.png',
-  'public/assets/wall/tile_wall_01.png',
-  'public/assets/wall/tile_wall_02.png',
-  'public/assets/wall/tile_wall_03.png',
-  'public/assets/wall/tile_wall_04.png',
-  'public/assets/mark.png',
+  'public/assets/floor/tile_floor_01.webp',
+  'public/assets/floor/tile_floor_02.webp',
+  'public/assets/floor/tile_floor_03.webp',
+  'public/assets/floor/tile_floor_04.webp',
+  'public/assets/wall/tile_wall_01.webp',
+  'public/assets/wall/tile_wall_02.webp',
+  'public/assets/wall/tile_wall_03.webp',
+  'public/assets/wall/tile_wall_04.webp',
+  'public/assets/mark.webp',
 ];
 for (const rel of expectedAssets) {
   assert(fs.existsSync(path.join(root, rel)), `Missing board asset: ${rel}`);
@@ -29,10 +29,10 @@ assert(boot.includes('preloadBoardThemeAssets(this);'), 'BootScene must preload 
 const assets = read('src/view/BoardThemeAssets.ts');
 for (let i = 1; i <= 4; i += 1) {
   const suffix = String(i).padStart(2, '0');
-  assert(assets.includes(`assets/floor/tile_floor_${suffix}.png`), `Floor ${suffix} must be preloaded.`);
-  assert(assets.includes(`assets/wall/tile_wall_${suffix}.png`), `Wall ${suffix} must be preloaded.`);
+  assert(assets.includes(`assets/floor/tile_floor_${suffix}.webp`), `Floor ${suffix} must be preloaded.`);
+  assert(assets.includes(`assets/wall/tile_wall_${suffix}.webp`), `Wall ${suffix} must be preloaded.`);
 }
-assert(assets.includes("'assets/mark.png'"), 'Floor mark asset must be preloaded.');
+assert(assets.includes("'assets/mark.webp'"), 'Floor mark asset must be preloaded.');
 assert(assets.includes('resolveFloorTextureKey'), 'Floor variants must have a coordinate-stable resolver.');
 assert(assets.includes('resolveWallTextureKey'), 'Wall variants must have a coordinate-stable resolver.');
 

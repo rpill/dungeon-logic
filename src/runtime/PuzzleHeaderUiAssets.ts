@@ -9,7 +9,7 @@ export const PUZZLE_HEADER_UI_KEYS = {
 } as const;
 
 export function preloadPuzzleHeaderUiAssets(scene: Phaser.Scene): void {
-  scene.load.image(PUZZLE_HEADER_UI_KEYS.streakIcon, 'assets/ui/puzzle_header_streak_icon_v3.png');
+  scene.load.image(PUZZLE_HEADER_UI_KEYS.streakIcon, 'assets/ui/puzzle_header_streak_icon_v3.webp');
 }
 
 export function createPuzzleHeaderTitlePanel(

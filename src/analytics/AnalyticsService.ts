@@ -1,5 +1,5 @@
 import type { SupportedLanguage } from '../i18n/Language';
-import type { InterstitialResult, RewardedResult } from '../platform/services';
+import type { RewardedResult } from '../platform/services';
 import type {
   AnalyticsGoalName,
   AnalyticsParams,
@@ -12,7 +12,6 @@ export type AnalyticsScreen =
   | 'home'
   | 'levels'
   | 'daily'
-  | 'statistics'
   | 'leaderboard'
   | 'settings'
   | 'help';
@@ -40,7 +39,6 @@ export type TechnicalErrorCode =
   | 'gameplay_api_failed'
   | 'leaderboard_submit_failed'
   | 'leaderboard_load_failed'
-  | 'interstitial_request_failed'
   | 'rewarded_request_failed';
 
 export type TechnicalErrorArea = 'platform' | 'profile' | 'lifecycle' | 'leaderboard' | 'ads';
@@ -174,14 +172,6 @@ export class AnalyticsService {
 
   masteryRankUp(fromRank: string, toRank: string, source: 'campaign' | 'daily' | 'endless'): void {
     this.send('mastery_rank_up', { from_rank: fromRank, to_rank: toRank, source });
-  }
-
-  interstitialResult(result: InterstitialResult, completedSlot: number): void {
-    this.send('ad_interstitial_result', {
-      result,
-      context: 'campaign_next',
-      completed_slot: nonNegativeInteger(completedSlot),
-    });
   }
 
   rewardedResult(result: RewardedResult, context: AnalyticsPuzzleContext): void {

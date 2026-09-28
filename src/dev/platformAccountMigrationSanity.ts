@@ -1,5 +1,6 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
+import { decodeCloudPlayerProfile } from '../profile/CloudProfileCodec';
 import { mergePlayerProfiles } from '../profile/PlayerProfileMerge';
 import { isProfileAuthorizationReady, requestAuthorizationWithProfileMerge } from '../profile/ProfileAuthorization';
 import { PlatformPlayerProfileStorage } from '../profile/PlatformPlayerProfileStorage';
@@ -14,6 +15,24 @@ function assert(condition: boolean, message: string): asserts condition {
 
 function profile(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
   return { ...createFreshPlayerProfile([]), ...overrides };
+}
+
+function scopedFallback(initial: PlayerProfile): PlayerProfileStorage & {
+  read(): PlayerProfile;
+} {
+  let value = structuredClone(initial);
+  let scope = 'browser-local';
+  return {
+    async load() { return value; },
+    async loadScoped() { return { scope, profile: value }; },
+    async save(next) { value = structuredClone(next); },
+    async saveForScope(next, nextScope) { scope = nextScope; value = structuredClone(next); },
+    read() { return value; },
+  };
+}
+
+function readCloud(data: Record<string, unknown>): PlayerProfile {
+  return decodeCloudPlayerProfile(data[YANDEX_PROFILE_DATA_KEY]) as PlayerProfile;
 }
 
 function runMergeChecks(): void {
@@ -113,6 +132,7 @@ async function runSuccessfulAuthorizationMerge(): Promise<void> {
     },
     async setData(next: Record<string, unknown>) { Object.assign(data, next); },
     isAuthorized() { return auth; },
+    getUniqueID() { return auth ? 'account-A' : 'guest-G'; },
   });
   const sdk = {
     async getPlayer() { return authorized ? makePlayer(accountData, true) : makePlayer(guestData, false); },
@@ -121,11 +141,7 @@ async function runSuccessfulAuthorizationMerge(): Promise<void> {
   const platform = await createYandexPlatformServices({ YaGames: { async init() { return sdk; } } });
   assert(platform !== null, 'Yandex platform must initialize.');
 
-  let localRaw: PlayerProfile | null = guestProfile;
-  const fallback: PlayerProfileStorage = {
-    async load() { return localRaw; },
-    async save(value) { localRaw = structuredClone(value); },
-  };
+  const fallback = scopedFallback(guestProfile);
   const storage = new PlatformPlayerProfileStorage(platform.storage, fallback);
   const service = await PlayerProfileService.create([], storage, { saveDelayMs: 60_000 });
   assert(service.getProfile().mastery.rating === 1111, 'Guest profile must be active before sign-in.');
@@ -134,13 +150,13 @@ async function runSuccessfulAuthorizationMerge(): Promise<void> {
   assert(ok, 'Authorization with profile merge must succeed.');
   assert(service.getProfile().mastery.rating === 7777, 'In-memory profile must adopt stronger cloud progress immediately after sign-in.');
   assert(service.getProfile().daily.solvedDates.join(',') === '2026-09-01,2026-09-02', 'In-memory profile must include both cloud and guest Daily history.');
-  const saved = accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile;
+  const saved = readCloud(accountData);
   assert(saved.mastery.rating === 7777, 'Merged save must never downgrade existing cloud Master Rating.');
   assert(saved.daily.solvedDates.join(',') === '2026-09-01,2026-09-02', 'Merged cloud save must retain guest Daily history.');
 
   service.update((current) => ({ ...current, totals: { activePlayMs: current.totals.activePlayMs + 1 } }));
   await service.flush();
-  assert((accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile).mastery.rating === 7777, 'The first post-login save must keep merged cloud progress instead of restoring the guest snapshot.');
+  assert(readCloud(accountData).mastery.rating === 7777, 'The first post-login save must keep merged cloud progress instead of restoring the guest snapshot.');
 }
 
 async function runFailedCloudLoadSafety(): Promise<void> {
@@ -159,6 +175,7 @@ async function runFailedCloudLoadSafety(): Promise<void> {
     },
     async setData(next: Record<string, unknown>) { Object.assign(guestData, next); },
     isAuthorized() { return false; },
+    getUniqueID() { return 'guest-G'; },
   };
   const accountPlayer = {
     async getData(keys?: readonly string[]) {
@@ -168,6 +185,7 @@ async function runFailedCloudLoadSafety(): Promise<void> {
     },
     async setData(next: Record<string, unknown>) { accountSetDataCalls += 1; Object.assign(accountData, next); },
     isAuthorized() { return true; },
+    getUniqueID() { return 'account-A'; },
   };
   const sdk = {
     async getPlayer() { return authorized ? accountPlayer : guestPlayer; },
@@ -176,11 +194,7 @@ async function runFailedCloudLoadSafety(): Promise<void> {
   const platform = await createYandexPlatformServices({ YaGames: { async init() { return sdk; } } });
   assert(platform !== null, 'Yandex platform must initialize for failed-load safety check.');
 
-  let localRaw: PlayerProfile | null = guestProfile;
-  const fallback: PlayerProfileStorage = {
-    async load() { return localRaw; },
-    async save(value) { localRaw = structuredClone(value); },
-  };
+  const fallback = scopedFallback(guestProfile);
   const service = await PlayerProfileService.create([], new PlatformPlayerProfileStorage(platform.storage, fallback), { saveDelayMs: 60_000 });
   const originalWarn = console.warn;
   console.warn = () => {};
@@ -193,8 +207,8 @@ async function runFailedCloudLoadSafety(): Promise<void> {
     console.warn = originalWarn;
   }
   assert(accountSetDataCalls === 0, 'Unknown cloud state must block platform writes so guest data cannot overwrite an unread account profile.');
-  assert((accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile).mastery.rating === 7777, 'Unread cloud profile must remain untouched after a failed transition.');
-  assert((localRaw?.totals.activePlayMs ?? 0) === 5, 'Progress made while cloud writes are blocked must still persist to the local fallback.');
+  assert(readCloud(accountData).mastery.rating === 7777, 'Unread cloud profile must remain untouched after a failed transition.');
+  assert(fallback.read().totals.activePlayMs === 5, 'Progress made while cloud writes are blocked must still persist to the local fallback.');
   assert(!(await isProfileAuthorizationReady(service, platform.leaderboards)), 'A Yandex-authorized player with a pending profile merge must not be treated as account-ready.');
 
   accountReadsFail = false;
@@ -202,7 +216,7 @@ async function runFailedCloudLoadSafety(): Promise<void> {
   assert(retryOk, 'A pending account merge must be retryable after the temporary cloud read failure clears.');
   assert(await isProfileAuthorizationReady(service, platform.leaderboards), 'Account state must become ready only after the pending profile merge completes.');
   assert(service.getProfile().mastery.rating === 7777, 'Retrying the merge must preserve the stronger cloud profile.');
-  assert((accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile).totals.activePlayMs === 5, 'Progress saved locally during the blocked transition must merge into the account on retry.');
+  assert(readCloud(accountData).totals.activePlayMs === 5, 'Progress saved locally during the blocked transition must merge into the account on retry.');
 }
 
 async function runAuthRefreshFailureSafety(): Promise<void> {
@@ -221,6 +235,7 @@ async function runAuthRefreshFailureSafety(): Promise<void> {
     },
     async setData(next: Record<string, unknown>) { Object.assign(guestData, next); },
     isAuthorized() { return false; },
+    getUniqueID() { return 'guest-G'; },
   };
   const accountPlayer = {
     async getData(keys?: readonly string[]) {
@@ -229,6 +244,7 @@ async function runAuthRefreshFailureSafety(): Promise<void> {
     },
     async setData(next: Record<string, unknown>) { accountSetDataCalls += 1; Object.assign(accountData, next); },
     isAuthorized() { return true; },
+    getUniqueID() { return 'account-A'; },
   };
   const sdk = {
     async getPlayer() {
@@ -244,11 +260,7 @@ async function runAuthRefreshFailureSafety(): Promise<void> {
   const platform = await createYandexPlatformServices({ YaGames: { async init() { return sdk; } } });
   assert(platform !== null, 'Yandex platform must initialize for post-auth refresh failure safety check.');
 
-  let localRaw: PlayerProfile | null = guestProfile;
-  const fallback: PlayerProfileStorage = {
-    async load() { return localRaw; },
-    async save(value) { localRaw = structuredClone(value); },
-  };
+  const fallback = scopedFallback(guestProfile);
   const service = await PlayerProfileService.create([], new PlatformPlayerProfileStorage(platform.storage, fallback), { saveDelayMs: 60_000 });
   const originalWarn = console.warn;
   console.warn = () => {};
@@ -263,13 +275,13 @@ async function runAuthRefreshFailureSafety(): Promise<void> {
   }
 
   assert(accountSetDataCalls === 0, 'A failed post-auth player refresh must never unblock a guest snapshot write into the account.');
-  assert((accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile).mastery.rating === 7777, 'Cloud progress must survive an inconclusive authorization refresh.');
-  assert((localRaw?.totals.activePlayMs ?? 0) === 9, 'Progress during an inconclusive authorization refresh must remain durable in local fallback.');
+  assert(readCloud(accountData).mastery.rating === 7777, 'Cloud progress must survive an inconclusive authorization refresh.');
+  assert(fallback.read().totals.activePlayMs === 9, 'Progress during an inconclusive authorization refresh must remain durable in local fallback.');
 
   const retryOk = await requestAuthorizationWithProfileMerge(service, platform.leaderboards);
   assert(retryOk, 'The guarded transition must finish once getPlayer recovers.');
-  assert((accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile).mastery.rating === 7777, 'Recovered merge must retain cloud Master Rating.');
-  assert((accountData[YANDEX_PROFILE_DATA_KEY] as PlayerProfile).totals.activePlayMs === 9, 'Recovered merge must include progress recorded during the guarded interval.');
+  assert(readCloud(accountData).mastery.rating === 7777, 'Recovered merge must retain cloud Master Rating.');
+  assert(readCloud(accountData).totals.activePlayMs === 9, 'Recovered merge must include progress recorded during the guarded interval.');
 }
 
 async function main(): Promise<void> {

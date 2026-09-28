@@ -39,7 +39,6 @@ async function runLocalChecks(): Promise<void> {
   await services.storage.save(value);
   assertDeepEqual(await services.storage.load(), value, 'Local platform storage round-trips the profile.');
   assert(await services.clock.now() === null, 'Local platform clock does not fabricate trusted time.');
-  assert(await services.ads.showInterstitial() === 'unavailable', 'Local interstitial is unavailable without throwing.');
   assert(await services.ads.showRewarded() === 'unavailable', 'Local rewarded ad is unavailable without throwing.');
   assert(services.environment.language === null, 'Local platform does not fabricate an SDK language.');
   await services.readiness.ready();
@@ -79,6 +78,8 @@ async function runYandexChecks(): Promise<void> {
   const listeners = new Map<string, Set<() => void>>();
 
   const player = {
+    isAuthorized() { return true; },
+    getUniqueID() { return 'scope-user-1'; },
     async getData(keys?: readonly string[]) {
       lastGetDataKeys = keys;
       return { dungeonLogicProfile: cloudProfile };
@@ -119,10 +120,6 @@ async function runYandexChecks(): Promise<void> {
       },
     },
     adv: {
-      showFullscreenAdv(options?: { callbacks?: { onOpen?: () => void; onClose?: (wasShown: boolean) => void; onError?: (error: unknown) => void } }) {
-        options?.callbacks?.onOpen?.();
-        options?.callbacks?.onClose?.(true);
-      },
       showRewardedVideo(options?: { callbacks?: { onOpen?: () => void; onRewarded?: () => void; onClose?: (wasShown: boolean) => void; onError?: (error: unknown) => void } }) {
         options?.callbacks?.onOpen?.();
         options?.callbacks?.onRewarded?.();
@@ -166,14 +163,20 @@ async function runYandexChecks(): Promise<void> {
   assert(gameplayStopCalls === 1, 'Yandex gameplay markup deduplicates repeated stops.');
 
   assertDeepEqual(await services.storage.load(), { cloud: 'profile' }, 'Yandex storage loads the single cloud profile value.');
+  assert(await services.storage.scope?.() === 'yandex-account-scope-user-1', 'Yandex storage scope binds cache data to the authorized unique player ID.');
   await services.storage.save({ cloud: 'updated' });
   assertDeepEqual(lastGetDataKeys, ['dungeonLogicProfile'], 'Yandex storage requests only the cloud profile key.');
   assertDeepEqual(lastSetData, { dungeonLogicProfile: { cloud: 'updated' } }, 'Yandex storage writes only the cloud profile key.');
   assert(lastSetDataFlush === true, 'Profile flush uses immediate Yandex transmission.');
 
+  const compactFixture = createFreshPlayerProfile([]);
+  await services.storage.save(compactFixture);
+  const compactWritten = (lastSetData as { dungeonLogicProfile?: Record<string, unknown> } | null)?.dungeonLogicProfile;
+  assert(compactWritten?.$dl === 1, 'Yandex storage compacts supported player profiles before setData.');
+  assertDeepEqual(await services.storage.load(), compactFixture, 'Yandex storage decodes compact cloud profiles back to the public schema.');
+
   const trustedNow = await services.clock.now();
   assert(trustedNow?.toISOString() === '2099-01-02T03:04:05.000Z', 'Yandex clock converts serverTime to a trusted Date.');
-  assert(await services.ads.showInterstitial() === 'shown', 'Yandex fullscreen callback maps to shown.');
   assert(await services.ads.showRewarded() === 'rewarded', 'Yandex rewarded callback maps to rewarded.');
 
   for (const callback of listeners.get('game_api_pause') ?? []) callback();
@@ -279,7 +282,6 @@ async function runTechnicalErrorReportingChecks(): Promise<void> {
       },
     },
     adv: {
-      showFullscreenAdv() { throw new Error('interstitial failed'); },
       showRewardedVideo() { throw new Error('rewarded failed'); },
     },
     leaderboards: {
@@ -300,7 +302,6 @@ async function runTechnicalErrorReportingChecks(): Promise<void> {
     await services.readiness.ready();
     await services.gameplay.start();
     await services.gameplay.stop();
-    assert(await services.ads.showInterstitial() === 'unavailable', 'Thrown interstitial SDK call stays unavailable.');
     assert(await services.ads.showRewarded() === 'unavailable', 'Thrown rewarded SDK call stays unavailable.');
     assert(await services.leaderboards.submitScore('daily', 1) === 'unavailable', 'Thrown leaderboard submit stays unavailable.');
     assert(await services.leaderboards.getPlayerEntry('daily') === null, 'Thrown leaderboard player load stays null.');
@@ -312,7 +313,6 @@ async function runTechnicalErrorReportingChecks(): Promise<void> {
   for (const code of [
     'readiness_failed',
     'gameplay_api_failed',
-    'interstitial_request_failed',
     'rewarded_request_failed',
     'leaderboard_submit_failed',
     'leaderboard_load_failed',
@@ -332,7 +332,6 @@ async function runTechnicalErrorReportingChecks(): Promise<void> {
   await minimalServices.readiness.ready();
   await minimalServices.gameplay.start();
   await minimalServices.gameplay.stop();
-  await minimalServices.ads.showInterstitial();
   await minimalServices.ads.showRewarded();
   assert(absentErrors.length === 0, 'Missing optional Yandex methods are not reported as technical failures.');
 
@@ -343,9 +342,6 @@ async function runTechnicalErrorReportingChecks(): Promise<void> {
         return {
           async getPlayer() { return failingPlayer; },
           adv: {
-            showFullscreenAdv(options?: { callbacks?: { onError?: (error: unknown) => void } }) {
-              options?.callbacks?.onError?.(new Error('interstitial callback failed'));
-            },
             showRewardedVideo(options?: { callbacks?: { onError?: (error: unknown) => void } }) {
               options?.callbacks?.onError?.(new Error('rewarded callback failed'));
             },
@@ -355,9 +351,7 @@ async function runTechnicalErrorReportingChecks(): Promise<void> {
     },
   }, (code) => callbackErrors.push(code));
   assert(callbackServices !== null, 'Yandex callback-error fixture creates services.');
-  assert(await callbackServices.ads.showInterstitial() === 'unavailable', 'Interstitial onError callback stays unavailable.');
   assert(await callbackServices.ads.showRewarded() === 'unavailable', 'Rewarded onError callback stays unavailable.');
-  assert(callbackErrors.includes('interstitial_request_failed'), 'Interstitial onError callback reports stable technical code.');
   assert(callbackErrors.includes('rewarded_request_failed'), 'Rewarded onError callback reports stable technical code.');
 
   const initErrors: string[] = [];

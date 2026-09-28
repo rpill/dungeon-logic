@@ -15,8 +15,10 @@ const leaderboard = readFileSync(new URL('../src/scenes/LeaderboardScene.ts', im
 const help = readFileSync(new URL('../src/scenes/HelpScene.ts', import.meta.url), 'utf8');
 
 assert(metaHeader.includes("from './HeaderActionButton'"), 'Meta headers must use the shared header-action button renderer.');
-assert(settings.includes("from '../runtime/HeaderActionButton'"), 'Settings Back must use the shared header-action button renderer.');
-assert(settings.includes('getHeaderActionButtonMetrics'), 'Settings Back must use shared header action metrics.');
+assert(
+  settings.includes("from '../runtime/MetaPageHeader'") && settings.includes('createMetaPageHeader'),
+  'Settings Back must delegate to the shared MetaPageHeader/header-action renderer.',
+);
 assert(home.includes("from '../runtime/HeaderActionButton'"), 'Home Settings icon must use the shared header-action button renderer.');
 assert(home.includes('getHeaderActionButtonMetrics'), 'Home Settings icon must use shared header action metrics.');
 assert(game.includes("from '../runtime/HeaderActionButton'"), 'Game top actions must share the same header-action visual style.');
@@ -31,7 +33,7 @@ assert(!game.includes('backText'), 'Game Back must be icon-only and must not kee
 assert(game.includes('iconSize: initialActionMetrics.iconSize,'), 'Game Back/Menu icon size must come from shared header metrics.');
 
 assert(metaHeader.includes('getHeaderActionPlacement'), 'Meta headers must use the shared header-action placement helper.');
-assert(settings.includes('getHeaderActionPlacement'), 'Settings Back must use the shared header-action placement helper.');
+assert(settings.includes('createMetaPageHeader(this, {'), 'Settings Back must use shared MetaPageHeader placement.');
 assert(home.includes('getHeaderActionPlacement'), 'Home Settings must use the shared header-action placement helper.');
 assert(game.includes('getHeaderActionPlacement'), 'Game Back/Menu must use the shared header-action placement helper.');
 assert(!settings.includes('const headerInset = narrow ? 16 : 28;'), 'Settings must not keep a bespoke header inset formula.');

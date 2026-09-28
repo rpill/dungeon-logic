@@ -55,10 +55,6 @@ const profile: PlayerProfile = {
     freeRemaining: 0,
     totalUsed: 6,
   },
-  ads: {
-    campaignCompletionsSinceOpportunity: 0,
-    lastInterstitialAtMs: null,
-  },
   totals: {
     activePlayMs: 3_661_000,
   },

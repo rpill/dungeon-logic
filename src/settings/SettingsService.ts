@@ -18,18 +18,18 @@ export class SettingsService {
 
   async setMusicEnabled(enabled: boolean): Promise<void> {
     setBackgroundMusicEnabled(enabled);
-    await this.updateSettings({ musicEnabled: enabled });
+    this.updateSettings({ musicEnabled: enabled });
   }
 
   async setSoundEnabled(enabled: boolean): Promise<void> {
-    await this.updateSettings({ soundEnabled: enabled });
+    this.updateSettings({ soundEnabled: enabled });
   }
 
   async setLanguage(language: SupportedLanguage): Promise<void> {
-    await this.updateSettings({ language });
+    this.updateSettings({ language });
   }
 
-  private async updateSettings(patch: Partial<PlayerSettings>): Promise<void> {
+  private updateSettings(patch: Partial<PlayerSettings>): void {
     this.profileService.update((profile) => ({
       ...profile,
       settings: {
@@ -37,6 +37,5 @@ export class SettingsService {
         ...patch,
       },
     }));
-    await this.profileService.flush();
   }
 }

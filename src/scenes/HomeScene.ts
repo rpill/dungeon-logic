@@ -135,7 +135,8 @@ export class HomeScene extends Phaser.Scene {
     const endlessUnlocked = campaign.isEndlessUnlocked();
 
     const centerX = safeViewport.centerX;
-    const logo = this.add.image(centerX, 0, 'home-logo').setOrigin(0.5);
+    const logoTextureKey = profile.settings.language === 'ru' ? 'home-logo-ru' : 'home-logo-en';
+    const logo = this.add.image(centerX, 0, logoTextureKey).setOrigin(0.5);
     const logoAspect = logo.width / logo.height;
 
     const homeHeaderActionMetrics = getHeaderActionButtonMetrics(safeViewport.width < 700);

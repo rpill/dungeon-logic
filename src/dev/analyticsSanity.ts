@@ -217,7 +217,6 @@ for (const [file, screen] of [
   ['HomeScene.ts', 'home'],
   ['LevelSelectScene.ts', 'levels'],
   ['DailyScene.ts', 'daily'],
-  ['StatsScene.ts', 'statistics'],
   ['LeaderboardScene.ts', 'leaderboard'],
   ['SettingsScene.ts', 'settings'],
   ['HelpScene.ts', 'help'],
@@ -225,6 +224,9 @@ for (const [file, screen] of [
   const source = readFileSync(`src/scenes/${file}`, 'utf8');
   assert(source.includes(`screenView('${screen}')`), `${file} emits ${screen} screen_view.`);
 }
+
+const statsSceneSource = readFileSync('src/scenes/StatsScene.ts', 'utf8');
+assert(!statsSceneSource.includes("screenView('statistics')"), 'Removed Statistics screen emits no dead screen_view metric.');
 
 const gameLaunchSource = readFileSync('src/runtime/GameLaunch.ts', 'utf8');
 assert(gameLaunchSource.includes('analyticsAttempt: attempt?.attempt'), 'Daily launch copies analytics attempt marker.');

@@ -9,7 +9,6 @@ export type AnalyticsGoalName =
   | 'puzzle_reset'
   | 'hint_used'
   | 'tutorial_complete'
-  | 'ad_interstitial_result'
   | 'ad_rewarded_result'
   | 'tech_error'
   | 'mastery_open'

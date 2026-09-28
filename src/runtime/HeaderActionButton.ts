@@ -28,7 +28,7 @@ const HEADER_ACTION_SQUARE_VISIBLE_FRAME = 'visible-square';
 const HEADER_ACTION_SQUARE_VISIBLE_BOUNDS = { x: 0, y: 0, width: 192, height: 192 } as const;
 
 export function preloadHeaderActionButtonAssets(scene: Phaser.Scene): void {
-  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary, 'assets/ui/action_square_slate_m1.png');
+  scene.load.image(HEADER_ACTION_SQUARE_TEXTURE_KEYS.secondary, 'assets/ui/action_square_slate_m1.webp');
 }
 
 

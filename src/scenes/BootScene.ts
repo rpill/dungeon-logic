@@ -5,6 +5,7 @@ import { ANALYTICS_SERVICE_REGISTRY_KEY, AnalyticsService } from '../analytics/A
 import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import { createYandexMetricaTransport } from '../analytics/YandexMetricaTransport';
 import { initializeBackgroundMusic } from '../audio/MusicService';
+import { installGlobalAudioLifecycle } from '../audio/GlobalAudioLifecycle';
 import { CAMPAIGN_SERVICE_REGISTRY_KEY, CampaignService } from '../campaign/CampaignService';
 import { campaignManifest } from '../content/campaign/manifest';
 import { loadDailyCatalog } from '../content/daily/DailyCatalogLoader';
@@ -69,7 +70,8 @@ export class BootScene extends Phaser.Scene {
     preloadSlateSurfaceAsset(this);
     preloadBoardThemeAssets(this);
     preloadFixedObjectAssets(this);
-    this.load.image('home-logo', 'assets/logo.webp');
+    this.load.image('home-logo-en', 'assets/logo_en.webp');
+    this.load.image('home-logo-ru', 'assets/logo_ru.webp');
   }
 
   create(): void {
@@ -211,6 +213,7 @@ export class BootScene extends Phaser.Scene {
     this.registry.set(DAILY_SERVICE_REGISTRY_KEY, dailyService);
     this.registry.set(ENDLESS_SERVICE_REGISTRY_KEY, endlessService);
     const profile = profileService.getProfile();
+    installGlobalAudioLifecycle(this.sound, platformServices.lifecycle);
     analytics.gameReady({
       platform: platformServices.kind,
       language: profile.settings.language,

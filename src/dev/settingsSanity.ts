@@ -72,7 +72,10 @@ async function main(): Promise<void> {
   assert(!settings.getSettings().musicEnabled, 'Music setting updates immediately.');
   assert(!settings.getSettings().soundEnabled, 'Sound setting updates immediately.');
   assert(settings.getSettings().language === 'en', 'Language setting updates immediately.');
-  assert(storage.saves.at(-1)?.settings.language === 'en', 'Settings mutations flush through profile storage immediately.');
+  assert(storage.saves.length === 0, 'Settings mutations must not wait on immediate cloud/profile flushes.');
+  await profileService.flush();
+  assert(storage.saves.length === 1, 'Coalesced Settings persistence flushes the latest state once.');
+  assert(storage.saves.at(-1)?.settings.language === 'en', 'Deferred Settings persistence keeps the latest language.');
 
 
 

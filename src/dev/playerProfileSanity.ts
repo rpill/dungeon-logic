@@ -98,7 +98,6 @@ async function main(): Promise<void> {
   assert(fresh.daily.currentStreak === 0 && fresh.daily.bestStreak === 0, 'Fresh profile starts with empty Daily streaks.');
   assert(fresh.endless.nextFreshIndex === 0 && fresh.endless.completed === 0 && fresh.endless.skipped.length === 0 && fresh.endless.activePuzzle === null, 'Fresh profile starts with empty finite Endless progress.');
   assert(fresh.mastery.rating === 1000, 'Fresh profile starts with hidden Master Rating 1000.');
-  assert(fresh.ads.campaignCompletionsSinceOpportunity === 0, 'Fresh profile starts with zero ad opportunity completions.');
   assert(fresh.totals.activePlayMs === 0, 'Fresh profile starts with zero active play time.');
   assert(fresh.settings.musicEnabled && fresh.settings.soundEnabled, 'Fresh settings enable music and sound.');
   assert(!('vibrationEnabled' in fresh.settings), 'Fresh settings no longer persist vibration.');

@@ -38,7 +38,6 @@ type CurrentProfileEnvelope = Record<string, unknown> & {
   readonly mastery?: unknown;
   readonly settings: Record<string, unknown>;
   readonly hints: Record<string, unknown>;
-  readonly ads: Record<string, unknown>;
   readonly totals: Record<string, unknown>;
 };
 
@@ -54,7 +53,6 @@ export function isSupportedPlayerProfile(value: unknown): value is CurrentProfil
     && isRecord(value.endless)
     && isRecord(value.settings)
     && isRecord(value.hints)
-    && isRecord(value.ads)
     && isRecord(value.totals);
 }
 
@@ -322,10 +320,6 @@ export function createFreshPlayerProfile(
       totalUsed: 0,
       rechargeAnchorMs: null,
     },
-    ads: {
-      campaignCompletionsSinceOpportunity: 0,
-      lastInterstitialAtMs: null,
-    },
     totals: {
       activePlayMs: 0,
     },
@@ -378,7 +372,6 @@ export function normalizePlayerProfile(
   }
 
   const rawHints = raw.hints;
-  const rawAds = raw.ads;
   const rawTotals = raw.totals;
 
   return {
@@ -398,10 +391,6 @@ export function normalizePlayerProfile(
       freeRemaining: Math.min(3, nonNegativeInteger(rawHints.freeRemaining, fresh.hints.freeRemaining)),
       totalUsed: nonNegativeInteger(rawHints.totalUsed),
       rechargeAnchorMs: nullableTimestamp(rawHints.rechargeAnchorMs),
-    },
-    ads: {
-      campaignCompletionsSinceOpportunity: nonNegativeInteger(rawAds.campaignCompletionsSinceOpportunity),
-      lastInterstitialAtMs: nullableTimestamp(rawAds.lastInterstitialAtMs),
     },
     totals: {
       activePlayMs: nonNegativeFinite(rawTotals.activePlayMs),

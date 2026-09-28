@@ -2,7 +2,7 @@ import { requestHint } from '../gameplay/HintService';
 import { AnalyticsService, type AnalyticsPuzzleContext } from '../analytics/AnalyticsService';
 import { NOOP_ANALYTICS_TRANSPORT } from '../analytics/AnalyticsTransport';
 import { MonetizationService } from '../monetization/MonetizationService';
-import type { AdsPort, InterstitialResult, RewardedResult } from '../platform/services';
+import type { AdsPort, RewardedResult } from '../platform/services';
 import { PlayerProfileService } from '../profile/PlayerProfileService';
 import { PuzzleState } from '../puzzle/PuzzleState';
 import { CellState } from '../puzzle/types';
@@ -41,7 +41,6 @@ class FakeAds implements AdsPort {
   result: RewardedResult = 'unavailable';
   rejectNext = false;
 
-  async showInterstitial(): Promise<InterstitialResult> { return 'unavailable'; }
   async showRewarded(): Promise<RewardedResult> {
     this.rewardedCalls += 1;
     if (this.rejectNext) {
@@ -163,7 +162,7 @@ async function main(): Promise<void> {
   const ads = new FakeAds();
   const analytics = new AnalyticsService(NOOP_ANALYTICS_TRANSPORT);
   const rewardedContext: AnalyticsPuzzleContext = { mode: 'campaign', puzzleId: 'campaign-001', slot: 1 };
-  const monetization = MonetizationService.create(profile, ads, analytics);
+  const monetization = MonetizationService.create(ads, analytics);
   const totalBefore = profile.getProfile().hints.totalUsed;
 
   ads.result = 'rewarded';

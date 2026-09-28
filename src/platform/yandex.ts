@@ -1,11 +1,11 @@
 import type { TechnicalErrorReporter } from '../analytics/AnalyticsService';
 import { LeaderboardSubmissionQueue } from './LeaderboardSubmissionQueue';
+import { decodeCloudPlayerProfile, encodeCloudPlayerProfile } from '../profile/CloudProfileCodec';
 import type {
   AdsPort,
   GameLifecycleHandlers,
   GameLifecyclePort,
   GameplayMarkupPort,
-  InterstitialResult,
   LeaderboardPlayerView,
   LeaderboardsPort,
   PlatformReadinessPort,
@@ -21,15 +21,13 @@ interface YandexPlayerLike {
   getData(keys?: readonly string[]): Promise<Record<string, unknown>>;
   setData(data: Record<string, unknown>, flush?: boolean): Promise<void>;
   isAuthorized?(): boolean;
+  getUniqueID?(): string;
 }
 
-interface AdCallbacksLike {
+interface RewardedCallbacksLike {
   onOpen?: () => void;
   onClose?: (wasShown: boolean) => void;
   onError?: (error: unknown) => void;
-}
-
-interface RewardedCallbacksLike extends AdCallbacksLike {
   onRewarded?: () => void;
 }
 
@@ -87,7 +85,6 @@ interface YandexSdkLike {
     };
   };
   adv?: {
-    showFullscreenAdv?: (options?: { callbacks?: AdCallbacksLike }) => void;
     showRewardedVideo?: (options?: { callbacks?: RewardedCallbacksLike }) => void;
   };
   on?: (event: 'game_api_pause' | 'game_api_resume', handler: () => void) => void;
@@ -197,15 +194,55 @@ function readYandexLanguage(sdk: YandexSdkLike): string | null {
 function createYandexStorage(
   playerProvider: YandexPlayerProvider,
 ): PlayerStorage {
+  const lastPayloadByScope = new Map<string, string>();
+
+  const playerScope = (player: YandexPlayerLike): string => {
+    const rawId = typeof player.getUniqueID === 'function' ? player.getUniqueID().trim() : '';
+    if (rawId.length === 0) return '';
+    const authorized = typeof player.isAuthorized === 'function' && player.isAuthorized();
+    return `yandex-${authorized ? 'account' : 'guest'}-${rawId}`;
+  };
+
+  const serializePayload = (value: unknown): string => JSON.stringify(value);
+
+  const isUnchangedDataError = (error: unknown): boolean => {
+    const message = error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message?: unknown }).message ?? '')
+        : String(error ?? '');
+    return message.toLowerCase().includes('data does not differ from the previous ones');
+  };
+
   return {
+    async scope() {
+      const player = await playerProvider.get();
+      return playerScope(player);
+    },
     async load() {
       const player = await playerProvider.get();
       const data = await player.getData([YANDEX_PROFILE_DATA_KEY]);
-      return data[YANDEX_PROFILE_DATA_KEY] ?? null;
+      const raw = data[YANDEX_PROFILE_DATA_KEY] ?? null;
+      const scope = playerScope(player);
+      if (scope.length > 0 && raw !== null) {
+        lastPayloadByScope.set(scope, serializePayload(raw));
+      }
+      return decodeCloudPlayerProfile(raw);
     },
     async save(value: unknown) {
       const player = await playerProvider.get();
-      await player.setData({ [YANDEX_PROFILE_DATA_KEY]: value }, true);
+      const encoded = encodeCloudPlayerProfile(value);
+      const serialized = serializePayload(encoded);
+      const scope = playerScope(player);
+      if (scope.length > 0 && lastPayloadByScope.get(scope) === serialized) return;
+
+      try {
+        await player.setData({ [YANDEX_PROFILE_DATA_KEY]: encoded }, true);
+        if (scope.length > 0) lastPayloadByScope.set(scope, serialized);
+      } catch (error) {
+        if (!isUnchangedDataError(error)) throw error;
+        if (scope.length > 0) lastPayloadByScope.set(scope, serialized);
+      }
     },
   };
 }
@@ -234,44 +271,6 @@ function createYandexAds(
   reportTechnicalError: TechnicalErrorReporter,
 ): AdsPort {
   return {
-    async showInterstitial(): Promise<InterstitialResult> {
-      let sdk: YandexSdkLike;
-      try {
-        sdk = await sdkPromise;
-      } catch {
-        reportTechnicalError('interstitial_request_failed', 'ads');
-        return 'unavailable';
-      }
-
-      const adv = sdk.adv;
-      const showFullscreenAdv = adv?.showFullscreenAdv;
-      if (typeof showFullscreenAdv !== 'function') return 'unavailable';
-
-      return new Promise<InterstitialResult>((resolve) => {
-        let settled = false;
-        const finish = (result: InterstitialResult): void => {
-          if (settled) return;
-          settled = true;
-          resolve(result);
-        };
-
-        try {
-          showFullscreenAdv.call(adv, {
-            callbacks: {
-              onClose: (wasShown) => finish(wasShown ? 'shown' : 'skipped'),
-              onError: () => {
-                reportTechnicalError('interstitial_request_failed', 'ads');
-                finish('unavailable');
-              },
-            },
-          });
-        } catch {
-          reportTechnicalError('interstitial_request_failed', 'ads');
-          finish('unavailable');
-        }
-      });
-    },
-
     async showRewarded(): Promise<RewardedResult> {
       let sdk: YandexSdkLike;
       try {

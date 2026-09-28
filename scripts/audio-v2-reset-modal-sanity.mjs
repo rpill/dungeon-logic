@@ -54,7 +54,7 @@ assert(resetBlockStart >= 0 && resetBlockEnd > resetBlockStart, 'Could not locat
 const resetBlock = gameScene.slice(resetBlockStart, resetBlockEnd);
 const styledButtonCalls = resetBlock.match(/createCenteredTextMenuButton\(this,/g) ?? [];
 assert(styledButtonCalls.length >= 2, 'Reset modal should use two styled menu buttons.');
-assert(resetBlock.includes('fillRoundedRect'), 'Reset modal panel should use the rounded in-game card language.');
-assert(resetBlock.includes('0x1f2c4a'), 'Reset modal should use the same navy family as the rest of the meta UI.');
+assert(resetBlock.includes('createSlateSurface(this, 0, 0, width, height)'), 'Reset modal panel should use the current slate surface asset.');
+assert(resetBlock.includes("variant: 'danger'"), 'Reset confirm keeps the unified danger button variant.');
 
 console.info('Audio v2 + reset modal sanity: PASS');

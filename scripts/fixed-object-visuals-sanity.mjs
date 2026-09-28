@@ -25,16 +25,16 @@ for (let i = 0; i < 20; i += 1) {
 assert(MONSTER_VISUAL_POOLS[1].includes(first), 'Resolved skin must come from the selected visual pool.');
 
 const assets = [
-  'public/assets/monsters/monster_pink_01.png',
-  'public/assets/monsters/monster_pink_02.png',
-  'public/assets/monsters/monster_pink_03.png',
-  'public/assets/monsters/monster_pink_04.png',
-  'public/assets/monsters/ghost_01.png',
-  'public/assets/monsters/ghost_02.png',
-  'public/assets/monsters/ghost_03.png',
-  'public/assets/monsters/ghost_04.png',
-  'public/assets/items/chest_01.png',
-  'public/assets/items/chest_02.png',
+  'public/assets/monsters/monster_pink_01.webp',
+  'public/assets/monsters/monster_pink_02.webp',
+  'public/assets/monsters/monster_pink_03.webp',
+  'public/assets/monsters/monster_pink_04.webp',
+  'public/assets/monsters/ghost_01.webp',
+  'public/assets/monsters/ghost_02.webp',
+  'public/assets/monsters/ghost_03.webp',
+  'public/assets/monsters/ghost_04.webp',
+  'public/assets/items/chest_01.webp',
+  'public/assets/items/chest_02.webp',
 ];
 for (const rel of assets) {
   assert(fs.existsSync(path.join(root, rel)), `Missing fixed-object asset: ${rel}`);

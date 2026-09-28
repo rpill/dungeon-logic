@@ -261,7 +261,6 @@ export class GameScene extends Phaser.Scene {
     const campaignEntry = campaignContext === null
       ? null
       : campaignService?.getLevels().find((entry) => entry.id === campaignContext.campaignLevelId) ?? null;
-    const completedCampaignSlot = campaignEntry?.slot ?? null;
     const campaignPlayState = campaignContext !== null && profileService !== null
       ? resolveCampaignPlayState(launchData.level, profileService.getProfile().campaign)
       : null;
@@ -602,9 +601,8 @@ export class GameScene extends Phaser.Scene {
           console.warn('[Dungeon Logic] Could not sync Master Rating leaderboard yet.', error);
         });
     };
-    const monetizationService = profileService !== null && platformServices != null
+    const monetizationService = platformServices != null
       ? MonetizationService.create(
-          profileService,
           platformServices.ads,
           analytics ?? new AnalyticsService(NOOP_ANALYTICS_TRANSPORT),
         )
@@ -743,6 +741,10 @@ export class GameScene extends Phaser.Scene {
       if (!rankedDaily) return activeTimer.getElapsedMs(nowMs);
       return rankedDailyInitialElapsedMs + Math.max(0, Date.now() - rankedDailyDisplayAnchorMs);
     };
+    const telemetryTimer = new ActiveTimer(0);
+    const getAnalyticsElapsedMs = (nowMs = readActiveClockMs()): number => (
+      runTimerEnabled ? getDisplayedElapsedMs(nowMs) : telemetryTimer.getElapsedMs(nowMs)
+    );
     const formatHintCountdown = (ms: number): string => {
       const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
       const minutes = Math.floor(totalSeconds / 60);
@@ -801,12 +803,23 @@ export class GameScene extends Phaser.Scene {
       activeTimer.pause(nowMs);
       syncTimerIntoSession(nowMs);
       if (syncGameplayMarkup) platformGameplayActivity?.stopInternal();
+      if (!runTimerEnabled) {
+        const keepTelemetryRunning = !syncGameplayMarkup
+          && internalGameplayMayRun()
+          && platformGameplayActivity?.isPlatformPaused() !== true;
+        if (keepTelemetryRunning) telemetryTimer.resume(nowMs);
+        else telemetryTimer.pause(nowMs);
+      }
     };
 
     const resumeActiveTimer = (syncGameplayMarkup = true): void => {
       if (syncGameplayMarkup && internalGameplayMayRun()) platformGameplayActivity?.startInternal();
-      if (!timerMayRun()) return;
       const nowMs = readActiveClockMs();
+      if (!runTimerEnabled) {
+        if (internalGameplayMayRun() && platformGameplayActivity?.isPlatformPaused() !== true) telemetryTimer.resume(nowMs);
+        else telemetryTimer.pause(nowMs);
+      }
+      if (!timerMayRun()) return;
       activeTimer.resume(nowMs);
       updateTimerText(nowMs);
     };
@@ -1161,15 +1174,10 @@ export class GameScene extends Phaser.Scene {
       board?.setInputEnabled(false);
       pauseActiveTimer();
       savePuzzleSession();
-      const leave = async (): Promise<void> => {
-        try {
-          await flushProfileState();
-        } catch (error) {
-          console.warn('[Dungeon Logic] Could not flush profile state before leaving; keeping dirty in-memory state.', error);
-        }
-        if (this.scene.isActive()) this.scene.start(sceneKey);
-      };
-      void leave();
+      void flushProfileState().catch((error) => {
+        console.warn('[Dungeon Logic] Could not flush profile state after leaving; keeping dirty in-memory state.', error);
+      });
+      if (this.scene.isActive()) this.scene.start(sceneKey);
     };
 
     const openSceneOverlayFromMenu = (sceneKey: string): void => {
@@ -1928,9 +1936,6 @@ export class GameScene extends Phaser.Scene {
         pauseActiveTimer();
         const service = this.getCampaignService();
         const transition = async (): Promise<void> => {
-          if (monetizationService !== null && completedCampaignSlot !== null) {
-            await monetizationService.maybeShowCampaignInterstitial(completedCampaignSlot);
-          }
           if (createVersion !== this.createVersion) return;
           if (result.rowUnlock !== null) {
             this.scene.start(LEVELS_SCENE_KEY, { rowUnlock: result.rowUnlock });
@@ -2293,11 +2298,10 @@ export class GameScene extends Phaser.Scene {
 
     const performPlayableReset = (): boolean => {
       const editsBeforeReset = interaction.getEditCount();
-      const elapsedMs = getDisplayedElapsedMs();
       const changed = board?.reset() === true;
       if (!changed) return false;
       feedback.play('reset');
-      puzzleAnalytics?.reset(elapsedMs, editsBeforeReset);
+      puzzleAnalytics?.reset(getAnalyticsElapsedMs(), editsBeforeReset);
       return true;
     };
 
@@ -2562,7 +2566,7 @@ export class GameScene extends Phaser.Scene {
         ).then((result) => {
           if (result === null || createVersion !== this.createVersion) return;
           puzzleAnalytics?.complete({
-            elapsedMs: metadata.bestTimeMs,
+            elapsedMs: getAnalyticsElapsedMs(),
             hintsUsed: metadata.minHintsUsed,
             firstClear: !alreadySolvedAtStart,
             persisted: result.persisted,
@@ -2586,7 +2590,7 @@ export class GameScene extends Phaser.Scene {
           if (result === null || createVersion !== this.createVersion) return;
           if (result.wasFirstSolve) syncMasterRating();
           puzzleAnalytics?.complete({
-            elapsedMs: metadata.bestTimeMs,
+            elapsedMs: getAnalyticsElapsedMs(),
             hintsUsed: metadata.minHintsUsed,
             firstClear: result.wasFirstSolve,
             persisted: result.persisted,
@@ -2655,9 +2659,9 @@ export class GameScene extends Phaser.Scene {
             : null;
           const masteryEndlessNote = formatMasteryProgressNote(masteryEndlessTransition, copy.mastery);
           puzzleAnalytics?.complete({
-            elapsedMs: metadata.bestTimeMs,
+            elapsedMs: getAnalyticsElapsedMs(),
             hintsUsed: metadata.minHintsUsed,
-            firstClear: true,
+            firstClear: result.ranked,
             persisted: result.persisted,
           });
           this.time.delayedCall(500, () => {
@@ -2686,7 +2690,7 @@ export class GameScene extends Phaser.Scene {
         if (result === null || createVersion !== this.createVersion) return;
         syncMasterRating();
         puzzleAnalytics?.complete({
-          elapsedMs: metadata.bestTimeMs,
+          elapsedMs: getAnalyticsElapsedMs(),
           hintsUsed: metadata.minHintsUsed,
           firstClear: !alreadySolvedAtStart,
           persisted: result.persisted,
@@ -2899,21 +2903,16 @@ export class GameScene extends Phaser.Scene {
       pauseActiveTimer();
       savePuzzleSession();
 
-      const leave = async (): Promise<void> => {
-        try {
-          await flushProfileState();
-        } catch (error) {
-          console.warn('[Dungeon Logic] Could not flush profile state before leaving; keeping dirty in-memory state.', error);
-        }
-        if (this.scene.isActive()) {
-          this.scene.start(
-            launchData.context.mode === 'daily' || launchData.context.mode === 'tutorial' || launchData.context.mode === 'endless'
-              ? HOME_SCENE_KEY
-              : LEVELS_SCENE_KEY,
-          );
-        }
-      };
-      void leave();
+      void flushProfileState().catch((error) => {
+        console.warn('[Dungeon Logic] Could not flush profile state after leaving; keeping dirty in-memory state.', error);
+      });
+      if (this.scene.isActive()) {
+        this.scene.start(
+          launchData.context.mode === 'daily' || launchData.context.mode === 'tutorial' || launchData.context.mode === 'endless'
+            ? HOME_SCENE_KEY
+            : LEVELS_SCENE_KEY,
+        );
+      }
     };
     handleMenuAction = (): void => {
       openGameMenu();

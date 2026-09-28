@@ -6,7 +6,7 @@ const SLATE_SURFACE_KEY = 'ui-slate-surface-m1';
 export const SLATE_SURFACE_SLICE = { x: 72, y: 68 } as const;
 
 export function preloadSlateSurfaceAsset(scene: Phaser.Scene): void {
-  scene.load.image(SLATE_SURFACE_KEY, 'assets/ui/slate_surface_m1.png');
+  scene.load.image(SLATE_SURFACE_KEY, 'assets/ui/slate_surface_m1.webp');
 }
 
 export function createSlateSurface(
