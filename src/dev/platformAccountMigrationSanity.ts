@@ -1,3 +1,4 @@
+import type { CampaignLevelEntry } from '../content/campaign/types';
 import { createFreshPlayerProfile } from '../profile/PlayerProfile';
 import { mergePlayerProfiles } from '../profile/PlayerProfileMerge';
 import { isProfileAuthorizationReady, requestAuthorizationWithProfileMerge } from '../profile/ProfileAuthorization';
@@ -16,8 +17,16 @@ function profile(overrides: Partial<PlayerProfile> = {}): PlayerProfile {
 }
 
 function runMergeChecks(): void {
+  const mergeManifest = [{ id: 'campaign-001' }] as unknown as readonly CampaignLevelEntry[];
   const cloud = profile({
     mastery: { rating: 7777 },
+    campaign: {
+      ...createFreshPlayerProfile([]).campaign,
+      completedLevelIds: ['campaign-001'],
+      levelResults: {
+        'campaign-001': { bestTimeMs: 42_000, minHintsUsed: 1, solveCount: 1, solvedWithoutHints: false },
+      },
+    },
     daily: {
       ...createFreshPlayerProfile([]).daily,
       currentStreak: 4,
@@ -33,6 +42,13 @@ function runMergeChecks(): void {
   });
   const guest = profile({
     mastery: { rating: 1111 },
+    campaign: {
+      ...createFreshPlayerProfile([]).campaign,
+      completedLevelIds: ['campaign-001'],
+      levelResults: {
+        'campaign-001': { bestTimeMs: 0, minHintsUsed: 0, solveCount: 2, solvedWithoutHints: true },
+      },
+    },
     daily: {
       ...createFreshPlayerProfile([]).daily,
       currentStreak: 1,
@@ -48,15 +64,16 @@ function runMergeChecks(): void {
     totals: { activePlayMs: 12_000 },
   });
 
-  const merged = mergePlayerProfiles(cloud, guest, []);
+  const merged = mergePlayerProfiles(cloud, guest, mergeManifest);
   assert(merged.mastery.rating === 7777, 'Cloud Master Rating must not be downgraded by guest progress.');
+  assert(merged.campaign.levelResults['campaign-001']?.bestTimeMs === 42_000, 'Untimed Campaign zero sentinel must not erase a legacy best time during account merge.');
   assert(merged.daily.solvedDates.join(',') === '2026-09-01,2026-09-02', 'Daily completion history from both profiles must survive merge.');
   assert(merged.daily.bestStreak === 5, 'Best Daily streak must preserve the stronger profile.');
   assert(merged.daily.lastSolvedDate === '2026-09-02' && merged.daily.currentStreak === 1, 'Current Daily streak must follow the most recent solved date.');
   assert(merged.totals.activePlayMs === 20_000, 'Cumulative counters must merge idempotently without double-counting the same history.');
   assert(!merged.settings.soundEnabled, 'Current-device settings must remain active after account merge.');
 
-  const mergedAgain = mergePlayerProfiles(merged, guest, []);
+  const mergedAgain = mergePlayerProfiles(merged, guest, mergeManifest);
   assert(JSON.stringify(mergedAgain) === JSON.stringify(merged), 'Repeating the same guest -> account merge must be idempotent.');
 }
 

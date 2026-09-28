@@ -25,7 +25,7 @@ const noActive = resolveCampaignPlayState(campaign003, {
   drafts: {},
 });
 assert(noActive.mode === 'completed-review', 'Completed level without an active replay opens in review mode.');
-assert(noActive.displayTimeMs === 42_000, 'Completed review displays the stored best time.');
+assert(!('displayTimeMs' in noActive), 'Campaign review state no longer carries timer data.');
 
 const freshPuzzle = new PuzzleState(campaign003);
 const freshReplay: SerializedPuzzleState = {
@@ -45,7 +45,7 @@ const replay = resolveCampaignPlayState(campaign003, {
   drafts: { [campaign003.id]: freshReplay },
 });
 assert(replay.mode === 'active', 'Completed level with a fresh unsolved active snapshot resumes replay mode.');
-assert(replay.displayTimeMs === 0, 'Fresh replay begins at 00:00 rather than the old best time.');
+assert(!('displayTimeMs' in replay), 'Campaign replay state no longer carries timer data.');
 assert(replay.savedPuzzle === freshReplay, 'Replay reuses the matching active snapshot.');
 
 const staleSolved: SerializedPuzzleState = {
@@ -64,7 +64,7 @@ const stale = resolveCampaignPlayState(campaign003, {
   levelResults: { [campaign003.id]: levelResult },
   drafts: { [campaign003.id]: staleSolved },
 });
-assert(stale.mode === 'completed-review', 'Solved stale active snapshot cannot revive a completed timer.');
+assert(stale.mode === 'completed-review', 'Solved stale active snapshot cannot revive a completed replay.');
 assert(stale.savedPuzzle === undefined, 'Completed review discards the stale solved active snapshot.');
 
 const reviewPuzzle = createCompletedReviewPuzzle(campaign003);
@@ -75,4 +75,4 @@ for (let y = 0; y < campaign003.height; y += 1) {
   }
 }
 
-console.info('[Dungeon Logic] Campaign play-state sanity: completed review + fresh replay timer semantics passed');
+console.info('[Dungeon Logic] Campaign play-state sanity: completed review + untimed replay semantics passed');

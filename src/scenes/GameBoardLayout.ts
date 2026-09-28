@@ -75,6 +75,7 @@ export function calculateGameBoardLayout(
   boardRows: number,
   touchControls = false,
   inlineTouchControls = touchControls && useInlineTouchToolbar(viewportWidth, viewportHeight),
+  showStatusPanel = true,
 ): GameBoardLayout {
   if (viewportWidth <= 0 || viewportHeight <= 0) {
     throw new RangeError('Viewport dimensions must be positive.');
@@ -87,11 +88,13 @@ export function calculateGameBoardLayout(
   const inlineTouch = touchControls && inlineTouchControls;
   const reserves = getLayoutReserves(viewportClass, touchControls && !inlineTouch);
   const { margin } = reserves;
-  // The timer panel extends below the historical title-only header reserve.
-  const headerHeight = Math.max(
-    reserves.headerHeight,
-    calculatePuzzleHeaderLayout(viewportWidth, viewportHeight).bottom + 10,
-  );
+  // Timed modes reserve the status/timer panel; untimed modes only need the title header.
+  const headerHeight = showStatusPanel
+    ? Math.max(
+        reserves.headerHeight,
+        calculatePuzzleHeaderLayout(viewportWidth, viewportHeight).bottom + 10,
+      )
+    : reserves.headerHeight;
   const phonePanelHeight = Math.round(Math.max(240, viewportWidth - 24) * 747 / 1100);
   const phoneClearanceReserve = Math.min(
     phonePanelHeight + 18,

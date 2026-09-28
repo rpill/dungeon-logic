@@ -30,6 +30,7 @@ import { RANKED_DAILY_HINT_UNLOCK_MS } from '../gameplay/HintEconomy';
 import { MonetizationService } from '../monetization/MonetizationService';
 import { PuzzleInteractionSession } from '../gameplay/PuzzleInteractionSession';
 import { ActiveTimer, formatActiveTime } from '../gameplay/ActiveTimer';
+import { usesRunTimer } from '../gameplay/TimerModePolicy';
 import { PuzzleSessionService } from '../gameplay/PuzzleSessionService';
 import { isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import { validatePuzzle } from '../puzzle/LevelValidator';
@@ -150,6 +151,8 @@ export class GameScene extends Phaser.Scene {
       typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
     );
 
+    const runTimerEnabled = usesRunTimer(launchData.context.mode);
+
     const readActiveClockMs = (): number => {
       if (typeof performance !== 'undefined') {
         const value = performance.now();
@@ -173,6 +176,7 @@ export class GameScene extends Phaser.Scene {
         launchData.level.height,
         showTouchToolButtons,
         useInlineTouchToolbar(this.scale.width, this.scale.height),
+        runTimerEnabled,
       );
       return {
         ...layout,
@@ -216,10 +220,9 @@ export class GameScene extends Phaser.Scene {
       const panelGap = compactTutorial ? 10 : 16;
       const clueTopY = layout.originY - layout.cellSize * BOARD_FRAME.top;
       const headerLayout = calculatePuzzleHeaderLayout(this.scale.width, this.scale.height);
-      const timerCenterY = safeTopInset + headerLayout.statusY;
-      const timerFontSize = headerLayout.statusFontSize;
-      const minimumPanelTop = timerCenterY
-        + timerFontSize * 0.75
+      const minimumPanelTop = safeTopInset
+        + headerLayout.titleY
+        + headerLayout.titlePanelHeight / 2
         + (compactTutorial ? 8 : 12);
       const preferredPanelTop = clueTopY - panelGap - reservedPanelHeight;
       const availableShift = getTutorialLayoutBottomReserve();
@@ -366,7 +369,7 @@ export class GameScene extends Phaser.Scene {
       0,
       132,
       24,
-    );
+    ).setVisible(runTimerEnabled);
     const headerStreakIcon = this.add.image(this.scale.width / 2, 0, PUZZLE_HEADER_UI_KEYS.streakIcon)
       .setOrigin(0.5);
     const titleText = this.add.text(
@@ -416,11 +419,11 @@ export class GameScene extends Phaser.Scene {
     const layoutHeaderStatusContent = (): void => {
       headerTimeText.setText(displayedHeaderTime);
       headerStreakText.setText(String(displayedChallengeStreak));
-      const showStreak = rankedEndless;
+      const showStreak = runTimerEnabled && rankedEndless;
       headerStatusDivider.setVisible(showStreak);
       headerStreakText.setVisible(showStreak);
       headerStreakIcon.setVisible(showStreak);
-      headerTimeText.setY(headerStatusCenterY);
+      headerTimeText.setVisible(runTimerEnabled).setY(headerStatusCenterY);
       headerStatusDivider.setY(headerStatusCenterY);
       headerStreakText.setY(headerStatusCenterY);
       headerStreakIcon.setY(headerStatusCenterY + 1);
@@ -580,7 +583,7 @@ export class GameScene extends Phaser.Scene {
         statusY,
         statusPanelWidth,
         headerLayout.statusPanelHeight,
-      ).setDepth(10);
+      ).setDepth(10).setVisible(runTimerEnabled);
       titleText.setDepth(11);
       headerTimeText.setDepth(11);
       headerStatusDivider.setDepth(11);
@@ -667,7 +670,6 @@ export class GameScene extends Phaser.Scene {
     let solved = completedReview || qaCompletionVisual;
     let onboardingOpen = false;
     let onboardingBlocksInteraction = false;
-    let onboardingBlocksTimer = false;
     let resetDialogOpen = false;
     let resetDialog: Phaser.GameObjects.Container | null = null;
     let skipDialogOpen = false;
@@ -728,15 +730,16 @@ export class GameScene extends Phaser.Scene {
     };
     const completionButtons: Phaser.GameObjects.GameObject[] = [];
     const completionPanelObjects: Phaser.GameObjects.GameObject[] = [];
-    const initialTimerMs = completedReview
-      ? campaignPlayState?.displayTimeMs ?? 0
-      : rankedDaily
+    const initialTimerMs = runTimerEnabled
+      ? rankedDaily
         ? dailyContext?.elapsedMsAtLaunch ?? 0
-        : puzzleSession?.getActivePlayMs() ?? 0;
+        : puzzleSession?.getActivePlayMs() ?? 0
+      : 0;
     const activeTimer = new ActiveTimer(initialTimerMs);
     const rankedDailyDisplayAnchorMs = rankedDaily ? Date.now() : 0;
     const rankedDailyInitialElapsedMs = rankedDaily ? initialTimerMs : 0;
     const getDisplayedElapsedMs = (nowMs = readActiveClockMs()): number => {
+      if (!runTimerEnabled) return 0;
       if (!rankedDaily) return activeTimer.getElapsedMs(nowMs);
       return rankedDailyInitialElapsedMs + Math.max(0, Date.now() - rankedDailyDisplayAnchorMs);
     };
@@ -763,11 +766,13 @@ export class GameScene extends Phaser.Scene {
       );
 
     const updateTimerText = (nowMs = readActiveClockMs()): void => {
+      if (!runTimerEnabled) return;
       displayedHeaderTime = formatActiveTime(getDisplayedElapsedMs(nowMs));
       layoutHeaderStatusContent();
     };
 
     const syncTimerIntoSession = (nowMs = readActiveClockMs()): void => {
+      if (!runTimerEnabled) return;
       const elapsedMs = activeTimer.getElapsedMs(nowMs);
       if (elapsedMs > syncedActivePlayMs) {
         const activeDeltaMs = elapsedMs - syncedActivePlayMs;
@@ -778,10 +783,14 @@ export class GameScene extends Phaser.Scene {
       updateTimerText(nowMs);
     };
 
-    const internalTimerMayRun = (): boolean => {
-      if (solved || onboardingBlocksTimer || resetDialogOpen || skipDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) return false;
+    const internalGameplayMayRun = (): boolean => {
+      if (solved || resetDialogOpen || skipDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused) return false;
       return typeof document === 'undefined' || !document.hidden;
     };
+
+    const internalTimerMayRun = (): boolean => (
+      runTimerEnabled && internalGameplayMayRun()
+    );
 
     const timerMayRun = (): boolean => (
       internalTimerMayRun() && platformGameplayActivity?.isPlatformPaused() !== true
@@ -795,8 +804,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     const resumeActiveTimer = (syncGameplayMarkup = true): void => {
-      if (!internalTimerMayRun()) return;
-      if (syncGameplayMarkup) platformGameplayActivity?.startInternal();
+      if (syncGameplayMarkup && internalGameplayMayRun()) platformGameplayActivity?.startInternal();
       if (!timerMayRun()) return;
       const nowMs = readActiveClockMs();
       activeTimer.resume(nowMs);
@@ -1413,7 +1421,7 @@ export class GameScene extends Phaser.Scene {
           .setAlign('center')
           .setText(result === undefined
             ? copy.common.solved
-            : copy.game.solvedCampaign(formatActiveTime(result.bestTimeMs), hintCopy, '', ''))
+            : copy.game.solvedCampaign('', hintCopy, '', ''))
           .setColor('#d8d1c4')
           .setVisible(true);
         return;
@@ -2009,7 +2017,6 @@ export class GameScene extends Phaser.Scene {
       onboardingIndex = -1;
       onboardingOpen = false;
       onboardingBlocksInteraction = false;
-      onboardingBlocksTimer = false;
       currentHint = null;
       board?.setHintCellTarget(null);
       board?.setInputCellTargets(null);
@@ -2181,7 +2188,6 @@ export class GameScene extends Phaser.Scene {
       onboardingIndex = -1;
       onboardingOpen = false;
       onboardingBlocksInteraction = false;
-      onboardingBlocksTimer = false;
       board?.setInputCellTargets(null);
       board?.setTutorialCellTargets(null);
       board?.setTutorialGuideClue(null);
@@ -2231,8 +2237,8 @@ export class GameScene extends Phaser.Scene {
       board?.setInputCellTargets(null);
 
       onboardingBlocksInteraction = true;
-      onboardingBlocksTimer = true;
-      pauseActiveTimer();
+      pauseActiveTimer(false);
+      if (internalGameplayMayRun()) platformGameplayActivity?.startInternal();
       boardLayout = calculateStableBoardLayout(getCurrentBoardBottomReserve());
       board?.relayout(boardLayout.originX, boardLayout.originY, boardLayout.cellSize);
       board?.setInputCellTargets(step.cells);
@@ -2525,7 +2531,9 @@ export class GameScene extends Phaser.Scene {
 
       const hintsUsed = puzzleSession?.getHintsUsed() ?? transientHintsUsed;
       const metadata: CampaignCompletionMetadata = {
-        bestTimeMs: puzzleSession?.getActivePlayMs() ?? activeTimer.getElapsedMs(readActiveClockMs()),
+        bestTimeMs: runTimerEnabled
+          ? puzzleSession?.getActivePlayMs() ?? activeTimer.getElapsedMs(readActiveClockMs())
+          : 0,
         minHintsUsed: hintsUsed,
         solveCount: 1,
         solvedWithoutHints: hintsUsed === 0,
@@ -2535,7 +2543,7 @@ export class GameScene extends Phaser.Scene {
         completionMode = true;
         statusText
           .setText(copy.game.solvedCampaign(
-            formatActiveTime(metadata.bestTimeMs),
+            '',
             copy.game.withoutHints,
             '',
             '',
@@ -2665,7 +2673,8 @@ export class GameScene extends Phaser.Scene {
 
       const masteryBeforeCampaign = profileService?.getProfile() ?? null;
       const previousResult = profileService?.getProfile().campaign.levelResults[launchData.context.campaignLevelId];
-      const newBestTime = previousResult === undefined || metadata.bestTimeMs < previousResult.bestTimeMs;
+      const newBestTime = runTimerEnabled
+        && (previousResult === undefined || metadata.bestTimeMs < previousResult.bestTimeMs);
       statusText.setText('').setVisible(false);
 
       void this.finishCampaignLevel(
@@ -3038,7 +3047,7 @@ export class GameScene extends Phaser.Scene {
         syncToolbar();
       },
       onResume: () => {
-        const canResume = internalTimerMayRun();
+        const canResume = internalGameplayMayRun();
         platformGameplayActivity?.resumeFromPlatform(canResume);
         if (platformGameplayActivity?.isPlatformPaused() !== true) {
           restoreBoardInputAfterPlatformResume();
@@ -3074,11 +3083,13 @@ export class GameScene extends Phaser.Scene {
     };
     this.events.on(Phaser.Scenes.Events.RESUME, handleSceneResume);
 
-    const timerRefresh = this.time.addEvent({
-      delay: 250,
-      loop: true,
-      callback: updateTimerText,
-    });
+    const timerRefresh = runTimerEnabled
+      ? this.time.addEvent({
+          delay: 250,
+          loop: true,
+          callback: updateTimerText,
+        })
+      : null;
     const hintUiRefresh = this.time.addEvent({
       delay: 1000,
       loop: true,
@@ -3092,7 +3103,7 @@ export class GameScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       pauseActiveTimer();
-      timerRefresh.destroy();
+      timerRefresh?.destroy();
       hintUiRefresh.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
       keyboard?.off('keydown', handleKeyDown);

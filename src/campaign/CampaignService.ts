@@ -2,6 +2,7 @@ import type { CampaignLevelEntry } from '../content/campaign/types';
 import { isCompatiblePuzzleSnapshot } from '../gameplay/PuzzleSessionState';
 import type { PlayerProfileService } from '../profile/PlayerProfileService';
 import type { CampaignLevelResult } from '../profile/types';
+import { mergeLegacyCampaignBestTime } from '../profile/CampaignTimeCompatibility';
 import {
   campaignProgressSnapshot,
   getCampaignContinueEntry,
@@ -21,7 +22,7 @@ function mergeLevelResult(
 ): CampaignLevelResult {
   if (previous === undefined) return next;
   return {
-    bestTimeMs: Math.min(previous.bestTimeMs, next.bestTimeMs),
+    bestTimeMs: mergeLegacyCampaignBestTime(previous.bestTimeMs, next.bestTimeMs),
     minHintsUsed: Math.min(previous.minHintsUsed, next.minHintsUsed),
     solveCount: previous.solveCount + Math.max(1, next.solveCount),
     solvedWithoutHints: previous.solvedWithoutHints || next.solvedWithoutHints,

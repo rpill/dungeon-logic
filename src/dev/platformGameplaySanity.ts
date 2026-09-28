@@ -77,9 +77,13 @@ function runSourceWiringChecks(): void {
   assert(game.includes('.lifecycle.isPaused()'), 'GameScene seeds startup-ad pause state before starting gameplay.');
   assert(game.includes('unsubscribePlatformLifecycle'), 'GameScene retains an unsubscribe handle for scene shutdown.');
   assert(game.includes('platformGameplayActivity'), 'GameScene routes gameplay markup through PlatformGameplayActivity.');
+  assert(game.includes('const internalGameplayMayRun = (): boolean =>'), 'GameScene separates gameplay markup activity from its local timer policy.');
+  assert(game.includes('runTimerEnabled && internalGameplayMayRun()'), 'Timer eligibility is mode-scoped independently of GameplayAPI activity.');
+  assert(game.includes('pauseActiveTimer(false);\n      if (internalGameplayMayRun()) platformGameplayActivity?.startInternal();'), 'Tutorial onboarding explicitly keeps gameplay markup active while its timer is blocked.');
+  assert(game.includes('const canResume = internalGameplayMayRun();'), 'Platform resume uses gameplay eligibility instead of the stricter timer eligibility.');
   assert(game.includes('solved || resetDialogOpen || skipDialogOpen || hintConfirmOpen || gameMenuOpen || sceneOverlayPaused'), 'Platform resume keeps board input disabled while Help overlay still owns the GameScene.');
 }
 
 runCoordinatorChecks();
 runSourceWiringChecks();
-console.info('[Dungeon Logic] Platform gameplay sanity: startup pause + Game Ready + gameplay markup wiring passed');
+console.info('[Dungeon Logic] Platform gameplay sanity: startup pause + Game Ready + timer-independent gameplay markup wiring passed');

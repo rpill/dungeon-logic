@@ -13,12 +13,10 @@ export interface CampaignPlayProfileState {
 export type CampaignPlayState =
   | {
     readonly mode: 'active';
-    readonly displayTimeMs: number;
     readonly savedPuzzle: SerializedPuzzleState | undefined;
   }
   | {
     readonly mode: 'completed-review';
-    readonly displayTimeMs: number;
     readonly savedPuzzle: undefined;
   };
 
@@ -47,7 +45,6 @@ export function resolveCampaignPlayState(
     if (!completed || !validatePuzzle(restored).isSolved) {
       return {
         mode: 'active',
-        displayTimeMs: saved.activePlayMs,
         savedPuzzle: saved,
       };
     }
@@ -56,14 +53,12 @@ export function resolveCampaignPlayState(
   if (completed) {
     return {
       mode: 'completed-review',
-      displayTimeMs: campaign.levelResults[level.id]?.bestTimeMs ?? 0,
       savedPuzzle: undefined,
     };
   }
 
   return {
     mode: 'active',
-    displayTimeMs: 0,
     savedPuzzle: undefined,
   };
 }

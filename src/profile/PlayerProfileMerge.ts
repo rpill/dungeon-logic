@@ -1,6 +1,7 @@
 import type { CampaignLevelEntry } from '../content/campaign/types';
 import type { SupportedLanguage } from '../i18n/Language';
 import { createFreshPlayerProfile, normalizePlayerProfile } from './PlayerProfile';
+import { mergeLegacyCampaignBestTime } from './CampaignTimeCompatibility';
 import type {
   CampaignLevelResult,
   DailyResultSummary,
@@ -36,7 +37,7 @@ function mergeCampaignResult(
   if (target === undefined) return source;
   if (source === undefined) return target;
   return {
-    bestTimeMs: Math.min(target.bestTimeMs, source.bestTimeMs),
+    bestTimeMs: mergeLegacyCampaignBestTime(target.bestTimeMs, source.bestTimeMs),
     minHintsUsed: Math.min(target.minHintsUsed, source.minHintsUsed),
     solveCount: Math.max(target.solveCount, source.solveCount),
     solvedWithoutHints: target.solvedWithoutHints || source.solvedWithoutHints,

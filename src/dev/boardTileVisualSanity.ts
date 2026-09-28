@@ -335,6 +335,10 @@ assert(
   'Satisfied row and column clues switch to the completed clue color.',
 );
 assert(
+  WIREFRAME.clueComplete === '#70798a',
+  'Satisfied clues use the intentionally muted slate-gray completed color.',
+);
+assert(
   editable.scene.texts.filter((text) => text.value === '1').every(
     (text) => text.strokeThickness === 0
       && text.shadowX === 0
@@ -399,11 +403,25 @@ const visibleWallHint = hintPreview.scene.images.find(
 assert(visibleWallHint !== undefined, 'Wall hint uses the same semi-transparent wall texture as Tutorial guidance.');
 
 const monster = createBoard(createLevel({ monsters: [{ x: 0, y: 0 }], solution: ['.'] }));
-assert(monster.scene.texts.some((text) => text.value === 'M' && text.visible), 'Monster remains a temporary M marker in this stage.');
-assert(monster.scene.images.some((image) => image.textureKey.startsWith('board-floor-')), 'Monster cell still uses the authored floor tile beneath its placeholder.');
+assert(
+  monster.scene.images.some((image) => image.textureKey.startsWith('monster-') && image.visible),
+  'Monster cell renders the authored monster sprite.',
+);
+assert(
+  !monster.scene.texts.some((text) => text.value === 'M' && text.visible),
+  'Monster cell no longer exposes the obsolete temporary M marker.',
+);
+assert(monster.scene.images.some((image) => image.textureKey.startsWith('board-floor-')), 'Monster cell keeps the authored floor tile beneath its sprite.');
 
 const chest = createBoard(createLevel({ chests: [{ x: 0, y: 0 }], solution: ['.'] }));
-assert(chest.scene.texts.some((text) => text.value === 'C' && text.visible), 'Chest remains a temporary C marker in this stage.');
-assert(chest.scene.images.some((image) => image.textureKey.startsWith('board-floor-')), 'Chest cell still uses the authored floor tile beneath its placeholder.');
+assert(
+  chest.scene.images.some((image) => image.textureKey === 'board-chest-01' && image.visible),
+  'Chest cell renders the authored closed-chest sprite.',
+);
+assert(
+  !chest.scene.texts.some((text) => text.value === 'C' && text.visible),
+  'Chest cell no longer exposes the obsolete temporary C marker.',
+);
+assert(chest.scene.images.some((image) => image.textureKey.startsWith('board-floor-')), 'Chest cell keeps the authored floor tile beneath its sprite.');
 
 console.info('[Dungeon Logic] Board visual sanity: authored floor/wall/mark assets + existing interaction feedback passed');

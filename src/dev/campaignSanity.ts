@@ -274,6 +274,14 @@ async function runServiceChecks(): Promise<void> {
   assert(result?.solveCount === 2, 'Replay metadata increments solve count.');
   assert(result?.solvedWithoutHints, 'No-hint achievement is sticky across replays.');
 
+  await service.completeLevel('campaign-004', {
+    bestTimeMs: 0,
+    minHintsUsed: 0,
+    solveCount: 1,
+    solvedWithoutHints: true,
+  });
+  assert(profile.getProfile().campaign.levelResults['campaign-004']?.bestTimeMs === 10_000, 'Untimed Campaign replay must preserve legacy best-time data instead of replacing it with the zero sentinel.');
+
   const skippedHarness = await createService(selectorManifest);
   await skippedHarness.service.completeLevel('campaign-001');
   await skippedHarness.service.completeLevel('campaign-002');

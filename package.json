@@ -66,6 +66,7 @@
     "sanity:yandex-sdk-hardening": "tsx src/dev/yandexSdkHardeningSanity.ts",
     "sanity:leaderboard-submit-queue": "tsx src/dev/leaderboardSubmissionQueueSanity.ts",
     "sanity:platform-gameplay": "tsx src/dev/platformGameplaySanity.ts",
+    "sanity:timer-modes": "tsx src/dev/timerModePolicySanity.ts",
     "sanity:monetization": "tsx src/dev/monetizationSanity.ts",
     "sanity:rewarded-hint": "tsx src/dev/rewardedHintSanity.ts",
     "sanity:campaign-release": "tsx src/dev/campaignReleaseSanity.ts",

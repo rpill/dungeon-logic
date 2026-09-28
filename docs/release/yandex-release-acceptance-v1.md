@@ -93,7 +93,8 @@ Test with the debug-panel/SDK language mock or equivalent Yandex draft environme
 Use the Yandex debug-panel gameplay controls while watching the gameplay indicator.
 
 - [ ] Home/menu state is not marked as active gameplay.
-- [ ] Starting a Campaign or Daily puzzle changes gameplay markup to active/green.
+- [ ] Starting a Campaign, Daily, Endless, or interactive Tutorial puzzle changes gameplay markup to active/green.
+- [ ] On a fresh profile that launches directly into Tutorial, the gamepad indicator turns green as soon as the guided board is interactive; the tutorial timer may remain paused independently.
 - [ ] Completing the puzzle changes gameplay markup to stopped/red.
 - [ ] Opening Help from a puzzle stops gameplay markup and freezes puzzle interaction/timing.
 - [ ] Closing Help resumes gameplay only if no other pause condition remains.
@@ -103,6 +104,7 @@ Use the Yandex debug-panel gameplay controls while watching the gameplay indicat
 
 - [ ] While actively solving, trigger `game_api_pause` from the debug panel: board input and active timer stop immediately.
 - [ ] Trigger `game_api_resume`: board input and active timer resume when the puzzle itself is otherwise active.
+- [ ] Repeat pause/resume during interactive Tutorial guidance: board input follows platform pause/resume while the tutorial-specific timer policy remains independent.
 - [ ] Trigger pause while Help is open, then resume: Help remains the blocker and puzzle input does not resume behind it.
 - [ ] Switch to another browser tab/window: puzzle gameplay pauses.
 - [ ] Return to the game: puzzle gameplay resumes correctly.

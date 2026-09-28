@@ -23,16 +23,16 @@ const review = resolveCampaignPlayState(campaign003, {
   },
   drafts: {},
 });
-assert(review.mode === 'completed-review' && review.displayTimeMs === 33_000, 'Completed campaign launch resolves to locked review with best time.');
+assert(review.mode === 'completed-review' && !('displayTimeMs' in review), 'Completed campaign launch resolves to locked untimed review.');
 assert(
   gameSceneSource.includes('const qaCompletionVisual = import.meta.env.DEV')
     && gameSceneSource.includes('let solved = completedReview || qaCompletionVisual;'),
   'Completed review starts solved/locked; the visual QA completion fixture is DEV-only.',
 );
-assert(gameSceneSource.includes("const initialTimerMs = completedReview"), 'GameScene derives completed review timer from stored result rather than starting a run.');
-assert(gameSceneSource.includes("board.setInputEnabled(false);\n      updateTimerText();\n      refreshStatusText();"), 'Completed review disables board input and renders frozen time/status.');
+assert(gameSceneSource.includes('const initialTimerMs = runTimerEnabled'), 'GameScene only initializes a run timer in timed modes.');
+assert(gameSceneSource.includes("board.setInputEnabled(false);\n      updateTimerText();\n      refreshStatusText();"), 'Completed review disables board input while untimed Campaign keeps its timer hidden.');
 assert(gameSceneSource.includes("const freshSession = PuzzleSessionService.createCampaign("), 'Completed Reset creates a new campaign puzzle session.');
-assert(gameSceneSource.includes("this.scene.restart(launchData);"), 'Fresh completed-level replay restarts GameScene from the new 00:00 session.');
+assert(gameSceneSource.includes("this.scene.restart(launchData);"), 'Fresh completed-level replay restarts GameScene without restoring a visible Campaign timer.');
 assert(gameSceneSource.includes("if (currentHint !== null) {\n        refreshStatusText();\n        return;"), 'Unresolved current hint cannot consume/reveal the same hint again.');
 assert(
   gameSceneSource.includes('const menuHit = menuAction.hit;')
